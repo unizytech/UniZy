@@ -1,0 +1,3 @@
+-- Seed file disabled
+-- This file was from early development and references outdated schema.
+-- Production databases have their own data, so seeding is not needed.

@@ -1,0 +1,2 @@
+- when replicating any screen in front end, refer how other screens handle authentication and authorization and accordingly replicate. Don't try new logic
+- when new backend logic and endpoint is being added, refer to ensure there is already no such functionality in other python files and only then add the new code. If they exists, then re-use rather than create new each time

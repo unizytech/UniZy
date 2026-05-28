@@ -1,0 +1,231 @@
+{
+  "CPR": "",
+  "CTG": "Normal",
+  "DCT": "",
+  "HIV": "Negative",
+  "ICT": "",
+  "PPV": "",
+  "dob": "2025-11-10",
+  "lmp": "2025-03-20",
+  "sex": "Male",
+  "tob": "06:39",
+  "PROM": "Yes",
+  "VDRL": "Negative",
+  "para": "0",
+  "plan": "Warmth, O2 with nasal prongs, Paladi feed 12 ml second hourly. Investigations.",
+  "uhid": "",
+  "apgar": {
+    "status": "known",
+    "minute1": {
+      "tone": null,
+      "color": null,
+      "total": 7,
+      "reflex": null,
+      "heartRate": null,
+      "respiration": null
+    },
+    "minute5": {
+      "tone": null,
+      "color": null,
+      "total": 8,
+      "reflex": null,
+      "heartRate": null,
+      "respiration": null
+    },
+    "minute10": {
+      "tone": null,
+      "color": null,
+      "total": null,
+      "reflex": null,
+      "heartRate": null,
+      "respiration": null
+    },
+    "minute15": {
+      "tone": null,
+      "color": null,
+      "total": null,
+      "reflex": null,
+      "heartRate": null,
+      "respiration": null
+    },
+    "minute20": {
+      "tone": null,
+      "color": null,
+      "total": null,
+      "reflex": null,
+      "heartRate": null,
+      "respiration": null
+    }
+  },
+  "drugs": "",
+  "booked": "Yes",
+  "cordBE": "",
+  "cordPH": "",
+  "labour": "",
+  "gravida": "1",
+  "EDDByUSG": "",
+  "abortion": "0",
+  "babyName": "B/O Bala Sowmani",
+  "cordHCO3": "",
+  "dateTime": "",
+  "vitaminK": "Yes",
+  "EDDByDate": "2025-12-25",
+  "liveBirth": "0",
+  "CTGDetails": "",
+  "HepatitisB": "Negative",
+  "birthOrder": "1",
+  "conception": "Spontaneous",
+  "indication": [
+    "PPROM",
+    "oligohydramnios"
+  ],
+  "intubation": "",
+  "supervised": "Yes",
+  "ETTSizeInMM": "",
+  "birthLength": "",
+  "birthStatus": "Inborn",
+  "birthWeight": "1925",
+  "bookedPlace": "",
+  "drugDetails": [],
+  "riskFactors": [
+    "2"
+  ],
+  "cordBloodGas": "Not Done",
+  "facialOxygen": "",
+  "initialSteps": "",
+  "malformation": "No",
+  "presentation": "Cephalic",
+  "vitaminKDose": "1mg",
+  "consanguinity": "No",
+  "durationOfCPR": "",
+  "durationOfPTV": "",
+  "fetalDistress": "No",
+  "gestationDays": "4",
+  "resuscitation": "No",
+  "steroidCourse": "Complete",
+  "timeOf1stGasp": "",
+  "vitaminKRoute": "IV",
+  "babyBloodGroup": "O Positive",
+  "cutCordMilking": "",
+  "durationOfPROM": "more than 18 hours",
+  "gestationWeeks": "33",
+  "medicalProblem": [],
+  "modeOfDelivery": "LSCS",
+  "natureofLabour": "",
+  "reasonForNoDCC": "",
+  "timeOfLastDose": "",
+  "transferStatus": "",
+  "typeOfSteriods": "Betamethasone",
+  "commentOnLiquor": "Clear",
+  "gastricAspirate": "",
+  "maternalPyrexia": "No",
+  "pleaceOfBooking": "",
+  "deliveryRoomCPAP": "",
+  "depthOfInsertion": "",
+  "motherBloodGroup": "O Positive",
+  "otherScanDetails": [
+    {
+      "date": "",
+      "findings": "",
+      "gestation": ""
+    },
+    {
+      "date": "",
+      "findings": "",
+      "gestation": ""
+    }
+  ],
+  "typeofAnesthesia": "Spinal",
+  "antenatalSteroids": "Yes",
+  "backgroundDetails": "Preterm male, appropriate for gestational age. Respiratory distress.",
+  "datingScanDetails": {
+    "date": "",
+    "findings": "",
+    "gestation": ""
+  },
+  "multiplePregnancy": "Singleton",
+  "anomalyScanDetails": {
+    "date": "",
+    "findings": "",
+    "gestation": ""
+  },
+  "bagMaskVentilation": "",
+  "dopplerScanDetails": [
+    {
+      "date": "",
+      "findings": "",
+      "gestation": ""
+    },
+    {
+      "date": "",
+      "findings": "",
+      "gestation": ""
+    }
+  ],
+  "maximumFio2Rquired": "",
+  "regularRespiration": "",
+  "delayedCordClamping": "Yes",
+  "maternalAntibiotics": "Yes",
+  "otherInvestigations": "",
+  "pleaceOfSupervision": "",
+  "durationOfCPRMinutes": "",
+  "durationOfPTVMinutes": "",
+  "liveBirthBabyDetails": [
+    {
+      "place": "",
+      "gender": "",
+      "health": "",
+      "details": "",
+      "birthYear": "",
+      "gestation": "",
+      "birthWeight": "",
+      "complications": "",
+      "typeOfDelivery": ""
+    },
+    {
+      "place": "",
+      "gender": "",
+      "health": "",
+      "details": "",
+      "birthYear": "",
+      "gestation": "",
+      "birthWeight": "",
+      "complications": "",
+      "typeOfDelivery": ""
+    }
+  ],
+  "umbilicalCordMilking": "",
+  "birthHeadCircunference": "35",
+  "durationOfFacialOxygen": "",
+  "pregnancyComplications": "Yes",
+  "timeOf1stGaspInMinutes": "",
+  "adjustedRiskForTrisomy13": "",
+  "adjustedRiskForTrisomy18": "",
+  "adjustedRiskForTrisomy21": "",
+  "lastDoseDeliveryInterval": "less than 24 hours",
+  "initialExaminationSummary": "Cried immediately after birth",
+  "regularRespirationMinutes": "",
+  "bagMaskVentilationDuration": "",
+  "depthOfInsertionLengthInCM": "",
+  "maternalAntibioticsDetails": [],
+  "delayedCordClampingduration": "",
+  "bagMaskVentilationDurationMin": "",
+  "pregnancyComplicationsDetails": [
+    {
+      "duration": "",
+      "treatment": "",
+      "complication": "PPROM",
+      "durationType": ""
+    },
+    {
+      "duration": "",
+      "treatment": "",
+      "complication": "Oligohydramnios",
+      "durationType": ""
+    }
+  ],
+  "riskFactorsForSepsisInMothers": "Yes",
+  "antenatalMgSO4ForNeuroprotection": "No",
+  "adjustedRiskForTrisomiesAvailable": "",
+  "maternalPyrexiaTemperatureFahrenheit": ""
+}

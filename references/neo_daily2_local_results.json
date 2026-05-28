@@ -1,0 +1,24 @@
+{
+  "spo2": 95,
+  "uhid": "711884",
+  "claco": false,
+  "etTube": "No",
+  "lactate": 2.7,
+  "airEntry": "Equal",
+  "addedSounds": "Absent",
+  "retractions": "No",
+  "bloodGasType": "Capillary",
+  "chestMovements": "Symmetrical",
+  "otherRSFindings": "No other respiratory findings.",
+  "ventilationType": "NonInvasiveVentilation",
+  "volumeTargeting": false,
+  "surfactantTherapy": "No",
+  "chronicLungDisease": false,
+  "invasiveVentilation": "No",
+  "resporatoryIndication": [
+    2
+  ],
+  "otherRespiratorySupport": "NPO2",
+  "spontaneouslyVentilating": "Yes",
+  "nonInvasiveVentilationMode": "HHHFNC"
+}

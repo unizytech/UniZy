@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "timestamp": "2025-12-14T17:08:24.711086",
+    "model": "gemini-2.5-pro",
+    "runs_per_test": 2,
+    "transcript_length": 3067,
+    "consultation_type_id": "6af5251b-63ea-4767-85d2-802e403eca73",
+    "templates_tested": [
+      "OP_SHORT"
+    ],
+    "doctor_with_lists": {
+      "id": "8aea65da-d54a-4e41-9216-943bf5542276",
+      "name": "Mithra S",
+      "patient_identifier": "Lak123"
+    },
+    "doctor_without_lists": {
+      "id": "23090766-880d-4d7e-9557-c5aacf5cbd27",
+      "name": "Kavinkumar M P",
+      "patient_identifier": null
+    }
+  },
+  "results": [
+    {
+      "test_name": "baseline_op_short",
+      "description": "Baseline (no lists) - OP_SHORT",
+      "prompt_size": 3878,
+      "runs": [
+        21.05108666419983,
+        21.44463801383972
+      ],
+      "average_time": 21.248,
+      "segments_extracted": 11,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "doctor_mithra_s_op_short",
+      "description": "Mithra S (WITH lists) - OP_SHORT",
+      "prompt_size": 13152,
+      "runs": [
+        21.845125913619995,
+        20.543877124786377
+      ],
+      "average_time": 21.195,
+      "segments_extracted": 11,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "doctor_kavinkumar_m_p_op_short",
+      "description": "Kavinkumar M P (NO lists) - OP_SHORT",
+      "prompt_size": 3878,
+      "runs": [
+        20.905813932418823,
+        17.266088008880615
+      ],
+      "average_time": 19.086,
+      "segments_extracted": 11,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    }
+  ]
+}

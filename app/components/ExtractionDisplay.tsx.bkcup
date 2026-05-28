@@ -1,0 +1,299 @@
+'use client';
+
+import React, { useState } from 'react';
+import type { OPExtractionResponse } from "@lib/types";
+
+interface ExtractionDisplayProps {
+  coreData: OPExtractionResponse | null;
+  additionalData: OPExtractionResponse | null;
+  coreLoading: boolean;
+  additionalLoading: boolean;
+  error: string | null;
+}
+
+export function ExtractionDisplay({
+  coreData,
+  additionalData,
+  coreLoading,
+  additionalLoading,
+  error,
+}: ExtractionDisplayProps) {
+  const [showAdditional, setShowAdditional] = useState(false);
+
+  // Render loading state
+  if (coreLoading && !coreData) {
+    return (
+      <div className="bg-white rounded-lg border-2 border-gray-200 p-12">
+        <div className="flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-6"></div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Extracting CORE Segments...
+          </h3>
+          <p className="text-sm text-gray-600 text-center max-w-md">
+            Extracting essential clinical information for immediate use. This typically takes
+            20-25 seconds.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <div className="bg-red-50 rounded-lg border-2 border-red-200 p-8">
+        <div className="flex items-start">
+          <svg
+            className="w-6 h-6 text-red-600 mr-3 flex-shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <div>
+            <h3 className="text-lg font-semibold text-red-900 mb-2">Extraction Failed</h3>
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render empty state
+  if (!coreData && !additionalData) {
+    return (
+      <div className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
+        <svg
+          className="w-20 h-20 text-gray-400 mx-auto mb-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Extraction Results</h3>
+        <p className="text-sm text-gray-600">
+          Provide a transcript and click "Extract" to see results here
+        </p>
+      </div>
+    );
+  }
+
+  const hasAdditionalData = additionalData && additionalData.success;
+  const canShowMore = hasAdditionalData && !showAdditional;
+
+  return (
+    <div className="space-y-6">
+      {/* CORE Results */}
+      {coreData && coreData.success && (
+        <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
+          {/* Header */}
+          <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-blue-900">
+                  CORE Segments ({coreData.metadata.segment_count})
+                </h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  Essential clinical information ready for immediate use
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center space-x-2">
+                  <svg
+                    className="w-5 h-5 text-green-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium text-green-700">Complete</span>
+                </div>
+                <p className="text-xs text-blue-600 mt-1">Model: {coreData.metadata.model}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            <SegmentDataDisplay data={coreData.data} />
+          </div>
+        </div>
+      )}
+
+      {/* ADDITIONAL Loading State */}
+      {additionalLoading && !hasAdditionalData && (
+        <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-8">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-600 mr-4"></div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Loading ADDITIONAL Segments...
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Extracting comprehensive documentation in the background (~25-35s)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADDITIONAL Results (Collapsed by default) */}
+      {hasAdditionalData && (
+        <>
+          {!showAdditional && (
+            <button
+              onClick={() => setShowAdditional(true)}
+              className="w-full bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 rounded-lg p-6 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <svg
+                    className="w-12 h-12 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  <div className="text-left">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Show ADDITIONAL Segments ({additionalData!.metadata.segment_count})
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      View comprehensive documentation and optional segments
+                    </p>
+                  </div>
+                </div>
+                <svg
+                  className="w-6 h-6 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </button>
+          )}
+
+          {showAdditional && (
+            <div className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden">
+              {/* Header */}
+              <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      ADDITIONAL Segments ({additionalData!.metadata.segment_count})
+                    </h3>
+                    <p className="text-sm text-gray-700 mt-1">
+                      Comprehensive documentation and optional segments
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAdditional(false)}
+                    className="text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <SegmentDataDisplay data={additionalData!.data} />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Helper component to render segment data
+function SegmentDataDisplay({ data }: { data: Record<string, any> }) {
+  const renderValue = (value: any, depth: number = 0): React.ReactNode => {
+    if (value === null || value === undefined) {
+      return <span className="text-gray-400 italic">Not provided</span>;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return <span className="text-gray-400 italic">None</span>;
+      }
+      return (
+        <ul className="list-disc list-inside space-y-1 ml-4">
+          {value.map((item, index) => (
+            <li key={index} className="text-gray-700">
+              {typeof item === 'object' ? renderValue(item, depth + 1) : String(item)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (typeof value === 'object') {
+      return (
+        <div className={`space-y-2 ${depth > 0 ? 'ml-4 pl-4 border-l-2 border-gray-200' : ''}`}>
+          {Object.entries(value).map(([key, val]) => (
+            <div key={key}>
+              <span className="text-sm font-medium text-gray-700">
+                {key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}:
+              </span>
+              <div className="ml-2 mt-1">{renderValue(val, depth + 1)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return <span className="text-gray-900">{String(value)}</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {Object.entries(data).map(([segmentKey, segmentValue]) => (
+        <div key={segmentKey} className="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
+          <h4 className="text-md font-semibold text-gray-900 mb-3">
+            {segmentKey
+              .replace(/([A-Z])/g, ' $1')
+              .trim()
+              .replace(/\b\w/g, (c) => c.toUpperCase())}
+          </h4>
+          <div className="bg-gray-50 rounded-lg p-4">{renderValue(segmentValue)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}

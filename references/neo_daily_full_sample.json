@@ -1,0 +1,26 @@
+{
+	"uhid": "642642",
+	"dateTime": "2025-10-21 15:00:00",
+    "invasiveVentilation": "",
+	"ventilationType": "",
+	"nonInvasiveVentilationMode": "",
+	"otherRespiratorySupport": "",
+	"spontaneouslyVentilating": "",
+	"volumeTargeting": false,
+	"claco": false,
+	"resporatoryIndication": [1, 2, 3],
+	"surfactantTherapy": "",
+	"respiratoryRate": "",
+	"retractions": "",
+	"airEntry": "",
+	"chestMovements": "",
+	"addedSounds": "",
+	"cxrFindings": "",
+	"bloodGasType": "",
+	"lactate": "",
+	"etTube": "",
+	"spo2": "",
+	"otherRSFindings": "",
+	"chronicLungDisease": false
+}
+

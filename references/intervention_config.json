@@ -1,0 +1,328 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2024-12-24",
+  "updated_by": "Clinical Team",
+  "notes": "ICD-10 severity configuration for intervention assessment.",
+
+  "critical_codes": {
+    "description": "ICD-10 codes that ALWAYS trigger HIGH severity override",
+    "codes": [
+      {"code": "I21", "description": "Acute myocardial infarction"},
+      {"code": "I22", "description": "Subsequent myocardial infarction"},
+      {"code": "I46", "description": "Cardiac arrest"},
+      {"code": "I60", "description": "Subarachnoid hemorrhage"},
+      {"code": "I61", "description": "Intracerebral hemorrhage"},
+      {"code": "I63", "description": "Cerebral infarction (stroke)"},
+      {"code": "J96", "description": "Respiratory failure"},
+      {"code": "N17", "description": "Acute kidney failure"},
+      {"code": "K72", "description": "Hepatic failure"},
+      {"code": "E10.1", "description": "Type 1 diabetes with ketoacidosis"},
+      {"code": "E11.1", "description": "Type 2 diabetes with ketoacidosis"},
+      {"code": "T78.2", "description": "Anaphylactic shock"},
+      {"code": "A41", "description": "Other sepsis"},
+      {"code": "R65.2", "description": "Severe sepsis"}
+    ]
+  },
+
+  "chapter_scores": {
+    "description": "ICD-10 prefix to severity score. 4=HIGH, 3=MEDIUM-HIGH, 2=MEDIUM, 1=LOW",
+    "mappings": [
+      {"prefix": "C", "score": 4, "description": "Malignant neoplasms"},
+      {"prefix": "D0", "score": 4, "description": "In-situ neoplasms"},
+      {"prefix": "I2", "score": 4, "description": "Ischemic heart diseases"},
+      {"prefix": "I5", "score": 4, "description": "Heart failure"},
+      {"prefix": "I6", "score": 4, "description": "Cerebrovascular diseases"},
+      {"prefix": "N18", "score": 4, "description": "Chronic kidney disease"},
+      {"prefix": "Z94", "score": 4, "description": "Transplanted organ status"},
+      {"prefix": "E10", "score": 3, "description": "Type 1 diabetes"},
+      {"prefix": "E11", "score": 3, "description": "Type 2 diabetes"},
+      {"prefix": "I1", "score": 3, "description": "Hypertensive diseases"},
+      {"prefix": "I4", "score": 3, "description": "Other heart diseases"},
+      {"prefix": "J44", "score": 3, "description": "COPD"},
+      {"prefix": "J45", "score": 3, "description": "Asthma"},
+      {"prefix": "K70", "score": 3, "description": "Alcoholic liver disease"},
+      {"prefix": "K74", "score": 3, "description": "Liver cirrhosis"},
+      {"prefix": "F2", "score": 3, "description": "Schizophrenia spectrum"},
+      {"prefix": "F3", "score": 3, "description": "Mood disorders"},
+      {"prefix": "B20", "score": 3, "description": "HIV disease"},
+      {"prefix": "M", "score": 2, "description": "Musculoskeletal"},
+      {"prefix": "G", "score": 2, "description": "Nervous system"},
+      {"prefix": "K", "score": 2, "description": "Digestive system"},
+      {"prefix": "N", "score": 2, "description": "Genitourinary"},
+      {"prefix": "E0", "score": 2, "description": "Other endocrine"},
+      {"prefix": "F", "score": 2, "description": "Mental disorders"},
+      {"prefix": "J", "score": 2, "description": "Respiratory"},
+      {"prefix": "D5", "score": 2, "description": "Anemia"},
+      {"prefix": "H", "score": 1, "description": "Eye and ear"},
+      {"prefix": "L", "score": 1, "description": "Skin conditions"},
+      {"prefix": "R", "score": 1, "description": "Symptoms/signs"},
+      {"prefix": "Z", "score": 1, "description": "Health factors"},
+      {"prefix": "J0", "score": 1, "description": "Upper respiratory infections"}
+    ]
+  },
+
+  "specialty_scores": {
+    "description": "Specialty to base severity score. 3=HIGH, 2=MEDIUM, 1=LOW",
+    "mappings": [
+      {"specialty": "oncology", "score": 3},
+      {"specialty": "cardiology", "score": 3},
+      {"specialty": "cardiac_surgery", "score": 3},
+      {"specialty": "neurology", "score": 3},
+      {"specialty": "neurosurgery", "score": 3},
+      {"specialty": "nephrology", "score": 3},
+      {"specialty": "transplant", "score": 3},
+      {"specialty": "critical_care", "score": 3},
+      {"specialty": "hematology", "score": 3},
+      {"specialty": "neonatology", "score": 3},
+      {"specialty": "endocrinology", "score": 2},
+      {"specialty": "pulmonology", "score": 2},
+      {"specialty": "orthopedics", "score": 2},
+      {"specialty": "psychiatry", "score": 2},
+      {"specialty": "gastroenterology", "score": 2},
+      {"specialty": "rheumatology", "score": 2},
+      {"specialty": "urology", "score": 2},
+      {"specialty": "gynecology", "score": 2},
+      {"specialty": "obstetrics", "score": 2},
+      {"specialty": "general_surgery", "score": 2},
+      {"specialty": "dermatology", "score": 1},
+      {"specialty": "ent", "score": 1},
+      {"specialty": "ophthalmology", "score": 1},
+      {"specialty": "general_medicine", "score": 1},
+      {"specialty": "family_medicine", "score": 1},
+      {"specialty": "pediatrics", "score": 1}
+    ]
+  },
+
+  "keywords": {
+    "critical": [
+      "malignant", "cancer", "carcinoma", "tumor", "metastatic",
+      "critical", "emergency", "failure", "arrest", "infarction",
+      "hemorrhage", "sepsis", "transplant", "dialysis", "ventilator"
+    ],
+    "surgical": [
+      "surgery", "surgical", "operation", "post-op", "pre-op",
+      "arthroplasty", "replacement", "resection", "excision",
+      "implant", "bypass", "laparoscopy", "arthroscopy"
+    ],
+    "chronic": [
+      "chronic", "long-term", "ongoing", "management",
+      "controlled", "uncontrolled", "maintenance", "progressive"
+    ]
+  },
+
+  "thresholds": {
+    "clinical_high": 9,
+    "clinical_medium": 5,
+    "adherence_high": 7.0,
+    "adherence_medium": 4.5
+  },
+
+  "adherence_weights": {
+    "anxiety": 0.25,
+    "financial": 0.40,
+    "compliance": 0.35
+  },
+
+  "intervention_actions": {
+    "LOW": {
+      "cadence": "Automated only",
+      "channels": ["WhatsApp", "App notifications", "SMS"],
+      "actions": [
+        "Automated WhatsApp medication reminders",
+        "Self-service appointment booking link",
+        "Digital health tips"
+      ]
+    },
+    "MEDIUM": {
+      "cadence": "Weekly human touch",
+      "channels": ["WhatsApp", "Phone call"],
+      "actions": [
+        "Weekly care coordinator call",
+        "Personalized WhatsApp check-ins",
+        "Simplified treatment summary in local language",
+        "Medication adherence tracking"
+      ]
+    },
+    "HIGH": {
+      "cadence": "Bi-weekly engagement",
+      "channels": ["Phone calls", "Video calls", "Family contact"],
+      "actions": [
+        "Dedicated care manager assignment",
+        "Bi-weekly calls with family loop-in",
+        "Proactive appointment scheduling",
+        "Treatment plan simplification review",
+        "Medication delivery arrangement"
+      ]
+    },
+    "CRITICAL": {
+      "cadence": "Daily engagement",
+      "channels": ["Daily calls", "Home visits", "Doctor escalation"],
+      "actions": [
+        "Daily care manager engagement",
+        "Family/caregiver mandatory involvement",
+        "Financial counseling session",
+        "Doctor callback for plan modification",
+        "Home visit consideration",
+        "Emergency contact protocol"
+      ]
+    }
+  },
+
+  "risk_driver_actions": {
+    "high_financial_concern": [
+      "EMI/payment plan options discussion",
+      "Generic medication alternatives review",
+      "Government scheme eligibility check",
+      "Insurance claim assistance"
+    ],
+    "high_anxiety": [
+      "Post-consultation anxiety follow-up within 24hrs",
+      "Patient education materials (video preferred)",
+      "Support group information"
+    ],
+    "low_compliance": [
+      "Treatment plan simplification",
+      "Visual medication schedule",
+      "Pill organizer arrangement",
+      "Daily reminder calls"
+    ]
+  },
+
+  "take_up_prediction": {
+    "description": "Predicts intervention take-up likelihood based on clinical and emotional signals",
+    "enabled": true,
+    "version": "1.0.0",
+
+    "category_weights": {
+      "description": "Category-specific signal weights for take-up likelihood calculation",
+      "REVENUE": {
+        "severity": 0.15,
+        "anxiety": 0.20,
+        "financial": 0.40,
+        "compliance": 0.25,
+        "notes": "Financial concerns dominate - high financial concern = low revenue take-up"
+      },
+      "RETENTION": {
+        "severity": 0.15,
+        "anxiety": 0.35,
+        "financial": 0.15,
+        "compliance": 0.35,
+        "notes": "Anxiety and compliance dominate - anxious/non-compliant patients may not return"
+      },
+      "QUALITY": {
+        "severity": 0.50,
+        "anxiety": 0.10,
+        "financial": 0.10,
+        "compliance": 0.30,
+        "notes": "Clinical severity dominates - severe cases need action regardless of other factors"
+      }
+    },
+
+    "signal_mappings": {
+      "description": "Maps signal values to scores (0-100 scale)",
+      "severity": {
+        "LOW": 30,
+        "MEDIUM": 60,
+        "HIGH": 90
+      },
+      "anxiety_post_level": {
+        "None": 20,
+        "Mild": 40,
+        "Moderate": 65,
+        "Severe": 90
+      },
+      "financial": {
+        "none": 100,
+        "mild": 70,
+        "moderate": 40,
+        "severe": 20
+      },
+      "compliance": {
+        "high": 90,
+        "moderate": 60,
+        "low": 35,
+        "very_low": 15
+      }
+    },
+
+    "anxiety_calculation": {
+      "description": "Combined anxiety score: post_level (60%) + trajectory modifier (40%)",
+      "post_level_weight": 0.60,
+      "trajectory_weight": 0.40,
+      "trajectory_modifiers": {
+        "Improved": 20,
+        "Stable": 0,
+        "Worsened": -30,
+        "Unable to determine": 0
+      }
+    },
+
+    "fear_distress_boost": {
+      "description": "Additional boost when Fear or Distress emotions detected (seeking help behavior)",
+      "enabled": true,
+      "emotions": ["Fear", "Distress"],
+      "severity_boosts": {
+        "Mild": 10,
+        "Moderate": 20,
+        "Severe": 30
+      },
+      "categories": ["REVENUE", "RETENTION"]
+    },
+
+    "priority_adjustment": {
+      "description": "Adjusts priority_score based on take_up_likelihood",
+      "high_threshold": 70,
+      "low_threshold": 40,
+      "high_modifier": 1.15,
+      "medium_modifier": 1.0,
+      "low_modifier": 0.85,
+      "min_score": 20,
+      "max_score": 99
+    },
+
+    "rules": {
+      "description": "Override rules that apply specific boosts/penalties based on signal combinations",
+      "high_severity_high_anxiety_boost": {
+        "enabled": true,
+        "description": "HIGH severity + HIGH anxiety = patient likely to accept help",
+        "conditions": {
+          "severity": "HIGH",
+          "anxiety_post_level": ["Moderate", "Severe"]
+        },
+        "categories": ["REVENUE", "RETENTION"],
+        "boost": 20
+      },
+      "low_severity_high_financial_penalty": {
+        "enabled": true,
+        "description": "LOW severity + HIGH financial concern = unlikely to buy upsells",
+        "conditions": {
+          "severity": "LOW",
+          "financial": ["moderate", "severe"]
+        },
+        "categories": ["REVENUE"],
+        "penalty": 30
+      },
+      "high_fear_distress_boost": {
+        "enabled": true,
+        "description": "HIGH Fear/Distress = patient seeking reassurance, more likely to accept help",
+        "conditions": {
+          "emotions": {
+            "Fear": ["Moderate", "Severe"],
+            "Distress": ["Moderate", "Severe"]
+          }
+        },
+        "categories": ["REVENUE", "RETENTION"],
+        "boost": 15
+      },
+      "very_low_compliance_penalty": {
+        "enabled": true,
+        "description": "Very low compliance = unlikely to follow through on any intervention",
+        "conditions": {
+          "compliance": "very_low"
+        },
+        "categories": ["REVENUE", "RETENTION", "QUALITY"],
+        "penalty": 20
+      }
+    }
+  }
+}

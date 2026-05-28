@@ -1,0 +1,76 @@
+{
+    "sex": "M",
+    "para": 0,
+    "apgar": {
+      "minute1": {},
+      "minute5": {},
+      "minute10": {},
+      "minute15": {},
+      "minute20": {}
+    },
+    "labor": "Spontaneous",
+    "gravida": 1,
+    "rupture": "Spontaneous",
+    "abortion": 0,
+    "cprGiven": false,
+    "niptDone": false,
+    "ppvGiven": false,
+    "referral": "Outborn",
+    "gestation": "39+0",
+    "hivStatus": "Negative",
+    "bloodGroup": "O+",
+    "conception": "Spontaneous",
+    "cryAtBirth": true,
+    "datingScan": {
+      "done": true,
+      "findings": "Normal"
+    },
+    "growthScan": {
+      "done": true,
+      "findings": "Growth was good"
+    },
+    "intubation": false,
+    "vdrlStatus": "Negative",
+    "anomalyScan": {
+      "done": true,
+      "findings": "Normal"
+    },
+    "birthTrauma": "None",
+    "birthWeight": 3000,
+    "dopplerScan": {
+      "done": false
+    },
+    "hbsAgStatus": "Negative",
+    "liquorColor": "Clear",
+    "riskFactors": [],
+    "liquorAmount": "Adequate",
+    "liveChildren": 0,
+    "placeOfBirth": "Dharmapuri",
+    "resuscitation": "None",
+    "vitaminKGiven": true,
+    "vitaminKRoute": "IM",
+    "antenatalMgSO4": {
+      "given": false,
+      "drugDetails": []
+    },
+    "cordAroundNeck": false,
+    "dryingProvided": false,
+    "lscsIndication": [],
+    "medicalProblem": [],
+    "modeOfDelivery": "Emergency LSCS",
+    "warmingProvided": false,
+    "feverDuringLabor": false,
+    "antenatalSteroids": {
+      "given": false,
+      "drugDetails": []
+    },
+    "multiplePregnancy": "Singleton",
+    "foulSmellingLiquor": false,
+    "initialExamination": "Term, male, appropriate for gestation, no major concerns.",
+    "resuscitationDrugs": [],
+    "congenitalAnomalies": "None",
+    "stimulationProvided": false,
+    "repositioningProvided": false,
+    "airwayClearingProvided": false,
+    "antenatalComplications": []
+  }

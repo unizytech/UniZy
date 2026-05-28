@@ -1,0 +1,7 @@
+{
+  "name": "Gemini Audio Transcriber",
+  "description": "Record audio from your microphone or upload an audio file to receive an English transcription powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

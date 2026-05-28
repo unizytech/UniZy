@@ -1,0 +1,115 @@
+{
+  "metadata": {
+    "timestamp": "2025-12-14T16:58:45.555978",
+    "model": "gemini-2.5-pro",
+    "runs_per_test": 3,
+    "transcript_length": 3067,
+    "consultation_type_id": "6af5251b-63ea-4767-85d2-802e403eca73",
+    "templates_tested": [
+      "OP_CORE",
+      "CONCISE_OP"
+    ],
+    "doctor_with_lists": {
+      "id": "8aea65da-d54a-4e41-9216-943bf5542276",
+      "name": "Mithra S",
+      "patient_identifier": "Lak123"
+    },
+    "doctor_without_lists": {
+      "id": "23090766-880d-4d7e-9557-c5aacf5cbd27",
+      "name": "Kavinkumar M P",
+      "patient_identifier": null
+    }
+  },
+  "results": [
+    {
+      "test_name": "baseline_op_core",
+      "description": "Baseline (no lists) - OP_CORE",
+      "prompt_size": 3878,
+      "runs": [
+        25.632734060287476,
+        24.020896911621094,
+        24.247009992599487
+      ],
+      "average_time": 24.634,
+      "segments_extracted": 17,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "doctor_mithra_s_op_core",
+      "description": "Mithra S (WITH lists) - OP_CORE",
+      "prompt_size": 13152,
+      "runs": [
+        24.095011949539185,
+        33.165977001190186,
+        25.014254808425903
+      ],
+      "average_time": 27.425,
+      "segments_extracted": 17,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "doctor_kavinkumar_m_p_op_core",
+      "description": "Kavinkumar M P (NO lists) - OP_CORE",
+      "prompt_size": 3878,
+      "runs": [
+        26.30686902999878,
+        24.09670090675354,
+        26.146135807037354
+      ],
+      "average_time": 25.517,
+      "segments_extracted": 17,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "baseline_concise_op",
+      "description": "Baseline (no lists) - CONCISE_OP",
+      "prompt_size": 3878,
+      "runs": [
+        15.226820230484009,
+        12.835102081298828,
+        15.29044485092163
+      ],
+      "average_time": 14.451,
+      "segments_extracted": 7,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "doctor_mithra_s_concise_op",
+      "description": "Mithra S (WITH lists) - CONCISE_OP",
+      "prompt_size": 13152,
+      "runs": [
+        13.54679012298584,
+        12.716625928878784,
+        15.737871170043945
+      ],
+      "average_time": 14.0,
+      "segments_extracted": 7,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    },
+    {
+      "test_name": "doctor_kavinkumar_m_p_concise_op",
+      "description": "Kavinkumar M P (NO lists) - CONCISE_OP",
+      "prompt_size": 3878,
+      "runs": [
+        14.410002946853638,
+        16.116000175476074,
+        14.754348039627075
+      ],
+      "average_time": 15.093,
+      "segments_extracted": 7,
+      "has_medicine_list": false,
+      "has_investigation_list": false,
+      "error": null
+    }
+  ]
+}

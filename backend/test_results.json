@@ -1,0 +1,142 @@
+{
+  "total": 12,
+  "passed": 11,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Test 01: GET /api/v1/summary/consultation-types",
+      "status": "\u2705 PASS",
+      "message": "Retrieved 3 consultation types: ['OP', 'DISCHARGE', 'RESPIRATORY']",
+      "details": {
+        "count": 3,
+        "types": [
+          "OP",
+          "DISCHARGE",
+          "RESPIRATORY"
+        ]
+      },
+      "timestamp": "2025-11-05T11:53:00.531124"
+    },
+    {
+      "name": "Test 02: GET /api/v1/summary/consultation-types/OP",
+      "status": "\u2705 PASS",
+      "message": "Retrieved OP type: Outpatient Consultation",
+      "details": {
+        "type_code": "OP",
+        "description": "17-segment outpatient medical consultation extraction"
+      },
+      "timestamp": "2025-11-05T11:53:00.745229"
+    },
+    {
+      "name": "Test 03: POST /api/v1/summary/extract (OP, CORE)",
+      "status": "\u2705 PASS",
+      "message": "Extracted 8 segments in core mode",
+      "details": {
+        "consultation_type": "Outpatient Consultation",
+        "segment_count": 8,
+        "model": "gemini-2.5-pro",
+        "validation": true
+      },
+      "timestamp": "2025-11-05T11:53:21.320909"
+    },
+    {
+      "name": "Test 04: POST /api/v1/summary/extract (DISCHARGE, FULL)",
+      "status": "\u274c FAIL",
+      "message": "HTTP 500",
+      "details": "{\"detail\":\"Extraction failed: Failed to extract summary: 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'The specified schema produces a constraint that has too many states for serving. Typi",
+      "timestamp": "2025-11-05T11:53:22.955001"
+    },
+    {
+      "name": "Test 05: GET /api/v1/summary/segments/OP?mode=core",
+      "status": "\u2705 PASS",
+      "message": "Retrieved 8 CORE segments for OP",
+      "details": {
+        "count": 8,
+        "segment_codes": [
+          "DIAGNOSIS",
+          "CHIEF_COMPLAINTS",
+          "HISTORY",
+          "PHYSICAL_EXAMINATION",
+          "CLINICAL_ASSESSMENT",
+          "TREATMENT_PLAN_ADVICE",
+          "PRESCRIPTION",
+          "FOLLOW_UP"
+        ],
+        "consultation_type": "OP"
+      },
+      "timestamp": "2025-11-05T11:53:23.517204"
+    },
+    {
+      "name": "Test 06: GET /api/v1/summary/segments/DISCHARGE?mode=additional",
+      "status": "\u2705 PASS",
+      "message": "Retrieved 2 ADDITIONAL segments for DISCHARGE",
+      "details": {
+        "count": 2,
+        "mode": "additional",
+        "note": "0 segments is valid if DISCHARGE only has CORE"
+      },
+      "timestamp": "2025-11-05T11:53:23.907513"
+    },
+    {
+      "name": "Test 07: PUT /api/v1/summary/segments/OP/CHIEF_COMPLAINTS",
+      "status": "\u2705 PASS",
+      "message": "Updated CHIEF_COMPLAINTS segment configuration",
+      "details": {
+        "message": "Segment 'CHIEF_COMPLAINTS' updated for OP"
+      },
+      "timestamp": "2025-11-05T11:53:24.875792"
+    },
+    {
+      "name": "Test 08: POST /api/v1/summary/segments/OP/move",
+      "status": "\u2705 PASS",
+      "message": "Moved HISTORY to ADDITIONAL category",
+      "details": {
+        "message": "Segment 'HISTORY' moved to ADDITIONAL"
+      },
+      "timestamp": "2025-11-05T11:53:25.807267"
+    },
+    {
+      "name": "Test 09: GET /api/v1/summary/presets/OP",
+      "status": "\u2705 PASS",
+      "message": "Retrieved 3 presets for OP",
+      "details": {
+        "count": 3,
+        "preset_codes": [
+          "FULL_EXTRACTION",
+          "PSYCHIATRY_CORE",
+          "PSYCHIATRY_FULL"
+        ]
+      },
+      "timestamp": "2025-11-05T11:53:26.192469"
+    },
+    {
+      "name": "Test 10: GET /api/v1/summary/segments/OP/validate",
+      "status": "\u2705 PASS",
+      "message": "Validation: True - None",
+      "details": {
+        "is_valid": true,
+        "error_message": null
+      },
+      "timestamp": "2025-11-05T11:53:26.393793"
+    },
+    {
+      "name": "Test 11: POST /api/v1/summary/segments/OP/reset",
+      "status": "\u2705 PASS",
+      "message": "Reset OP configuration to defaults",
+      "details": {
+        "message": "Segment configuration reset to defaults for OP"
+      },
+      "timestamp": "2025-11-05T11:53:26.813724"
+    },
+    {
+      "name": "Test 12: POST /api/v1/summary/extract (RESPIRATORY, FULL)",
+      "status": "\u2705 PASS",
+      "message": "Extracted 8 segments for RESPIRATORY",
+      "details": {
+        "consultation_type": "Respiratory Monitoring",
+        "segment_count": 8
+      },
+      "timestamp": "2025-11-05T11:53:43.097065"
+    }
+  ]
+}

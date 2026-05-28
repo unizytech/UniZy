@@ -1,0 +1,256 @@
+{
+  "primary_metric": "within_bucket_concordance",
+  "accuracy": {
+    "n": 89,
+    "mae": 18.348314606741575,
+    "rmse": 22.75294770383572,
+    "mean_bias": 11.0,
+    "pearson_r": 0.009272291790293666,
+    "spearman_rho": -0.048470635487963,
+    "mean_predicted": 39.60674157303371,
+    "mean_gt": 28.60674157303371
+  },
+  "concordance": {
+    "overall_concordance": 0.48440748440748443,
+    "total_pairs": 962,
+    "total_concordant": 466,
+    "total_discordant": 478,
+    "total_tied_pred": 18
+  },
+  "concordance_per_bucket": {
+    "10": {
+      "n": 29,
+      "pairs": 381,
+      "concordant": 178,
+      "discordant": 198,
+      "tied_pred": 5,
+      "gt_tied_excluded": 25,
+      "concordance": 0.4671916010498688,
+      "spearman": -0.07598105906042137
+    },
+    "15": {
+      "n": 30,
+      "pairs": 405,
+      "concordant": 202,
+      "discordant": 193,
+      "tied_pred": 10,
+      "gt_tied_excluded": 30,
+      "concordance": 0.49876543209876545,
+      "spearman": 0.03491509855080431
+    },
+    "20": {
+      "n": 30,
+      "pairs": 176,
+      "concordant": 86,
+      "discordant": 87,
+      "tied_pred": 3,
+      "gt_tied_excluded": 259,
+      "concordance": 0.48863636363636365,
+      "spearman": -0.0066197326473959334
+    }
+  },
+  "parameter_ranking_power": {
+    "customer_emotion_state": {
+      "concordance": 0.4490644490644491,
+      "total_pairs": 962,
+      "global_spearman": -0.16486624173598313,
+      "mean_score": 46.235955056179776,
+      "std_score": 23.323336662592506,
+      "in_scoring": true,
+      "current_weight": 0.26
+    },
+    "commitment_strength": {
+      "concordance": 0.5051975051975052,
+      "total_pairs": 962,
+      "global_spearman": 0.007762575328742006,
+      "mean_score": 31.06741573033708,
+      "std_score": 27.06081281023842,
+      "in_scoring": true,
+      "current_weight": 0.15
+    },
+    "excuse_likelihood": {
+      "concordance": 0.2692307692307692,
+      "total_pairs": 962,
+      "global_spearman": -0.02450522447227539,
+      "mean_score": 36.17977528089887,
+      "std_score": 19.6317570048014,
+      "in_scoring": true,
+      "current_weight": 0.13
+    },
+    "resistance_level": {
+      "concordance": 0.46153846153846156,
+      "total_pairs": 962,
+      "global_spearman": -0.031282088733964354,
+      "mean_score": 43.764044943820224,
+      "std_score": 29.425977391348994,
+      "in_scoring": true,
+      "current_weight": 0.11
+    },
+    "customer_question_engagement": {
+      "concordance": 0.36174636174636177,
+      "total_pairs": 962,
+      "global_spearman": 0.2055490380334312,
+      "mean_score": 15.786516853932584,
+      "std_score": 25.038160498050182,
+      "in_scoring": true,
+      "current_weight": 0.1
+    },
+    "call_ending_behavior": {
+      "concordance": 0.4688149688149688,
+      "total_pairs": 962,
+      "global_spearman": -0.039326403519313824,
+      "mean_score": 26.573033707865168,
+      "std_score": 21.911408777548775,
+      "in_scoring": true,
+      "current_weight": 0.1
+    },
+    "agent_close_confidence": {
+      "concordance": 0.502079002079002,
+      "total_pairs": 962,
+      "global_spearman": 0.02435248678320004,
+      "mean_score": 58.146067415730336,
+      "std_score": 30.255299679429463,
+      "in_scoring": true,
+      "current_weight": 0.08
+    },
+    "customer_authenticity": {
+      "concordance": 0.43451143451143454,
+      "total_pairs": 962,
+      "global_spearman": -0.01654324986484773,
+      "mean_score": 44.438202247191015,
+      "std_score": 28.67326792322944,
+      "in_scoring": true,
+      "current_weight": 0.04
+    },
+    "customer_clarity": {
+      "concordance": 0.4688149688149688,
+      "total_pairs": 962,
+      "global_spearman": -0.05039902824761866,
+      "mean_score": 66.57303370786516,
+      "std_score": 26.003408437110288,
+      "in_scoring": true,
+      "current_weight": 0.03
+    },
+    "agent_communication_style": {
+      "concordance": 0.46673596673596673,
+      "total_pairs": 962,
+      "global_spearman": 0.004019261563927714,
+      "mean_score": 68.26966292134831,
+      "std_score": 26.968880961875602,
+      "in_scoring": false,
+      "current_weight": 0
+    },
+    "temporal_anchoring_tier": {
+      "concordance": 0.39501039501039503,
+      "total_pairs": 962,
+      "global_spearman": -0.006511441992431339,
+      "mean_score": 47.86516853932584,
+      "std_score": 25.015586606877743,
+      "in_scoring": false,
+      "current_weight": 0
+    },
+    "micro_behavioral_net": {
+      "concordance": 0.2817047817047817,
+      "total_pairs": 962,
+      "global_spearman": 0.1370086274176618,
+      "mean_score": 14.606741573033707,
+      "std_score": 25.08664445142259,
+      "in_scoring": false,
+      "current_weight": 0
+    }
+  },
+  "confidence_impact": {
+    "current": {
+      "concordance": 0.48232848232848236,
+      "mae": 18.370786516853933
+    },
+    "none": {
+      "concordance": 0.4802494802494803,
+      "mae": 18.752808988764045
+    },
+    "aggressive": {
+      "concordance": 0.47713097713097713,
+      "mae": 18.370786516853933
+    }
+  },
+  "weight_optimization": {
+    "current_concordance": 0.48232848232848236,
+    "concordance_proportional": {
+      "weights": {
+        "customer_emotion_state": 0.009345794392523364,
+        "commitment_strength": 0.6675567423231015,
+        "excuse_likelihood": 0.009345794392523364,
+        "resistance_level": 0.009345794392523364,
+        "customer_question_engagement": 0.009345794392523364,
+        "call_ending_behavior": 0.009345794392523364,
+        "agent_close_confidence": 0.2670226969292349,
+        "customer_authenticity": 0.009345794392523364,
+        "customer_clarity": 0.009345794392523364
+      },
+      "concordance": 0.5239085239085239
+    },
+    "slsqp": {
+      "weights": {
+        "customer_emotion_state": 0.26,
+        "commitment_strength": 0.15,
+        "excuse_likelihood": 0.13,
+        "resistance_level": 0.11,
+        "customer_question_engagement": 0.1,
+        "call_ending_behavior": 0.1,
+        "agent_close_confidence": 0.08,
+        "customer_authenticity": 0.04,
+        "customer_clarity": 0.03
+      },
+      "concordance": 0.49064449064449067,
+      "cv_concordance": 0.5261114248070771,
+      "confidence_config": "none"
+    }
+  },
+  "parameter_removal": {
+    "customer_emotion_state": {
+      "concordance_without": 0.48440748440748443,
+      "delta": 0.002079002079002079,
+      "helps_to_remove": true
+    },
+    "commitment_strength": {
+      "concordance_without": 0.48336798336798337,
+      "delta": 0.0010395010395010118,
+      "helps_to_remove": true
+    },
+    "excuse_likelihood": {
+      "concordance_without": 0.4979209979209979,
+      "delta": 0.015592515592515566,
+      "helps_to_remove": true
+    },
+    "resistance_level": {
+      "concordance_without": 0.48232848232848236,
+      "delta": 0.0,
+      "helps_to_remove": false
+    },
+    "customer_question_engagement": {
+      "concordance_without": 0.4864864864864865,
+      "delta": 0.004158004158004158,
+      "helps_to_remove": true
+    },
+    "call_ending_behavior": {
+      "concordance_without": 0.48440748440748443,
+      "delta": 0.002079002079002079,
+      "helps_to_remove": true
+    },
+    "agent_close_confidence": {
+      "concordance_without": 0.4781704781704782,
+      "delta": -0.004158004158004158,
+      "helps_to_remove": false
+    },
+    "customer_authenticity": {
+      "concordance_without": 0.48336798336798337,
+      "delta": 0.0010395010395010118,
+      "helps_to_remove": true
+    },
+    "customer_clarity": {
+      "concordance_without": 0.4781704781704782,
+      "delta": -0.004158004158004158,
+      "helps_to_remove": false
+    }
+  }
+}

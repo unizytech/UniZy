@@ -1,0 +1,168 @@
+{
+  "document_meta": {
+    "source": "ICMR STW",
+    "specialty": "ent",
+    "document_type": "visual_workflow",
+    "version": "October 2019",
+    "icd_codes": ["J01.90"],
+    "language": "en"
+  },
+
+  "conditions": [
+    {
+      "condition_id": "ent_rhinosinusitis_001",
+      "name": "Acute Rhinosinusitis",
+      "aliases": ["Acute Sinusitis", "Bacterial Sinusitis"],
+      "icd_codes": ["J01.90"],
+
+      "when_to_suspect": {
+        "description": "Usually sequela of viral URTI causing ciliary impairment and bacterial superinfection",
+        "diagnostic_criteria": "Persistence of nasal blockage/discharge and facial pain/hyposmia beyond 7 days (max 3 months)",
+        "exclusion": "Symptoms <7 days = viral URTI"
+      },
+
+      "related_scenarios": [
+        {
+          "scenario": "Recurrent acute sinusitis",
+          "definition": "Episodes interspersed with symptom-free intervals >3 months"
+        },
+        {
+          "scenario": "Invasive fungal sinusitis",
+          "additional_features": ["facial hypoesthesia", "facial/palatal/turbinate discoloration", "proptosis", "diplopia", "vision loss"],
+          "urgency": "emergency"
+        }
+      ],
+
+      "alternative_diagnoses": {
+        "suspect_if": ["unilateral symptoms", "bleeding", "crusting", "cacosmia (foul smell)"],
+        "contributory_factors": ["allergy", "dental caries", "DNS", "LPR", "smoking"]
+      },
+
+      "triage_metadata": {
+        "urgency_levels": ["routine", "urgent", "emergency"],
+        "default_urgency": "routine",
+        "red_flags_for_referral": [
+          {"flag": "diabetic/immunocompromised", "action": "refer_district"},
+          {"flag": "orbital involvement", "signs": ["periorbital edema", "displaced globe", "ophthalmoplegia", "visual disturbance"], "action": "refer_district_urgent"},
+          {"flag": "meningitis/altered sensorium", "action": "refer_district_urgent"},
+          {"flag": "frontal fullness", "action": "refer_district"},
+          {"flag": "non-resolution with oral antibiotics x10 days", "action": "refer_district"},
+          {"flag": "invasive fungal sinusitis features", "action": "refer_district_emergency"}
+        ]
+      },
+
+      "clinical_presentation": {
+        "symptoms": [
+          {"symptom": "nasal blockage", "frequency": "common"},
+          {"symptom": "nasal discharge (purulent)", "frequency": "common"},
+          {"symptom": "facial pain/pressure", "frequency": "common"},
+          {"symptom": "hyposmia", "frequency": "common"},
+          {"symptom": "fever", "frequency": "uncommon"}
+        ],
+        "examination_findings": [
+          "anterior rhinoscopy: discharge, bleeding, crusting, polyposis",
+          "oral exam: dental caries, post nasal drip, palatal discoloration",
+          "assess contributory factors"
+        ]
+      },
+
+      "clinical_examination": {
+        "preliminary": [
+          "anterior rhinoscopy: discharge, bleeding, crusting, polyposis",
+          "oral exam: dental caries, post nasal drip, palatal discoloration",
+          "assess contributory factors"
+        ],
+        "desirable": ["nasal endoscopy"]
+      },
+
+      "differential_diagnosis": [
+        "viral URTI (symptoms <7 days)",
+        "allergic rhinitis",
+        "dental infection",
+        "migraine/tension headache"
+      ],
+
+      "investigations": {
+        "indication": "non-resolving/worsening despite antibiotics",
+        "tests": [
+          {"test": "endoscopy with guided nasal swabs/KOH smear", "purpose": "fungal diagnosis"},
+          {"test": "CT PNS", "indication": "suspected complications or no response to 14 days antibiotics"},
+          {"test": "diabetes/immunodeficiency screening", "indication": "suspected fungal sinusitis"}
+        ]
+      },
+
+      "treatment_by_care_level": {
+        "phc_primary": {
+          "duration": "7-14 days",
+          "medications": [
+            {"drug": "amoxicillin/co-amoxiclav", "duration": "7-10 days", "first_line": true},
+            {"drug": "levofloxacin/azithromycin", "indication": "penicillin intolerant"},
+            {"drug": "budesonide/mometasone nasal spray", "dose": "OD-BD x 2 weeks", "benefit": "earlier symptom relief"},
+            {"drug": "saline nasal wash", "benefit": "clears secretions, improves topical med effect"},
+            {"drug": "oxymetazoline/pseudoephedrine", "duration": "3-5 days max", "benefit": "symptom relief"},
+            {"drug": "antihistamines", "indication": "co-existing allergy"}
+          ],
+          "supportive": ["adequate hydration", "steam inhalation"]
+        },
+        "district_hospital": {
+          "surgical_indications": [
+            "underlying anatomical conditions (DNS, adenoid hypertrophy)",
+            "anatomical variations on CT"
+          ],
+          "referrals": [
+            {"to": "ophthalmology", "for": "suspected intraorbital complications"},
+            {"to": "dental", "for": "suspected dental origin"}
+          ]
+        },
+        "tertiary": {
+          "indications": [
+            "acute invasive fungal sinusitis",
+            "complicated acute bacterial sinusitis",
+            "immunocompromised patients"
+          ]
+        }
+      },
+
+      "referral_criteria": [
+        "diabetic/immunocompromised patient",
+        "orbital involvement signs",
+        "meningitis/altered sensorium",
+        "frontal fullness",
+        "non-resolution with oral antibiotics x10 days",
+        "invasive fungal sinusitis features"
+      ],
+
+      "complications": [
+        {"complication": "orbital cellulitis", "urgency": "urgent"},
+        {"complication": "meningitis", "urgency": "emergency"},
+        {"complication": "brain abscess", "urgency": "emergency"},
+        {"complication": "cavernous sinus thrombosis", "urgency": "emergency"}
+      ],
+
+      "clinical_pearls": [
+        "Symptoms <7 days = viral URTI, no antibiotics needed",
+        "Most cases of acute bacterial sinusitis resolve without antibiotics",
+        "Intranasal corticosteroids provide earlier symptom relief",
+        "Decongestants should not exceed 3-5 days due to rebound congestion",
+        "Beware of invasive fungal sinusitis in diabetics/immunocompromised"
+      ],
+
+      "follow_up": {
+        "frequency": {
+          "uncomplicated": "if no improvement in 7-10 days",
+          "complicated": "within 48-72 hours"
+        },
+        "interventions": [
+          "assess response to antibiotics",
+          "look for development of complications",
+          "consider imaging if no improvement"
+        ],
+        "quality_metrics": [
+          "resolution rate within 14 days",
+          "complication rate",
+          "antibiotic appropriateness"
+        ]
+      }
+    }
+  ]
+}

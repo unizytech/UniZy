@@ -1,0 +1,235 @@
+{
+    "uhid": "",
+    "dateTime": "",
+    "babyName": "",
+    "dob": "",
+    "tob": "07:15",
+    "birthStatus": "Outborn",
+    "birthWeight": "3000",
+    "gestationWeeks": "39",
+    "gestationDays": "",
+    "babyBloodGroup": "",
+    "birthOrder": "1",
+    "sex": "Male",
+    "birthLength": "",
+    "birthHeadCircunference": "",
+    "transferStatus": "",
+    "consanguinity": "No",
+    "medicalProblem": [],
+    "gravida": "1",
+    "para": "0",
+    "liveBirth": "0",
+    "abortion": "0",
+    "liveBirthBabyDetails": [
+        {
+            "birthYear": "",
+            "place": "",
+            "typeOfDelivery": "",
+            "complications": "",
+            "gender": "",
+            "gestation": "",
+            "birthWeight": "",
+            "health": "",
+            "details": ""
+        },
+        {
+            "birthYear": "",
+            "place": "",
+            "typeOfDelivery": "",
+            "complications": "",
+            "gender": "",
+            "gestation": "",
+            "birthWeight": "",
+            "health": "",
+            "details": ""
+        }
+    ],
+    "conception": "Spontaneous",
+    "lmp": "",
+    "EDDByUSG": "",
+    "EDDByDate": "2025-11-18",
+    "motherBloodGroup": "O Positive",
+    "HIV": "Negative",
+    "HepatitisB": "Negative",
+    "VDRL": "Negative",
+    "booked": "Yes",
+    "bookedPlace": "Balaji Nursing Home, Dharmapuri",
+    "pleaceOfBooking": "Balaji Nursing Home, Dharmapuri",
+    "supervised": "Yes",
+    "pleaceOfSupervision": "Balaji Nursing Home, Dharmapuri",
+    "adjustedRiskForTrisomiesAvailable": "",
+    "adjustedRiskForTrisomy21": "",
+    "adjustedRiskForTrisomy18": "",
+    "adjustedRiskForTrisomy13": "",
+    "otherInvestigations": "",
+    "multiplePregnancy": "No",
+    "pregnancyComplications": "No",
+    "pregnancyComplicationsDetails": [
+        {
+            "complication": "",
+            "treatment": "",
+            "duration": "",
+            "durationType": ""
+        },
+        {
+            "complication": "",
+            "treatment": "",
+            "duration": "",
+            "durationType": ""
+        }
+    ],
+    "datingScanDetails": {
+        "date": "",
+        "gestation": "",
+        "findings": ""
+    },
+    "anomalyScanDetails": {
+        "date": "",
+        "gestation": "",
+        "findings": "Normal"
+    },
+    "otherScanDetails": [
+        {
+            "date": "",
+            "gestation": "",
+            "findings": "Normal growth"
+        },
+        {
+            "date": "",
+            "gestation": "",
+            "findings": ""
+        }
+    ],
+    "dopplerScanDetails": [
+        {
+            "date": "",
+            "gestation": "",
+            "findings": ""
+        },
+        {
+            "date": "",
+            "gestation": "",
+            "findings": ""
+        }
+    ],
+    "antenatalSteroids": "",
+    "typeOfSteriods": "",
+    "lastDoseDeliveryInterval": "",
+    "steroidCourse": "",
+    "antenatalMgSO4ForNeuroprotection": "",
+    "labour": "Yes",
+    "natureofLabour": "Spontaneous",
+    "commentOnLiquor": "Clear",
+    "riskFactorsForSepsisInMothers": "No",
+    "riskFactors": [],
+    "maternalPyrexia": "No",
+    "maternalPyrexiaTemperatureFahrenheit": "",
+    "PROM": "No",
+    "durationOfPROM": "",
+    "maternalAntibiotics": "No",
+    "maternalAntibioticsDetails": [
+        {
+            "antibiotic": ""
+        },
+        {
+            "antibiotic": ""
+        }
+    ],
+    "timeOfLastDose": "",
+    "modeOfDelivery": "Caesarean Section",
+    "indication": [
+        "Failure to progress"
+    ],
+    "presentation": "Cephalic",
+    "fetalDistress": "No",
+    "CTG": "Normal",
+    "CTGDetails": "",
+    "cordBloodGas": "Not done",
+    "cordPH": "",
+    "cordHCO3": "",
+    "cordBE": "",
+    "typeofAnesthesia": "Spinal",
+    "gastricAspirate": "",
+    "delayedCordClamping": "",
+    "delayedCordClampingduration": "",
+    "reasonForNoDCC": "",
+    "umbilicalCordMilking": "",
+    "cutCordMilking": "",
+    "apgar": {
+        "status": "known",
+        "minute1": {
+            "color": null,
+            "heartRate": null,
+            "reflex": null,
+            "tone": null,
+            "respiration": null,
+            "total": null
+        },
+        "minute5": {
+            "color": null,
+            "heartRate": null,
+            "reflex": null,
+            "tone": null,
+            "respiration": null,
+            "total": null
+        },
+        "minute10": {
+            "color": null,
+            "heartRate": null,
+            "reflex": null,
+            "tone": null,
+            "respiration": null,
+            "total": null
+        },
+        "minute15": {
+            "color": null,
+            "heartRate": null,
+            "reflex": null,
+            "tone": null,
+            "respiration": null,
+            "total": null
+        },
+        "minute20": {
+            "color": null,
+            "heartRate": null,
+            "reflex": null,
+            "tone": null,
+            "respiration": null,
+            "total": null
+        }
+    },
+    "facialOxygen": "No",
+    "durationOfFacialOxygen": "",
+    "maximumFio2Rquired": "",
+    "resuscitation": "No",
+    "initialSteps": "",
+    "timeOf1stGasp": "",
+    "timeOf1stGaspInMinutes": "",
+    "regularRespiration": "",
+    "regularRespirationMinutes": "",
+    "deliveryRoomCPAP": "",
+    "bagMaskVentilation": "",
+    "bagMaskVentilationDuration": "",
+    "bagMaskVentilationDurationMin": "",
+    "intubation": "",
+    "ETTSizeInMM": "",
+    "depthOfInsertion": "",
+    "depthOfInsertionLengthInCM": "",
+    "PPV": "",
+    "durationOfPTV": "",
+    "durationOfPTVMinutes": "",
+    "CPR": "",
+    "durationOfCPR": "",
+    "durationOfCPRMinutes": "",
+    "drugs": "",
+    "drugDetails": [],
+    "vitaminK": "Yes",
+    "vitaminKDose": "",
+    "vitaminKRoute": "IM",
+    "initialExaminationSummary": "Cried well at birth",
+    "malformation": "",
+    "ICT": "",
+    "DCT": "",
+    "backgroundDetails": "Term, Male, Appropriate for Gestation. No major concerns.",
+    "plan": "To be transferred to the post-natal ward for routine care."
+}

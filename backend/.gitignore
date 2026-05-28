@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Environment Variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Supabase
+# IMPORTANT: The following should be TRACKED in Git:
+#   - supabase/config.toml (configuration)
+#   - supabase/migrations/ (migration files)
+#   - supabase/seed.sql (seed data)
+# The following are auto-ignored via supabase/.gitignore:
+#   - supabase/.temp/ (CLI temporary files)
+#   - supabase/.branches/ (local branch data)
+supabase_backup_*

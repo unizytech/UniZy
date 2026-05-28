@@ -1,0 +1,41 @@
+name,common_name,category,typical_dosage,form,snomed_code,formulary_name,type
+AMLODIPINE 5MG,"amlo 5, amlo tablet, amlod",Antihypertensive,5mg once daily,Tablet,,,generic
+AMLODIPINE 10MG,amlo 10,Antihypertensive,10mg once daily,Tablet,,,generic
+METFORMIN 500MG,"glycomet 500, metformin, sugar tablet",Antidiabetic,500mg twice daily,Tablet,,,generic
+METFORMIN 1000MG,"glycomet 1g, met 1000",Antidiabetic,1000mg once daily,Tablet,,,generic
+ATORVASTATIN 10MG,"atorva 10, lipitor, cholesterol tablet",Lipid Lowering,10mg at night,Tablet,,,generic
+ATORVASTATIN 20MG,atorva 20,Lipid Lowering,20mg at night,Tablet,,,generic
+TELMISARTAN 40MG,"telmi 40, telmikind, bp tablet",Antihypertensive,40mg once daily,Tablet,,,generic
+TELMISARTAN 80MG,telmi 80,Antihypertensive,80mg once daily,Tablet,,,generic
+LOSARTAN 50MG,"losar 50, losacar",Antihypertensive,50mg once daily,Tablet,,,generic
+PANTOPRAZOLE 40MG,"pan 40, pantop, acidity tablet",Proton Pump Inhibitor,40mg before breakfast,Tablet,,,generic
+OMEPRAZOLE 20MG,"omez, omepra",Proton Pump Inhibitor,20mg before breakfast,Capsule,,,generic
+AZITHROMYCIN 500MG,"azithro, azee 500, zithromax",Antibiotic,500mg once daily for 3 days,Tablet,,,generic
+AMOXICILLIN 500MG,"mox 500, amoxil",Antibiotic,500mg three times daily,Capsule,,,generic
+CEFIXIME 200MG,"cefi 200, taxim-o",Antibiotic,200mg twice daily,Tablet,,,generic
+DOLO 650,"dolo, paracetamol 650, fever tablet",Analgesic/Antipyretic,650mg as needed,Tablet,,PARACETAMOL 650MG,branded
+CROCIN 500,"crocin, paracetamol 500",Analgesic/Antipyretic,500mg as needed,Tablet,,PARACETAMOL 500MG,branded
+COMBIFLAM,"combiflam, pain killer",Analgesic/Anti-inflammatory,1 tablet twice daily,Tablet,,IBUPROFEN+PARACETAMOL,branded
+CALPOL 250MG,"calpol syrup, fever syrup, calpol",Analgesic/Antipyretic,5ml every 6 hours,Syrup,,PARACETAMOL 250MG/5ML,branded
+MONTELUKAST 10MG,"montair 10, montek, asthma tablet",Antiasthmatic,10mg at night,Tablet,,,generic
+SALBUTAMOL 4MG,"asthalin, salbu",Bronchodilator,4mg three times daily,Tablet,,,generic
+CETIRIZINE 10MG,"cetriz, cetzine, allergy tablet",Antihistamine,10mg once daily,Tablet,,,generic
+LEVOCETIRIZINE 5MG,"levocet, xyzal",Antihistamine,5mg at night,Tablet,,,generic
+ASPIRIN 75MG,"ecosprin 75, blood thinner",Antiplatelet,75mg once daily,Tablet,,,generic
+CLOPIDOGREL 75MG,"plavix, clopilet",Antiplatelet,75mg once daily,Tablet,,,generic
+METOPROLOL 50MG,"metolar, betaloc",Beta Blocker,50mg twice daily,Tablet,,,generic
+GLIMEPIRIDE 2MG,"glimep, amaryl",Antidiabetic,2mg before breakfast,Tablet,,,generic
+SITAGLIPTIN 100MG,"januvia, sitajit",Antidiabetic,100mg once daily,Tablet,,,branded
+EMPAGLIFLOZIN 25MG,"jardiance, empa",Antidiabetic,25mg once daily,Tablet,,,branded
+VITAMIN D3 60000IU,"d3 sachet, cholecalciferol",Vitamin,60000IU once weekly,Sachet,,,generic
+CALCIUM 500MG,"shelcal, caltrate",Supplement,500mg twice daily,Tablet,,,branded
+IRON + FOLIC ACID,"dexorange, autrin",Hematonic,1 tablet daily,Tablet,,,branded
+RABEPRAZOLE 20MG,"rablet, razo",Proton Pump Inhibitor,20mg before breakfast,Tablet,,,generic
+DOMPERIDONE 10MG,"domstal, motilium",Antiemetic,10mg before meals,Tablet,,,generic
+ONDANSETRON 4MG,"ondem, zofran",Antiemetic,4mg as needed,Tablet,,,generic
+PREDNISONE 10MG,"prednisolone, wysolone",Corticosteroid,10mg as directed,Tablet,,,generic
+AMITRIPTYLINE 25MG,"amit, tryptomer",Antidepressant,25mg at night,Tablet,,,generic
+ESCITALOPRAM 10MG,"nexito, cipralex",Antidepressant,10mg once daily,Tablet,,,generic
+ALPRAZOLAM 0.5MG,"alprax, restyl",Anxiolytic,0.5mg as needed,Tablet,,,generic
+CLONAZEPAM 0.5MG,"clonotril, rivotril",Anxiolytic,0.5mg at night,Tablet,,,generic
+GABAPENTIN 300MG,"gabapin, neurontin",Anticonvulsant/Neuropathic Pain,300mg twice daily,Capsule,,,generic

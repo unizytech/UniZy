@@ -1,0 +1,611 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import type { MedicalExtractionResponse, ConsultationTypeCode, ActivatedTemplate, ProcessingMode } from "@lib/types";
+import DoctorSelector from './DoctorSelector';
+import { extractMedicalSummary, handleApiError, getActivatedTemplates, getProcessingModes } from "@lib/summaryApi";
+
+export function MedicalSummaryTab() {
+  // Doctor selection
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+
+  // Template selection
+  const [selectedTemplate, setSelectedTemplate] = useState<ActivatedTemplate | null>(null);
+
+  // Activated templates
+  const [activatedTemplates, setActivatedTemplates] = useState<ActivatedTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Transcript input
+  const [transcript, setTranscript] = useState('');
+
+  // Extraction state
+  const [coreExtractionData, setCoreExtractionData] = useState<MedicalExtractionResponse | null>(null);
+  const [additionalExtractionData, setAdditionalExtractionData] = useState<MedicalExtractionResponse | null>(null);
+  const [loadingCore, setLoadingCore] = useState(false);
+  const [loadingAdditional, setLoadingAdditional] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Processing mode (determines model selection)
+  const [processingMode, setProcessingMode] = useState<string>('default');
+  const [processingModes, setProcessingModes] = useState<ProcessingMode[]>([]);
+  const [loadingProcessingModes, setLoadingProcessingModes] = useState(false);
+
+  // Load processing modes on component mount
+  useEffect(() => {
+    loadProcessingModes();
+  }, []);
+
+  // Load activated templates when doctor is selected
+  useEffect(() => {
+    if (selectedDoctorId) {
+      loadActivatedTemplates();
+    } else {
+      setActivatedTemplates([]);
+      setSelectedTemplate(null);
+    }
+  }, [selectedDoctorId]);
+
+  const loadProcessingModes = async () => {
+    try {
+      setLoadingProcessingModes(true);
+      const response = await getProcessingModes();
+      setProcessingModes(response.processing_modes);
+
+      // Auto-select default mode if available
+      const defaultMode = response.processing_modes.find(m => m.mode_code === 'default');
+      if (defaultMode) {
+        setProcessingMode(defaultMode.mode_code);
+      } else if (response.processing_modes.length > 0) {
+        setProcessingMode(response.processing_modes[0].mode_code);
+      }
+    } catch (err) {
+      console.error('Failed to load processing modes:', err);
+    } finally {
+      setLoadingProcessingModes(false);
+    }
+  };
+
+  const loadActivatedTemplates = async () => {
+    if (!selectedDoctorId) return;
+
+    try {
+      setLoadingTemplates(true);
+      const response = await getActivatedTemplates(selectedDoctorId);
+      setActivatedTemplates(response.templates);
+      // Auto-select first template if available
+      if (response.templates.length > 0) {
+        setSelectedTemplate(response.templates[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load activated templates:', err);
+      setActivatedTemplates([]);
+      setSelectedTemplate(null);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  // Handle template selection (toggle selection if clicking same template)
+  const handleTemplateSelect = (templateId: string) => {
+    // If clicking the currently selected template, deselect it
+    if (selectedTemplate?.id === templateId) {
+      setSelectedTemplate(null);
+      setCoreExtractionData(null);
+      setAdditionalExtractionData(null);
+      setError(null);
+      return;
+    }
+
+    // Otherwise, select the new template
+    const template = activatedTemplates.find(t => t.id === templateId);
+    setSelectedTemplate(template || null);
+    setCoreExtractionData(null);
+    setAdditionalExtractionData(null);
+    setError(null);
+  };
+
+  // Extract medical summary - Progressive extraction (CORE first, then ADDITIONAL)
+  const handleExtract = async () => {
+    if (!transcript.trim()) {
+      setError('Please enter a transcript');
+      return;
+    }
+
+    if (!selectedTemplate) {
+      setError('Please select a template');
+      return;
+    }
+
+    if (!selectedDoctorId) {
+      setError('Please select a doctor');
+      return;
+    }
+
+    try {
+      // Step 1: Extract CORE segments first (fast, immediate response)
+      setLoadingCore(true);
+      setError(null);
+      setCoreExtractionData(null);
+      setAdditionalExtractionData(null);
+
+      const coreResponse = await extractMedicalSummary({
+        transcript: transcript.trim(),
+        doctor_id: selectedDoctorId,
+        template_name: selectedTemplate.template_name,
+        processing_mode: processingMode,  // NEW: Use processing_mode
+        mode: 'core',  // Only CORE segments
+      });
+
+      if (!coreResponse.success) {
+        throw new Error('Core extraction failed');
+      }
+
+      setCoreExtractionData(coreResponse);
+      setLoadingCore(false);
+
+      // Step 2: Extract ADDITIONAL segments in background (if they exist)
+      // This happens asynchronously while user views CORE results
+      extractAdditionalSegments();
+
+    } catch (err) {
+      setError(handleApiError(err));
+      setLoadingCore(false);
+    }
+  };
+
+  // Extract ADDITIONAL segments in background
+  const extractAdditionalSegments = async () => {
+    if (!transcript.trim() || !selectedTemplate || !selectedDoctorId) return;
+
+    try {
+      setLoadingAdditional(true);
+
+      const additionalResponse = await extractMedicalSummary({
+        transcript: transcript.trim(),
+        doctor_id: selectedDoctorId,
+        template_name: selectedTemplate.template_name,
+        processing_mode: processingMode,  // NEW: Use processing_mode
+        mode: 'additional',  // Only ADDITIONAL segments
+      });
+
+      if (additionalResponse.success) {
+        setAdditionalExtractionData(additionalResponse);
+      }
+    } catch (err) {
+      console.error('Additional extraction failed:', err);
+      // Don't show error to user - ADDITIONAL is optional
+    } finally {
+      setLoadingAdditional(false);
+    }
+  };
+
+  // Clear results
+  const handleClear = () => {
+    setCoreExtractionData(null);
+    setAdditionalExtractionData(null);
+    setError(null);
+    setTranscript('');
+  };
+
+  return (
+    <div className="h-full flex flex-col space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg shadow-lg p-6 text-white">
+        <h2 className="text-2xl font-bold mb-2">Medical Summary Extraction</h2>
+        <p className="text-sm text-purple-100">
+          Multi-consultation type AI-powered medical documentation (OP, Discharge, Respiratory)
+        </p>
+      </div>
+
+      {/* Doctor Selector */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <DoctorSelector
+          selectedDoctorId={selectedDoctorId}
+          onDoctorSelect={setSelectedDoctorId}
+          required={false}
+        />
+      </div>
+
+      {/* Activated Templates Selector */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        {!selectedDoctorId ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+            <svg className="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <p className="text-sm font-medium text-blue-900">Select a doctor to view activated templates</p>
+            <p className="text-xs text-blue-700 mt-1">Choose a doctor from the dropdown above</p>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Activated Templates
+              </label>
+              {loadingTemplates && (
+                <div className="flex items-center text-sm text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                  Loading templates...
+                </div>
+              )}
+            </div>
+
+            {!loadingTemplates && activatedTemplates.length === 0 && (
+              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm font-medium text-gray-700 mb-2">No activated templates</p>
+                <p className="text-xs text-gray-500">
+                  This doctor hasn't activated any templates yet.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Go to <span className="font-semibold">Medical Config</span> to activate templates.
+                </p>
+              </div>
+            )}
+
+            {!loadingTemplates && activatedTemplates.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activatedTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => handleTemplateSelect(template.id)}
+                    disabled={loadingCore}
+                    className={`
+                      relative flex flex-col items-start p-4 rounded-lg border-2 transition-all text-left
+                      ${
+                        selectedTemplate?.id === template.id
+                          ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
+                          : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+                      }
+                      ${loadingCore ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                  >
+                    <div className="w-full">
+                      {/* Template Name */}
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-gray-900">
+                          {template.template_name}
+                        </h4>
+                        {selectedTemplate?.template_code === template.template_code && (
+                          <svg
+                            className="w-5 h-5 text-purple-600 flex-shrink-0"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Consultation Type Badge */}
+                      <div className="inline-flex items-center px-2 py-1 rounded-md bg-purple-100 mb-2">
+                        <span className="text-xs font-medium text-purple-700">
+                          {template.consultation_type_name}
+                        </span>
+                      </div>
+
+                      {/* Description */}
+                      {template.description && (
+                        <p className="text-xs text-gray-600 line-clamp-2">
+                          {template.description}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Input */}
+        <div className="space-y-4">
+          {/* Processing Mode Selection */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Processing Mode
+            </label>
+            {loadingProcessingModes ? (
+              <div className="flex items-center justify-center py-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600 mr-2"></div>
+                <span className="text-sm text-gray-500">Loading processing modes...</span>
+              </div>
+            ) : processingModes.length === 0 ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                No processing modes available. Using default settings.
+              </div>
+            ) : (
+              <>
+                <select
+                  value={processingMode}
+                  onChange={(e) => setProcessingMode(e.target.value)}
+                  disabled={loadingCore}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900"
+                >
+                  {processingModes.map((mode) => (
+                    <option key={mode.mode_code} value={mode.mode_code} disabled={!mode.is_active}>
+                      {mode.mode_name} {mode.description ? `- ${mode.description}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 text-xs text-gray-600">
+                  {processingModes.find(m => m.mode_code === processingMode) && (
+                    <>
+                      <p><strong>{processingModes.find(m => m.mode_code === processingMode)?.mode_name}</strong></p>
+                      {processingModes.find(m => m.mode_code === processingMode)?.description && (
+                        <p className="mt-1">{processingModes.find(m => m.mode_code === processingMode)?.description}</p>
+                      )}
+                      <p className="mt-1">
+                        Estimated time: ~{processingModes.find(m => m.mode_code === processingMode)?.estimated_time_seconds}s
+                      </p>
+                      <p className="mt-1 text-purple-600 font-medium">
+                        Progressive extraction: CORE segments load first, ADDITIONAL segments load in background
+                      </p>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Transcript Input */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Transcript Input</h3>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleClear}
+                  disabled={!transcript && !coreExtractionData && !additionalExtractionData}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={handleExtract}
+                  disabled={!transcript.trim() || !selectedTemplate || loadingCore}
+                  className="px-6 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow"
+                >
+                  {loadingCore ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Extracting CORE...
+                    </span>
+                  ) : (
+                    'Extract'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder={`Paste your ${selectedTemplate?.consultation_type_name || 'consultation'} transcript here...
+
+Example:
+Doctor: Good morning. How are you feeling today?
+Patient: I've been having headaches and dizziness for the past 2 days.
+Doctor: When did these symptoms start?
+Patient: Two days ago, after I stopped taking my blood pressure medication.
+...`}
+              className="w-full h-80 px-4 py-3 border-2 border-gray-300 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm text-gray-900"
+              disabled={loadingCore}
+            />
+
+            <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+              <span>{transcript.length} characters</span>
+              {transcript.trim() && (
+                <span>{transcript.trim().split(/\s+/).length} words</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Results */}
+        <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Extraction Results</h3>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Extraction Failed</p>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State - CORE Extraction */}
+            {loadingCore && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mb-4"></div>
+                <p className="text-gray-600 font-medium">Extracting CORE segments...</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Processing with {processingModes.find(m => m.mode_code === processingMode)?.extraction_model || 'default model'}
+                </p>
+              </div>
+            )}
+
+            {/* Results Display - Progressive Loading */}
+            {!loadingCore && (coreExtractionData || additionalExtractionData) && (
+              <div className="space-y-4">
+                {/* Overall Metadata */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-600">Consultation Type</p>
+                      <p className="font-semibold text-gray-900">{selectedTemplate?.consultation_type_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Processing Mode</p>
+                      <p className="font-semibold text-gray-900">
+                        {processingModes.find(m => m.mode_code === processingMode)?.mode_name || processingMode}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">CORE Segments</p>
+                      <p className="font-semibold text-gray-900">
+                        {coreExtractionData ? `${coreExtractionData.metadata.segment_count} ✅` : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">ADDITIONAL Segments</p>
+                      <p className="font-semibold text-gray-900">
+                        {loadingAdditional ? (
+                          <span className="text-blue-600">Loading... ⏳</span>
+                        ) : additionalExtractionData ? (
+                          <span>{additionalExtractionData.metadata.segment_count} ✅</span>
+                        ) : (
+                          <span className="text-gray-400">None</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CORE Results */}
+                {coreExtractionData && (
+                  <div className="border-2 border-green-500 rounded-lg overflow-hidden">
+                    <div className="bg-green-50 px-4 py-3 border-b-2 border-green-500 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <h4 className="font-bold text-green-900">CORE Segments (Essential)</h4>
+                      </div>
+                      <span className="text-xs text-green-700 font-medium">
+                        {coreExtractionData.metadata.segment_count} segments • {processingModes.find(m => m.mode_code === processingMode)?.extraction_model || 'default'}
+                      </span>
+                    </div>
+                    <div className="p-4 max-h-[400px] overflow-y-auto bg-white">
+                      <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap">
+                        {JSON.stringify(coreExtractionData.data, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* ADDITIONAL Results - Loading State */}
+                {loadingAdditional && (
+                  <div className="border-2 border-blue-300 rounded-lg overflow-hidden">
+                    <div className="bg-blue-50 px-4 py-3 border-b-2 border-blue-300">
+                      <h4 className="font-bold text-blue-900">ADDITIONAL Segments (Loading...)</h4>
+                    </div>
+                    <div className="p-8 bg-white flex flex-col items-center justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-3"></div>
+                      <p className="text-blue-600 font-medium">Extracting additional segments in background...</p>
+                      <p className="text-sm text-gray-500 mt-2">CORE results available above</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ADDITIONAL Results - Completed */}
+                {!loadingAdditional && additionalExtractionData && (
+                  <div className="border-2 border-blue-500 rounded-lg overflow-hidden">
+                    <div className="bg-blue-50 px-4 py-3 border-b-2 border-blue-500 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <h4 className="font-bold text-blue-900">ADDITIONAL Segments (Supplementary)</h4>
+                      </div>
+                      <span className="text-xs text-blue-700 font-medium">
+                        {additionalExtractionData.metadata.segment_count} segments • {processingModes.find(m => m.mode_code === processingMode)?.extraction_model || 'default'}
+                      </span>
+                    </div>
+                    <div className="p-4 max-h-[400px] overflow-y-auto bg-white">
+                      <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap">
+                        {JSON.stringify(additionalExtractionData.data, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* Download Button */}
+                <button
+                  onClick={() => {
+                    const combinedData = {
+                      core: coreExtractionData?.data || null,
+                      additional: additionalExtractionData?.data || null,
+                      metadata: {
+                        consultation_type: selectedTemplate?.consultation_type_name,
+                        template_code: selectedTemplate?.template_code,
+                        processing_mode: processingMode,
+                        extraction_model: processingModes.find(m => m.mode_code === processingMode)?.extraction_model || 'default',
+                        core_segment_count: coreExtractionData?.metadata.segment_count || 0,
+                        additional_segment_count: additionalExtractionData?.metadata.segment_count || 0,
+                        total_segments: (coreExtractionData?.metadata.segment_count || 0) + (additionalExtractionData?.metadata.segment_count || 0),
+                        extracted_at: new Date().toISOString()
+                      }
+                    };
+
+                    const blob = new Blob([JSON.stringify(combinedData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${selectedTemplate?.template_code || 'medical'}_extraction_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center shadow-sm hover:shadow"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Complete Results (JSON)
+                </button>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!loadingCore && !coreExtractionData && !additionalExtractionData && !error && (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="font-medium">No extraction yet</p>
+                <p className="text-sm mt-1">Enter a transcript and click Extract</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Info Footer */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-blue-800">About Extraction Modes</p>
+            <p className="text-xs text-blue-700 mt-1">
+              <strong>CORE:</strong> Essential clinical segments for immediate use (~20-25s) •{' '}
+              <strong>ADDITIONAL:</strong> Supplementary documentation segments (~25-35s) •{' '}
+              <strong>FULL:</strong> Complete extraction with all available segments (~45-60s)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

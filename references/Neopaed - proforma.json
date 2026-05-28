@@ -1,0 +1,161 @@
+{
+  "success": true,
+  "insights": {
+    "CPR": "No",
+    "CTG": "Normal",
+    "DCT": "Not Done",
+    "HIV": "Negative",
+    "ICT": "Not Done",
+    "PPV": "No",
+    "dob": "2024-03-13",
+    "lmp": "2024-05-15",
+    "sex": "Female",
+    "tob": "12:15",
+    "PROM": "No",
+    "VDRL": "Negative",
+    "para": "0",
+    "plan": "Admitted to NICU in view of respiratory distress",
+    "uhid": "642642",
+    "apgar": {
+      "status": "known",
+      "minute1": {
+        "tone": 2,
+        "color": 1,
+        "total": 9,
+        "reflex": 2,
+        "heartRate": 2,
+        "respiration": 2
+      },
+      "minute5": {
+        "tone": 2,
+        "color": 2,
+        "total": 10,
+        "reflex": 2,
+        "heartRate": 2,
+        "respiration": 2
+      },
+      "minute10": {
+        "tone": 2,
+        "color": 2,
+        "total": 10,
+        "reflex": 2,
+        "heartRate": 2,
+        "respiration": 2
+      },
+      "minute15": {
+        "tone": "null",
+        "color": "null",
+        "total": null,
+        "reflex": "null",
+        "heartRate": "null",
+        "respiration": "null"
+      },
+      "minute20": {
+        "tone": "null",
+        "color": "null",
+        "total": null,
+        "reflex": "null",
+        "heartRate": "null",
+        "respiration": "null"
+      }
+    },
+    "drugs": "No",
+    "booked": "Yes",
+    "labour": "Yes",
+    "gravida": "1",
+    "EDDByUSG": "2026-01-30",
+    "abortion": "0",
+    "babyName": "B/O Suganya Anbumani",
+    "vitaminK": "Yes",
+    "EDDByDate": "2026-01-30",
+    "liveBirth": "0",
+    "HepatitisB": "Negative",
+    "birthOrder": "1",
+    "conception": "Spontaneous",
+    "indication": [
+      "Spontaneous onset of labor"
+    ],
+    "intubation": "No",
+    "supervised": "Yes",
+    "birthLength": "50",
+    "birthStatus": "Inborn",
+    "bookedPlace": "SKS Hospital",
+    "drugDetails": [],
+    "riskFactors": [],
+    "cordBloodGas": "No",
+    "facialOxygen": "No",
+    "malformation": "No",
+    "presentation": "Cephalic",
+    "vitaminKDose": "1mg",
+    "consanguinity": "No",
+    "fetalDistress": "No",
+    "gestationDays": "1",
+    "resuscitation": "No",
+    "vitaminKRoute": "IM",
+    "cutCordMilking": "No",
+    "gestationWeeks": "39",
+    "medicalProblem": [
+      {
+        "problem": 17
+      }
+    ],
+    "modeOfDelivery": "Vaginal",
+    "natureofLabour": "Spontaneous",
+    "transferStatus": "NICU",
+    "commentOnLiquor": "Clear",
+    "maternalPyrexia": "No",
+    "pleaceOfBooking": "SKS Hospital",
+    "deliveryRoomCPAP": "No",
+    "otherScanDetails": [
+      {
+        "date": "2026-01-15",
+        "findings": "Good growth",
+        "gestation": "34 weeks"
+      },
+      {}
+    ],
+    "typeofAnesthesia": "None",
+    "antenatalSteroids": "No",
+    "backgroundDetails": "Term female AGA, respiratory distress. Mother has chronic hypertension on labetalol. Gravida 1, para 0, live birth 0, abortion 0. Spontaneous conception. LMP 15th May 2024. EDD 30th January 2026. HIV non-reactive, Hepatitis B non-reactive, VDRL non-reactive. Booked at SKS Hospital with supervision. Singleton pregnancy, no complications. Antenatal scans normal. No antenatal steroids or magnesium sulfate. Spontaneous labor, clear liquor, no maternal risk factors for sepsis. Normal vaginal delivery, cephalic presentation, no fetal distress, normal CTG. Delayed cord clamping done. No resuscitation required at birth.",
+    "datingScanDetails": {
+      "date": "2023-07-23",
+      "findings": "Normal confirmed pregnancy",
+      "gestation": "6 weeks"
+    },
+    "multiplePregnancy": "No",
+    "anomalyScanDetails": {
+      "date": "2023-09-04",
+      "findings": "Normal",
+      "gestation": "24 weeks"
+    },
+    "bagMaskVentilation": "No",
+    "dopplerScanDetails": [
+      {
+        "date": "2026-01-15",
+        "findings": "Normal Doppler",
+        "gestation": "34 weeks"
+      },
+      {}
+    ],
+    "delayedCordClamping": "Yes",
+    "maternalAntibiotics": "No",
+    "otherInvestigations": "Not applicable",
+    "pleaceOfSupervision": "SKS Hospital",
+    "liveBirthBabyDetails": [
+      {},
+      {}
+    ],
+    "umbilicalCordMilking": "No",
+    "birthHeadCircunference": "35",
+    "pregnancyComplications": "No",
+    "initialExaminationSummary": "Baby has mild tachypnea, mild retractions",
+    "maternalAntibioticsDetails": [],
+    "pregnancyComplicationsDetails": [
+      {},
+      {}
+    ],
+    "riskFactorsForSepsisInMothers": "No",
+    "antenatalMgSO4ForNeuroprotection": "No",
+    "adjustedRiskForTrisomiesAvailable": "No"
+  }
+}

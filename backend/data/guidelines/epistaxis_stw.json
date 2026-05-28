@@ -1,0 +1,214 @@
+{
+  "document_meta": {
+    "source": "ICMR STW",
+    "specialty": "ent",
+    "document_type": "step_protocol",
+    "version": "October 2019",
+    "icd_codes": ["R04.0"],
+    "language": "en"
+  },
+
+  "conditions": [
+    {
+      "condition_id": "ent_epistaxis_001",
+      "name": "Epistaxis",
+      "aliases": ["Nosebleed", "Nasal Hemorrhage"],
+      "icd_codes": ["R04.0"],
+
+      "clinical_scenarios": [
+        {"scenario": "Post-trauma/barotrauma/nose picking/exertion", "urgency": "routine"},
+        {"scenario": "Hypertensive/hematological disorders", "urgency": "urgent"},
+        {"scenario": "No obvious cause", "urgency": "routine"}
+      ],
+
+      "clinical_pearls": [
+        "In children: almost always anterior from Little's area, due to mucosal drying",
+        "In adults: often posterior from inferior turbinate, related to hypertension",
+        "Initial non-invasive methods suffice in majority"
+      ],
+
+      "triage_metadata": {
+        "urgency_levels": ["routine", "urgent", "emergency"],
+        "default_urgency": "routine",
+        "red_flags": [
+          {"flag": "features of neoplasia", "signs": ["unilateral bleeding", "nasal obstruction", "visual/orbital symptoms", "mass lesion"]},
+          {"flag": "persistent bleeding despite nasal packing", "action": "tertiary_referral"},
+          {"flag": "altered blood counts/coagulation", "action": "hematology_workup"},
+          {"flag": "recurrent profuse bleeding in teenage boys", "consider": "JNA", "action": "tertiary_referral"}
+        ]
+      },
+
+      "clinical_presentation": {
+        "symptoms": [
+          {"symptom": "unilateral nasal bleeding", "frequency": "most_common"},
+          {"symptom": "bilateral nasal bleeding", "frequency": "uncommon"},
+          {"symptom": "blood in throat (posterior)", "frequency": "common"}
+        ],
+        "examination_findings": [
+          "anterior rhinoscopy/endoscopy for bleeding source",
+          "check Little's area for bleeder/clot/congestion",
+          "look for sharp septal spur",
+          "assess for URTI (congested mucosa)",
+          "general physical exam (CV/respiratory/neurological)"
+        ]
+      },
+
+      "clinical_examination": {
+        "essential": [
+          "anterior rhinoscopy/endoscopy for bleeding source",
+          "check Little's area for bleeder/clot/congestion",
+          "look for sharp septal spur",
+          "assess for URTI (congested mucosa)",
+          "general physical exam (CV/respiratory/neurological)"
+        ],
+        "systemic_assessment": "screen for coagulation disorders, anticoagulant medications, hematological malignancies"
+      },
+
+      "differential_diagnosis": [
+        "local trauma (nose picking, foreign body)",
+        "hypertension",
+        "coagulation disorder",
+        "anticoagulant use",
+        "nasal tumor (benign/malignant)",
+        "hereditary hemorrhagic telangiectasia"
+      ],
+
+      "investigations": {
+        "baseline": ["hemoglobin", "coagulation profile", "CBC"],
+        "advanced": [
+          {"test": "CT with contrast", "indication": "no obvious cause OR suspected benign/malignant lesion"}
+        ]
+      },
+
+      "step_wise_management": {
+        "description": "Step-wise approach to epistaxis management",
+        "steps": [
+          {
+            "step": 1,
+            "action": "Ensure patent airway, avoid aspiration (head down/lateral positioning)"
+          },
+          {
+            "step": 2,
+            "action": "Restore hemodynamic stability (IV fluids/transfusion)"
+          },
+          {
+            "step": 3,
+            "action": "Control bleeding",
+            "methods": [
+              "bidigital compression x10 min in Trotter's position",
+              "cotton pledgets with 4% xylocaine + adrenaline",
+              "labetalol for uncontrolled hypertension",
+              "chemical/electrocautery of Little's area bleeder"
+            ]
+          },
+          {
+            "step": 4,
+            "action": "Tamponade with anterior nasal packing/epistaxis balloon"
+          },
+          {
+            "step": 5,
+            "action": "Posterior nasal packing if anterior fails"
+          },
+          {
+            "step": 6,
+            "action": "Antibiotic prophylaxis + hospitalization after packing"
+          },
+          {
+            "step": 7,
+            "action": "H2 blockers/PPI if blood aspiration (prevent gastritis)"
+          },
+          {
+            "step": 8,
+            "action": "Arterial ligation if packing fails (sphenopalatine/anterior ethmoidal)"
+          },
+          {
+            "step": 9,
+            "action": "Selective embolization as surgery alternative"
+          },
+          {
+            "step": 10,
+            "action": "Address identified etiology"
+          }
+        ]
+      },
+
+      "treatment_by_care_level": {
+        "phc_primary": {
+          "conservative": [
+            "bidigital compression x10 min",
+            "ice pack to nasal bridge",
+            "head forward position to prevent aspiration"
+          ],
+          "medical": [
+            "cotton pledgets with vasoconstrictor",
+            "chemical cautery (silver nitrate) for visible anterior bleeder"
+          ]
+        },
+        "district_hospital": {
+          "additional_capabilities": [
+            "anterior nasal packing",
+            "posterior nasal packing",
+            "epistaxis balloon",
+            "endoscopic cautery"
+          ],
+          "surgical_indications": [
+            "failed conservative management",
+            "recurrent episodes",
+            "posterior bleeding source"
+          ]
+        },
+        "tertiary": {
+          "indications": [
+            "failed nasal packing",
+            "suspected tumor",
+            "recurrent profuse bleeding in teenage boys (JNA)",
+            "need for arterial ligation/embolization"
+          ],
+          "additional_capabilities": [
+            "sphenopalatine artery ligation",
+            "anterior ethmoidal artery ligation",
+            "selective embolization",
+            "tumor resection"
+          ]
+        }
+      },
+
+      "referral_criteria": [
+        "persistent bleeding despite nasal packing",
+        "suspected neoplasia",
+        "recurrent profuse bleeding in teenage boys",
+        "need for surgical intervention",
+        "coagulation disorders requiring hematology input"
+      ],
+
+      "complications": [
+        {"complication": "aspiration pneumonia", "urgency": "urgent"},
+        {"complication": "hypovolemic shock", "urgency": "emergency"},
+        {"complication": "synechiae (post-packing)", "urgency": "routine"},
+        {"complication": "septal perforation (post-cautery)", "urgency": "routine"}
+      ],
+
+      "follow_up": {
+        "interventions": [
+          "continued nasal lubrication x2 weeks (liquid paraffin)",
+          "repeat anterior rhinoscopy/endoscopy to confirm cause",
+          "oral hematinics if needed"
+        ],
+        "quality_metrics": [
+          "recurrence of episodes",
+          "hemoglobin improvement over time"
+        ]
+      },
+
+      "patient_education": {
+        "key_messages": [
+          "Keep nails short, avoid nose picking",
+          "Use nasal lubricants in dry weather",
+          "Avoid forceful nose blowing",
+          "Apply pressure correctly if bleeding recurs",
+          "Seek immediate care if bleeding doesn't stop in 20 minutes"
+        ]
+      }
+    }
+  ]
+}

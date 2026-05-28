@@ -1,0 +1,1007 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "clinical_guideline_schema.json",
+  "title": "Clinical Guideline Document Schema",
+  "description": "JSON Schema for clinical guideline documents used in the RAG-based triage system. Supports three document types: narrative_guideline, visual_workflow, and step_protocol.",
+  "type": "object",
+  "required": ["document_meta", "conditions"],
+  "properties": {
+    "document_meta": {
+      "$ref": "#/definitions/DocumentMeta"
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/ClinicalCondition"
+      },
+      "description": "List of clinical conditions defined in this document. Each condition_id must be unique within the document."
+    }
+  },
+
+  "definitions": {
+    "DocumentMeta": {
+      "type": "object",
+      "required": ["source", "specialty"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Source organization (e.g., 'Ministry of Health STG', 'ICMR STW')"
+        },
+        "specialty": {
+          "type": "string",
+          "description": "Medical specialty. Will be normalized to lowercase with underscores (e.g., 'cardiology', 'ent', 'obstetrics_gynaecology')"
+        },
+        "document_type": {
+          "type": "string",
+          "enum": ["narrative_guideline", "visual_workflow", "step_protocol"],
+          "description": "Type of document structure"
+        },
+        "version": {
+          "type": "string",
+          "description": "Document version (e.g., '2024', 'October 2019')"
+        },
+        "language": {
+          "type": "string",
+          "default": "en",
+          "description": "Language code (default: 'en')"
+        },
+        "icd_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]\\d{2}(\\.\\d{1,2})?$"
+          },
+          "description": "ICD-10 codes for the document (e.g., ['I10', 'I11.9'])"
+        }
+      }
+    },
+
+    "ClinicalCondition": {
+      "type": "object",
+      "required": ["condition_id", "name", "triage_metadata"],
+      "properties": {
+        "condition_id": {
+          "type": "string",
+          "pattern": "^[a-z]+_[a-z_]+_\\d{3}$",
+          "description": "Unique identifier in format: specialty_name_NNN (e.g., 'cardio_htn_001', 'ent_epistaxis_001')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the clinical condition"
+        },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Alternative names for the condition"
+        },
+        "icd_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]\\d{2}(\\.\\d{1,2})?$"
+          },
+          "description": "ICD-10 codes (e.g., ['I10', 'R04.0'])"
+        },
+        "classification": {
+          "$ref": "#/definitions/Classification"
+        },
+        "triage_metadata": {
+          "$ref": "#/definitions/TriageMetadata"
+        },
+        "clinical_presentation": {
+          "$ref": "#/definitions/ClinicalPresentation"
+        },
+        "clinical_examination": {
+          "type": "object",
+          "description": "Clinical examination details (free-form structure)"
+        },
+        "clinical_scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ClinicalScenario"
+          },
+          "description": "Clinical scenarios with urgency levels"
+        },
+        "clinical_pearls": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Clinical pearls and key insights"
+        },
+        "differential_diagnosis": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/DifferentialDiagnosis" }
+            ]
+          },
+          "description": "Differential diagnoses (string or structured)"
+        },
+        "investigations": {
+          "$ref": "#/definitions/Investigations"
+        },
+        "treatment_by_care_level": {
+          "$ref": "#/definitions/TreatmentByCareLevel"
+        },
+        "comorbidity_pathways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ComorbidityPathway"
+          },
+          "description": "Management pathways for specific comorbidities"
+        },
+        "drug_formulary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DrugEntry"
+          },
+          "description": "Drug formulary with dosing and contraindications"
+        },
+        "step_wise_management": {
+          "$ref": "#/definitions/StepWiseManagement"
+        },
+        "emergency_protocols": {
+          "$ref": "#/definitions/EmergencyProtocols"
+        },
+        "referral_criteria": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Criteria for referral to higher care level"
+        },
+        "complications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ComplicationEntry"
+          },
+          "description": "Potential complications with urgency"
+        },
+        "follow_up": {
+          "$ref": "#/definitions/FollowUp"
+        },
+        "patient_education": {
+          "$ref": "#/definitions/PatientEducation"
+        }
+      }
+    },
+
+    "TriageMetadata": {
+      "type": "object",
+      "required": ["default_urgency"],
+      "properties": {
+        "urgency_levels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["routine", "urgent", "emergency"]
+          },
+          "default": ["routine", "urgent", "emergency"],
+          "description": "Available urgency levels for this condition"
+        },
+        "default_urgency": {
+          "type": "string",
+          "enum": ["routine", "urgent", "emergency"],
+          "description": "Default urgency level when no specific triggers match"
+        },
+        "emergency_triggers": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/EmergencyTrigger" }
+            ]
+          },
+          "description": "Conditions that trigger emergency urgency"
+        },
+        "red_flags": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/RedFlag" }
+            ]
+          },
+          "description": "Clinical red flags requiring attention"
+        },
+        "red_flags_for_referral": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RedFlag"
+          },
+          "description": "Red flags specifically indicating need for referral"
+        },
+        "referral_triggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReferralTrigger"
+          },
+          "description": "Conditions triggering referral"
+        }
+      }
+    },
+
+    "EmergencyTrigger": {
+      "type": "object",
+      "required": ["trigger"],
+      "properties": {
+        "trigger": {
+          "type": "string",
+          "description": "Description of the emergency trigger"
+        },
+        "symptoms": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Associated symptoms"
+        },
+        "mnemonic": {
+          "type": "string",
+          "description": "Mnemonic to remember symptoms (e.g., 'ABCDEFG')"
+        }
+      }
+    },
+
+    "RedFlag": {
+      "type": "object",
+      "required": ["flag"],
+      "properties": {
+        "flag": {
+          "type": "string",
+          "description": "Description of the red flag"
+        },
+        "definition": {
+          "type": "string",
+          "description": "Clinical definition"
+        },
+        "clues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Clinical clues"
+        },
+        "signs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Physical signs"
+        },
+        "action": {
+          "type": "string",
+          "description": "Recommended action (e.g., 'refer_specialist', 'tertiary_referral')"
+        },
+        "consider": {
+          "type": "string",
+          "description": "Differential to consider (e.g., 'JNA')"
+        }
+      }
+    },
+
+    "ReferralTrigger": {
+      "type": "object",
+      "required": ["condition", "refer_to"],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "description": "Condition requiring referral"
+        },
+        "refer_to": {
+          "type": "string",
+          "description": "Referral destination (e.g., 'medical_college_specialist')"
+        }
+      }
+    },
+
+    "Classification": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "graded",
+          "description": "Classification type (e.g., 'graded')"
+        },
+        "grades": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ClassificationGrade"
+          },
+          "description": "Classification grades with criteria"
+        }
+      }
+    },
+
+    "ClassificationGrade": {
+      "type": "object",
+      "required": ["grade", "criteria"],
+      "properties": {
+        "grade": {
+          "type": "string",
+          "description": "Grade name (e.g., 'Grade 1', 'Grade 2')"
+        },
+        "criteria": {
+          "$ref": "#/definitions/GradeCriteria"
+        },
+        "default_urgency": {
+          "type": "string",
+          "enum": ["routine", "urgent", "emergency"]
+        },
+        "symptoms_mnemonic": {
+          "type": "string",
+          "description": "Mnemonic for associated symptoms"
+        }
+      }
+    },
+
+    "GradeCriteria": {
+      "type": "object",
+      "properties": {
+        "sbp_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Systolic BP range [min, max]"
+        },
+        "dbp_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Diastolic BP range [min, max]"
+        },
+        "sbp_min": {
+          "type": "integer",
+          "description": "Minimum systolic BP threshold"
+        },
+        "dbp_min": {
+          "type": "integer",
+          "description": "Minimum diastolic BP threshold"
+        },
+        "operator": {
+          "type": "string",
+          "description": "Logical operator for criteria (e.g., 'and/or')"
+        },
+        "additional": {
+          "type": "string",
+          "description": "Additional criteria description"
+        }
+      }
+    },
+
+    "ClinicalPresentation": {
+      "type": "object",
+      "properties": {
+        "symptoms": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/SymptomEntry" }
+            ]
+          },
+          "description": "Symptoms (string or structured)"
+        },
+        "examination_findings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Physical examination findings"
+        },
+        "when_to_suspect": {
+          "type": "string",
+          "description": "When to suspect this condition"
+        }
+      }
+    },
+
+    "SymptomEntry": {
+      "type": "object",
+      "required": ["symptom"],
+      "properties": {
+        "symptom": {
+          "type": "string",
+          "description": "Symptom name"
+        },
+        "frequency": {
+          "type": "string",
+          "enum": ["most_common", "common", "uncommon", "rare", "associated"],
+          "description": "How commonly this symptom occurs"
+        },
+        "note": {
+          "type": "string",
+          "description": "Additional notes"
+        }
+      }
+    },
+
+    "ClinicalScenario": {
+      "type": "object",
+      "required": ["scenario", "urgency"],
+      "properties": {
+        "scenario": {
+          "type": "string",
+          "description": "Clinical scenario description"
+        },
+        "urgency": {
+          "type": "string",
+          "enum": ["routine", "urgent", "emergency"],
+          "description": "Urgency level for this scenario"
+        }
+      }
+    },
+
+    "DifferentialDiagnosis": {
+      "type": "object",
+      "required": ["condition"],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "description": "Differential diagnosis name"
+        },
+        "distinguishing_feature": {
+          "type": "string",
+          "description": "How to distinguish from main condition"
+        },
+        "prevalence": {
+          "type": "string",
+          "description": "Prevalence information"
+        },
+        "causes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Causes of this differential"
+        }
+      }
+    },
+
+    "Investigations": {
+      "type": "object",
+      "properties": {
+        "baseline": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/InvestigationTest" }
+            ]
+          },
+          "description": "Baseline/initial investigations"
+        },
+        "confirmatory": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/InvestigationTest" }
+            ]
+          },
+          "description": "Confirmatory investigations"
+        },
+        "advanced": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/InvestigationTest" }
+            ]
+          },
+          "description": "Advanced/specialized investigations"
+        },
+        "essential": {
+          "$ref": "#/definitions/InvestigationTier",
+          "description": "Essential investigations (narrative format)"
+        },
+        "desirable": {
+          "$ref": "#/definitions/InvestigationTier",
+          "description": "Desirable investigations (narrative format)"
+        },
+        "comprehensive": {
+          "$ref": "#/definitions/InvestigationTier",
+          "description": "Comprehensive investigations (narrative format)"
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/InvestigationTest" }
+            ]
+          },
+          "description": "Simple list of tests"
+        },
+        "indication": {
+          "type": "string",
+          "description": "When to perform investigations"
+        }
+      }
+    },
+
+    "InvestigationTier": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of this tier"
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/InvestigationTest" }
+            ]
+          }
+        },
+        "indication": {
+          "type": "string"
+        }
+      }
+    },
+
+    "InvestigationTest": {
+      "type": "object",
+      "required": ["test"],
+      "properties": {
+        "test": {
+          "type": "string",
+          "description": "Test name"
+        },
+        "abnormal": {
+          "type": "string",
+          "description": "Abnormal value definition"
+        },
+        "significance": {
+          "type": "string",
+          "description": "Clinical significance"
+        },
+        "indication": {
+          "type": "string",
+          "description": "When to perform this test"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Purpose of the test"
+        }
+      }
+    },
+
+    "TreatmentByCareLevel": {
+      "type": "object",
+      "properties": {
+        "phc_primary": {
+          "$ref": "#/definitions/PHCTreatment"
+        },
+        "district_hospital": {
+          "$ref": "#/definitions/DistrictTreatment"
+        },
+        "tertiary_medical_college": {
+          "$ref": "#/definitions/TertiaryTreatment"
+        },
+        "tertiary": {
+          "$ref": "#/definitions/TertiaryTreatment"
+        },
+        "secondary_hospital": {
+          "type": "object",
+          "description": "Secondary hospital treatment (alternative format)"
+        }
+      }
+    },
+
+    "PHCTreatment": {
+      "type": "object",
+      "properties": {
+        "lifestyle_modifications": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "object" }
+            ]
+          },
+          "description": "Lifestyle modification recommendations"
+        },
+        "drug_therapy": {
+          "type": "object",
+          "description": "Drug therapy details"
+        },
+        "medications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DrugEntry"
+          }
+        },
+        "supportive": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Supportive measures"
+        },
+        "duration": {
+          "type": "string",
+          "description": "Treatment duration"
+        },
+        "conservative": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Conservative management options"
+        },
+        "medical": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Medical management options"
+        },
+        "surgical": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Surgical options at PHC level"
+        }
+      }
+    },
+
+    "DistrictTreatment": {
+      "type": "object",
+      "properties": {
+        "additional_capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional capabilities at district level"
+        },
+        "surgical_indications": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Indications for surgical intervention"
+        },
+        "referrals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "description": "Referral recommendations"
+        }
+      }
+    },
+
+    "TertiaryTreatment": {
+      "type": "object",
+      "properties": {
+        "referral_indications": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Indications for tertiary referral"
+        },
+        "additional_capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional capabilities at tertiary level"
+        },
+        "additional_options": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional treatment options"
+        },
+        "indications": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Indications for tertiary care"
+        }
+      }
+    },
+
+    "ComorbidityPathway": {
+      "type": "object",
+      "required": ["comorbidity"],
+      "properties": {
+        "comorbidity": {
+          "type": "string",
+          "enum": ["diabetes", "chronic_kidney_disease", "heart_failure", "coronary_artery_disease", "previous_stroke", "hypertension", "copd", "asthma", "liver_disease", "thyroid"],
+          "description": "Standardized comorbidity type"
+        },
+        "preferred_drugs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Preferred drugs for this comorbidity"
+        },
+        "avoid": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Drugs to avoid"
+        },
+        "target_bp": {
+          "type": "string",
+          "description": "Target BP for this comorbidity"
+        },
+        "monitoring": {
+          "type": "string",
+          "description": "Monitoring requirements"
+        },
+        "special_notes": {
+          "type": "string",
+          "description": "Special notes"
+        }
+      }
+    },
+
+    "DrugEntry": {
+      "type": "object",
+      "properties": {
+        "drug": {
+          "type": "string",
+          "description": "Drug name"
+        },
+        "drug_class": {
+          "type": "string",
+          "description": "Drug class (e.g., 'CCB', 'ACE inhibitor')"
+        },
+        "representative": {
+          "type": "string",
+          "description": "Representative drug of the class"
+        },
+        "initial_dose": {
+          "type": "string",
+          "description": "Initial dosing"
+        },
+        "max_dose": {
+          "type": "string",
+          "description": "Maximum dose"
+        },
+        "low_dose": {
+          "type": "string",
+          "description": "Low dose option"
+        },
+        "low_dose_situations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "When to use low dose"
+        },
+        "dose": {
+          "type": "string",
+          "description": "Standard dose (alternative field)"
+        },
+        "side_effects": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Common side effects"
+        },
+        "contraindications": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Contraindications"
+        },
+        "pregnancy_category": {
+          "type": "string",
+          "description": "Pregnancy risk category"
+        },
+        "monitoring": {
+          "type": "string",
+          "description": "Monitoring requirements"
+        },
+        "special_notes": {
+          "type": "string",
+          "description": "Special notes"
+        },
+        "duration": {
+          "type": "string",
+          "description": "Treatment duration"
+        },
+        "indication": {
+          "type": "string",
+          "description": "When to use"
+        },
+        "benefit": {
+          "type": "string",
+          "description": "Expected benefit"
+        },
+        "first_line": {
+          "type": "boolean",
+          "description": "Whether this is a first-line drug"
+        },
+        "onset": {
+          "type": "string",
+          "description": "Onset of action"
+        }
+      }
+    },
+
+    "StepWiseManagement": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of the step-wise protocol"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManagementStep"
+          },
+          "description": "Ordered management steps"
+        }
+      }
+    },
+
+    "ManagementStep": {
+      "type": "object",
+      "required": ["step"],
+      "properties": {
+        "step": {
+          "type": "integer",
+          "description": "Step number"
+        },
+        "description": {
+          "type": "string",
+          "description": "Step description"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action to take"
+        },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Treatment options"
+        },
+        "methods": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Methods to use"
+        },
+        "duration_before_escalation": {
+          "type": "string",
+          "description": "Time before escalating to next step"
+        },
+        "applies_to": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Patient populations this step applies to"
+        },
+        "avoid_combinations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Drug combinations to avoid"
+        },
+        "recommended": {
+          "type": "string",
+          "description": "Recommended option"
+        }
+      }
+    },
+
+    "EmergencyProtocols": {
+      "type": "object",
+      "properties": {
+        "hypertensive_emergency": {
+          "$ref": "#/definitions/EmergencyProtocol"
+        },
+        "hypertensive_urgency": {
+          "$ref": "#/definitions/EmergencyProtocol"
+        },
+        "stroke_specific": {
+          "type": "object",
+          "properties": {
+            "ischemic_stroke": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            },
+            "hemorrhagic_stroke": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "EmergencyProtocol": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "type": "string",
+          "description": "Definition of this emergency"
+        },
+        "target": {
+          "type": "string",
+          "description": "Treatment target"
+        },
+        "drugs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EmergencyDrug"
+          },
+          "description": "Emergency drugs"
+        },
+        "avoid": {
+          "type": "string",
+          "description": "What to avoid"
+        },
+        "management": {
+          "type": "string",
+          "description": "Management approach"
+        }
+      }
+    },
+
+    "EmergencyDrug": {
+      "type": "object",
+      "required": ["drug"],
+      "properties": {
+        "drug": {
+          "type": "string",
+          "description": "Drug name"
+        },
+        "dose": {
+          "type": "string",
+          "description": "Dosing"
+        },
+        "onset": {
+          "type": "string",
+          "description": "Onset of action"
+        },
+        "indication": {
+          "type": "string",
+          "description": "When to use"
+        }
+      }
+    },
+
+    "ComplicationEntry": {
+      "type": "object",
+      "required": ["complication"],
+      "properties": {
+        "complication": {
+          "type": "string",
+          "description": "Complication name"
+        },
+        "urgency": {
+          "type": "string",
+          "enum": ["routine", "urgent", "emergency"],
+          "description": "Urgency level"
+        },
+        "frequency": {
+          "type": "string",
+          "description": "How common"
+        }
+      }
+    },
+
+    "FollowUp": {
+      "type": "object",
+      "properties": {
+        "frequency": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Follow-up frequency by status"
+        },
+        "annual_review_components": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Components of annual review"
+        },
+        "quality_metrics": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Quality metrics to track"
+        },
+        "interventions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Follow-up interventions"
+        }
+      }
+    },
+
+    "PatientEducation": {
+      "type": "object",
+      "properties": {
+        "key_messages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Key messages for patient"
+        },
+        "self_monitoring": {
+          "type": "object",
+          "properties": {
+            "encouraged": { "type": "boolean" },
+            "device": { "type": "string" },
+            "frequency": { "type": "string" }
+          },
+          "description": "Self-monitoring guidance"
+        }
+      }
+    }
+  }
+}

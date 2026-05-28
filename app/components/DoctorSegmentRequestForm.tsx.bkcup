@@ -1,0 +1,244 @@
+'use client';
+
+import React, { useState } from 'react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000';
+
+interface DoctorSegmentRequestFormProps {
+  doctorId: string;
+  templateCode: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+export default function DoctorSegmentRequestForm({
+  doctorId,
+  templateCode,
+  onSuccess,
+  onCancel
+}: DoctorSegmentRequestFormProps) {
+  // Form state
+  const [segmentName, setSegmentName] = useState('');
+  const [description, setDescription] = useState('');
+  const [defaultCategory, setDefaultCategory] = useState<'core' | 'additional'>('additional');
+  const [defaultBrevity, setDefaultBrevity] = useState<'concise' | 'balanced' | 'detailed'>('balanced');
+  const [defaultTerminology, setDefaultTerminology] = useState<'medical_terms' | 'simple_terms' | 'as_spoken'>('medical_terms');
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/summary/segments/request?template_code=${templateCode}&doctor_id=${doctorId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            segment_name: segmentName,
+            description: description,
+            default_category: defaultCategory,
+            default_brevity: defaultBrevity,
+            default_terminology: defaultTerminology,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to submit segment request');
+      }
+
+      const data = await response.json();
+      alert('Segment request submitted successfully! Admin will review and add the schema.');
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit segment request');
+      console.error('Error submitting segment request:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-indigo-600 text-white p-6 rounded-t-lg">
+          <h2 className="text-2xl font-bold">Request New Segment</h2>
+          <p className="text-indigo-100 text-sm mt-1">
+            Submit segment details for admin review (schema will be added by admin)
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg
+                  className="w-5 h-5 text-red-600 dark:text-red-400 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <p className="text-red-800 dark:text-red-400 text-sm">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Segment Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+              Segment Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={segmentName}
+              onChange={(e) => setSegmentName(e.target.value)}
+              placeholder="e.g., Family History, Medication Adherence"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              required
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Display name for the segment
+            </p>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+              Description <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe what information should be extracted from the consultation..."
+              rows={5}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              required
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Explain what to extract from consultations (admin will create the schema based on this)
+            </p>
+          </div>
+
+          {/* Two-column layout for category and brevity */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Default Category */}
+            <div>
+              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+                Default Category <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={defaultCategory}
+                onChange={(e) => setDefaultCategory(e.target.value as 'core' | 'additional')}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="core">Core (Essential)</option>
+                <option value="additional">Additional (Supplementary)</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Where this segment should appear
+              </p>
+            </div>
+
+            {/* Default Brevity */}
+            <div>
+              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+                Default Brevity <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={defaultBrevity}
+                onChange={(e) => setDefaultBrevity(e.target.value as 'concise' | 'balanced' | 'detailed')}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="concise">Concise</option>
+                <option value="balanced">Balanced</option>
+                <option value="detailed">Detailed</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Level of detail in extraction
+              </p>
+            </div>
+          </div>
+
+          {/* Default Terminology */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+              Default Terminology <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={defaultTerminology}
+              onChange={(e) => setDefaultTerminology(e.target.value as 'medical_terms' | 'simple_terms' | 'as_spoken')}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="medical_terms">Medical Terms</option>
+              <option value="simple_terms">Simple Terms</option>
+              <option value="as_spoken">As Spoken</option>
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Language style for extraction
+            </p>
+          </div>
+
+          {/* Info Box */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg
+                className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  Workflow
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                  Your segment request will be reviewed by an admin who will add the JSON schema
+                  definition. Once approved, the segment will become available in your template.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

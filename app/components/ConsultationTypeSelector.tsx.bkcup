@@ -1,0 +1,188 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import type { ConsultationType, ConsultationTypeCode } from "@lib/types";
+import { getConsultationTypes, handleApiError } from "@lib/summaryApi";
+
+interface ConsultationTypeSelectorProps {
+  selectedType: ConsultationTypeCode;
+  onTypeChange: (type: ConsultationTypeCode) => void;
+  disabled?: boolean;
+}
+
+export function ConsultationTypeSelector({
+  selectedType,
+  onTypeChange,
+  disabled = false,
+}: ConsultationTypeSelectorProps) {
+  const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadConsultationTypes();
+  }, []);
+
+  const loadConsultationTypes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getConsultationTypes();
+      setConsultationTypes(response.consultation_types);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center space-x-2">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+        <span className="text-sm text-gray-600">Loading consultation types...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <p className="text-sm text-red-800">Failed to load consultation types: {error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">
+        Consultation Type
+      </label>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {consultationTypes.map((type) => (
+          <button
+            key={type.type_code}
+            onClick={() => onTypeChange(type.type_code as ConsultationTypeCode)}
+            disabled={disabled}
+            className={`
+              relative flex items-center justify-center p-4 rounded-lg border-2 transition-all
+              ${
+                selectedType === type.type_code
+                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                  : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+              }
+              ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+            `}
+            style={{
+              borderColor: selectedType === type.type_code ? type.color_code || undefined : undefined,
+            }}
+          >
+            <div className="flex flex-col items-center space-y-2">
+              {/* Icon placeholder - you can replace with actual icons */}
+              <div
+                className={`
+                  w-10 h-10 rounded-full flex items-center justify-center font-bold text-white
+                  ${selectedType === type.type_code ? 'opacity-100' : 'opacity-70'}
+                `}
+                style={{ backgroundColor: type.color_code || '#6B7280' }}
+              >
+                {type.type_code.charAt(0)}
+              </div>
+
+              {/* Type name */}
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-900">
+                  {type.type_name}
+                </p>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {type.type_code}
+                </p>
+              </div>
+
+              {/* Selected indicator */}
+              {selectedType === type.type_code && (
+                <div className="absolute top-2 right-2">
+                  <svg
+                    className="w-5 h-5 text-blue-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Description for selected type */}
+      {consultationTypes.find((t) => t.type_code === selectedType)?.description && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+          <p className="text-sm text-blue-800">
+            {consultationTypes.find((t) => t.type_code === selectedType)?.description}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Compact version - dropdown select
+ */
+export function ConsultationTypeDropdown({
+  selectedType,
+  onTypeChange,
+  disabled = false,
+}: ConsultationTypeSelectorProps) {
+  const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadConsultationTypes();
+  }, []);
+
+  const loadConsultationTypes = async () => {
+    try {
+      const response = await getConsultationTypes();
+      setConsultationTypes(response.consultation_types);
+    } catch (err) {
+      console.error('Failed to load consultation types:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <select disabled className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-900">
+        <option>Loading...</option>
+      </select>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-gray-700">
+        Consultation Type
+      </label>
+      <select
+        value={selectedType}
+        onChange={(e) => onTypeChange(e.target.value as ConsultationTypeCode)}
+        disabled={disabled}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 bg-white"
+      >
+        {consultationTypes.map((type) => (
+          <option key={type.type_code} value={type.type_code}>
+            {type.type_name} ({type.type_code})
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

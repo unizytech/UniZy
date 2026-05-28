@@ -1,0 +1,8 @@
+# Nixpacks configuration for Railway deployment
+# Specifies system-level dependencies required for audio processing
+
+[phases.setup]
+# Install system packages needed for the application
+# python311: Python runtime
+# ffmpeg: Required by pydub for audio format conversion (webm, mp3, m4a, etc.)
+nixPkgs = ["python311", "ffmpeg"]
