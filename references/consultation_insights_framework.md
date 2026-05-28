@@ -4,7 +4,7 @@
 
 ## Overview
 
-1hat extracts actionable insights from every consultation to help hospital management:
+Unizy extracts actionable insights from every consultation to help hospital management:
 - **Increase revenue** through conversion opportunities
 - **Improve retention** by identifying churn risks early
 - **Optimize operations** with data-driven decisions
@@ -444,4 +444,4 @@ CEO Dashboard
 
 *Document Version: 1.0*  
 *Last Updated: December 2024*  
-*Author: 1hat Health*
+*Author: Unizy Health*

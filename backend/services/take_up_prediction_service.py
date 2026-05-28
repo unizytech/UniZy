@@ -12,7 +12,7 @@ with each intervention based on:
 Category-specific weights allow REVENUE, RETENTION, and QUALITY interventions
 to have different prediction formulas.
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 1.0.0
 """
 

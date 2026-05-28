@@ -5,7 +5,7 @@
 
 ## Overview
 
-Extract the Q&A Engine from AI-live-recorder into a standalone, schema-agnostic microservice that can work with any database schema, not just medical extractions.
+Extract the Q&A Engine from Unizy into a standalone, schema-agnostic microservice that can work with any database schema, not just medical extractions.
 
 **Goal:** Create a reusable RAG-based Q&A service that:
 - Supports ANY data domain (medical, legal, finance, etc.)
@@ -18,7 +18,7 @@ Extract the Q&A Engine from AI-live-recorder into a standalone, schema-agnostic 
 
 ## Current State Analysis
 
-### What Exists in AI-live-recorder
+### What Exists in Unizy
 
 **6 Q&A Tables:**
 - `embedding_models` - Provider configurations (GENERIC)
@@ -360,13 +360,13 @@ qa-engine-microservice/
 3. Build response synthesizer with schema context
 
 ### Phase 5: Integration Adapter
-1. Create adapter for AI-live-recorder
+1. Create adapter for Unizy
 2. Build migration script for existing data
 3. Add medical schema pre-configuration
 
 ---
 
-## Integration with AI-live-recorder
+## Integration with Unizy
 
 ### Option A: Direct API Calls
 ```python
@@ -423,7 +423,7 @@ curl http://localhost:8001/api/v1/query/suggestions?tenant_id=...
 
 ---
 
-## Files to Extract from AI-live-recorder
+## Files to Extract from Unizy
 
 | Source File | Destination | Changes Needed |
 |-------------|-------------|----------------|

@@ -313,7 +313,7 @@ curl -X POST "http://localhost:8000/api/v1/op/config/reset?user_id=test-user-123
 - `DYNAMIC_PROMPT_GENERATION.md` - System design (to be created)
 
 **Issues:**
-- GitHub: https://github.com/kpurusho1/AI-live-recorder/issues
+- GitHub: https://github.com/unizytech/UniZy/issues
 
 ---
 

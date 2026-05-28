@@ -25,7 +25,7 @@ Priority Adjustments:
   Rationale: Patients struggling with main treatment costs are unlikely to purchase
   additional allied health services.
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0
 """
 
@@ -861,7 +861,7 @@ def _generate_specialist_referral_interventions(
 # =============================================================================
 
 __version__ = "2.0.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     "generate_revenue_interventions",
     "ALLIED_HEALTH_INTERVENTIONS",

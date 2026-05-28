@@ -28,7 +28,7 @@ NOTE: The following interventions were moved to other categories:
 - PATIENT_EDUCATION_GAP -> RETENTION_RISK (retention_interventions_service.py)
 - SPECIALIST_REFERRAL_NEEDED -> FOLLOWUP_DUE (revenue_interventions_service.py)
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0
 """
 
@@ -412,7 +412,7 @@ def _generate_documentation_interventions(
 # =============================================================================
 
 __version__ = "1.1.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     "generate_quality_interventions",
     "QUALITY_INTERVENTIONS",

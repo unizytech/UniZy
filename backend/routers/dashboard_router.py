@@ -9,7 +9,7 @@ Provides endpoints for the hospital management dashboard:
 - GET /time-to-action - Response time analytics
 - POST /interventions/{id}/status - Update intervention status
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 1.0.0
 """
 

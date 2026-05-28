@@ -410,8 +410,8 @@ async def get_last_prescription(
 ```python
 ALLOWED_ORIGINS = [
     "http://localhost:3000",           # Local dev
-    "https://app.1hat.ai",             # Production web app
-    "https://admin.1hat.ai",           # Admin dashboard
+    "https://app.Unizy.ai",             # Production web app
+    "https://admin.Unizy.ai",           # Admin dashboard
     # Add white-label domains here
 ]
 

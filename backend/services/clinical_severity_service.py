@@ -17,7 +17,7 @@ Severity Levels:
 - MEDIUM: Score 3-6 (moderate stakes, needs attention)
 - HIGH: Score 7+ OR critical override (high stakes, requires intervention)
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0
 """
 
@@ -920,7 +920,7 @@ async def calculate_and_save_severity(
 # =============================================================================
 
 __version__ = "2.0.0"  # Updated to use centralized scoring via map_insights_to_clinical_severity()
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     # Enums
     "SeverityLevel",

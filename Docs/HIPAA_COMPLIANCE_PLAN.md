@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document outlines the HIPAA compliance roadmap for the AI Live Recorder platform, which processes medical consultation audio, transcripts, and clinical extractions. HIPAA (Health Insurance Portability and Accountability Act) requires safeguards for Protected Health Information (PHI) across technical, administrative, and physical domains.
+This document outlines the HIPAA compliance roadmap for the Unizy platform, which processes medical consultation audio, transcripts, and clinical extractions. HIPAA (Health Insurance Portability and Accountability Act) requires safeguards for Protected Health Information (PHI) across technical, administrative, and physical domains.
 
 ---
 

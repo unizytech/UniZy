@@ -20,7 +20,7 @@ Risk Levels:
 Uses AI-extracted consultation insights for competitor and access signals
 (no fallback to extraction_segments).
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0 (AI-Only - Removed segment-based fallback)
 """
 
@@ -162,7 +162,7 @@ async def calculate_and_save_dropoff_risk(
 # =============================================================================
 
 __version__ = "2.0.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     "calculate_and_save_dropoff_risk"
 ]

@@ -1,5 +1,5 @@
 """
-FastAPI Backend for 1hat
+FastAPI Backend for Unizy
 Ported from Next.js API routes
 
 Provides REST API endpoints for:
@@ -77,7 +77,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    logger.info("Starting 1hat Backend...")
+    logger.info("Starting Unizy Backend...")
     logger.info(f"Python FastAPI version running")
 
     # Validate settings
@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI):
         await cleanup_task
     except asyncio.CancelledError:
         pass
-    logger.info("Shutting down 1hat Backend...")
+    logger.info("Shutting down Unizy Backend...")
 
 
 async def _periodic_chunk_cleanup():
@@ -162,7 +162,7 @@ async def _periodic_chunk_cleanup():
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="1hat API",
+    title="Unizy API",
     description="""
     Backend API for medical audio transcription and insights extraction using Gemini AI.
 
@@ -366,7 +366,7 @@ app.include_router(radiology_config.router, tags=["Radiology Config"])
 async def root():
     """Root endpoint - health check"""
     return {
-        "service": "1hat API",
+        "service": "Unizy API",
         "version": "3.3.0",
         "status": "running",
         "endpoints": {
@@ -412,7 +412,7 @@ async def health():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "1hat API"
+        "service": "Unizy API"
     }
 
 

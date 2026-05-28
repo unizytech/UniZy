@@ -26,6 +26,16 @@ yarn-error.log*
 .env.production.local
 .env*.local
 
+# Credentials / service account keys (never commit secrets)
+*service-account*.json
+*service_account*.json
+*credentials*.json
+*-key.json
+*.pem
+*.p12
+*.gpg
+references/unizy-*.json
+
 # Python
 __pycache__/
 *.py[cod]

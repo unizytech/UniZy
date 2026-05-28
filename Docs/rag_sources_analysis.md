@@ -1018,7 +1018,7 @@ class EnhancedGuidelineScraper:
 | **+ Apify Starter** | $49 | + Proxies, scheduling | Low (managed) |
 | **+ Apify Scale** | $499 | Enterprise features | Very Low |
 
-### Recommendation for 1hat
+### Recommendation for Unizy
 
 **Phase 1 (Initial Build):** 
 - Use enhanced scraper with Playwright

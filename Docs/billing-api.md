@@ -1,4 +1,4 @@
-# 1hat Billing API Documentation
+# Unizy Billing API Documentation
 
 Base URL: `{BACKEND_URL}/api/v1/billing`
 

@@ -2,7 +2,7 @@
 
 **Date**: 2025-01-08
 **Database**: Supabase PostgreSQL
-**Project**: AI Live Recorder - Medical Summary Extraction
+**Project**: Unizy - Medical Summary Extraction
 
 ---
 

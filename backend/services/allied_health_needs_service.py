@@ -22,7 +22,7 @@ Priority Level:
 Includes [POTENTIAL] markers for missed opportunities where patient may benefit
 from allied health services even if not explicitly discussed.
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0 (AI-Only - Removed keyword-based logic)
 """
 
@@ -250,7 +250,7 @@ async def calculate_and_save_allied_needs(
 # =============================================================================
 
 __version__ = "2.0.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     # Data classes
     "AlliedHealthResult",

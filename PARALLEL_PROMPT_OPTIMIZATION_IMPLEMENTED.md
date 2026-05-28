@@ -190,7 +190,7 @@ lsof -ti:8000
 # Should return process IDs
 
 # Backend logs should show:
-# INFO:     Will watch for changes in these directories: ['/Users/karthi/Documents/AI Projects/AI-live-recorder/backend']
+# INFO:     Will watch for changes in these directories: ['/Users/karthi/Documents/AI_Projects/UnizyVoice/backend']
 # INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 # INFO:     Started reloader process...
 ```

@@ -3,8 +3,8 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: '1hat',
-  description: '1hat - AI-powered consultation transcription and insights extraction',
+  title: 'Unizy',
+  description: 'Unizy - AI-powered consultation transcription and insights extraction',
 };
 
 export default function RootLayout({

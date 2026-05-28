@@ -65,7 +65,7 @@ export default function Home() {
         <div className="flex items-start justify-between mb-8">
           <div className="text-center flex-1">
             <h1 className="text-3xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-400 text-transparent bg-clip-text">
-              Internal Test Environment - 1hat AI
+              Internal Test Environment - Unizy AI
             </h1>
             <p className="text-slate-400 text-sm sm:text-base">
               AI-powered medical consultation transcription & insights extraction
@@ -512,7 +512,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-slate-500 text-sm">
-          <p>1hat proprietary AI models</p>
+          <p>Unizy proprietary AI models</p>
           <p className="mt-1">
             See <span className="text-blue-400 font-mono">MOBILE_API.md</span> for mobile integration guide
           </p>

@@ -141,8 +141,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // Source layer labels and colors
 const SOURCE_LABELS: Record<string, string> = {
-  differential_tree_cache: '1hat',
-  differential_tree: '1hat',
+  differential_tree_cache: 'Unizy',
+  differential_tree: 'Unizy',
   rag_clinical_conditions: 'STG',
   rag_comorbidity_pathway: 'STG',
   rag_drug_check: 'STG',

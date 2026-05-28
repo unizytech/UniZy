@@ -1,6 +1,6 @@
 # Webhook Payload Reference
 
-This document describes the webhook payloads sent by the AI Live Recorder backend.
+This document describes the webhook payloads sent by the Unizy backend.
 
 **Last Updated:** December 13, 2024
 

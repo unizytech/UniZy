@@ -37,7 +37,7 @@ Take-Up Prediction:
 - IMPORTANT: Priority score is NOT adjusted by take-up likelihood
 - Dashboard uses take_up_likelihood separately for risk segmentation (no double counting)
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.1.0
 """
 
@@ -469,7 +469,7 @@ def get_intervention_summary(extraction_id: uuid.UUID) -> Dict[str, Any]:
 # =============================================================================
 
 __version__ = "2.1.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     "Intervention",
     "InterventionResult",

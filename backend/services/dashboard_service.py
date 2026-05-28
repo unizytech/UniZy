@@ -16,7 +16,7 @@ Provides aggregation logic for the hospital management dashboard:
 - SURGERY_CANDIDATE: Surgical conversion (from OP_TO_IP) - intervention-based
 - QUALITY_RISK: Clinical safety alerts (unchanged) - intervention-based
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0
 """
 
@@ -1044,7 +1044,7 @@ def update_intervention_status(
 # =============================================================================
 
 __version__ = "2.0.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     "DASHBOARD_CATEGORIES",
     "DASHBOARD_TO_DB_CATEGORIES",

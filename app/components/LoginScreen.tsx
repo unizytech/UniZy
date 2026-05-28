@@ -59,7 +59,7 @@ export function LoginScreen() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Admin Login</h1>
-          <p className="text-slate-400">1hat AI - Internal Test Environment</p>
+          <p className="text-slate-400">Unizy AI - Internal Test Environment</p>
         </div>
 
         {/* Login Form */}

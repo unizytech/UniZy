@@ -36,7 +36,7 @@ Usage:
     
     print(result.intervention_level)  # InterventionLevel.HIGH
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 1.0.0
 """
 
@@ -1111,7 +1111,7 @@ def quick_assess(
 # =============================================================================
 
 __version__ = "1.0.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     # Enums
     "ClinicalSeverity",

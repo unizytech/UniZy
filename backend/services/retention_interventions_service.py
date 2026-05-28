@@ -26,7 +26,7 @@ Assessment Sources:
 9. PATIENT_EDUCATION_GAP - Understanding barrier for treatment plan
 10. SEVERITY_AWARENESS_GAP - Patient doesn't understand severity
 
-Author: 1hat Health
+Author: Unizy Health
 Version: 2.0.0
 """
 
@@ -877,7 +877,7 @@ def _generate_followup_education_interventions(
 # =============================================================================
 
 __version__ = "2.0.0"
-__author__ = "1hat Health"
+__author__ = "Unizy Health"
 __all__ = [
     "generate_retention_interventions",
     "RETENTION_INTERVENTIONS",

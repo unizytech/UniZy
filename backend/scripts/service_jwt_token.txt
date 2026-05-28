@@ -1,4 +1,4 @@
-# Service JWT Token for 1hat Stage
+# Service JWT Token for Unizy Stage
 # Generated: 2025-12-13T18:44:34.512723
 # Expires: 2026-07-09T21:14:34.512147+00:00
 # Valid for: 5000 hours (208.3 days)
