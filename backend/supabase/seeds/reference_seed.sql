@@ -5,7 +5,7 @@ SET session_replication_role = replica;
 -- PostgreSQL database dump
 --
 
-\restrict IVGvvIXrPZzDsM44Il6ISY8xh4e4mhm7jduPtRrU9tfRuVT7l8KfSxW1hNtXk9U
+-- (pg_dump \restrict directive removed: branch seeder runs raw SQL, not psql)
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -31584,6 +31584,6 @@ INSERT INTO public.triage_layer_config VALUES ('096a33a3-46c9-467d-bc30-d691473c
 -- PostgreSQL database dump complete
 --
 
-\unrestrict IVGvvIXrPZzDsM44Il6ISY8xh4e4mhm7jduPtRrU9tfRuVT7l8KfSxW1hNtXk9U
+-- (pg_dump \unrestrict directive removed: branch seeder runs raw SQL, not psql)
 
 SET session_replication_role = origin;
