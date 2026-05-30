@@ -7,7 +7,7 @@ pydantic>=2.11.7,<3.0.0
 pydantic-settings>=2.6.1
 
 # Google Gemini SDK
-google-genai==1.26.0
+google-genai==2.7.0
 google-cloud-storage>=2.16.0   # GCS uploads for Vertex AI mode large-audio path
 
 # Additional dependencies
