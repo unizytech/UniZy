@@ -88,9 +88,9 @@ export function InterventionsModal({
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🎯</span>
                 <div>
-                  <h2 className="text-xl font-bold text-white">Patient Interventions</h2>
+                  <h2 className="text-xl font-bold text-white">Student Interventions</h2>
                   <p className="text-indigo-200 text-sm">
-                    {interventions.length} recommended actions based on consultation analysis
+                    {interventions.length} recommended actions based on session analysis
                   </p>
                 </div>
               </div>
@@ -206,9 +206,9 @@ export function InterventionsModal({
                 <svg className="w-12 h-12 text-amber-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.072 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
-                <h3 className="text-lg font-semibold text-amber-800 mt-2">Consultation Insights Not Enabled</h3>
+                <h3 className="text-lg font-semibold text-amber-800 mt-2">Session Insights Not Enabled</h3>
                 <p className="text-amber-600 mt-1">
-                  Consultation insights (and interventions) are not enabled for this consultation type. Enable it in the Config screen.
+                  Session insights (and interventions) are not enabled for this session type. Enable it in the Config screen.
                 </p>
               </div>
             ) : interventions.length === 0 ? (
@@ -216,7 +216,7 @@ export function InterventionsModal({
                 <span className="text-4xl">✅</span>
                 <h3 className="text-lg font-semibold text-green-800 mt-2">No Interventions Required</h3>
                 <p className="text-green-600 mt-1">
-                  Based on the consultation analysis, no specific interventions are recommended at this time.
+                  Based on the session analysis, no specific interventions are recommended at this time.
                 </p>
               </div>
             ) : (

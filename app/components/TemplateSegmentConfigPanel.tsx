@@ -139,7 +139,7 @@ export function TemplateSegmentConfigPanel({
   };
 
   const handleInherit = async () => {
-    if (!confirm('This will replace all segment configurations with consultation type defaults. Continue?')) {
+    if (!confirm('This will replace all segment configurations with session type defaults. Continue?')) {
       return;
     }
 

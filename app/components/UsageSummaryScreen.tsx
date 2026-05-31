@@ -233,9 +233,9 @@ export function UsageSummaryScreen() {
       case 'api_client':
         return 'API Client';
       case 'hospital':
-        return 'Hospital';
+        return 'School';
       case 'doctor':
-        return 'Doctor';
+        return 'Counsellor';
     }
   };
 
@@ -293,8 +293,8 @@ export function UsageSummaryScreen() {
               onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="doctor">Doctor</option>
-              <option value="hospital">Hospital</option>
+              <option value="doctor">Counsellor</option>
+              <option value="hospital">School</option>
               <option value="api_client">API Client</option>
             </select>
           </div>
@@ -341,14 +341,14 @@ export function UsageSummaryScreen() {
 
           {/* Hospital Filter */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Hospital</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">School</label>
             <select
               value={selectedHospitalId}
               onChange={(e) => setSelectedHospitalId(e.target.value)}
               disabled={loadingFilters}
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All Hospitals</option>
+              <option value="">All Schools</option>
               {hospitals.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}
@@ -359,14 +359,14 @@ export function UsageSummaryScreen() {
 
           {/* Doctor Filter */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Doctor</label>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Counsellor</label>
             <select
               value={selectedDoctorId}
               onChange={(e) => setSelectedDoctorId(e.target.value)}
               disabled={loadingFilters}
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All Doctors</option>
+              <option value="">All Counsellors</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -402,7 +402,7 @@ export function UsageSummaryScreen() {
           </div>
           <div className="bg-slate-700/50 rounded-lg border border-slate-600 p-4">
             <div className="text-sm text-slate-400">
-              {groupBy === 'doctor' ? 'Unique Doctors' : groupBy === 'hospital' ? 'Unique Hospitals' : 'Unique Clients'}
+              {groupBy === 'doctor' ? 'Unique Counsellors' : groupBy === 'hospital' ? 'Unique Schools' : 'Unique Clients'}
             </div>
             <div className="text-2xl font-bold text-white">
               {groupBy === 'doctor'
@@ -431,7 +431,7 @@ export function UsageSummaryScreen() {
                 </th>
                 {groupBy !== 'hospital' && (
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
-                    Hospital
+                    School
                   </th>
                 )}
                 <th className="px-4 py-3 text-right text-xs font-medium text-slate-300 uppercase tracking-wider">

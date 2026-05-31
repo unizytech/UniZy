@@ -335,7 +335,7 @@ export function TriageLayersAdminScreen() {
               <span className="text-emerald-400">Differential Trees</span> run first as a fast cache (~5ms).
               <span className="text-amber-400"> RAG Guidelines</span> then searches clinical evidence and can override tree suggestions when confident.
               <span className="text-cyan-400"> Gemini</span> receives RAG context to fill gaps not covered by guidelines.
-              Finally, <span className="text-purple-400">Personalization layers</span> adjust based on doctor/hospital patterns.
+              Finally, <span className="text-purple-400">Personalization layers</span> adjust based on counsellor/school patterns.
             </p>
           </div>
         </div>
@@ -516,7 +516,7 @@ export function TriageLayersAdminScreen() {
               layers.find(l => l.layer_code === 'doctor_practice')?.is_enabled ||
               layers.find(l => l.layer_code === 'hospital_intelligence')?.is_enabled
                 ? 'text-purple-400/70' : 'text-slate-500/70'
-            }`}>Doctor + Hospital</div>
+            }`}>Counsellor + School</div>
           </div>
           <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -564,9 +564,9 @@ export function TriageLayersAdminScreen() {
             Conflict Resolution Rules
           </h4>
           <ul className="text-sm text-slate-400 space-y-1.5">
-            <li>1. Patient Safety First - allergies and contraindications always override</li>
+            <li>1. Student Safety First - allergies and contraindications always override</li>
             <li>2. Evidence Over Opinion - RAG guidelines take precedence</li>
-            <li>3. Doctor Preference for Ties - when confidence is equal</li>
+            <li>3. Counsellor Preference for Ties - when confidence is equal</li>
             <li>4. Layer weights used for scoring conflicts</li>
           </ul>
         </div>
@@ -580,8 +580,8 @@ export function TriageLayersAdminScreen() {
           </h4>
           <ul className="text-sm text-slate-400 space-y-1.5">
             <li>- Start with Base MVP only to establish baseline</li>
-            <li>- Enable Doctor Practice after 10+ feedback entries</li>
-            <li>- Enable Hospital Intelligence with 3+ doctors in specialty</li>
+            <li>- Enable Counsellor Practice after 10+ feedback entries</li>
+            <li>- Enable School Intelligence with 3+ counsellors in specialty</li>
             <li>- Enable RAG Guidelines after ingesting clinical guidelines</li>
           </ul>
         </div>

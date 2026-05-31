@@ -76,7 +76,7 @@ export default function DoctorSelector({
       setDoctors(data);
       setFilteredDoctors(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load doctors');
+      setError(err instanceof Error ? err.message : 'Failed to load counsellors');
       console.error('Error loading doctors:', err);
     } finally {
       setIsLoading(false);
@@ -94,7 +94,7 @@ export default function DoctorSelector({
   return (
     <div className={`relative ${className}`}>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Select Doctor {required && <span className="text-red-500">*</span>}
+        Select Counsellor {required && <span className="text-red-500">*</span>}
       </label>
 
       {/* Dropdown Button */}
@@ -107,7 +107,7 @@ export default function DoctorSelector({
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             {isLoading ? (
-              <span className="text-gray-500 dark:text-gray-400">Loading doctors...</span>
+              <span className="text-gray-500 dark:text-gray-400">Loading counsellors...</span>
             ) : selectedDoctor ? (
               <div>
                 <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -119,7 +119,7 @@ export default function DoctorSelector({
                 </div>
               </div>
             ) : (
-              <span className="text-gray-500 dark:text-gray-400">Select a doctor...</span>
+              <span className="text-gray-500 dark:text-gray-400">Select a counsellor...</span>
             )}
           </div>
           <svg
@@ -146,7 +146,7 @@ export default function DoctorSelector({
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <input
               type="text"
-              placeholder="Search doctors..."
+              placeholder="Search counsellors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -171,7 +171,7 @@ export default function DoctorSelector({
 
             {filteredDoctors.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                {searchQuery ? 'No doctors found matching your search' : 'No active doctors available'}
+                {searchQuery ? 'No counsellors found matching your search' : 'No active counsellors available'}
               </div>
             ) : (
               filteredDoctors.map((doctor) => (

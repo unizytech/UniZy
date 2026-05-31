@@ -149,9 +149,9 @@ export default function CompareTranscriptTab() {
         </h2>
         <p className="text-sm text-gray-400">
           Enter an extraction UUID to view the original AI extraction, the
-          doctor&apos;s latest edits, and the formatted payload that was sent to
-          the hospital EHR API. Useful for verifying that the formatter
-          projected doctor edits into the correct EHR wire shape.
+          counsellor&apos;s latest edits, and the formatted payload that was sent to
+          the school EHR API. Useful for verifying that the formatter
+          projected counsellor edits into the correct EHR wire shape.
         </p>
       </div>
 
@@ -205,7 +205,7 @@ export default function CompareTranscriptTab() {
             emptyHint="Never edited — frontend would have used original."
           />
           <JsonPanel
-            title="EHR payload (sent to hospital)"
+            title="EHR payload (sent to school)"
             subtitle={`ehr_payload_json${
               data.form_type ? ` · ${data.form_type}` : ''
             }`}

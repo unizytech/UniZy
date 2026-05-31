@@ -80,7 +80,7 @@ function NotificationItem({ notification, onView, onDismiss }: NotificationItemP
               {isError ? 'Extraction Failed' : 'Extraction Complete'}
             </p>
             <p className="text-sm text-gray-600 truncate">
-              Patient: {notification.patientId}
+              Student: {notification.patientId}
             </p>
             <p className="text-xs text-gray-500 truncate">
               {notification.templateName}

@@ -567,7 +567,7 @@ export function APIKeysScreen() {
           <h2 className="text-xl font-bold text-white">API Keys Management</h2>
           <p className="text-slate-400 text-sm mt-1">
             {tabMode === 'api-keys'
-              ? 'Create and manage API keys for hospital EHR integrations'
+              ? 'Create and manage API keys for school EHR integrations'
               : 'Manage EHR type definitions and their default API URLs'}
           </p>
         </div>
@@ -639,7 +639,7 @@ export function APIKeysScreen() {
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Client Name</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Type</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Auth</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Hospital</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">School</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Key Prefix</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Status</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Last Used</th>
@@ -876,7 +876,7 @@ export function APIKeysScreen() {
                     type="text"
                     value={formData.client_name}
                     onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                    placeholder="e.g., City Hospital EHR"
+                    placeholder="e.g., City School EHR"
                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -891,14 +891,14 @@ export function APIKeysScreen() {
                     onChange={(e) => setFormData({ ...formData, client_type: e.target.value as 'ehr' | 'mobile_app' | 'web_app' })}
                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="ehr">EHR Integration (Hospital-scoped)</option>
+                    <option value="ehr">EHR Integration (School-scoped)</option>
                     <option value="mobile_app">Mobile App (Global Access)</option>
                     <option value="web_app">Web App (Global Access)</option>
                   </select>
                   <p className="text-xs text-slate-400 mt-1">
                     {formData.client_type === 'ehr'
-                      ? 'EHR clients are restricted to a single hospital'
-                      : 'Mobile/Web apps have access to all hospitals'}
+                      ? 'EHR clients are restricted to a single school'
+                      : 'Mobile/Web apps have access to all schools'}
                   </p>
                 </div>
 
@@ -964,14 +964,14 @@ export function APIKeysScreen() {
                 {formData.client_type === 'ehr' && (
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">
-                      Hospital *
+                      School *
                     </label>
                     <select
                       value={formData.hospital_id}
                       onChange={(e) => setFormData({ ...formData, hospital_id: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Select a hospital</option>
+                      <option value="">Select a school</option>
                       {hospitals.map((hospital) => (
                         <option key={hospital.id} value={hospital.id}>
                           {hospital.hospital_name}
@@ -1006,7 +1006,7 @@ export function APIKeysScreen() {
                     type="email"
                     value={formData.contact_email}
                     onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    placeholder="admin@hospital.com"
+                    placeholder="admin@school.com"
                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

@@ -68,7 +68,7 @@ export default function Home() {
               Internal Test Environment - Unizy AI
             </h1>
             <p className="text-slate-400 text-sm sm:text-base">
-              AI-powered medical consultation transcription & insights extraction
+              AI-powered session transcription & insights extraction
             </p>
           </div>
 
@@ -121,7 +121,7 @@ export default function Home() {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    VHR
+                    VSR
                   </button>
                   <button
                     onClick={() => setMode(AppMode.Live)}
@@ -141,7 +141,7 @@ export default function Home() {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    Patient
+                    Student
                   </button>
                   <button
                     onClick={() => setMode(AppMode.PatientCreate)}
@@ -151,7 +151,7 @@ export default function Home() {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    Add Patient
+                    Add Student
                   </button>
                   <button
                     onClick={() => setMode(AppMode.Dashboard)}
@@ -181,7 +181,7 @@ export default function Home() {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    Doctor Config
+                    Counsellor Config
                   </button>
                   <button
                     onClick={() => setMode(AppMode.MedicineAdmin)}
@@ -311,7 +311,7 @@ export default function Home() {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    Hospitals
+                    Schools
                   </button>
                   <button
                     onClick={() => setMode(AppMode.TriageLayers)}
@@ -331,7 +331,7 @@ export default function Home() {
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
-                    Dr Sharing
+                    Counsellor Sharing
                   </button>
                   <button
                     onClick={() => setMode(AppMode.TemplateFieldConfig)}
@@ -354,7 +354,7 @@ export default function Home() {
           <p className="text-sm text-slate-300">
             {mode === AppMode.VHR && (
               <>
-                <strong className="text-cyan-400">VHR:</strong> Virtual Health Record - Unified medical documentation with voice recording and file upload.
+                <strong className="text-cyan-400">VSR:</strong> Virtual Student Record - Unified medical documentation with voice recording and file upload.
                 Supports both WebSocket recording (Ultra mode) and chunked recording (Fast/Default/Thorough modes) with progressive extraction.
               </>
             )}
@@ -366,55 +366,55 @@ export default function Home() {
             )}
             {mode === AppMode.PatientHistory && (
               <>
-                <strong className="text-emerald-400">Patient:</strong> View complete patient medical history.
+                <strong className="text-emerald-400">Student:</strong> View complete student medical history.
                 Access last prescription, diagnosis, investigations, case summary, emotion analysis, and recommended interventions.
               </>
             )}
             {mode === AppMode.PatientCreate && (
               <>
-                <strong className="text-lime-400">Add Patient:</strong> Create a new patient in the system.
-                Enter patient ID (UHID), name, date of birth, gender, IP/OP IDs, and additional metadata.
+                <strong className="text-lime-400">Add Student:</strong> Create a new student in the system.
+                Enter student ID (UHID), name, date of birth, gender, IP/OP IDs, and additional metadata.
               </>
             )}
             {mode === AppMode.Dashboard && (
               <>
-                <strong className="text-violet-400">Dashboard:</strong> Hospital intelligence overview with intervention tracking.
-                View patients at risk, track conversion opportunities, and manage intervention outcomes.
+                <strong className="text-violet-400">Dashboard:</strong> School intelligence overview with intervention tracking.
+                View students at risk, track conversion opportunities, and manage intervention outcomes.
               </>
             )}
             {mode === AppMode.QAEngine && (
               <>
                 <strong className="text-rose-400">Q&A Engine:</strong> Ask questions about your medical data using natural language.
-                Get insights on diagnoses, prescriptions, patient trends, and more with AI-powered search and analytics.
+                Get insights on diagnoses, prescriptions, student trends, and more with AI-powered search and analytics.
               </>
             )}
             {mode === AppMode.DoctorConfig && (
               <>
-                <strong className="text-indigo-400">Doctor Config:</strong> View preset visibility for doctors based on hospital and specialization.
-                Shows platform-wide common templates, specialization-specific templates, and hospital-based peer templates.
+                <strong className="text-indigo-400">Counsellor Config:</strong> View preset visibility for counsellors based on school and specialization.
+                Shows platform-wide common templates, specialization-specific templates, and school-based peer templates.
               </>
             )}
             {mode === AppMode.TemplateAdmin && (
               <>
-                <strong className="text-pink-400">Config:</strong> Create and configure templates from basic segments or inherit from consultation types.
+                <strong className="text-pink-400">Config:</strong> Create and configure templates from basic segments or inherit from session types.
                 Drag-and-drop segment configuration with CORE, ADDITIONAL, and EXCLUDED categories.
               </>
             )}
             {mode === AppMode.SystemPromptAdmin && (
               <>
                 <strong className="text-purple-400">Prompts:</strong> Manage dynamic system prompts with composable components.
-                Create, version, and assign prompt configurations to consultation types with A/B testing support.
+                Create, version, and assign prompt configurations to session types with A/B testing support.
               </>
             )}
             {mode === AppMode.MedicineAdmin && (
               <>
-                <strong className="text-teal-400">Medicines:</strong> Manage doctor and hospital medicine lists.
+                <strong className="text-teal-400">Medicines:</strong> Manage counsellor and school medicine lists.
                 Upload CSV, review AI matching feedback, and configure medicine name normalization.
               </>
             )}
             {mode === AppMode.InvestigationAdmin && (
               <>
-                <strong className="text-blue-400">Investigations:</strong> Manage doctor and hospital investigation lists.
+                <strong className="text-blue-400">Investigations:</strong> Manage counsellor and school investigation lists.
                 Upload CSV with lab tests, imaging studies, and other investigations. Review AI matching feedback.
               </>
             )}
@@ -426,7 +426,7 @@ export default function Home() {
             )}
             {mode === AppMode.UsageSummary && (
               <>
-                <strong className="text-yellow-400">Billing:</strong> View aggregated LLM usage by API client, hospital, or doctor.
+                <strong className="text-yellow-400">Billing:</strong> View aggregated LLM usage by API client, school, or counsellor.
                 Track total costs, recording hours, and export data for billing purposes.
               </>
             )}
@@ -438,40 +438,40 @@ export default function Home() {
             )}
             {mode === AppMode.APIKeys && (
               <>
-                <strong className="text-rose-400">API Keys:</strong> Create and manage API keys for hospital EHR integrations.
+                <strong className="text-rose-400">API Keys:</strong> Create and manage API keys for school EHR integrations.
                 Generate keys, rotate credentials, and monitor usage for secure API access.
               </>
             )}
             {mode === AppMode.Compare && (
               <>
-                <strong className="text-orange-400">Compare:</strong> View an extraction&apos;s original AI output, latest doctor edits,
-                and the formatted EHR payload sent to the hospital — side-by-side, by extraction ID.
+                <strong className="text-orange-400">Compare:</strong> View an extraction&apos;s original AI output, latest counsellor edits,
+                and the formatted EHR payload sent to the school — side-by-side, by extraction ID.
               </>
             )}
             {mode === AppMode.Providers && (
               <>
-                <strong className="text-teal-400">Providers:</strong> Manage doctors, nurses, and hospitals.
-                Create and edit provider profiles, link nurses to doctors, and manage hospital configurations.
+                <strong className="text-teal-400">Providers:</strong> Manage counsellors, assistants, and schools.
+                Create and edit provider profiles, link assistants to counsellors, and manage school configurations.
               </>
             )}
             {mode === AppMode.HospitalTemplates && (
               <>
-                <strong className="text-sky-400">Hospitals:</strong> Set default extraction templates for hospitals.
-                Hospital defaults apply to all doctors in that hospital unless the doctor has their own default set.
+                <strong className="text-sky-400">Schools:</strong> Set default extraction templates for schools.
+                School defaults apply to all counsellors in that school unless the counsellor has their own default set.
               </>
             )}
             {mode === AppMode.TriageLayers && (
               <>
                 <strong className="text-emerald-400">Triage Layers:</strong> Configure multi-layer triage engine.
-                Enable/disable layers for doctor practice patterns, hospital peer intelligence, and RAG clinical guidelines.
+                Enable/disable layers for counsellor practice patterns, school peer intelligence, and RAG clinical guidelines.
                 Adjust layer weights for conflict resolution.
               </>
             )}
             {mode === AppMode.DoctorSharing && (
               <>
-                <strong className="text-fuchsia-400">Doctor Sharing:</strong> Manage cross-doctor patient sharing links.
-                Link doctors to share all patients (practice-wide) or specific patients (selective handoff).
-                Enables continuation detection and context sharing across linked doctors.
+                <strong className="text-fuchsia-400">Counsellor Sharing:</strong> Manage cross-counsellor student sharing links.
+                Link counsellors to share all students (practice-wide) or specific students (selective handoff).
+                Enables continuation detection and context sharing across linked counsellors.
               </>
             )}
             {mode === AppMode.TemplateFieldConfig && (

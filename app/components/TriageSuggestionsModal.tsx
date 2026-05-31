@@ -300,7 +300,7 @@ export function TriageSuggestionsModal({
               </svg>
               <p className="text-green-700 font-medium">No additional suggestions</p>
               <p className="text-green-600 text-sm mt-1">
-                The consultation appears comprehensive for the presented complaints.
+                The session appears comprehensive for the presented complaints.
               </p>
             </div>
           ) : (

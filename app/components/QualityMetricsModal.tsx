@@ -261,7 +261,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200">
-                      <th className="text-left px-3 py-2 text-slate-600 font-medium">Doctor</th>
+                      <th className="text-left px-3 py-2 text-slate-600 font-medium">Counsellor</th>
                       <th className="text-right px-3 py-2 text-slate-600 font-medium">Total Notes</th>
                       <th className="text-right px-3 py-2 text-slate-600 font-medium">Unchanged</th>
                       <th className="text-right px-3 py-2 text-slate-600 font-medium">Edited</th>
@@ -295,7 +295,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200">
-                      <th className="text-left px-3 py-2 text-slate-600 font-medium">Doctor</th>
+                      <th className="text-left px-3 py-2 text-slate-600 font-medium">Counsellor</th>
                       <th className="text-left px-3 py-2 text-slate-600 font-medium">Date</th>
                       <th className="text-right px-3 py-2 text-slate-600 font-medium">Notes</th>
                     </tr>
@@ -354,12 +354,12 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
             {activeTab === 'accuracy' && (
               <div className="overflow-x-auto">
                 {accuracyByDoctor.length === 0 ? (
-                  <p className="text-center text-slate-400 py-6">No accuracy data yet. Metrics are computed when doctors edit AI-generated notes.</p>
+                  <p className="text-center text-slate-400 py-6">No accuracy data yet. Metrics are computed when counsellors edit AI-generated notes.</p>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200">
-                        <th className="text-left px-3 py-2 text-slate-600 font-medium">Doctor</th>
+                        <th className="text-left px-3 py-2 text-slate-600 font-medium">Counsellor</th>
                         <th className="text-right px-3 py-2 text-slate-600 font-medium">Edits</th>
                         <th className="text-right px-3 py-2 text-slate-600 font-medium">Avg WER</th>
                         <th className="text-right px-3 py-2 text-slate-600 font-medium">Entity Err %</th>

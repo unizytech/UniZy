@@ -285,12 +285,12 @@ export default function DashboardScreen() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               {activeView === 'command-center' && 'Command Center'}
-              {activeView === 'patient-info' && 'Patient Info'}
+              {activeView === 'patient-info' && 'Student Info'}
               {activeView === 'tracking' && 'Tracking'}
             </h1>
             <p className="text-sm text-gray-500">
-              {activeView === 'command-center' && 'Hospital intelligence overview'}
-              {activeView === 'patient-info' && 'At-risk patients'}
+              {activeView === 'command-center' && 'School intelligence overview'}
+              {activeView === 'patient-info' && 'At-risk students'}
               {activeView === 'tracking' && 'Intervention management'}
             </p>
           </div>
@@ -315,9 +315,9 @@ export default function DashboardScreen() {
                   disabled={hospitalsLoading}
                 >
                   {hospitalsLoading ? (
-                    <option>Loading hospitals...</option>
+                    <option>Loading schools...</option>
                   ) : hospitals.length === 0 ? (
-                    <option value="">No hospitals found</option>
+                    <option value="">No schools found</option>
                   ) : (
                     hospitals.map((hospital) => (
                       <option key={hospital.id} value={hospital.id}>
@@ -357,7 +357,7 @@ export default function DashboardScreen() {
                 }))}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-700"
               >
-                <option value="">All Doctors</option>
+                <option value="">All Counsellors</option>
                 {doctors
                   .filter((d) => !filters.departmentId || d.specialization === filters.departmentId)
                   .map((doctor) => (
@@ -376,7 +376,7 @@ export default function DashboardScreen() {
         <nav className="flex gap-6">
           {[
             { key: 'command-center', label: 'Command Center', icon: '📊' },
-            { key: 'patient-info', label: 'Patient Info', icon: '👥' },
+            { key: 'patient-info', label: 'Student Info', icon: '👥' },
             { key: 'tracking', label: 'Tracking', icon: '📋' },
           ].map((tab) => (
             <button
@@ -510,7 +510,7 @@ function CommandCenterView({
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-indigo-200 text-sm font-medium">Total Patients at Risk</p>
+            <p className="text-indigo-200 text-sm font-medium">Total Students at Risk</p>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-5xl font-bold">{atRisk.toLocaleString()}</span>
               <span className="text-xl text-indigo-200">/ {totalVisited.toLocaleString()} visited</span>
@@ -570,7 +570,7 @@ function CommandCenterView({
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              👨‍⚕️ By Doctor
+              👨‍⚕️ By Counsellor
             </button>
             <button
               onClick={() => setBreakdownView('patient')}
@@ -580,13 +580,13 @@ function CommandCenterView({
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              👤 By Patient
+              👤 By Student
             </button>
           </div>
           {breakdownView !== 'patient' && (
             <input
               type="text"
-              placeholder={`Search ${breakdownView === 'department' ? 'departments' : 'doctors'}...`}
+              placeholder={`Search ${breakdownView === 'department' ? 'departments' : 'counsellors'}...`}
               className="px-4 py-2 border border-gray-200 rounded-lg text-sm w-64"
             />
           )}
@@ -600,7 +600,7 @@ function CommandCenterView({
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {breakdownView === 'department' ? 'Department' : 'Doctor'}
+                    {breakdownView === 'department' ? 'Department' : 'Counsellor'}
                   </th>
                   {summary.by_category?.map((cat) => (
                     <th
@@ -687,7 +687,7 @@ function CommandCenterView({
                     ) : (
                       <tr className="hover:bg-gray-50">
                         <td colSpan={(summary.by_category?.length || 0) + 2} className="px-6 py-8 text-center text-sm text-gray-500">
-                          No doctor data available for this period
+                          No counsellor data available for this period
                         </td>
                       </tr>
                     )}
@@ -778,7 +778,7 @@ function CategoryCard({
           <span className="text-2xl font-bold text-gray-900">
             {category.patient_count}
           </span>
-          <span className="text-xs text-gray-500">patients</span>
+          <span className="text-xs text-gray-500">students</span>
         </div>
         {hasScore && (
           <p className={`text-sm font-semibold mt-1 ${getScoreColor()}`}>
@@ -821,7 +821,7 @@ function CategoryCard({
         <span className="text-2xl font-bold text-gray-900">
           {category.patient_count}
         </span>
-        <span className="text-xs text-gray-500">patients</span>
+        <span className="text-xs text-gray-500">students</span>
       </div>
       {category.revenue_potential > 0 && (
         <p className="text-xs text-green-600 font-medium mt-1">
@@ -960,7 +960,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <SortHeader field="patient_name" label="Patient" />
+              <SortHeader field="patient_name" label="Student" />
               <SortHeader field="compliance_likelihood" label="Treatment Compliance" />
               <SortHeader field="dropoff_probability" label="Drop-off Risk" />
               <SortHeader field="has_followup_due" label="Follow-up Due" />
@@ -972,7 +972,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
             {paginated.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500">
-                  No patient data available for this period
+                  No student data available for this period
                 </td>
               </tr>
             ) : (
@@ -1054,7 +1054,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
       {totalPages > 1 && (
         <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
           <span className="text-sm text-gray-500">
-            Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, sorted.length)} of {sorted.length} patients
+            Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, sorted.length)} of {sorted.length} students
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -1118,7 +1118,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Patient Info</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Student Info</h3>
               <button
                 onClick={() => setSelectedPatientForInfo(null)}
                 className="text-gray-400 hover:text-gray-600"
@@ -1146,7 +1146,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Doctor</p>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Counsellor</p>
                     <p className="mt-1 text-sm text-gray-900">{patientInfoData.doctor_name || 'N/A'}</p>
                   </div>
                   {patientInfoData.preferred_language && (
@@ -1164,7 +1164,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-sm text-gray-500">No visit data found for this patient</p>
+                  <p className="text-sm text-gray-500">No visit data found for this student</p>
                 </div>
               )}
             </div>
@@ -1234,7 +1234,7 @@ function PatientInfoView({
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
         <StatsCard
-          label="Total Patients"
+          label="Total Students"
           value={totalPatients}
           color="gray"
         />
@@ -1271,13 +1271,13 @@ function PatientInfoView({
             ))}
           </select>
           <span className="text-sm text-gray-400">
-            (Use header filters for Hospital/Department/Doctor)
+            (Use header filters for School/Department/Counsellor)
           </span>
         </div>
         <div className="flex items-center gap-3">
           <input
             type="text"
-            placeholder="Search patients..."
+            placeholder="Search students..."
             className="px-4 py-2 border border-gray-200 rounded-lg text-sm w-64 text-gray-900"
           />
           <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
@@ -1292,7 +1292,7 @@ function PatientInfoView({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[130px]">
-                Patient
+                Student
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[140px]">
                 Intervention Type
@@ -1322,7 +1322,7 @@ function PatientInfoView({
             {(!patients?.patients || patients.patients.length === 0) && (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                  No patients found for the selected filters.
+                  No students found for the selected filters.
                 </td>
               </tr>
             )}
@@ -1595,7 +1595,7 @@ function TrackingView({
           </div>
           <p className="text-4xl font-bold mt-2">{totalInterventions}</p>
           <p className="text-gray-400 text-sm mt-1">
-            Across {totalPatients} patients
+            Across {totalPatients} students
           </p>
         </div>
 
@@ -1677,7 +1677,7 @@ function TrackingView({
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            👥 Patient Matrix
+            👥 Student Matrix
           </button>
         </div>
         <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
@@ -1699,7 +1699,7 @@ function TrackingView({
         </div>
       ) : loadingMatrix ? (
         <div className="flex items-center justify-center py-12">
-          <div className="text-gray-500">Loading patient matrix...</div>
+          <div className="text-gray-500">Loading student matrix...</div>
         </div>
       ) : (
         <PatientMatrixView
@@ -1822,7 +1822,7 @@ function PatientMatrixView({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px] sticky left-0 bg-gray-50 z-10">
-                Patient
+                Student
               </th>
               {allCategories.map((cat) => {
                 const config = CATEGORY_CONFIG[cat];
@@ -1847,7 +1847,7 @@ function PatientMatrixView({
             {patientData.length === 0 ? (
               <tr>
                 <td colSpan={allCategories.length + 2} className="px-6 py-12 text-center text-gray-500">
-                  No patients found for the selected filters.
+                  No students found for the selected filters.
                 </td>
               </tr>
             ) : (
@@ -1898,7 +1898,7 @@ function PatientMatrixView({
                     <div className="flex items-center justify-center gap-1">
                       <button
                         className="p-1.5 border border-gray-200 rounded hover:bg-gray-50"
-                        title="Call patient"
+                        title="Call student"
                       >
                         📞
                       </button>

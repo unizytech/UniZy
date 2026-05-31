@@ -58,10 +58,10 @@ export default function QAResultsTable({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Patient
+                  Student
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Doctor
+                  Counsellor
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
@@ -103,7 +103,7 @@ export default function QAResultsTable({
                         )}
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {result.patient_name || 'Unknown Patient'}
+                            {result.patient_name || 'Unknown Student'}
                           </p>
                           {result.patient_external_id && (
                             <p className="text-xs text-gray-500">
@@ -120,7 +120,7 @@ export default function QAResultsTable({
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {result.consultation_type_name || 'Consultation'}
+                        {result.consultation_type_name || 'Session'}
                       </span>
                     </td>
                     <td className="px-4 py-3">

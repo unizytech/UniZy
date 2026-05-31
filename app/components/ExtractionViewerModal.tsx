@@ -75,7 +75,7 @@ export function ExtractionViewerModal({
             <div>
               <h2 className="text-xl font-bold text-white">{title}</h2>
               <p className="text-slate-200 text-sm">
-                {patientName || 'Unknown patient'}
+                {patientName || 'Unknown student'}
                 {consultationDatetime ? ` · ${new Date(consultationDatetime).toLocaleString()}` : ''}
                 {data?.is_merged ? ' · Merged' : ''}
                 {mode === 'extraction' && data?.edit_count ? ` · Edited ${data.edit_count}x` : ''}
@@ -135,7 +135,7 @@ export function ExtractionViewerModal({
                       {data.form_type ? ` · ${data.form_type}` : ''}
                     </h3>
                     <p className="text-xs text-gray-500 mb-2">
-                      Formatted payload sent (or to be sent) to the hospital EHR API.
+                      Formatted payload sent (or to be sent) to the school EHR API.
                     </p>
                     <JsonBlock data={data.ehr_payload} />
                   </div>

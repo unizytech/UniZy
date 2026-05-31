@@ -111,7 +111,7 @@ export default function NurseConfigScreen() {
         qualification: nurseData.qualification || ''
       });
     } catch (err) {
-      setError('Failed to load nurse data: ' + (err as Error).message);
+      setError('Failed to load assistant data: ' + (err as Error).message);
       console.error('Failed to load nurse data:', err);
     } finally {
       setLoading(false);
@@ -132,7 +132,7 @@ export default function NurseConfigScreen() {
       setIsEditing(false);
       loadNurseData();
     } catch (err) {
-      alert('Failed to update nurse: ' + (err as Error).message);
+      alert('Failed to update assistant: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -150,9 +150,9 @@ export default function NurseConfigScreen() {
       const token = getAccessToken();
       await deactivateNurse(selectedNurseId, token);
       setSelectedNurseId(null);
-      alert('Nurse deactivated successfully');
+      alert('Assistant deactivated successfully');
     } catch (err) {
-      alert('Failed to deactivate nurse: ' + (err as Error).message);
+      alert('Failed to deactivate assistant: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -168,7 +168,7 @@ export default function NurseConfigScreen() {
       setSelectedDoctorToLink('');
       loadNurseData();
     } catch (err) {
-      alert('Failed to link doctor: ' + (err as Error).message);
+      alert('Failed to link counsellor: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -183,7 +183,7 @@ export default function NurseConfigScreen() {
       await unlinkNurseFromDoctor(selectedNurseId, doctorId, token);
       loadNurseData();
     } catch (err) {
-      alert('Failed to unlink doctor: ' + (err as Error).message);
+      alert('Failed to unlink counsellor: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -233,10 +233,10 @@ export default function NurseConfigScreen() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
-          Nurse Configuration
+          Assistant Configuration
         </h1>
         <p className="text-gray-300">
-          Manage nurse profiles, doctor links, and template access
+          Manage assistant profiles, counsellor links, and template access
         </p>
       </div>
 
@@ -253,7 +253,7 @@ export default function NurseConfigScreen() {
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
           >
-            + Create Nurse
+            + Create Assistant
           </button>
         </div>
       </div>
@@ -262,7 +262,7 @@ export default function NurseConfigScreen() {
       {loading && (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-teal-600"></div>
-          <p className="mt-4 text-gray-600">Loading nurse data...</p>
+          <p className="mt-4 text-gray-600">Loading assistant data...</p>
         </div>
       )}
 
@@ -286,7 +286,7 @@ export default function NurseConfigScreen() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                Nurse Details
+                Assistant Details
               </h2>
               {!isEditing && (
                 <button
@@ -390,7 +390,7 @@ export default function NurseConfigScreen() {
                   disabled={actionLoading === 'deactivate'}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 text-sm font-medium transition-colors"
                 >
-                  {actionLoading === 'deactivate' ? 'Deactivating...' : 'Deactivate Nurse'}
+                  {actionLoading === 'deactivate' ? 'Deactivating...' : 'Deactivate Assistant'}
                 </button>
               </div>
             )}
@@ -398,7 +398,7 @@ export default function NurseConfigScreen() {
             {/* Linked Doctors Section */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Linked Doctors ({linkedDoctors.length})
+                Linked Counsellors ({linkedDoctors.length})
               </h3>
 
               {/* Link Doctor Dropdown */}
@@ -409,7 +409,7 @@ export default function NurseConfigScreen() {
                     onChange={(e) => setSelectedDoctorToLink(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   >
-                    <option value="">Select doctor to link...</option>
+                    <option value="">Select counsellor to link...</option>
                     {availableDoctorsToLink.map((doctor) => (
                       <option key={doctor.id} value={doctor.id}>
                         {doctor.full_name} {doctor.specialization ? `(${doctor.specialization})` : ''}
@@ -428,7 +428,7 @@ export default function NurseConfigScreen() {
 
               {/* Linked Doctors List */}
               {linkedDoctors.length === 0 ? (
-                <p className="text-gray-500 text-sm">No doctors linked to this nurse</p>
+                <p className="text-gray-500 text-sm">No counsellors linked to this assistant</p>
               ) : (
                 <div className="space-y-2">
                   {linkedDoctors.map((link) => (
@@ -466,7 +466,7 @@ export default function NurseConfigScreen() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <p className="font-medium">No Templates Shared</p>
-                <p className="text-sm mt-1">Share templates with this nurse from the Config screen</p>
+                <p className="text-sm mt-1">Share templates with this assistant from the Config screen</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -533,8 +533,8 @@ export default function NurseConfigScreen() {
             {/* Help Text */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <p className="text-xs text-gray-500">
-                <strong>Active templates</strong> are available in VHR screen when this nurse is selected.
-                Use Remove/Re-add to manage which templates appear for this nurse.
+                <strong>Active templates</strong> are available in VSR screen when this assistant is selected.
+                Use Remove/Re-add to manage which templates appear for this assistant.
               </p>
             </div>
           </div>
@@ -547,16 +547,16 @@ export default function NurseConfigScreen() {
           <h3 className="font-semibold text-teal-900 mb-2">Getting Started</h3>
           <ul className="text-sm text-teal-800 space-y-1.5">
             <li>
-              <strong>Select a nurse</strong> from the dropdown to view and manage their profile
+              <strong>Select an assistant</strong> from the dropdown to view and manage their profile
             </li>
             <li>
-              <strong>Create a new nurse</strong> using the button above
+              <strong>Create a new assistant</strong> using the button above
             </li>
             <li>
-              <strong>Link doctors</strong> to nurses to establish recording relationships
+              <strong>Link counsellors</strong> to assistants to establish recording relationships
             </li>
             <li>
-              <strong>Share templates</strong> with nurses from the Config screen, then activate them here
+              <strong>Share templates</strong> with assistants from the Config screen, then activate them here
             </li>
           </ul>
         </div>

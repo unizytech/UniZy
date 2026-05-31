@@ -149,7 +149,7 @@ export default function RecordTab() {
     const [isPaused, setIsPaused] = useState(false);
     const [nativeTranscript, setNativeTranscript] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [status, setStatus] = useState('Select doctor and template to start recording');
+    const [status, setStatus] = useState('Select counsellor and template to start recording');
 
     // Extraction state (NEW: structured segment data)
     const [coreExtractionData, setCoreExtractionData] = useState<MedicalExtractionResponse | null>(null);
@@ -361,8 +361,8 @@ export default function RecordTab() {
         }
 
         if (!selectedTemplate || !selectedDoctorId) {
-            setError('Doctor and template selection required for extraction');
-            setStatus('Recording stopped. Select doctor and template.');
+            setError('Counsellor and template selection required for extraction');
+            setStatus('Recording stopped. Select counsellor and template.');
             return;
         }
 
@@ -652,12 +652,12 @@ export default function RecordTab() {
             {selectedDoctorId && (
                 <div className="w-full bg-slate-800 rounded-lg p-4">
                     <label className="block text-sm font-medium text-slate-300 mb-3">
-                        Patient ID (optional - enables patient context injection)
+                        Student ID (optional - enables student context injection)
                     </label>
                     {loadingPatients ? (
                         <div className="flex items-center justify-center py-3">
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400 mr-2"></div>
-                            <span className="text-sm text-slate-400">Loading patients...</span>
+                            <span className="text-sm text-slate-400">Loading students...</span>
                         </div>
                     ) : patientsList.length > 0 ? (
                         <select
@@ -666,7 +666,7 @@ export default function RecordTab() {
                             disabled={isRecording}
                             className="w-full bg-slate-700 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <option value="">No patient (skip context injection)</option>
+                            <option value="">No student (skip context injection)</option>
                             {patientsList.map((patient) => (
                                 <option key={patient.id} value={patient.patient_id}>
                                     {patient.patient_id}
@@ -681,13 +681,13 @@ export default function RecordTab() {
                             type="text"
                             value={patientId}
                             onChange={(e) => setPatientId(e.target.value)}
-                            placeholder="Enter patient ID (e.g., PAT-12345) or leave empty"
+                            placeholder="Enter student ID (e.g., PAT-12345) or leave empty"
                             disabled={isRecording}
                             className="w-full bg-slate-700 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-slate-500"
                         />
                     )}
                     <p className="mt-2 text-xs text-slate-500">
-                        Select a patient to enable cautions, past prescriptions, and summary context injection
+                        Select a student to enable cautions, past prescriptions, and summary context injection
                     </p>
                 </div>
             )}
@@ -803,7 +803,7 @@ export default function RecordTab() {
                                 ? 'bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/50'
                                 : 'bg-slate-600 cursor-not-allowed opacity-50'
                         }`}
-                        title={!canStartRecording() && !isRecording ? 'Please select doctor, template, and processing mode' : ''}
+                        title={!canStartRecording() && !isRecording ? 'Please select counsellor, template, and processing mode' : ''}
                     >
                         {isRecording ? <StopIcon className="w-10 h-10 text-white" /> : <MicIcon className="w-10 h-10 text-white" />}
                         {isRecording && <span className="absolute w-full h-full rounded-full bg-red-500 animate-ping opacity-75"></span>}

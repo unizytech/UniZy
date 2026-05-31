@@ -228,7 +228,7 @@ export function TemplateForm({
                 ? 'Update template metadata'
                 : mode === 'import'
                 ? 'Copy a template (and its dependencies) from the configured source project'
-                : 'Create a template from scratch or inherit from consultation type'}
+                : 'Create a template from scratch or inherit from session type'}
             </p>
           </div>
           {!isEditMode && mode === 'create' && (
@@ -257,10 +257,10 @@ export function TemplateForm({
                 <ul className="mt-2 list-disc list-inside space-y-0.5 text-green-800">
                   <li>Template segments: {importResult.created.template_segments}</li>
                   <li>Segment definitions created: {importResult.created.segment_definitions}</li>
-                  <li>Consultation type segments: {importResult.created.consultation_type_segments}</li>
-                  <li>New consultation type: {importResult.created.consultation_type ? 'yes' : 'no'}</li>
+                  <li>Session type segments: {importResult.created.consultation_type_segments}</li>
+                  <li>New session type: {importResult.created.consultation_type ? 'yes' : 'no'}</li>
                   <li>New system prompt config: {importResult.created.system_prompt_config ? 'yes' : 'no'}</li>
-                  <li>Hospital remapped: {importResult.created.hospital_remapped ? 'yes' : 'no'}</li>
+                  <li>School remapped: {importResult.created.hospital_remapped ? 'yes' : 'no'}</li>
                 </ul>
                 {importResult.created.assembly_warnings.length > 0 && (
                   <p className="mt-2 text-amber-700">
@@ -424,7 +424,7 @@ export function TemplateForm({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
               >
                 <option value="">Select use case</option>
-                <option value="quick_consultation">Quick Consultation</option>
+                <option value="quick_consultation">Quick Session</option>
                 <option value="detailed_review">Detailed Review</option>
                 <option value="follow_up">Follow-up</option>
                 <option value="emergency">Emergency</option>
@@ -476,7 +476,7 @@ export function TemplateForm({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                 >
                   <option value="none">Configure segments manually</option>
-                  <option value="consultation_type">Inherit from Consultation Type</option>
+                  <option value="consultation_type">Inherit from Session Type</option>
                   <option value="template">Inherit from Existing Template</option>
                 </select>
               </div>
@@ -485,7 +485,7 @@ export function TemplateForm({
               {inheritFromType === 'consultation_type' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Select Consultation Type
+                    Select Session Type
                   </label>
                   <select
                     value={inheritFromId}
@@ -500,7 +500,7 @@ export function TemplateForm({
                     ))}
                   </select>
                   <p className="text-xs text-gray-600 mt-2">
-                    Copy all segment definitions from the selected consultation type's base configuration.
+                    Copy all segment definitions from the selected session type's base configuration.
                   </p>
                 </div>
               )}
@@ -533,7 +533,7 @@ export function TemplateForm({
                   ) : (
                     <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
                       <p className="text-xs text-yellow-800">
-                        No templates available to inherit from. Create segments manually or inherit from consultation type.
+                        No templates available to inherit from. Create segments manually or inherit from session type.
                       </p>
                     </div>
                   )}
@@ -563,7 +563,7 @@ export function TemplateForm({
               <label htmlFor="is_active" className="text-sm text-gray-700">
                 <span className="font-medium">Make template active</span>
                 <span className="text-gray-500 ml-1">
-                  (inactive templates are hidden from doctors until activated)
+                  (inactive templates are hidden from counsellors until activated)
                 </span>
               </label>
             </div>

@@ -325,7 +325,7 @@ export function SegmentForm({
       // Validate assignment
       if (assignmentType === 'consultation_type') {
         if (!formData.consultation_type_code) {
-          throw new Error('Consultation Type is required');
+          throw new Error('Session Type is required');
         }
       } else if (assignmentType === 'template') {
         if (!formData.template_code) {
@@ -369,7 +369,7 @@ export function SegmentForm({
           // Clone from parent segment with tracking
           // Validate that we have the source consultation type ID
           if (!sourceConsultationTypeId) {
-            throw new Error('Source consultation type ID is required for cloning. Please select a parent segment from a specific consultation type.');
+            throw new Error('Source session type ID is required for cloning. Please select a parent segment from a specific session type.');
           }
           const cloneRequest: CloneSegmentRequest = {
             parent_segment_code: selectedParentSegment,
@@ -492,7 +492,7 @@ export function SegmentForm({
                       {/* Step 1: Select Source Consultation Type */}
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Step 1: Source Consultation Type <span className="text-red-500">*</span>
+                          Step 1: Source Session Type <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={sourceConsultationTypeForClone}
@@ -506,7 +506,7 @@ export function SegmentForm({
                           required
                           className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm text-gray-900 bg-white"
                         >
-                          <option value="">Select source consultation type...</option>
+                          <option value="">Select source session type...</option>
                           {getUniqueConsultationTypesFromSegments().map((ct) => (
                             <option key={ct.id} value={ct.id}>
                               {ct.name} ({ct.code})
@@ -514,7 +514,7 @@ export function SegmentForm({
                           ))}
                         </select>
                         <p className="text-xs text-gray-500 mt-1">
-                          Choose the consultation type containing the segment you want to clone
+                          Choose the session type containing the segment you want to clone
                         </p>
                       </div>
 
@@ -539,7 +539,7 @@ export function SegmentForm({
                           </select>
                           {getFilteredSegmentsForClone().length === 0 && (
                             <p className="text-xs text-amber-600 mt-1">
-                              No segments found for this consultation type
+                              No segments found for this session type
                             </p>
                           )}
                         </div>
@@ -593,7 +593,7 @@ export function SegmentForm({
                       {/* Step 1: Select Consultation Type */}
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Step 1: Select Consultation Type <span className="text-red-500">*</span>
+                          Step 1: Select Session Type <span className="text-red-500">*</span>
                         </label>
                         <select
                           value={combineConsultationTypeId}
@@ -604,7 +604,7 @@ export function SegmentForm({
                           }}
                           className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900 bg-white"
                         >
-                          <option value="">Select consultation type...</option>
+                          <option value="">Select session type...</option>
                           {getUniqueConsultationTypesFromSegments().map((ct) => (
                             <option key={ct.id} value={ct.id}>
                               {ct.name} ({ct.code})
@@ -746,9 +746,9 @@ export function SegmentForm({
                     className="h-4 w-4 text-blue-600 mt-0.5"
                   />
                   <div className="ml-3">
-                    <span className="text-sm font-medium text-gray-900">Consultation Type</span>
+                    <span className="text-sm font-medium text-gray-900">Session Type</span>
                     <p className="text-xs text-gray-600 mt-0.5">
-                      Assign to a specific consultation type (segments linked via junction table)
+                      Assign to a specific session type (segments linked via junction table)
                     </p>
                   </div>
                 </label>
@@ -776,7 +776,7 @@ export function SegmentForm({
             {(assignmentType === 'consultation_type' || assignmentType === 'template') && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Consultation Type {!isEditMode && <span className="text-red-500">*</span>}
+                  Session Type {!isEditMode && <span className="text-red-500">*</span>}
                   {isEditMode && (
                     <span className="ml-2 text-xs font-normal text-gray-500">
                       (read-only)
@@ -795,7 +795,7 @@ export function SegmentForm({
                         ))}
                       </div>
                     ) : (
-                      <span className="text-gray-400 italic">Not assigned to any consultation type</span>
+                      <span className="text-gray-400 italic">Not assigned to any session type</span>
                     )}
                   </div>
                 ) : (
@@ -807,7 +807,7 @@ export function SegmentForm({
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                   >
-                    <option value="">Select consultation type...</option>
+                    <option value="">Select session type...</option>
                     {consultationTypes.map((type) => (
                       <option key={type.type_code} value={type.type_code}>
                         {type.type_name}
@@ -891,10 +891,10 @@ export function SegmentForm({
               >
                 <option value="core">CORE - Always extracted</option>
                 <option value="additional">ADDITIONAL - Extracted in full mode</option>
-                <option value="excluded">EXCLUDED - Hidden from this consultation type</option>
+                <option value="excluded">EXCLUDED - Hidden from this session type</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                Use EXCLUDED to hide a common segment for this consultation type
+                Use EXCLUDED to hide a common segment for this session type
               </p>
             </div>
 
@@ -969,7 +969,7 @@ export function SegmentForm({
                     Active Segment
                   </label>
                   <p className="text-xs text-gray-500 mt-1">
-                    When checked, segment is active and available for use. Inactive segments are automatically activated when assigned to consultation types or templates.
+                    When checked, segment is active and available for use. Inactive segments are automatically activated when assigned to session types or templates.
                   </p>
                 </div>
               </div>
@@ -982,7 +982,7 @@ export function SegmentForm({
               Prompt Section Text <span className="text-red-500">*</span>
               {isEditMode && assignmentType === 'consultation_type' && segment?.consultation_types?.length > 1 && (
                 <span className="ml-2 text-xs font-normal text-orange-600">
-                  ⚠️ Global field - affects ALL consultation types
+                  ⚠️ Global field - affects ALL session types
                 </span>
               )}
             </label>
@@ -997,9 +997,9 @@ export function SegmentForm({
             />
             <p className="text-xs text-gray-500 mt-1">
               {isPendingApproval
-                ? 'Description from doctor (you can edit this)'
+                ? 'Description from counsellor (you can edit this)'
                 : isEditMode && assignmentType === 'consultation_type' && segment?.consultation_types?.length > 1
-                ? '⚠️ Changes to prompt affect ALL associated consultation types (global field)'
+                ? '⚠️ Changes to prompt affect ALL associated session types (global field)'
                 : 'Instructions for AI to extract this segment from transcript'}
             </p>
           </div>
@@ -1015,7 +1015,7 @@ export function SegmentForm({
               )}
               {isEditMode && assignmentType === 'consultation_type' && segment?.consultation_types?.length > 1 && (
                 <span className="ml-2 text-xs font-normal text-orange-600">
-                  ⚠️ Global field - affects ALL consultation types
+                  ⚠️ Global field - affects ALL session types
                 </span>
               )}
             </label>
@@ -1030,9 +1030,9 @@ export function SegmentForm({
             />
             <p className="text-xs text-gray-500 mt-1">
               {isPendingApproval
-                ? 'Add the JSON schema to activate this segment for the doctor'
+                ? 'Add the JSON schema to activate this segment for the counsellor'
                 : isEditMode && assignmentType === 'consultation_type' && segment?.consultation_types?.length > 1
-                ? '⚠️ Changes to schema affect ALL associated consultation types (global field)'
+                ? '⚠️ Changes to schema affect ALL associated session types (global field)'
                 : 'JSON schema definition for this segment\'s structure'}
             </p>
           </div>
@@ -1057,7 +1057,7 @@ export function SegmentForm({
                     Approval Workflow
                   </p>
                   <p className="text-xs text-indigo-800 mt-1">
-                    Review and edit the doctor's request details as needed. Add or modify the JSON schema
+                    Review and edit the counsellor's request details as needed. Add or modify the JSON schema
                     and click "Approve Segment" to activate this segment for use in extraction.
                   </p>
                 </div>

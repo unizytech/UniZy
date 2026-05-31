@@ -85,7 +85,7 @@ export function ConsultationTypeSegmentEditModal({
             Edit Segment Configuration
           </h2>
           <p className="text-sm text-gray-600 mb-6">
-            Configure settings for <strong>{segment.segment_name}</strong> in this consultation type
+            Configure settings for <strong>{segment.segment_name}</strong> in this session type
           </p>
 
           {error && (

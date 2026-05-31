@@ -247,10 +247,10 @@ export function EditConsultationTypeVisibilityModal({
               />
               <div className="flex-1">
                 <label htmlFor="visibleToAll" className="font-medium text-sm text-gray-900 cursor-pointer">
-                  Visible to All Doctors, Hospitals & Specializations
+                  Visible to All Counsellors, Schools & Specializations
                 </label>
                 <p className="text-xs text-gray-600 mt-1">
-                  When checked, this consultation type will be available to everyone. Uncheck to restrict visibility to specific entities.
+                  When checked, this session type will be available to everyone. Uncheck to restrict visibility to specific entities.
                 </p>
               </div>
             </div>
@@ -269,7 +269,7 @@ export function EditConsultationTypeVisibilityModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    👨‍⚕️ Doctors ({selectedDoctors.length})
+                    👨‍⚕️ Counsellors ({selectedDoctors.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('hospitals')}
@@ -279,7 +279,7 @@ export function EditConsultationTypeVisibilityModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    🏥 Hospitals ({selectedHospitals.length})
+                    🏥 Schools ({selectedHospitals.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('specializations')}
@@ -304,7 +304,7 @@ export function EditConsultationTypeVisibilityModal({
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search doctors by name, email, or specialization..."
+                        placeholder="Search counsellors by name, email, or specialization..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                       />
                     </div>
@@ -313,7 +313,7 @@ export function EditConsultationTypeVisibilityModal({
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {filteredDoctors.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
-                          {searchQuery ? 'No doctors found matching your search.' : 'No doctors available.'}
+                          {searchQuery ? 'No counsellors found matching your search.' : 'No counsellors available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
@@ -348,7 +348,7 @@ export function EditConsultationTypeVisibilityModal({
                     {/* Hospitals List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {hospitals.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">No hospitals available.</div>
+                        <div className="text-center py-8 text-gray-500">No schools available.</div>
                       ) : (
                         <div className="divide-y divide-gray-200">
                           {hospitals.map((hospital) => (

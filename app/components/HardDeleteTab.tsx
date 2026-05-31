@@ -110,7 +110,7 @@ function RelationshipDetails({
               {relationships.relationships.consultation_types && relationships.relationships.consultation_types.length > 0 && (
                 <div>
                   <h6 className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
-                    Consultation Types ({relationships.relationships.consultation_types.length})
+                    Session Types ({relationships.relationships.consultation_types.length})
                   </h6>
                   <ul className="space-y-1.5">
                     {relationships.relationships.consultation_types.map((ct) => (
@@ -164,7 +164,7 @@ function RelationshipDetails({
               {relationships.relationships.doctors && relationships.relationships.doctors.length > 0 && (
                 <div>
                   <h6 className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
-                    Doctors ({relationships.relationships.doctors.length})
+                    Counsellors ({relationships.relationships.doctors.length})
                   </h6>
                   <ul className="space-y-1.5">
                     {relationships.relationships.doctors.map((doc) => (
@@ -458,7 +458,7 @@ export function HardDeleteTab() {
     if (rel.relationships.consultation_types?.length) {
       const c = rel.relationships.consultation_types.length;
       count += c;
-      details.push(`${c} consultation type${c > 1 ? 's' : ''}`);
+      details.push(`${c} session type${c > 1 ? 's' : ''}`);
     }
     if (rel.relationships.templates?.length) {
       const c = rel.relationships.templates.length;
@@ -473,7 +473,7 @@ export function HardDeleteTab() {
     if (rel.relationships.doctors?.length) {
       const c = rel.relationships.doctors.length;
       count += c;
-      details.push(`${c} doctor${c > 1 ? 's' : ''}`);
+      details.push(`${c} counsellor${c > 1 ? 's' : ''}`);
     }
 
     return { count, details };
@@ -510,7 +510,7 @@ export function HardDeleteTab() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {type === 'consultation_type' ? 'Consultation Type' : type.charAt(0).toUpperCase() + type.slice(1)}
+              {type === 'consultation_type' ? 'Session Type' : type.charAt(0).toUpperCase() + type.slice(1)}
             </button>
           ))}
         </div>
@@ -532,7 +532,7 @@ export function HardDeleteTab() {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="block text-sm font-medium text-gray-700">
-            Soft-Deleted {entityType === 'consultation_type' ? 'Consultation Types' : entityType.charAt(0).toUpperCase() + entityType.slice(1) + 's'}
+            Soft-Deleted {entityType === 'consultation_type' ? 'Session Types' : entityType.charAt(0).toUpperCase() + entityType.slice(1) + 's'}
             {loading && ' (Loading...)'}
             {loadingRelationships && ' (Loading relationships...)'}
           </label>

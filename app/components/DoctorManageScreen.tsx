@@ -121,7 +121,7 @@ export default function DoctorManageScreen() {
         translation_language: doc.translation_language || '',
       });
     } catch (err) {
-      setError('Failed to load doctor: ' + (err as Error).message);
+      setError('Failed to load counsellor: ' + (err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -142,7 +142,7 @@ export default function DoctorManageScreen() {
       setIsEditing(false);
       await refreshDoctors();
     } catch (err) {
-      alert('Failed to update doctor: ' + (err as Error).message);
+      alert('Failed to update counsellor: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -159,7 +159,7 @@ export default function DoctorManageScreen() {
       setSelectedDoctor(null);
       await refreshDoctors();
     } catch (err) {
-      alert('Failed to deactivate doctor: ' + (err as Error).message);
+      alert('Failed to deactivate counsellor: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -177,7 +177,7 @@ export default function DoctorManageScreen() {
       setSelectedDoctor(null);
       await refreshDoctors();
     } catch (err) {
-      alert('Failed to delete doctor: ' + (err as Error).message);
+      alert('Failed to delete counsellor: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -199,7 +199,7 @@ export default function DoctorManageScreen() {
         handleSelectDoctor(result.doctor_id);
       }
     } catch (err) {
-      alert('Failed to create doctor: ' + (err as Error).message);
+      alert('Failed to create counsellor: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -226,21 +226,21 @@ export default function DoctorManageScreen() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Doctor Management</h1>
-        <p className="text-gray-300">Create, edit, and manage doctor profiles</p>
+        <h1 className="text-3xl font-bold text-white mb-2">Counsellor Management</h1>
+        <p className="text-gray-300">Create, edit, and manage counsellor profiles</p>
       </div>
 
       {/* Filters + Create */}
       <div className="mb-8 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Hospital</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by School</label>
             <select
               value={hospitalFilter}
               onChange={(e) => setHospitalFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
-              <option value="">All Hospitals</option>
+              <option value="">All Schools</option>
               {hospitals.map((h) => (
                 <option key={h.id} value={h.id}>{h.hospital_name}</option>
               ))}
@@ -260,7 +260,7 @@ export default function DoctorManageScreen() {
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium text-sm"
           >
-            + Create Doctor
+            + Create Counsellor
           </button>
         </div>
       </div>
@@ -277,7 +277,7 @@ export default function DoctorManageScreen() {
         {/* Left: Doctor List */}
         <div className="lg:col-span-1 bg-white rounded-lg shadow-sm border border-gray-200 p-4 max-h-[600px] overflow-y-auto">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Doctors ({filteredDoctors.length})
+            Counsellors ({filteredDoctors.length})
           </h2>
 
           {loading && !selectedDoctor && (
@@ -287,7 +287,7 @@ export default function DoctorManageScreen() {
           )}
 
           {!loading && filteredDoctors.length === 0 && (
-            <p className="text-gray-500 text-sm text-center py-8">No doctors found</p>
+            <p className="text-gray-500 text-sm text-center py-8">No counsellors found</p>
           )}
 
           <div className="space-y-2">
@@ -327,15 +327,15 @@ export default function DoctorManageScreen() {
               <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              <p className="text-gray-500 font-medium">Select a doctor to view details</p>
-              <p className="text-gray-400 text-sm mt-1">Or create a new doctor using the button above</p>
+              <p className="text-gray-500 font-medium">Select a counsellor to view details</p>
+              <p className="text-gray-400 text-sm mt-1">Or create a new counsellor using the button above</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Details Panel */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Doctor Details</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Counsellor Details</h2>
                   {!isEditing && (
                     <button
                       onClick={() => setIsEditing(true)}
@@ -475,7 +475,7 @@ export default function DoctorManageScreen() {
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Hospital</p>
+                    <p className="text-sm text-gray-500">School</p>
                     <p className="text-gray-900">{getHospitalName(selectedDoctor.hospital_id)}</p>
                   </div>
                   <div>
@@ -515,17 +515,17 @@ export default function DoctorManageScreen() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Create Doctor</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Create Counsellor</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hospital *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">School *</label>
                 <select
                   value={createForm.hospital_code}
                   onChange={(e) => setCreateForm({ ...createForm, hospital_code: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 >
-                  <option value="">Select hospital...</option>
+                  <option value="">Select school...</option>
                   {hospitals.map((h) => (
                     <option key={h.id} value={h.hospital_code || ''}>
                       {h.hospital_name} ({h.hospital_code})
@@ -549,7 +549,7 @@ export default function DoctorManageScreen() {
                   type="email"
                   value={createForm.email}
                   onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                  placeholder="doctor@hospital.com"
+                  placeholder="counsellor@school.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
@@ -571,7 +571,7 @@ export default function DoctorManageScreen() {
                 disabled={actionLoading === 'create'}
                 className="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-300 font-medium transition-colors"
               >
-                {actionLoading === 'create' ? 'Creating...' : 'Create Doctor'}
+                {actionLoading === 'create' ? 'Creating...' : 'Create Counsellor'}
               </button>
               <button
                 onClick={() => {

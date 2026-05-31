@@ -63,7 +63,7 @@ export function ConsultationTypeForm({
     try {
       // Validate clone mode
       if (creationMode === 'clone' && !sourceConsultationTypeId) {
-        setError('Please select a consultation type to clone from');
+        setError('Please select a session type to clone from');
         setSubmitting(false);
         return;
       }
@@ -103,9 +103,9 @@ export function ConsultationTypeForm({
         <div className="bg-blue-600 text-white p-6 rounded-t-lg">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-bold">Create New Consultation Type</h2>
+              <h2 className="text-2xl font-bold">Create New Session Type</h2>
               <p className="text-blue-100 text-sm mt-1">
-                Define a new consultation type with common segments
+                Define a new session type with common segments
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -208,7 +208,7 @@ export function ConsultationTypeForm({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900 bg-white"
                   required={creationMode === 'clone'}
                 >
-                  <option value="">Select consultation type to clone...</option>
+                  <option value="">Select session type to clone...</option>
                   {availableConsultationTypes.map((ct) => (
                     <option key={ct.id} value={ct.id}>
                       {ct.type_name} ({ct.type_code})
@@ -216,7 +216,7 @@ export function ConsultationTypeForm({
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  All segments and configurations will be copied to the new consultation type
+                  All segments and configurations will be copied to the new session type
                 </p>
               </div>
             )}
@@ -251,11 +251,11 @@ export function ConsultationTypeForm({
                 value={typeName}
                 onChange={(e) => setTypeName(e.target.value)}
                 required
-                placeholder="e.g., Emergency Consultation"
+                placeholder="e.g., Emergency Session"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Display name for the consultation type
+                Display name for the session type
               </p>
             </div>
 
@@ -347,7 +347,7 @@ export function ConsultationTypeForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Detailed description of this consultation type..."
+              placeholder="Detailed description of this session type..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -372,7 +372,7 @@ export function ConsultationTypeForm({
               <div>
                 <p className="text-sm font-semibold text-green-900">Default Visibility</p>
                 <p className="text-sm text-green-800 mt-1">
-                  This consultation type will be visible to <strong>all doctors, hospitals, and specializations</strong> by default. You can edit visibility settings after creation using the "Edit Visibility" button.
+                  This session type will be visible to <strong>all counsellors, schools, and specializations</strong> by default. You can edit visibility settings after creation using the "Edit Visibility" button.
                 </p>
               </div>
             </div>

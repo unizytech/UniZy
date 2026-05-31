@@ -61,8 +61,8 @@ export default function ExtractionMergeScreen({
   // APPEND: Arrays concatenated, never replaced
   const UPLOAD_TYPES = [
     // DEEP_MERGE types
-    { value: 'OP_SUMMARY', label: 'OP Summary', strategy: 'DEEP_MERGE', description: 'Outpatient consultation summary' },
-    { value: 'DISCHARGE_SUMMARY', label: 'Discharge Summary', strategy: 'DEEP_MERGE', description: 'Hospital discharge summary' },
+    { value: 'OP_SUMMARY', label: 'OP Summary', strategy: 'DEEP_MERGE', description: 'Outpatient session summary' },
+    { value: 'DISCHARGE_SUMMARY', label: 'Discharge Summary', strategy: 'DEEP_MERGE', description: 'School discharge summary' },
     { value: 'EXAMINATION', label: 'Examination', strategy: 'DEEP_MERGE', description: 'Physical examination, vitals' },
     { value: 'OPTOMETRY', label: 'Optometry', strategy: 'DEEP_MERGE', description: 'Ophthalmology/optometry data' },
     { value: 'OTHER', label: 'Other', strategy: 'DEEP_MERGE', description: 'General/unclassified data' },
@@ -160,7 +160,7 @@ export default function ExtractionMergeScreen({
       setExtractions(timeline.extractions);
       setSelectedExtractionIds([]); // Reset selection
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load patient timeline');
+      setError(err instanceof Error ? err.message : 'Failed to load student timeline');
     } finally {
       setLoading(false);
     }
@@ -257,7 +257,7 @@ export default function ExtractionMergeScreen({
     }
     // For JSON-only merge, patient_id is required
     if (selectedExtractionIds.length === 0 && !patientId) {
-      setError('Patient ID is required for JSON-only merge');
+      setError('Student ID is required for JSON-only merge');
       return;
     }
 
@@ -293,7 +293,7 @@ export default function ExtractionMergeScreen({
     }
     // For JSON-only merge, patient_id is required
     if (selectedExtractionIds.length === 0 && !patientId) {
-      setError('Patient ID is required for JSON-only merge');
+      setError('Student ID is required for JSON-only merge');
       return;
     }
 
@@ -382,7 +382,7 @@ export default function ExtractionMergeScreen({
           <div className="lg:col-span-1 space-y-6">
             {/* Doctor Selection */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Doctor Selection</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Counsellor Selection</h2>
               <DoctorSelector
                 selectedDoctorId={doctorId}
                 onDoctorSelect={(id) => {
@@ -398,17 +398,17 @@ export default function ExtractionMergeScreen({
 
             {/* Patient Selection */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Patient Selection</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Student Selection</h2>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Patient ID
+                  Student ID
                 </label>
                 {!doctorId ? (
-                  <p className="text-sm text-gray-500 italic">Select a doctor first</p>
+                  <p className="text-sm text-gray-500 italic">Select a counsellor first</p>
                 ) : loadingPatients ? (
                   <div className="flex items-center justify-center py-3">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
-                    <span className="text-gray-500 text-sm">Loading patients...</span>
+                    <span className="text-gray-500 text-sm">Loading students...</span>
                   </div>
                 ) : patientsList.length > 0 ? (
                   <select
@@ -416,7 +416,7 @@ export default function ExtractionMergeScreen({
                     onChange={(e) => setPatientId(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                   >
-                    <option value="">Select a patient...</option>
+                    <option value="">Select a student...</option>
                     {patientsList.map((patient) => (
                       <option key={patient.id} value={patient.patient_id}>
                         {patient.patient_id}
@@ -427,7 +427,7 @@ export default function ExtractionMergeScreen({
                     ))}
                   </select>
                 ) : (
-                  <p className="text-sm text-gray-500 italic">No patients found for this doctor</p>
+                  <p className="text-sm text-gray-500 italic">No students found for this counsellor</p>
                 )}
                 {patientId && (
                   <button
@@ -457,7 +457,7 @@ export default function ExtractionMergeScreen({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100"
                   >
                     {!doctorId ? (
-                      <option value="">Select doctor first</option>
+                      <option value="">Select counsellor first</option>
                     ) : loadingTypes ? (
                       <option value="">Loading templates...</option>
                     ) : templates.length === 0 ? (
@@ -501,13 +501,13 @@ export default function ExtractionMergeScreen({
 
                   {!doctorId && (
                     <p className="text-sm text-amber-600 mb-2">
-                      Warning: Doctor not selected. Please select a doctor above.
+                      Warning: Counsellor not selected. Please select a counsellor above.
                     </p>
                   )}
 
                   {selectedExtractionIds.length === 0 && uploadedJsonSources.length > 0 && !patientId && (
                     <p className="text-sm text-amber-600 mb-2">
-                      Warning: Patient ID required for JSON-only merge (no DB extractions selected).
+                      Warning: Student ID required for JSON-only merge (no DB extractions selected).
                     </p>
                   )}
 
@@ -706,7 +706,7 @@ export default function ExtractionMergeScreen({
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Patient Extraction Timeline
+                  Student Extraction Timeline
                 </h2>
                 {extractions.length > 0 && (
                   <button
@@ -742,8 +742,8 @@ export default function ExtractionMergeScreen({
                   </svg>
                   <p className="text-gray-600 mt-4">
                     {patientId
-                      ? 'No extractions found for this patient'
-                      : 'Enter a patient ID to load extractions'}
+                      ? 'No extractions found for this student'
+                      : 'Enter a student ID to load extractions'}
                   </p>
                 </div>
               ) : (
@@ -780,7 +780,7 @@ export default function ExtractionMergeScreen({
                             </span>
                           </div>
                           <div className="mt-1 text-sm text-gray-600">
-                            <span>Doctor: {extraction.doctor_name || 'Unknown'}</span>
+                            <span>Counsellor: {extraction.doctor_name || 'Unknown'}</span>
                             <span className="mx-2">•</span>
                             <span>{extraction.segment_count} segments</span>
                           </div>

@@ -87,7 +87,7 @@ export function SegmentAssignmentModal({
   };
 
   const handleUnassignFromConsultationType = async (typeCode: string) => {
-    if (!confirm(`Are you sure you want to unassign "${segment.segment_code}" from consultation type "${typeCode}"?`)) {
+    if (!confirm(`Are you sure you want to unassign "${segment.segment_code}" from session type "${typeCode}"?`)) {
       return;
     }
 
@@ -197,12 +197,12 @@ export function SegmentAssignmentModal({
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Assign to Consultation Type
+              Assign to Session Type
             </button>
           ) : (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-green-900">Assign to Consultation Type</h3>
+                <h3 className="font-medium text-green-900">Assign to Session Type</h3>
                 <button
                   onClick={() => {
                     setShowAssignForm(false);
@@ -218,20 +218,20 @@ export function SegmentAssignmentModal({
 
               {unassignedTypes.length === 0 ? (
                 <p className="text-sm text-green-800">
-                  This segment is already assigned to all consultation types.
+                  This segment is already assigned to all session types.
                 </p>
               ) : (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Consultation Type
+                      Session Type
                     </label>
                     <select
                       value={selectedType}
                       onChange={(e) => setSelectedType(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     >
-                      <option value="">Select consultation type...</option>
+                      <option value="">Select session type...</option>
                       {unassignedTypes.map((ct) => (
                         <option key={ct.type_code} value={ct.type_code}>
                           {ct.type_name} ({ct.type_code})
@@ -276,7 +276,7 @@ export function SegmentAssignmentModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
               <p className="text-lg font-medium">No Assignments Yet</p>
-              <p className="text-sm mt-2">Use the button above to assign this segment to consultation types.</p>
+              <p className="text-sm mt-2">Use the button above to assign this segment to session types.</p>
             </div>
           ) : (
             <>
@@ -285,7 +285,7 @@ export function SegmentAssignmentModal({
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                    Consultation Types ({segment.consultation_types.length})
+                    Session Types ({segment.consultation_types.length})
                   </h3>
                   <div className="grid gap-3">
                     {segment.consultation_types.map((ct: any) => (

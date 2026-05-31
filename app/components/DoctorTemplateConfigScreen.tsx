@@ -277,7 +277,7 @@ export default function DoctorTemplateConfigScreen() {
           Template Configuration
         </h1>
         <p className="text-gray-300">
-          Activate templates from consultation types or clone existing templates
+          Activate templates from session types or clone existing templates
         </p>
       </div>
 
@@ -321,14 +321,14 @@ export default function DoctorTemplateConfigScreen() {
               {/* LEFT: Activate from Consultation Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Activate from Consultation Type
+                  Activate from Session Type
                 </label>
                 <select
                   value={selectedConsultationTypeId || ''}
                   onChange={(e) => setSelectedConsultationTypeId(e.target.value || null)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">Select consultation type...</option>
+                  <option value="">Select session type...</option>
                   {consultationTypes.map((ct) => (
                     <option key={ct.id} value={ct.id}>
                       {isConsultationTypeActivated(ct.id) ? '✓ ' : ''}{ct.type_name} ({ct.type_code})
@@ -384,7 +384,7 @@ export default function DoctorTemplateConfigScreen() {
               </span>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              These templates are configured and ready for use in VHR Screen
+              These templates are configured and ready for use in VSR Screen
             </p>
 
             {readyTemplates.length === 0 ? (
@@ -499,7 +499,7 @@ export default function DoctorTemplateConfigScreen() {
           <h3 className="font-semibold text-blue-900 mb-2">Quick Guide</h3>
           <ul className="text-sm text-blue-800 space-y-1.5">
             <li>
-              <strong>Activate:</strong> Create a new template from a consultation type (includes all default segments)
+              <strong>Activate:</strong> Create a new template from a session type (includes all default segments)
             </li>
             <li>
               <strong>Clone:</strong> Create a customizable copy of any accessible template
@@ -514,7 +514,7 @@ export default function DoctorTemplateConfigScreen() {
               <strong>View Details:</strong> View segment configurations for global templates (read-only). Click "Clone to Customize" to create an editable copy.
             </li>
             <li>
-              <strong>Common Templates:</strong> Global templates created by admin (gray badge) are available to all doctors. You can view and clone them, but cannot configure or delete them.
+              <strong>Common Templates:</strong> Global templates created by admin (gray badge) are available to all counsellors. You can view and clone them, but cannot configure or delete them.
             </li>
             <li>
               <strong>Owned Templates:</strong> Templates you created (blue badge) can be configured and deleted

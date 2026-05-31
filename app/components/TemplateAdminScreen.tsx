@@ -338,7 +338,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
 
   const handleToggleConsultationType = async (typeCode: string, isActive: boolean) => {
     const action = isActive ? 'inactivate' : 'activate';
-    if (!confirm(`Are you sure you want to ${action} consultation type "${typeCode}"?`)) {
+    if (!confirm(`Are you sure you want to ${action} session type "${typeCode}"?`)) {
       return;
     }
 
@@ -515,9 +515,9 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
             <h1 className="text-2xl font-bold text-gray-900">Configuration</h1>
             <p className="text-sm text-gray-600 mt-1">
               {viewMode === 'templates'
-                ? 'Configure templates from basic segments or inherit from consultation types'
+                ? 'Configure templates from basic segments or inherit from session types'
                 : viewMode === 'consultation-types'
-                ? 'Configure base segment definitions for consultation types'
+                ? 'Configure base segment definitions for session types'
                 : 'View and manage all segment definitions'}
             </p>
           </div>
@@ -572,7 +572,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            🏥 Consultation Types
+            🏥 Session Types
           </button>
           <button
             onClick={() => setViewMode('segments')}
@@ -636,7 +636,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
       {viewMode !== 'consultation-types' && viewMode !== 'hard-delete' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Consultation Type
+            Session Type
           </label>
           <div className="flex flex-wrap gap-2">
             {/* Show "All" button in Templates and Segments views */}
@@ -652,7 +652,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                All Consultation Types
+                All Session Types
               </button>
             )}
             {[...consultationTypes].sort((a, b) => (a.type_name || '').localeCompare(b.type_name || '')).map((type) => (
@@ -709,7 +709,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700">Template Type:</label>
                   <div className="text-xs text-gray-500 -mt-1">
-                    Global: Shared starter templates • Doctor: Doctor-specific templates
+                    Global: Shared starter templates • Counsellor: Counsellor-specific templates
                   </div>
                 </div>
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
@@ -720,7 +720,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                         ? 'bg-white text-blue-600 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
-                    title="Global templates available to all doctors as starter templates"
+                    title="Global templates available to all counsellors as starter templates"
                   >
                     🌐 Global
                   </button>
@@ -731,9 +731,9 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                         ? 'bg-white text-blue-600 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
-                    title="Doctor-owned templates (for admin oversight)"
+                    title="Counsellor-owned templates (for admin oversight)"
                   >
-                    👤 Doctor-Owned
+                    👤 Counsellor-Owned
                   </button>
                   <button
                     onClick={() => setTemplateFilter('all')}
@@ -742,7 +742,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                         ? 'bg-white text-blue-600 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
-                    title="All templates (global + doctor-owned)"
+                    title="All templates (global + counsellor-owned)"
                   >
                     All
                   </button>
@@ -803,7 +803,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                 </button>
               </>
             ) : selectedConsultationType === 'ALL' ? (
-              <p className="mb-2">No templates found across all consultation types</p>
+              <p className="mb-2">No templates found across all session types</p>
             ) : (
               <>
                 <p className="mb-2">No templates found for {selectedConsultationType}</p>
@@ -894,7 +894,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                     <button
                       onClick={() => setSharingTemplate(template)}
                       className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
-                      title="Share template with doctors"
+                      title="Share template with counsellors"
                     >
                       Share
                     </button>
@@ -964,7 +964,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Consultation Types ({filteredConsultationTypes.length} of {consultationTypes.length})
+              Session Types ({filteredConsultationTypes.length} of {consultationTypes.length})
             </h2>
             <p className="text-sm text-gray-600 mb-4">
               Configure base segment definitions that templates inherit from
@@ -1012,7 +1012,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
 
           {filteredConsultationTypes.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <p className="mb-2">No consultation types match "{consultationTypeSearch}"</p>
+              <p className="mb-2">No session types match "{consultationTypeSearch}"</p>
               <button
                 onClick={() => setConsultationTypeSearch('')}
                 className="text-blue-600 hover:text-blue-700 font-medium"
@@ -1158,7 +1158,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                                 getAccessToken(),
                                 {}
                               );
-                              if (!response.ok) throw new Error('Failed to update consultation insights');
+                              if (!response.ok) throw new Error('Failed to update session insights');
 
                               // Update local state
                               setConsultationTypes(prevTypes =>
@@ -1170,7 +1170,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                               );
                             } catch (error) {
                               console.error('Error updating consultation insights:', error);
-                              setError('Failed to update consultation insights');
+                              setError('Failed to update session insights');
                             }
                           }}
                           className={`w-3.5 h-3.5 bg-white border-gray-300 rounded focus:ring-blue-500 ${
@@ -1182,7 +1182,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                           className={`cursor-pointer ${type.skip_transcription === true ? 'text-gray-400' : 'text-gray-700'}`}
                           title={type.skip_transcription === true
                             ? "Requires transcript - disabled in No Transcript mode"
-                            : "Enable/disable consultation insights, assessments, and interventions"
+                            : "Enable/disable session insights, assessments, and interventions"
                           }
                         >
                           Insights{type.skip_transcription === true && <span className="text-red-400 ml-1">(requires transcript)</span>}
@@ -1230,7 +1230,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                         <label
                           htmlFor={`no-transcript-${type.type_code}`}
                           className="text-gray-700 cursor-pointer"
-                          title="Skip transcription and extract insights directly from audio. Emotion uses audio-only mode, Triage runs normally. Only Consultation Insights is disabled (requires transcript)."
+                          title="Skip transcription and extract insights directly from audio. Emotion uses audio-only mode, Triage runs normally. Only Session Insights is disabled (requires transcript)."
                         >
                           No Transcript
                         </label>
@@ -1259,14 +1259,14 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                       onClick={() => handleShowAssociatedTemplates(type)}
                       disabled={loadingAssociatedTemplates}
                       className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="View templates using this consultation type"
+                      title="View templates using this session type"
                     >
                       {loadingAssociatedTemplates ? 'Loading...' : 'Assc. Templates'}
                     </button>
                     <button
                       onClick={() => handleToggleConsultationType(type.type_code, type.is_active !== false)}
                       className={`${type.is_active === false ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white px-2 py-1 rounded text-xs font-medium transition-colors`}
-                      title={type.is_active === false ? 'Activate this consultation type' : 'Inactivate this consultation type'}
+                      title={type.is_active === false ? 'Activate this session type' : 'Inactivate this session type'}
                     >
                       {type.is_active === false ? 'Activate' : 'Inactivate'}
                     </button>
@@ -1289,7 +1289,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                   All Segments ({filteredSegments.length} of {segments.length})
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  View and manage segment definitions {selectedConsultationType === 'ALL' ? 'across all consultation types' : `for ${selectedConsultationType}`}
+                  View and manage segment definitions {selectedConsultationType === 'ALL' ? 'across all session types' : `for ${selectedConsultationType}`}
                 </p>
               </div>
 
@@ -1503,7 +1503,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                 Pending Segment Requests ({pendingSegments.length})
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Review and approve doctor segment requests by adding JSON schema
+                Review and approve counsellor segment requests by adding JSON schema
               </p>
             </div>
             <button
@@ -1565,7 +1565,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                           {segment.requester_name || 'Unknown'} ({segment.requester_email || 'N/A'})
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="font-medium">Consultation Type:</span>
+                          <span className="font-medium">Session Type:</span>
                           {segment.consultation_type_name || segment.consultation_type_code}
                         </span>
                         <span className="flex items-center gap-1">
@@ -1881,7 +1881,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                 <div>
                   <h2 className="text-2xl font-bold">Templates - {associatedTemplatesForType.type_name}</h2>
                   <p className="text-purple-100 text-sm mt-1">
-                    Templates using {associatedTemplatesForType.type_code} consultation type
+                    Templates using {associatedTemplatesForType.type_code} session type
                   </p>
                 </div>
                 <button
@@ -1909,7 +1909,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                   </svg>
                   <p className="text-gray-600 text-lg font-medium">No Templates Found</p>
                   <p className="text-gray-500 text-sm mt-1">
-                    No templates are using the {associatedTemplatesForType.type_code} consultation type yet.
+                    No templates are using the {associatedTemplatesForType.type_code} session type yet.
                   </p>
                 </div>
               ) : (
@@ -1950,7 +1950,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                             {template.doctor_id ? (
                               <span className="flex items-center gap-1">
                                 <span className="font-medium">Owner:</span>
-                                Doctor-specific
+                                Counsellor-specific
                               </span>
                             ) : (
                               <span className="flex items-center gap-1">

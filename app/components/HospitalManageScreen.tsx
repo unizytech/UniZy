@@ -68,7 +68,7 @@ export default function HospitalManageScreen() {
         if (!cancelled) setHospitals(list);
       } catch (err) {
         console.error('HospitalManageScreen load error:', err);
-        if (!cancelled) setError('Failed to load hospitals: ' + (err as Error).message);
+        if (!cancelled) setError('Failed to load schools: ' + (err as Error).message);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,7 +100,7 @@ export default function HospitalManageScreen() {
       setIsEditing(false);
       await refreshHospitals();
     } catch (err) {
-      alert('Failed to update hospital: ' + (err as Error).message);
+      alert('Failed to update school: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -117,7 +117,7 @@ export default function HospitalManageScreen() {
       setSelectedHospital(null);
       await refreshHospitals();
     } catch (err) {
-      alert('Failed to deactivate hospital: ' + (err as Error).message);
+      alert('Failed to deactivate school: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -135,7 +135,7 @@ export default function HospitalManageScreen() {
       setSelectedHospital(null);
       await refreshHospitals();
     } catch (err) {
-      alert('Failed to delete hospital: ' + (err as Error).message);
+      alert('Failed to delete school: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -154,7 +154,7 @@ export default function HospitalManageScreen() {
       setCreateForm({ hospital_name: '', hospital_code: '' });
       await refreshHospitals();
     } catch (err) {
-      alert('Failed to create hospital: ' + (err as Error).message);
+      alert('Failed to create school: ' + (err as Error).message);
     } finally {
       setActionLoading(null);
     }
@@ -226,8 +226,8 @@ export default function HospitalManageScreen() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Hospital Management</h1>
-        <p className="text-gray-300">Create, edit, and manage hospitals</p>
+        <h1 className="text-3xl font-bold text-white mb-2">School Management</h1>
+        <p className="text-gray-300">Create, edit, and manage schools</p>
       </div>
 
       {/* Search + Create */}
@@ -247,7 +247,7 @@ export default function HospitalManageScreen() {
             onClick={() => setShowCreate(true)}
             className="px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium text-sm"
           >
-            + Create Hospital
+            + Create School
           </button>
         </div>
       </div>
@@ -263,7 +263,7 @@ export default function HospitalManageScreen() {
       {loading && (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-teal-600"></div>
-          <p className="mt-4 text-gray-600">Loading hospitals...</p>
+          <p className="mt-4 text-gray-600">Loading schools...</p>
         </div>
       )}
 
@@ -273,11 +273,11 @@ export default function HospitalManageScreen() {
           {/* Left: Hospital List */}
           <div className="lg:col-span-1 bg-white rounded-lg shadow-sm border border-gray-200 p-4 max-h-[600px] overflow-y-auto">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Hospitals ({filteredHospitals.length})
+              Schools ({filteredHospitals.length})
             </h2>
 
             {filteredHospitals.length === 0 && (
-              <p className="text-gray-500 text-sm text-center py-8">No hospitals found</p>
+              <p className="text-gray-500 text-sm text-center py-8">No schools found</p>
             )}
 
             <div className="space-y-2">
@@ -305,13 +305,13 @@ export default function HospitalManageScreen() {
                 <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <p className="text-gray-500 font-medium">Select a hospital to view details</p>
-                <p className="text-gray-400 text-sm mt-1">Or create a new hospital using the button above</p>
+                <p className="text-gray-500 font-medium">Select a school to view details</p>
+                <p className="text-gray-400 text-sm mt-1">Or create a new school using the button above</p>
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Hospital Details</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">School Details</h2>
                   {!isEditing && (
                     <button
                       onClick={() => setIsEditing(true)}
@@ -325,7 +325,7 @@ export default function HospitalManageScreen() {
                 {isEditing ? (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hospital Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">School Name</label>
                       <input
                         type="text"
                         value={editForm.hospital_name}
@@ -334,7 +334,7 @@ export default function HospitalManageScreen() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hospital Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">School Code</label>
                       <input
                         type="text"
                         value={editForm.hospital_code}
@@ -367,11 +367,11 @@ export default function HospitalManageScreen() {
                 ) : (
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-gray-500">Hospital Name</p>
+                      <p className="text-sm text-gray-500">School Name</p>
                       <p className="text-gray-900 font-medium">{selectedHospital.hospital_name}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Hospital Code</p>
+                      <p className="text-sm text-gray-500">School Code</p>
                       <p className="text-gray-900">{selectedHospital.hospital_code || 'Not set'}</p>
                     </div>
                     {selectedHospital.city && (
@@ -426,21 +426,21 @@ export default function HospitalManageScreen() {
       {showCreate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Create Hospital</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Create School</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hospital Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">School Name *</label>
                 <input
                   type="text"
                   value={createForm.hospital_name}
                   onChange={(e) => setCreateForm({ ...createForm, hospital_name: e.target.value })}
-                  placeholder="City General Hospital"
+                  placeholder="City General School"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hospital Code *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">School Code *</label>
                 <input
                   type="text"
                   value={createForm.hospital_code}
@@ -457,7 +457,7 @@ export default function HospitalManageScreen() {
                 disabled={actionLoading === 'create'}
                 className="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-300 font-medium transition-colors"
               >
-                {actionLoading === 'create' ? 'Creating...' : 'Create Hospital'}
+                {actionLoading === 'create' ? 'Creating...' : 'Create School'}
               </button>
               <button
                 onClick={() => {

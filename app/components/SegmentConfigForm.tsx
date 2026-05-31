@@ -24,7 +24,7 @@ export function SegmentConfigForm({
       id: ct.type_id,
       code: ct.type_code,
       name: ct.type_name,
-      label: `Consultation Type: ${ct.type_name}`,
+      label: `Session Type: ${ct.type_name}`,
     })),
     ...(segment.templates || []).map((tpl: any) => ({
       type: 'template' as const,
@@ -153,7 +153,7 @@ export function SegmentConfigForm({
                     No Associations Found
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
-                    This segment is not assigned to any consultation type or template.
+                    This segment is not assigned to any session type or template.
                     Use the "Assigned to" button in the segments list to assign it first.
                   </p>
                 </div>

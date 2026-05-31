@@ -160,21 +160,21 @@ export function MedicineListAdminScreen() {
   const loadDoctors = async () => {
     try {
       const response = await authGet('/api/v1/doctors', getAccessToken());
-      if (!response.ok) throw new Error('Failed to load doctors');
+      if (!response.ok) throw new Error('Failed to load counsellors');
       const data = await response.json();
       setDoctors(data.doctors || []);
       if (data.doctors?.length > 0 && !selectedDoctorId) {
         setSelectedDoctorId(data.doctors[0].id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load doctors');
+      setError(err instanceof Error ? err.message : 'Failed to load counsellors');
     }
   };
 
   const loadHospitals = async () => {
     try {
       const response = await authGet('/api/v1/doctors/hospitals', getAccessToken());
-      if (!response.ok) throw new Error('Failed to load hospitals');
+      if (!response.ok) throw new Error('Failed to load schools');
       const data = await response.json();
       setHospitals(data.hospitals || []);
       if (data.hospitals?.length > 0 && !selectedHospitalId) {
@@ -198,11 +198,11 @@ export function MedicineListAdminScreen() {
         `/api/v1/medicines/hospital/${selectedHospitalId}?${params.toString()}`,
         getAccessToken()
       );
-      if (!response.ok) throw new Error('Failed to load hospital medicines');
+      if (!response.ok) throw new Error('Failed to load school medicines');
       const data = await response.json();
       setHospitalMedicines(data.medicines || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load hospital medicines');
+      setError(err instanceof Error ? err.message : 'Failed to load school medicines');
     } finally {
       setLoading(false);
     }
@@ -395,8 +395,8 @@ export function MedicineListAdminScreen() {
         `/api/v1/medicines/hospital/${selectedHospitalId}/${medicineId}`,
         getAccessToken()
       );
-      if (!response.ok) throw new Error('Failed to delete hospital medicine');
-      setSuccessMessage('Hospital medicine deleted successfully');
+      if (!response.ok) throw new Error('Failed to delete school medicine');
+      setSuccessMessage('School medicine deleted successfully');
       loadHospitalMedicines();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
@@ -405,7 +405,7 @@ export function MedicineListAdminScreen() {
 
   const handleHospitalFileUpload = async (file: File, replaceExisting: boolean) => {
     if (!selectedHospitalId || !selectedDoctorId) {
-      setError('Please select both a hospital and a doctor (as admin)');
+      setError('Please select both a school and a counsellor (as admin)');
       return;
     }
 
@@ -448,9 +448,9 @@ export function MedicineListAdminScreen() {
             <h1 className="text-2xl font-bold text-gray-900">Medicine List Management</h1>
             <p className="text-sm text-gray-600 mt-1">
               {viewMode === 'doctor-medicines'
-                ? 'Manage personal medicine lists for doctors'
+                ? 'Manage personal medicine lists for counsellors'
                 : viewMode === 'hospital-medicines'
-                ? 'Manage hospital-wide shared medicine lists'
+                ? 'Manage school-wide shared medicine lists'
                 : 'Review and process medicine matching feedback'}
             </p>
           </div>
@@ -514,7 +514,7 @@ export function MedicineListAdminScreen() {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Doctor Medicines
+            Counsellor Medicines
           </button>
           <button
             onClick={() => setViewMode('hospital-medicines')}
@@ -524,7 +524,7 @@ export function MedicineListAdminScreen() {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Hospital Medicines
+            School Medicines
           </button>
           <button
             onClick={() => setViewMode('feedback-review')}
@@ -543,7 +543,7 @@ export function MedicineListAdminScreen() {
       {(viewMode === 'doctor-medicines' || viewMode === 'feedback-review') && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Doctor
+            Select Counsellor
           </label>
           <select
             value={selectedDoctorId}
@@ -551,7 +551,7 @@ export function MedicineListAdminScreen() {
             className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg bg-white"
             style={{ color: '#111827' }}
           >
-            <option value="" style={{ color: '#111827' }}>-- Select a Doctor --</option>
+            <option value="" style={{ color: '#111827' }}>-- Select a Counsellor --</option>
             {doctors.map(doctor => (
               <option key={doctor.id} value={doctor.id} style={{ color: '#111827' }}>
                 {doctor.full_name} {doctor.specialization ? `(${doctor.specialization})` : ''}
@@ -560,7 +560,7 @@ export function MedicineListAdminScreen() {
           </select>
           {doctors.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
-              No doctors found. Make sure the backend is running and doctors exist in the database.
+              No counsellors found. Make sure the backend is running and counsellors exist in the database.
             </p>
           )}
         </div>
@@ -771,7 +771,7 @@ export function MedicineListAdminScreen() {
       {viewMode === 'hospital-medicines' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Hospital
+            Select School
           </label>
           <select
             value={selectedHospitalId}
@@ -779,7 +779,7 @@ export function MedicineListAdminScreen() {
             className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg bg-white"
             style={{ color: '#111827' }}
           >
-            <option value="" style={{ color: '#111827' }}>-- Select a Hospital --</option>
+            <option value="" style={{ color: '#111827' }}>-- Select a School --</option>
             {hospitals.map(hospital => (
               <option key={hospital.id} value={hospital.id} style={{ color: '#111827' }}>
                 {hospital.hospital_name}
@@ -788,7 +788,7 @@ export function MedicineListAdminScreen() {
           </select>
           {hospitals.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
-              No hospitals found. Make sure the backend is running and hospitals exist in the database.
+              No schools found. Make sure the backend is running and schools exist in the database.
             </p>
           )}
         </div>
@@ -800,7 +800,7 @@ export function MedicineListAdminScreen() {
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                Hospital Medicine List ({hospitalMedicines.length})
+                School Medicine List ({hospitalMedicines.length})
               </h2>
               <select
                 value={categoryFilter}
@@ -828,11 +828,11 @@ export function MedicineListAdminScreen() {
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading hospital medicines...</p>
+              <p className="text-gray-600">Loading school medicines...</p>
             </div>
           ) : filteredHospitalMedicines.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              <p>No hospital medicines found</p>
+              <p>No school medicines found</p>
               <button
                 onClick={() => setShowUploadModal(true)}
                 className="text-blue-600 hover:text-blue-700 font-medium mt-2"
@@ -931,11 +931,11 @@ export function MedicineListAdminScreen() {
               if (isHospitalContext) {
                 // Hospital medicine save
                 if (!selectedHospitalId) {
-                  setError('Please select a hospital first');
+                  setError('Please select a school first');
                   return;
                 }
                 if (!selectedDoctorId) {
-                  setError('Please select a doctor as admin for audit trail');
+                  setError('Please select a counsellor as admin for audit trail');
                   return;
                 }
 
@@ -947,8 +947,8 @@ export function MedicineListAdminScreen() {
                   ? await authPut(endpoint, getAccessToken(), data)
                   : await authPost(endpoint, getAccessToken(), data);
 
-                if (!response.ok) throw new Error('Failed to save hospital medicine');
-                setSuccessMessage(editingMedicine ? 'Hospital medicine updated' : 'Hospital medicine added');
+                if (!response.ok) throw new Error('Failed to save school medicine');
+                setSuccessMessage(editingMedicine ? 'School medicine updated' : 'School medicine added');
                 setShowMedicineModal(false);
                 setEditingMedicine(null);
                 loadHospitalMedicines();
@@ -1200,7 +1200,7 @@ function MedicineModal({ medicine, onClose, onSave }: MedicineModalProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Alternative names the doctor commonly uses
+              Alternative names the counsellor commonly uses
             </p>
           </div>
 
@@ -1304,11 +1304,11 @@ function UploadModal({ onClose, onUpload, fileInputRef, isHospitalUpload = false
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
-            {isHospitalUpload ? 'Upload Hospital Medicine List' : 'Upload Medicine List'}
+            {isHospitalUpload ? 'Upload School Medicine List' : 'Upload Medicine List'}
           </h2>
           {isHospitalUpload && (
             <p className="text-sm text-gray-600 mt-1">
-              Hospital medicines are shared across all doctors in this hospital.
+              School medicines are shared across all counsellors in this school.
             </p>
           )}
         </div>
@@ -1396,7 +1396,7 @@ function UploadModal({ onClose, onUpload, fileInputRef, isHospitalUpload = false
             />
             <label htmlFor="replace_existing" className={`text-sm ${isUploading ? 'text-gray-400' : 'text-gray-700'}`}>
               {isHospitalUpload
-                ? 'Replace all existing hospital medicines (instead of merging)'
+                ? 'Replace all existing school medicines (instead of merging)'
                 : 'Replace all existing medicines (instead of merging)'}
             </label>
           </div>

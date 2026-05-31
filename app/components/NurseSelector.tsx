@@ -111,7 +111,7 @@ export default function NurseSelector({
   return (
     <div className={`relative ${className}`}>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Select Nurse {required && <span className="text-red-500">*</span>}
+        Select Assistant {required && <span className="text-red-500">*</span>}
         {!required && <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">(Optional)</span>}
       </label>
 
@@ -125,7 +125,7 @@ export default function NurseSelector({
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             {isLoading ? (
-              <span className="text-gray-500 dark:text-gray-400">Loading nurses...</span>
+              <span className="text-gray-500 dark:text-gray-400">Loading assistants...</span>
             ) : selectedNurse ? (
               <div>
                 <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -137,7 +137,7 @@ export default function NurseSelector({
                 </div>
               </div>
             ) : (
-              <span className="text-gray-500 dark:text-gray-400">Select a nurse...</span>
+              <span className="text-gray-500 dark:text-gray-400">Select an assistant...</span>
             )}
           </div>
           <svg
@@ -164,7 +164,7 @@ export default function NurseSelector({
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <input
               type="text"
-              placeholder="Search nurses..."
+              placeholder="Search assistants..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-400 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -189,7 +189,7 @@ export default function NurseSelector({
 
             {filteredNurses.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                {searchQuery ? 'No nurses found matching your search' : 'No active nurses available'}
+                {searchQuery ? 'No assistants found matching your search' : 'No active assistants available'}
               </div>
             ) : (
               filteredNurses.map((nurse) => (

@@ -95,7 +95,7 @@ export function PatientCreateScreen() {
 
     // Validate required field
     if (!formData.patient_id.trim()) {
-      setError('Patient ID (UHID) is required');
+      setError('Student ID (UHID) is required');
       setIsSubmitting(false);
       return;
     }
@@ -138,7 +138,7 @@ export function PatientCreateScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to create patient');
+        throw new Error(data.detail || 'Failed to create student');
       }
 
       setResult(data);
@@ -157,7 +157,7 @@ export function PatientCreateScreen() {
         setSelectedDoctorIds([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create patient');
+      setError(err instanceof Error ? err.message : 'Failed to create student');
     } finally {
       setIsSubmitting(false);
     }
@@ -184,9 +184,9 @@ export function PatientCreateScreen() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Create Patient</h2>
+          <h2 className="text-xl font-semibold text-white">Create Student</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Add a new patient to the system
+            Add a new student to the system
           </p>
         </div>
       </div>
@@ -198,7 +198,7 @@ export function PatientCreateScreen() {
             {/* Patient ID - Required */}
             <div>
               <label htmlFor="patient_id" className="block text-sm font-medium text-slate-300 mb-1">
-                Patient ID (UHID) <span className="text-red-400">*</span>
+                Student ID (UHID) <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
@@ -223,7 +223,7 @@ export function PatientCreateScreen() {
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleInputChange}
-                placeholder="Patient's full name"
+                placeholder="Student's full name"
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
               />
             </div>
@@ -297,12 +297,12 @@ export function PatientCreateScreen() {
             {/* Linked Doctors (Multi-select) */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
-                Linked Doctors
+                Linked Counsellors
               </label>
               {isDoctorsLoading ? (
                 <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400"></div>
-                  Loading doctors...
+                  Loading counsellors...
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -311,7 +311,7 @@ export function PatientCreateScreen() {
                     type="text"
                     value={doctorSearchQuery}
                     onChange={(e) => setDoctorSearchQuery(e.target.value)}
-                    placeholder="Search doctors..."
+                    placeholder="Search counsellors..."
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent text-sm"
                   />
 
@@ -344,7 +344,7 @@ export function PatientCreateScreen() {
                   {/* Doctor list */}
                   <div className="max-h-40 overflow-y-auto bg-slate-800 rounded-lg border border-slate-600">
                     {filteredDoctors.length === 0 ? (
-                      <div className="px-3 py-2 text-slate-500 text-sm">No doctors found</div>
+                      <div className="px-3 py-2 text-slate-500 text-sm">No counsellors found</div>
                     ) : (
                       filteredDoctors.map(doctor => (
                         <label
@@ -371,7 +371,7 @@ export function PatientCreateScreen() {
                   </div>
                 </div>
               )}
-              <p className="text-xs text-slate-500 mt-1">Select doctors this patient is linked to</p>
+              <p className="text-xs text-slate-500 mt-1">Select counsellors this student is linked to</p>
             </div>
 
             {/* Additional Info (JSON) */}
@@ -408,7 +408,7 @@ export function PatientCreateScreen() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Create Patient
+                    Create Student
                   </>
                 )}
               </button>
@@ -447,14 +447,14 @@ export function PatientCreateScreen() {
                     <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="font-medium text-green-300">Patient Created</span>
+                    <span className="font-medium text-green-300">Student Created</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <span className="font-medium text-amber-300">Patient Already Exists</span>
+                    <span className="font-medium text-amber-300">Student Already Exists</span>
                   </>
                 )}
               </div>
@@ -462,14 +462,14 @@ export function PatientCreateScreen() {
 
               {result.patient && (
                 <div className="bg-slate-900/50 rounded-lg p-3 mt-3">
-                  <h4 className="text-sm font-medium text-slate-400 mb-2">Patient Details</h4>
+                  <h4 className="text-sm font-medium text-slate-400 mb-2">Student Details</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-slate-400">ID:</span>
                       <span className="text-white font-mono">{result.patient.id as string}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Patient ID:</span>
+                      <span className="text-slate-400">Student ID:</span>
                       <span className="text-white">{result.patient.patient_id as string}</span>
                     </div>
                     {result.patient.full_name ? (
@@ -504,7 +504,7 @@ export function PatientCreateScreen() {
                     ) : null}
                     {result.patient.doctor_ids && Array.isArray(result.patient.doctor_ids) && (result.patient.doctor_ids as string[]).length > 0 ? (
                       <div className="mt-2 pt-2 border-t border-slate-700">
-                        <span className="text-slate-400 text-xs">Linked Doctors:</span>
+                        <span className="text-slate-400 text-xs">Linked Counsellors:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {(result.patient.doctor_ids as string[]).map((docId: string) => {
                             const doctor = doctors.find(d => d.id === docId);
@@ -536,7 +536,7 @@ export function PatientCreateScreen() {
               <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              <p>Fill in the form and click "Create Patient"</p>
+              <p>Fill in the form and click "Create Student"</p>
             </div>
           )}
         </div>

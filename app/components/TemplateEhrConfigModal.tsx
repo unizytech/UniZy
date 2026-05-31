@@ -235,7 +235,7 @@ export function TemplateEhrConfigModal({ template, onClose }: TemplateEhrConfigM
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-blue-800">
                   Configure which EHR systems this template can send extractions to.
-                  The URL suffix is appended to the hospital&apos;s base EHR URL (primarily used for Neopead).
+                  The URL suffix is appended to the school&apos;s base EHR URL (primarily used for Neopead).
                 </p>
               </div>
 

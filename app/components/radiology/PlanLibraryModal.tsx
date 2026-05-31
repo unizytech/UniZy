@@ -156,7 +156,7 @@ export function PlanLibraryModal({ template, onClose }: Props) {
             <>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800">
                 Plan templates listed here are injected into the PLAN segment prompt during template
-                assembly. Doctor speech is matched against these to identify the regimen at extraction time.
+                assembly. Counsellor speech is matched against these to identify the regimen at extraction time.
               </div>
 
               {editingId === null && (

@@ -405,7 +405,7 @@ export default function QAEngineScreen() {
       <div className="h-full flex items-center justify-center bg-gray-50">
         <div className="text-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading hospitals...</p>
+          <p className="text-gray-600">Loading schools...</p>
         </div>
       </div>
     );
@@ -418,10 +418,10 @@ export default function QAEngineScreen() {
         <div className="text-center p-8">
           <div className="text-4xl mb-4">🏥</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Hospital Context Required
+            School Context Required
           </h2>
           <p className="text-gray-600">
-            Please select a hospital to use the Q&A Engine.
+            Please select a school to use the Q&A Engine.
           </p>
         </div>
       </div>
@@ -473,7 +473,7 @@ export default function QAEngineScreen() {
             >
               {hospitals.map((hospital) => (
                 <option key={hospital.id} value={hospital.id}>
-                  {hospital.hospital_name || 'Unnamed Hospital'}
+                  {hospital.hospital_name || 'Unnamed School'}
                 </option>
               ))}
             </select>
@@ -488,7 +488,7 @@ export default function QAEngineScreen() {
               disabled={doctorsLoading || doctors.length === 0}
               className="w-[130px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="">All Doctors</option>
+              <option value="">All Counsellors</option>
               {doctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
                   {doctor.full_name || doctor.doctor_name || 'Unknown'}
@@ -507,7 +507,7 @@ export default function QAEngineScreen() {
               className="w-[140px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">
-                {!selectedDoctorId ? 'Select doctor first' : 'All Patients'}
+                {!selectedDoctorId ? 'Select counsellor first' : 'All Students'}
               </option>
               {patients.map((patient) => (
                 <option key={patient.id} value={patient.patient_id}>
@@ -575,7 +575,7 @@ export default function QAEngineScreen() {
                   What would you like to know?
                 </h2>
                 <p className="text-gray-600 max-w-lg mx-auto">
-                  Ask questions about diagnoses, prescriptions, patient trends,
+                  Ask questions about diagnoses, prescriptions, student trends,
                   or any insights from your medical extractions.
                 </p>
               </div>

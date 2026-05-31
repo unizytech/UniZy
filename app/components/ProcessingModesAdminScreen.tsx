@@ -898,7 +898,7 @@ export function ProcessingModesAdminScreen() {
                         ))}
                       </select>
                       <p className="text-xs text-slate-500 mt-1">
-                        For consultation insights extraction
+                        For session insights extraction
                       </p>
                     </div>
                     <div>

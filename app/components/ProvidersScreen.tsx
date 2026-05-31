@@ -17,9 +17,9 @@ export default function ProvidersScreen() {
   const [activeTab, setActiveTab] = useState<ProviderTab>('doctors');
 
   const tabs: { key: ProviderTab; label: string }[] = [
-    { key: 'doctors', label: 'Doctors' },
-    { key: 'nurses', label: 'Nurses' },
-    { key: 'hospitals', label: 'Hospitals' },
+    { key: 'doctors', label: 'Counsellors' },
+    { key: 'nurses', label: 'Assistants' },
+    { key: 'hospitals', label: 'Schools' },
   ];
 
   return (

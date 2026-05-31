@@ -240,7 +240,7 @@ export function SystemPromptAdminScreen() {
                 ? 'Manage reusable prompt building blocks'
                 : viewMode === 'configurations'
                 ? 'Compose configurations from components'
-                : 'Assign configurations to consultation types'}
+                : 'Assign configurations to session types'}
             </p>
           </div>
           {viewMode === 'components' && (
@@ -607,10 +607,10 @@ export function SystemPromptAdminScreen() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Consultation Type Assignments
+              Session Type Assignments
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              Map prompt configurations to consultation types
+              Map prompt configurations to session types
             </p>
           </div>
 
@@ -1226,7 +1226,7 @@ function ConfigurationModal({ config, components, onClose, onSave }: Configurati
                 type="text"
                 value={formData.config_name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="e.g., OP Consultation v2"
+                placeholder="e.g., OP Session v2"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
               />
             </div>

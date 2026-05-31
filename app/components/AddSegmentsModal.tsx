@@ -97,7 +97,7 @@ export function AddSegmentsModal({
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">
-            Add Segments from Consultation Type
+            Add Segments from Session Type
           </h2>
           <p className="text-sm text-gray-600 mt-2">
             Select segments from <strong>{consultationTypeCode}</strong> to add to this template.
@@ -123,7 +123,7 @@ export function AddSegmentsModal({
               <div className="text-gray-400 text-4xl mb-3">&#10003;</div>
               <p className="text-gray-600 font-medium">All segments already added</p>
               <p className="text-sm text-gray-500 mt-1">
-                All segments from the consultation type are already in this template.
+                All segments from the session type are already in this template.
               </p>
             </div>
           ) : (

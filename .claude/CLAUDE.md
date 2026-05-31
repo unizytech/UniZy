@@ -18,6 +18,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Always use the right project ID when running Supabase MCP commands.
 
+### Supabase Topology (important)
+- There is **one** Supabase project in this account: **"Unizy Voice" = main** (`yvpyqnkxxgyzaapozafg`).
+- The **dev** ref (`oepojxrximnmqwvnpoiu`) is a **preview branch** of main, NOT a standalone project — so it does not appear in `list_projects`. Address it by its branch ref where a `project_id` is required.
+- Migration *history* differs by design: main carries the full migration chain; the dev branch is built from a **squashed schema-only baseline**, so its migration list shows mostly just `baseline` even though the actual schema matches. **Do not judge sync by migration counts — compare the actual schema.**
+
+### Accessing BOTH databases via MCP
+Two MCP servers give access to both DBs. Pick by which DB you need:
+
+| Need | MCP server (tool prefix) | How it targets the DB |
+|---|---|---|
+| **dev** branch | `mcp__supabase__*` | Pinned to dev via `?project_ref=oepojxrximnmqwvnpoiu` — no `project_id` arg |
+| **main** (or any project/branch) | `mcp__plugin_supabase_supabase__*` (account-level OAuth) | Pass `project_id` explicitly (`yvpyqnkxxgyzaapozafg` for main, or a branch ref) |
+
+- A third account-wide server **`supabase-unizy`** is defined in `.mcp.json` (stdio `npx @supabase/mcp-server-supabase` with a personal access token, no `project_ref` → reaches any project/branch in the account). Its tools (`mcp__supabase-unizy__*`) only load **after a Claude Code restart** — if they aren't available, use the two servers above, which cover both DBs.
+- **Security**: `.mcp.json` holds a live `sbp_…` personal access token. It is gitignored (do NOT commit it). Rotate the token in the Supabase dashboard if it ever leaks.
+
+### Checking main↔dev schema sync
+Run an identical schema-fingerprint query against both DBs and diff the results (not migration counts):
+```sql
+select table_name, count(*) as cols,
+       md5(string_agg(column_name||':'||data_type, ',' order by ordinal_position)) as sig
+from information_schema.columns where table_schema='public'
+group by table_name order by table_name;
+```
+Run on dev via `mcp__supabase__execute_sql`, on main via `mcp__plugin_supabase_supabase__execute_sql` with `project_id='yvpyqnkxxgyzaapozafg'`. Identical rows ⇒ table/column schema in sync. (This covers tables/columns/types; for a deeper check also compare enums, functions, RLS policies, and indexes.)
+
 ## Project Rules
 
 - Always use the standard timestamp format for Supabase migration files: `YYYYMMDDHHMMSS_description.sql`

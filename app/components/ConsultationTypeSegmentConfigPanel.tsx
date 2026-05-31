@@ -428,7 +428,7 @@ export function ConsultationTypeSegmentConfigPanel({
         <div className="bg-blue-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-bold">Configure Consultation Type Segments</h2>
+              <h2 className="text-2xl font-bold">Configure Session Type Segments</h2>
               <p className="text-blue-100 text-sm mt-1">
                 {consultationTypeName} ({consultationTypeCode})
               </p>
@@ -544,7 +544,7 @@ export function ConsultationTypeSegmentConfigPanel({
                   Junction Table Architecture
                 </p>
                 <p className="text-xs text-blue-800 mt-1">
-                  Segments are linked to consultation types via junction tables. Moving segments updates their category for <strong>{consultationTypeName}</strong> only. Required segments cannot be moved from CORE.
+                  Segments are linked to session types via junction tables. Moving segments updates their category for <strong>{consultationTypeName}</strong> only. Required segments cannot be moved from CORE.
                 </p>
               </div>
             </div>
@@ -568,7 +568,7 @@ export function ConsultationTypeSegmentConfigPanel({
                   </span>
                 </div>
                 <p className="text-xs text-blue-800 mb-3 font-medium">
-                  Default essential segments for this consultation type
+                  Default essential segments for this session type
                 </p>
                 <DroppableZone id="core-droppable">
                   <SortableContext
@@ -660,7 +660,7 @@ export function ConsultationTypeSegmentConfigPanel({
                   </span>
                 </div>
                 <p className="text-xs text-red-800 mb-3 font-medium">
-                  Segments explicitly hidden from this consultation type
+                  Segments explicitly hidden from this session type
                 </p>
                 <DroppableZone id="excluded-droppable">
                   <SortableContext
@@ -728,9 +728,9 @@ export function ConsultationTypeSegmentConfigPanel({
                 />
               </svg>
               <div>
-                <p className="text-xs font-semibold text-yellow-900">Consultation Type Configuration</p>
+                <p className="text-xs font-semibold text-yellow-900">Session Type Configuration</p>
                 <p className="text-xs text-yellow-800 mt-0.5">
-                  These settings define the defaults for this consultation type. Templates that inherit from this type will use these defaults. Required segments cannot be moved from CORE.
+                  These settings define the defaults for this session type. Templates that inherit from this type will use these defaults. Required segments cannot be moved from CORE.
                 </p>
               </div>
             </div>

@@ -207,7 +207,7 @@ export function PocMetricsScreen() {
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
-            <label className={labelCls}>Hospital</label>
+            <label className={labelCls}>School</label>
             <select
               value={hospitalId}
               onChange={(e) => {
@@ -217,7 +217,7 @@ export function PocMetricsScreen() {
               }}
               className={inputCls}
             >
-              <option value="">Select hospital...</option>
+              <option value="">Select school...</option>
               {hospitals.map(h => (
                 <option key={h.id} value={h.id}>{h.hospital_name}</option>
               ))}
@@ -225,14 +225,14 @@ export function PocMetricsScreen() {
           </div>
 
           <div>
-            <label className={labelCls}>Doctor (optional)</label>
+            <label className={labelCls}>Counsellor (optional)</label>
             <select
               value={doctorId || ''}
               onChange={(e) => setDoctorId(e.target.value || null)}
               disabled={!hospitalId}
               className={`${inputCls} disabled:opacity-50`}
             >
-              <option value="">— all doctors —</option>
+              <option value="">— all counsellors —</option>
               {doctorsForHospital.map(d => (
                 <option key={d.id} value={d.id}>
                   {d.full_name}{d.specialization ? ` (${d.specialization})` : ''}
@@ -242,7 +242,7 @@ export function PocMetricsScreen() {
           </div>
 
           <div>
-            <label className={labelCls}>Nurse (optional)</label>
+            <label className={labelCls}>Assistant (optional)</label>
             <select
               value={nurseId}
               onChange={(e) => setNurseId(e.target.value)}
@@ -307,7 +307,7 @@ export function PocMetricsScreen() {
       {/* Summary cards */}
       {tracker && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card label="Total consultations" value={totalConsultations} />
+          <Card label="Total sessions" value={totalConsultations} />
           <Card label="Avg duration (min)" value={avgDuration} />
           <Card label="Avg report gen (sec)" value={avgReportGen} />
           <Card label="Total entity errors" value={totalErrors} />
@@ -349,7 +349,7 @@ export function PocMetricsScreen() {
               setDrillDown({
                 metric: code,
                 sessionId: sid || undefined,
-                scopeLabel: `Consult ${sid.slice(0, 8)}`,
+                scopeLabel: `Session ${sid.slice(0, 8)}`,
               });
             }}
           />
@@ -373,7 +373,7 @@ export function PocMetricsScreen() {
         {tab === 'attendant_nurse' && timings && <DataTable columns={timings.columns} rows={timings.attendant_nurse as unknown as Array<Record<string, unknown>>} />}
         {!tracker && !loading && (
           <p className="p-8 text-center text-slate-400">
-            Pick a hospital + date range and click Load.
+            Pick a school + date range and click Load.
           </p>
         )}
       </div>

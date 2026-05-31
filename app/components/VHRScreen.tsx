@@ -1929,7 +1929,7 @@ export function VHRScreen() {
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Virtual Health Record (VHR)</h2>
+            <h2 className="text-2xl font-bold mb-2">Virtual Student Record (VSR)</h2>
             <p className="text-sm text-blue-100">
               Unified medical documentation with voice recording and file upload
             </p>
@@ -2022,7 +2022,7 @@ export function VHRScreen() {
         />
         {selectedNurseId && (
           <p className="mt-2 text-xs text-teal-600 dark:text-teal-400">
-            Templates will be loaded from nurse&apos;s accessible templates
+            Templates will be loaded from assistant&apos;s accessible templates
           </p>
         )}
         {/* Nurse Recording History Button */}
@@ -2046,8 +2046,8 @@ export function VHRScreen() {
             <svg className="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <p className="text-sm font-medium text-blue-900">Select a doctor to view activated templates</p>
-            <p className="text-xs text-blue-700 mt-1">Choose a doctor from the dropdown above</p>
+            <p className="text-sm font-medium text-blue-900">Select a counsellor to view activated templates</p>
+            <p className="text-xs text-blue-700 mt-1">Choose a counsellor from the dropdown above</p>
           </div>
         ) : (
           <div>
@@ -2070,7 +2070,7 @@ export function VHRScreen() {
                 </svg>
                 <p className="text-sm font-medium text-gray-700 mb-2">No activated templates</p>
                 <p className="text-xs text-gray-500">
-                  This doctor hasn't activated any templates yet.
+                  This counsellor hasn't activated any templates yet.
                 </p>
               </div>
             )}
@@ -2192,12 +2192,12 @@ export function VHRScreen() {
           {/* Patient ID Selection */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Patient ID
+              Student ID
             </label>
             {loadingPatients ? (
               <div className="flex items-center justify-center py-3">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
-                <span className="text-gray-500 text-sm">Loading patients...</span>
+                <span className="text-gray-500 text-sm">Loading students...</span>
               </div>
             ) : patientsList.length > 0 ? (
               <select
@@ -2206,7 +2206,7 @@ export function VHRScreen() {
                 disabled={isRecording || isSubmitting}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 bg-white"
               >
-                <option value="">Select a patient...</option>
+                <option value="">Select a student...</option>
                 {patientsList.map((patient) => (
                   <option key={patient.id} value={patient.patient_id}>
                     {patient.patient_id}
@@ -2221,7 +2221,7 @@ export function VHRScreen() {
                 type="text"
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
-                placeholder="Enter patient ID (e.g., PAT-12345)"
+                placeholder="Enter student ID (e.g., PAT-12345)"
                 disabled={isRecording || isSubmitting}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900"
               />
@@ -2240,9 +2240,9 @@ export function VHRScreen() {
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <div>
-                  <span className="text-sm font-medium text-gray-900">Continue previous consultation</span>
+                  <span className="text-sm font-medium text-gray-900">Continue previous session</span>
                   <p className="text-xs text-gray-500">
-                    Enable if this is a follow-up recording for the same visit (e.g., prescription-only after full consultation)
+                    Enable if this is a follow-up recording for the same visit (e.g., prescription-only after full session)
                   </p>
                 </div>
               </label>
@@ -2490,7 +2490,7 @@ export function VHRScreen() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-gray-600">Consultation Type</p>
+                      <p className="text-gray-600">Session Type</p>
                       <p className="font-semibold text-gray-900">
                         {/* Use template from extraction result if different from selected, otherwise use selected */}
                         {coreExtractionData?.metadata?.template_code
@@ -3459,10 +3459,10 @@ function GenericReportView({ template, data, sectionLabel }: GenericReportViewPr
       {/* Header */}
       <div className="border-b-2 border-gray-200 pb-3">
         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          {template?.consultation_type_name || 'Medical Consultation'}
+          {template?.consultation_type_name || 'Medical Session'}
         </div>
         <div className="text-base font-bold text-gray-900 mt-0.5">
-          {template?.template_name || 'Consultation Report'}
+          {template?.template_name || 'Session Report'}
           {sectionLabel && <span className="text-gray-400 font-normal ml-2">— {sectionLabel}</span>}
         </div>
       </div>
@@ -3672,7 +3672,7 @@ function OphthalHtmlView({ template, coreData, additionalData }: OphthalHtmlView
           {template?.consultation_type_name || 'Ophthalmology'}
         </div>
         <div className="text-base font-semibold text-gray-900">
-          {template?.template_name || 'Consultation Summary'}
+          {template?.template_name || 'Session Summary'}
         </div>
       </div>
 
@@ -3866,7 +3866,7 @@ function generateHtmlFromData(data: Record<string, any>, template: ActivatedTemp
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${esc(template?.consultation_type_name || 'Medical Record')} - ${esc(template?.template_name || 'Consultation Report')}</title>
+  <title>${esc(template?.consultation_type_name || 'Medical Record')} - ${esc(template?.template_name || 'Session Report')}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 24px; background: #fff; color: #1f2937; max-width: 900px; margin: 0 auto; }
@@ -3876,10 +3876,10 @@ function generateHtmlFromData(data: Record<string, any>, template: ActivatedTemp
 <body>
   <div style="border-bottom: 2px solid #e5e7eb; padding-bottom: 14px; margin-bottom: 20px;">
     <div style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
-      ${esc(template?.consultation_type_name || 'Medical Consultation')}
+      ${esc(template?.consultation_type_name || 'Medical Session')}
     </div>
     <div style="font-size: 20px; font-weight: 700; color: #111827; margin-top: 4px;">
-      ${esc(template?.template_name || 'Consultation Report')}
+      ${esc(template?.template_name || 'Session Report')}
     </div>
   </div>
   ${sectionsHtml}

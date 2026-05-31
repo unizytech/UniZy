@@ -242,7 +242,7 @@ export function RecordingHistoryModal({
           submissionId: result.submission_id,
           sessionId: selectedRecording.session_id,
           patientId: selectedRecording.patient_identifier || selectedRecording.patient_id || 'Unknown',
-          patientName: selectedRecording.patient_name || 'Unknown Patient',
+          patientName: selectedRecording.patient_name || 'Unknown Student',
           templateCode: reprocessTemplate,
           templateName: selectedTemplateInfo?.template_name || reprocessTemplate,
           consultationTypeCode: selectedTemplateInfo?.consultation_type_code || 'OP',
@@ -331,12 +331,12 @@ export function RecordingHistoryModal({
               {/* Patient Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Filter by Patient
+                  Filter by Student
                 </label>
                 {loadingPatients ? (
                   <div className="flex items-center py-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
-                    <span className="text-gray-500 text-sm">Loading patients...</span>
+                    <span className="text-gray-500 text-sm">Loading students...</span>
                   </div>
                 ) : patientsList.length > 0 ? (
                   <select
@@ -347,7 +347,7 @@ export function RecordingHistoryModal({
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                   >
-                    <option value="">All patients</option>
+                    <option value="">All students</option>
                     {patientsList.map((patient) => (
                       <option key={patient.id} value={patient.id}>
                         {patient.patient_id}
@@ -364,7 +364,7 @@ export function RecordingHistoryModal({
                       setPatientFilter(e.target.value);
                       setPage(0);
                     }}
-                    placeholder="Enter patient ID or MRN"
+                    placeholder="Enter student ID or MRN"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 )}
@@ -497,7 +497,7 @@ export function RecordingHistoryModal({
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Select</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Template</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>

@@ -135,7 +135,7 @@ export function ShareTemplateModal({
 
       // Validate owner selection for global templates (only for doctor tabs, not nurses)
       if (isGlobalTemplate && !selectedOwner && activeTab !== 'nurses') {
-        setError('Please select a template owner before sharing. This will convert the global template to a doctor-owned template.');
+        setError('Please select a template owner before sharing. This will convert the global template to a counsellor-owned template.');
         setSharing(false);
         return;
       }
@@ -184,14 +184,14 @@ export function ShareTemplateModal({
         }
 
         if (ownershipAssigned) {
-          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected doctor';
-          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} doctor(s)${totalRemoved > 0 ? `, removed ${totalRemoved}` : ''}`);
+          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
+          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s)${totalRemoved > 0 ? `, removed ${totalRemoved}` : ''}`);
         } else if (totalShared > 0 && totalRemoved > 0) {
           setSuccess(`Updated shares: Added ${totalShared}, removed ${totalRemoved}`);
         } else if (totalShared > 0) {
-          setSuccess(`Template shared with ${totalShared} new doctor(s)`);
+          setSuccess(`Template shared with ${totalShared} new counsellor(s)`);
         } else if (totalRemoved > 0) {
-          setSuccess(`Removed ${totalRemoved} doctor share(s)`);
+          setSuccess(`Removed ${totalRemoved} counsellor share(s)`);
         } else {
           setSuccess('No changes made');
         }
@@ -240,14 +240,14 @@ export function ShareTemplateModal({
         }
 
         if (ownershipAssigned) {
-          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected doctor';
-          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} doctor(s) across ${hospitalsToAdd.length} hospital(s)`);
+          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
+          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s) across ${hospitalsToAdd.length} school(s)`);
         } else if (totalShared > 0 && totalRemoved > 0) {
           setSuccess(`Updated shares: Added ${totalShared}, removed ${totalRemoved}`);
         } else if (totalShared > 0) {
-          setSuccess(`Template shared with ${totalShared} doctor(s) across ${hospitalsToAdd.length} hospital(s)`);
+          setSuccess(`Template shared with ${totalShared} counsellor(s) across ${hospitalsToAdd.length} school(s)`);
         } else if (totalRemoved > 0) {
-          setSuccess(`Removed template from ${totalRemoved} doctor(s) in ${hospitalsToRemove.length} hospital(s)`);
+          setSuccess(`Removed template from ${totalRemoved} counsellor(s) in ${hospitalsToRemove.length} school(s)`);
         } else {
           setSuccess('No changes made');
         }
@@ -296,14 +296,14 @@ export function ShareTemplateModal({
         }
 
         if (ownershipAssigned) {
-          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected doctor';
-          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} doctor(s) across ${specsToAdd.length} specialization(s)`);
+          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
+          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s) across ${specsToAdd.length} specialization(s)`);
         } else if (totalShared > 0 && totalRemoved > 0) {
           setSuccess(`Updated shares: Added ${totalShared}, removed ${totalRemoved}`);
         } else if (totalShared > 0) {
-          setSuccess(`Template shared with ${totalShared} doctor(s) across ${specsToAdd.length} specialization(s)`);
+          setSuccess(`Template shared with ${totalShared} counsellor(s) across ${specsToAdd.length} specialization(s)`);
         } else if (totalRemoved > 0) {
-          setSuccess(`Removed template from ${totalRemoved} doctor(s) with ${specsToRemove.length} specialization(s)`);
+          setSuccess(`Removed template from ${totalRemoved} counsellor(s) with ${specsToRemove.length} specialization(s)`);
         } else {
           setSuccess('No changes made');
         }
@@ -333,11 +333,11 @@ export function ShareTemplateModal({
         }
 
         if (totalShared > 0 && totalRemoved > 0) {
-          setSuccess(`Updated nurse shares: Added ${totalShared}, removed ${totalRemoved}`);
+          setSuccess(`Updated assistant shares: Added ${totalShared}, removed ${totalRemoved}`);
         } else if (totalShared > 0) {
-          setSuccess(`Template shared with ${totalShared} nurse(s)`);
+          setSuccess(`Template shared with ${totalShared} assistant(s)`);
         } else if (totalRemoved > 0) {
-          setSuccess(`Removed ${totalRemoved} nurse share(s)`);
+          setSuccess(`Removed ${totalRemoved} assistant share(s)`);
         } else {
           setSuccess('No changes made');
         }
@@ -555,7 +555,7 @@ export function ShareTemplateModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Individual Doctors ({selectedDoctors.length})
+                    Individual Counsellors ({selectedDoctors.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('hospital')}
@@ -565,7 +565,7 @@ export function ShareTemplateModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    By Hospital ({selectedHospitals.length})
+                    By School ({selectedHospitals.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('specialization')}
@@ -585,7 +585,7 @@ export function ShareTemplateModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Nurses ({selectedNurses.length})
+                    Assistants ({selectedNurses.length})
                   </button>
                 </nav>
               </div>
@@ -602,7 +602,7 @@ export function ShareTemplateModal({
                         Global Template - Owner Required
                       </h4>
                       <p className="text-xs text-amber-700 mt-1">
-                        This is a global template visible to all doctors. To restrict access, you must first assign an owner.
+                        This is a global template visible to all counsellors. To restrict access, you must first assign an owner.
                         The template will no longer be globally visible after sharing.
                       </p>
                       <div className="mt-3">
@@ -640,7 +640,7 @@ export function ShareTemplateModal({
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search doctors by name, email, or specialization..."
+                        placeholder="Search counsellors by name, email, or specialization..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                       />
                     </div>
@@ -675,7 +675,7 @@ export function ShareTemplateModal({
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {filteredDoctors.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
-                          {searchQuery ? 'No doctors found matching your search.' : 'No doctors available.'}
+                          {searchQuery ? 'No counsellors found matching your search.' : 'No counsellors available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
@@ -735,7 +735,7 @@ export function ShareTemplateModal({
                     {/* Hospitals List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {hospitals.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">No hospitals available.</div>
+                        <div className="text-center py-8 text-gray-500">No schools available.</div>
                       ) : (
                         <div className="divide-y divide-gray-200">
                           {hospitals.map((hospital) => (
@@ -763,7 +763,7 @@ export function ShareTemplateModal({
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      All active doctors in the selected hospitals will receive access
+                      All active counsellors in the selected schools will receive access
                     </p>
                   </div>
                 )}
@@ -821,7 +821,7 @@ export function ShareTemplateModal({
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      All doctors with the selected specializations will receive access
+                      All counsellors with the selected specializations will receive access
                     </p>
                   </div>
                 )}
@@ -834,7 +834,7 @@ export function ShareTemplateModal({
                         type="text"
                         value={nurseSearchQuery}
                         onChange={(e) => setNurseSearchQuery(e.target.value)}
-                        placeholder="Search nurses by name, email, or qualification..."
+                        placeholder="Search assistants by name, email, or qualification..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 bg-white"
                       />
                     </div>
@@ -869,7 +869,7 @@ export function ShareTemplateModal({
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {filteredNurses.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
-                          {nurseSearchQuery ? 'No nurses found matching your search.' : 'No nurses available.'}
+                          {nurseSearchQuery ? 'No assistants found matching your search.' : 'No assistants available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
@@ -903,7 +903,7 @@ export function ShareTemplateModal({
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      Nurses will be able to use this template when recording on behalf of doctors
+                      Assistants will be able to use this template when recording on behalf of counsellors
                     </p>
                   </div>
                 )}
@@ -927,7 +927,7 @@ export function ShareTemplateModal({
                   >
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
-                        {sharing.doctor_name || 'Doctor'}
+                        {sharing.doctor_name || 'Counsellor'}
                       </p>
                       <p className="text-xs text-gray-500">
                         {sharing.is_active ? 'Shared' : 'Removed'}

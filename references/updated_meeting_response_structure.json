@@ -1,0 +1,615 @@
+{
+  "id": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+  "name": "careerzilla-recording-sample.mp3",
+  "mediaType": "AUDIO",
+  "mediaFormat": "MP3",
+  "mediaSize": 9853676,
+  "storagePath": "https://storage.googleapis.com/example-path",
+  "status": "FE_COMPLETED",
+  "metadata": [
+    {
+      "id": "66c342a1-7ffe-43bd-a96a-8d74b4bdd568",
+      "key": "mediaDuration",
+      "value": "616",
+      "valueType": "LONG"
+    }
+  ],
+  "transcription": {
+    "id": "3de4e044-43c5-442a-8e59-96df7dc494db",
+    "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+    "originalTranscription": "Full transcription text here...",
+    "editedTranscription": null,
+    "originalTimestampedTranscription": null,
+    "editedTimestampedTranscription": null
+  },
+  "customBusinessInsights": [
+    {
+      "id": "1495148b-dd4e-45f3-8586-ab81af0cf745",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "quality_score",
+      "label": "quality_score",
+      "ordinal": 0,
+      "valueType": "STRING_ARRAY",
+      "value": ["92"],
+      "parsedValue": ["92"],
+      "enabled": true
+    },
+    {
+      "id": "c478f3ed-79f8-4878-87b6-df8f216f191c",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "participants",
+      "label": "Participants",
+      "ordinal": 0,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Counselor Name\":\"Ms. Priya Sharma\",\"Student Name\":\"Arjun Mehta\",\"Parent(s) Present\":\"Yes - Mother\"}"
+      ],
+      "parsedValue": {
+        "Counselor Name": "Ms. Priya Sharma",
+        "Student Name": "Arjun Mehta",
+        "Parent(s) Present": "Yes - Mother"
+      },
+      "enabled": true
+    },
+    {
+      "id": "2a3b4c5d-6e7f-8a9b-0c1d-2e3f4a5b6c7d",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "keyFacts",
+      "label": "Key Facts",
+      "ordinal": 5,
+      "valueType": "STRING_ARRAY",
+      "value": [
+        "Strong STEM performer with A*/A grades in Physics, Chemistry, Biology, and Additional Mathematics",
+        "Active in competitive academics: UKMT Gold & Silver medals, UKBC Silver, participating in ThinQQuiz and Blue Ocean Competition",
+        "Demonstrated leadership through MUN Coordinator role and CSMUN DDG completion",
+        "Self-directed learner pursuing CS50x (Harvard), Investopedia Simulator, and has completed 4 finance/self-development books",
+        "Clear Math/Finance career pathway with target universities: Harvard, NYU, and IIT",
+        "Engaged in community service through CS Giveback Program and developing Stock Market Simulator for Indian markets"
+      ],
+      "parsedValue": {
+        "Facts": {
+          "Facts About Student": "Strong STEM performer with A*/A grades in Physics, Chemistry, Biology, and Additional Mathematics.Active in competitive academics: UKMT Gold & Silver medals, UKBC Silver, participating in ThinQQuiz and Blue Ocean Competition."
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "eee03d59-1b13-45c5-be39-b4438fe64e92",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "studentContext",
+      "label": "Student Context",
+      "ordinal": 10,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Parents and Family Background\":{\"Parent Professions\":[\"Father: Business Owner\",\"Mother: Finance Manager\"],\"Family Background\":\"Supportive family environment with strong emphasis on academic excellence\"},\"Student Strengths vs. Weaknesses\":{\"Strengths\":[\"Strong STEM aptitude (Physics, Chemistry, Biology, Add Math)\",\"Competition participation (UKMT Gold, UKBC Silver)\",\"Leadership skills (MUN Coordinator, CSMUN DDG)\",\"Community service commitment (CS Giveback Program)\",\"Self-directed learning (CS50x, Investopedia Simulator)\",\"Reading habits (completed multiple finance/self-development books)\"],\"Weaknesses/Areas for Improvement\":[\"First Language English proficiency\",\"Time management with multiple commitments\",\"Balancing depth vs breadth in activities\"]},\"Likes / Dislikes\":{\"Likes\":[\"Math and Finance\",\"Stock market analysis\",\"Cycling and Athletics\",\"Community service\",\"Technology and coding\"],\"Dislikes\":[\"Not mentioned\"]},\"Technical Skills / Tools / Technologies\":{\"Programming Languages\":\"Python (CS50x ongoing), Basic web development\",\"Software/Tools\":\"Investopedia Simulator, Stock Market analysis tools\",\"Platforms\":\"Online learning platforms (Harvard CS50x)\",\"Level of Proficiency\":\"Intermediate - actively learning through structured courses\"},\"Existing Mentors\":{\"Current Mentors\":\"School counselor, MUN advisors\",\"Type of Mentorship\":\"Academic guidance, Leadership development\"},\"General Concerns About Student\":{\"Academic Concerns\":\"Needs improvement in FLE to meet university admission requirements, especially for competitive institutions\",\"Personal/Social Concerns\":\"Managing workload across academics, leadership roles, and extracurriculars without burnout\",\"Career-related Concerns\":\"Narrowing down specific career path within Math/Finance domain\"}}"
+      ],
+      "parsedValue": {
+        "Parents and Family Background": {
+          "Parent Professions": [
+            "Father: Business Owner",
+            "Mother: Finance Manager"
+          ],
+          "Family Background": "Supportive family environment with strong emphasis on academic excellence"
+        },
+        "Student Strengths vs. Weaknesses": {
+          "Strengths": [
+            "Strong STEM aptitude (Physics, Chemistry, Biology, Add Math)",
+            "Competition participation (UKMT Gold, UKBC Silver)",
+            "Leadership skills (MUN Coordinator, CSMUN DDG)",
+            "Community service commitment (CS Giveback Program)",
+            "Self-directed learning (CS50x, Investopedia Simulator)",
+            "Reading habits (completed multiple finance/self-development books)"
+          ],
+          "Weaknesses/Areas for Improvement": [
+            "First Language English proficiency",
+            "Time management with multiple commitments",
+            "Balancing depth vs breadth in activities"
+          ]
+        },
+        "Likes / Dislikes": {
+          "Likes": [
+            "Math and Finance",
+            "Stock market analysis",
+            "Cycling and Athletics",
+            "Community service",
+            "Technology and coding"
+          ],
+          "Dislikes": ["Not mentioned"]
+        },
+        "Technical Skills / Tools / Technologies": {
+          "Programming Languages": "Python (CS50x ongoing), Basic web development",
+          "Software/Tools": "Investopedia Simulator, Stock Market analysis tools",
+          "Platforms": "Online learning platforms (Harvard CS50x)",
+          "Level of Proficiency": "Intermediate - actively learning through structured courses"
+        },
+        "Existing Mentors": {
+          "Current Mentors": "School counselor, MUN advisors",
+          "Type of Mentorship": "Academic guidance, Leadership development"
+        },
+        "General Concerns About Student": {
+          "Academic Concerns": "Needs improvement in FLE to meet university admission requirements, especially for competitive institutions",
+          "Personal/Social Concerns": "Managing workload across academics, leadership roles, and extracurriculars without burnout",
+          "Career-related Concerns": "Narrowing down specific career path within Math/Finance domain"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "c57c4a4c-43c3-4ca5-b06c-e2bbe5f8baf9",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "is_transcribable",
+      "label": "is_transcribable",
+      "ordinal": 10,
+      "valueType": "STRING_ARRAY",
+      "value": ["true"],
+      "parsedValue": ["true"],
+      "enabled": true
+    },
+    {
+      "id": "85b97756-46ac-48f8-8f47-d3de0baeb29b",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "tasks",
+      "label": "Tasks",
+      "ordinal": 10,
+      "valueType": "OBJECT_ARRAY",
+      "value": [
+        "{\"task_name\":\"Complete Reading - Mossad by Michael Bar-Zohar\",\"bucket_id\":1,\"task_details\":\"Complete reading Mossad to understand strategic thinking and decision-making\",\"start_date\":\"2025-08-15\",\"end_date\":\"2025-09-15\",\"duration_in_minutes\":45,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Complete Reading - Rich Dad Poor Dad\",\"bucket_id\":1,\"task_details\":\"Read Rich Dad Poor Dad to strengthen financial literacy foundation\",\"start_date\":\"2025-08-15\",\"end_date\":\"2025-09-30\",\"duration_in_minutes\":45,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Read Unifrog Finance Guide\",\"bucket_id\":2,\"task_details\":\"Complete reading of Unifrog Finance Guide to explore finance career pathways\",\"start_date\":\"2025-08-20\",\"end_date\":\"2025-09-05\",\"duration_in_minutes\":60,\"task_type\":\"Once\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"unifrog_finance_guide.pdf\"}",
+        "{\"task_name\":\"Prepare for Next UKMT Level\",\"bucket_id\":3,\"task_details\":\"Practice advanced UKMT problems to prepare for next competition level\",\"start_date\":\"2025-08-15\",\"end_date\":\"2025-11-15\",\"duration_in_minutes\":60,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Participate in ThinQQuiz Competition\",\"bucket_id\":3,\"task_details\":\"Active participation in ongoing ThinQQuiz competition rounds\",\"start_date\":\"2025-08-15\",\"end_date\":\"2025-10-15\",\"duration_in_minutes\":90,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Prepare for Blue Ocean Competition\",\"bucket_id\":3,\"task_details\":\"Research and prepare submission for Blue Ocean Competition\",\"start_date\":\"2025-08-20\",\"end_date\":\"2025-09-30\",\"duration_in_minutes\":120,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"CS Giveback Program - Plan Next Phase\",\"bucket_id\":4,\"task_details\":\"Plan and execute next phase of CS Giveback Program at Arambam School\",\"start_date\":\"2025-08-15\",\"end_date\":\"2025-10-15\",\"duration_in_minutes\":120,\"task_type\":\"Weekly\",\"requires_approval\":true,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Stock Market Simulator Development\",\"bucket_id\":5,\"task_details\":\"Build Stock Market Simulator for Indian markets with defined milestones\",\"start_date\":\"2025-08-20\",\"end_date\":\"2025-12-15\",\"duration_in_minutes\":180,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"MUN Coordinator Responsibilities\",\"bucket_id\":6,\"task_details\":\"Maintain and fulfill responsibilities as MUN Coordinator\",\"start_date\":\"2025-08-15\",\"end_date\":\"2026-05-15\",\"duration_in_minutes\":90,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Explore Finance Career Websites\",\"bucket_id\":7,\"task_details\":\"Visit useful websites to explore finance career options and pathways\",\"start_date\":\"2025-08-15\",\"end_date\":\"2025-09-15\",\"duration_in_minutes\":60,\"task_type\":\"Weekly\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}",
+        "{\"task_name\":\"Decide Specific Finance Topics to Explore\",\"bucket_id\":7,\"task_details\":\"Research and decide on specific areas within finance to explore deeper (Investment Banking, Quantitative Finance, Corporate Finance, etc.)\",\"start_date\":\"2025-09-01\",\"end_date\":\"2025-09-30\",\"duration_in_minutes\":90,\"task_type\":\"Once\",\"requires_approval\":false,\"task_category_id\":\"Academic & Intellectual Pursuits\",\"task_file_resource\":\"\"}"
+      ],
+      "parsedValue": [
+        {
+          "task_name": "Complete Reading - Mossad by Michael Bar-Zohar",
+          "bucket_id": 1,
+          "task_details": "Complete reading Mossad to understand strategic thinking and decision-making",
+          "start_date": "2025-08-15",
+          "end_date": "2025-09-15",
+          "duration_in_minutes": 45,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Complete Reading - Rich Dad Poor Dad",
+          "bucket_id": 1,
+          "task_details": "Read Rich Dad Poor Dad to strengthen financial literacy foundation",
+          "start_date": "2025-08-15",
+          "end_date": "2025-09-30",
+          "duration_in_minutes": 45,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Read Unifrog Finance Guide",
+          "bucket_id": 2,
+          "task_details": "Complete reading of Unifrog Finance Guide to explore finance career pathways",
+          "start_date": "2025-08-20",
+          "end_date": "2025-09-05",
+          "duration_in_minutes": 60,
+          "task_type": "Once",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": "unifrog_finance_guide.pdf"
+        },
+        {
+          "task_name": "Prepare for Next UKMT Level",
+          "bucket_id": 3,
+          "task_details": "Practice advanced UKMT problems to prepare for next competition level",
+          "start_date": "2025-08-15",
+          "end_date": "2025-11-15",
+          "duration_in_minutes": 60,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Participate in ThinQQuiz Competition",
+          "bucket_id": 3,
+          "task_details": "Active participation in ongoing ThinQQuiz competition rounds",
+          "start_date": "2025-08-15",
+          "end_date": "2025-10-15",
+          "duration_in_minutes": 90,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Prepare for Blue Ocean Competition",
+          "bucket_id": 3,
+          "task_details": "Research and prepare submission for Blue Ocean Competition",
+          "start_date": "2025-08-20",
+          "end_date": "2025-09-30",
+          "duration_in_minutes": 120,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "CS Giveback Program - Plan Next Phase",
+          "bucket_id": 4,
+          "task_details": "Plan and execute next phase of CS Giveback Program at Arambam School",
+          "start_date": "2025-08-15",
+          "end_date": "2025-10-15",
+          "duration_in_minutes": 120,
+          "task_type": "Weekly",
+          "requires_approval": true,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Stock Market Simulator Development",
+          "bucket_id": 5,
+          "task_details": "Build Stock Market Simulator for Indian markets with defined milestones",
+          "start_date": "2025-08-20",
+          "end_date": "2025-12-15",
+          "duration_in_minutes": 180,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "MUN Coordinator Responsibilities",
+          "bucket_id": 6,
+          "task_details": "Maintain and fulfill responsibilities as MUN Coordinator",
+          "start_date": "2025-08-15",
+          "end_date": "2026-05-15",
+          "duration_in_minutes": 90,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Explore Finance Career Websites",
+          "bucket_id": 7,
+          "task_details": "Visit useful websites to explore finance career options and pathways",
+          "start_date": "2025-08-15",
+          "end_date": "2025-09-15",
+          "duration_in_minutes": 60,
+          "task_type": "Weekly",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        },
+        {
+          "task_name": "Decide Specific Finance Topics to Explore",
+          "bucket_id": 7,
+          "task_details": "Research and decide on specific areas within finance to explore deeper (Investment Banking, Quantitative Finance, Corporate Finance, etc.)",
+          "start_date": "2025-09-01",
+          "end_date": "2025-09-30",
+          "duration_in_minutes": 90,
+          "task_type": "Once",
+          "requires_approval": false,
+          "task_category_id": "Academic & Intellectual Pursuits",
+          "task_file_resource": ""
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "a8b3c9d2-e5f6-4a7b-8c9d-1e2f3a4b5c6d",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "workExperience",
+      "label": "Work Experience",
+      "ordinal": 30,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Current Work Experience\":{\"Internship Details\":\"Not applicable - Grade 10 student\",\"Work Experience\":\"Not applicable\",\"Skills Gained\":\"Leadership through MUN, Project management through CS Giveback Program\"},\"Planned Work Experience\":{\"Internship Plans\":\"Finance/Tech internship in Grade 11 or 12\",\"Industry Preferences\":\"Finance sector, Fintech, Investment firms\",\"Timeline\":\"Summer 2026 or 2027\"}}"
+      ],
+      "parsedValue": {
+        "Current Work Experience": {
+          "Internship Details": "Not applicable - Grade 10 student",
+          "Work Experience": "Not applicable",
+          "Skills Gained": "Leadership through MUN, Project management through CS Giveback Program"
+        },
+        "Planned Work Experience": {
+          "Internship Plans": "Finance/Tech internship in Grade 11 or 12",
+          "Industry Preferences": "Finance sector, Fintech, Investment firms",
+          "Timeline": "Summer 2026 or 2027"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "56471505-2a29-41ff-a2d8-a6864b44e5c0",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "academics",
+      "label": "Academics",
+      "ordinal": 40,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Academic Performance\":{\"Subjects & Grades\":{\"FLE (First Language English)\":\"C\",\"Add Math (Additional Mathematics)\":\"A*\",\"Physics\":\"A\",\"Chemistry\":\"A*\",\"Biology\":\"A*\",\"D&T (Design & Technology)\":\"B\",\"Tamil\":\"A*\"},\"Strong Subjects\":[\"Physics\",\"Chemistry\",\"Biology\",\"Add Math\",\"Tamil\"],\"Challenging Subjects\":[\"FLE\"],\"Overall Performance\":\"Strong STEM performance with excellent grades in sciences and mathematics. FLE requires focused improvement for competitive university admissions.\"},\"Currently Pursuing Courses\":{\"Current Grade Level\":\"10th - IGCSE\",\"Core Subjects\":\"FLE, Individual Sciences (Physics, Chemistry, Biology), Extended Mathematics (Add Math)\",\"Elective Courses\":\"D&T, Tamil\",\"Advanced Courses\":\"Additional Mathematics (A*)\"},\"Student Academic Interests\":{\"Primary Interests\":[\"Mathematics\",\"Finance\"],\"Areas of Curiosity\":\"Stock market analysis, Quantitative analysis, Financial modeling\",\"Learning Style\":\"Self-directed learner, Prefers practical application through projects and simulations\"},\"Planned Courses\":{\"Next Semester/Year\":\"Not mentioned - Focus on completing IGCSE\",\"Course Selection Strategy\":\"Focus on Math-heavy and Finance-related subjects for A-Levels/IB\",\"Prerequisites\":\"Strong foundation in mathematics and sciences already established\"}}"
+      ],
+      "parsedValue": {
+        "Academic Performance": {
+          "Subjects & Grades": {
+            "FLE (First Language English)": "C",
+            "Add Math (Additional Mathematics)": "A*",
+            "Physics": "A",
+            "Chemistry": "A*",
+            "Biology": "A*",
+            "D&T (Design & Technology)": "B",
+            "Tamil": "A*"
+          },
+          "Strong Subjects": [
+            "Physics",
+            "Chemistry",
+            "Biology",
+            "Add Math",
+            "Tamil"
+          ],
+          "Challenging Subjects": ["FLE"],
+          "Overall Performance": "Strong STEM performance with excellent grades in sciences and mathematics. FLE requires focused improvement for competitive university admissions."
+        },
+        "Currently Pursuing Courses": {
+          "Current Grade Level": "10th - IGCSE",
+          "Core Subjects": "FLE, Individual Sciences (Physics, Chemistry, Biology), Extended Mathematics (Add Math)",
+          "Elective Courses": "D&T, Tamil",
+          "Advanced Courses": "Additional Mathematics (A*)"
+        },
+        "Student Academic Interests": {
+          "Primary Interests": ["Mathematics", "Finance"],
+          "Areas of Curiosity": "Stock market analysis, Quantitative analysis, Financial modeling",
+          "Learning Style": "Self-directed learner, Prefers practical application through projects and simulations"
+        },
+        "Planned Courses": {
+          "Next Semester/Year": "Not mentioned - Focus on completing IGCSE",
+          "Course Selection Strategy": "Focus on Math-heavy and Finance-related subjects for A-Levels/IB",
+          "Prerequisites": "Strong foundation in mathematics and sciences already established"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "cd00560e-b0f2-4db6-8a1a-a90dfdce6c38",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "supercurricularActivities",
+      "label": "Supercurricular Activities",
+      "ordinal": 50,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Reading & Learning\":{\"Books Completed\":[\"How to Choose Winning Stocks\",\"Atomic Habits\",\"Limitless\",\"Outliers\"],\"Books To Start\":[\"Mossad\",\"Rich Dad Poor Dad\"],\"Guides To Start\":[\"Finance Guide\"],\"Online Courses Ongoing\":[\"CS50x - Harvard Introduction to Computer Science\"],\"Online Learning Ongoing\":[\"Investopedia Simulator\"]},\"Standardised & Competitive Tests\":{\"Standardised Tests Completed\":[\"PSAT (Last year)\"],\"Competitive Exams Completed\":[\"UKMT - Gold\",\"UKMT - Silver\",\"UKBC - Silver\",\"CEMC - None\",\"IOQM - None\"],\"Competitions Ongoing\":[\"ThinQQuiz\",\"Blue Ocean Competition\"]},\"Leadership & Extracurriculars\":{\"Student Council / Leadership Completed\":[\"MUN Coordinator\",\"CSMUN DDG (Completed)\"],\"Extracurriculars Ongoing\":[\"Exploring Horizons Club\",\"IAYP\",\"CS Cycling Club\",\"SIP\"],\"Sports Ongoing\":[\"Athletics\"],\"Hobbies Ongoing\":[\"Cycling\"]},\"Projects & Service\":{\"Passion Projects Ongoing\":[\"CS Giveback Program (Arambam School)\",\"Stock Market Simulator for Indian markets\"],\"Research\":\"Not mentioned\",\"Internship / Job Shadowing\":\"Not mentioned\",\"Community Service / Volunteering Ongoing\":[\"CS Giveback Program\"]},\"Planned Activities\":{\"Summer Programs To Start\":\"Later\",\"Ongoing Activities\":[\"Academic pursuits\",\"Extracurricular clubs\",\"Sports\",\"Volunteering\"],\"Planned Extracurricular Activities\":[\"Competitions\",\"Passion Projects\",\"Community Service\"]}}"
+      ],
+      "parsedValue": {
+        "Reading & Learning": {
+          "Books Completed": [
+            "How to Choose Winning Stocks",
+            "Atomic Habits",
+            "Limitless",
+            "Outliers"
+          ],
+          "Books To Start": ["Mossad"],
+          "Guides To Start": ["Finance Guide"],
+          "Online Courses": [
+            "CS50x - Harvard Introduction to Computer Science(Ongoing)"
+          ],
+          "Online Learning": ["Investopedia Simulator(Ongoing)"]
+        },
+        "Standardised & Competitive Tests": {
+          "Standardised Tests Completed": ["PSAT (Last year)"],
+          "Competitive Exams Completed": [
+            "UKMT - Gold",
+            "UKMT - Silver",
+            "UKBC - Silver",
+            "CEMC - None",
+            "IOQM - None"
+          ],
+          "Competitions": [
+            "Ongoing: ThinQQuiz",
+            "Completed: Blue Ocean Competition"
+          ]
+        },
+        "Leadership & Extracurriculars": {
+          "Student Council / Leadership Completed": [
+            "MUN Coordinator",
+            "CSMUN DDG (Completed)"
+          ],
+          "Extracurriculars": [
+            "Ongoing: Exploring Horizons Club, SIP",
+            "Completed: IAYP, CS Cycling Club"
+          ],
+          "Sports": ["Ongoing: Athletics", "Completed: Basketball"],
+          "Hobbies": ["Ongoing: Cycling", "Completed: Cooking"]
+        },
+        "Projects & Service": {
+          "Passion Projects": [
+            "Ongoing: CS Giveback Program (Arambam School)",
+            "Completed: Stock Market Simulator for Indian markets"
+          ],
+          "Research": "Not mentioned",
+          "Internship / Job Shadowing": "Not mentioned",
+          "Community Service / Volunteering": ["Ongoing: CS Giveback Program"]
+        },
+        "Planned Activities": {
+          "Summer Programs To Start": "Later",
+          "Activities": [
+            "Ongoing: Academic pursuits, Sports",
+            "Completed: Extracurricular clubs, Volunteering"
+          ],
+          "Planned Extracurricular Activities": [
+            "Competitions",
+            "Passion Projects",
+            "Community Service"
+          ]
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "66323b5a-a857-41ce-b3b1-2085c71e1e9a",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "futureGoals",
+      "label": "Future Goals",
+      "ordinal": 60,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Career & Academic Interests\":{\"Course Interests\":[\"Math\",\"Finance\"],\"Career Aspirations\":\"Finance sector - potentially Quantitative Finance, Investment Banking, or Financial Analysis\",\"Industry Interests\":\"Finance, Fintech, Investment Management\",\"Alternative Career Options\":\"Not mentioned\"},\"University & Country Preferences\":{\"Target Countries\":[\"USA\",\"UK\",\"India\"],\"College Aspirations\":[\"IIT\",\"NYU\",\"Harvard\"],\"Priority Order\":\"1. Harvard (USA), 2. NYU (USA), 3. IIT (India), 4. Other top UK universities\",\"Program Preferences\":\"Economics, Mathematics, Finance, Quantitative Finance, Business Administration\"},\"Topics of Interest to Study\":{\"Major Field of Study\":\"Mathematics with Finance/Economics\",\"Specific Subjects\":[\"Quantitative Analysis\",\"Financial Modeling\",\"Economics\",\"Statistics\",\"Computer Science (programming for finance)\"],\"Interdisciplinary Interests\":\"Intersection of Mathematics, Computer Science, and Finance\"}}"
+      ],
+      "parsedValue": {
+        "Career & Academic Interests": {
+          "Course Interests": ["Math", "Finance"],
+          "Career Aspirations": "Finance sector - potentially Quantitative Finance, Investment Banking, or Financial Analysis",
+          "Industry Interests": "Finance, Fintech, Investment Management",
+          "Alternative Career Options": "Not mentioned"
+        },
+        "University & Country Preferences": {
+          "Target Countries": ["USA", "UK", "India"],
+          "College Aspirations": ["IIT", "NYU", "Harvard"],
+          "Priority Order": "1. Harvard (USA), 2. NYU (USA), 3. IIT (India), 4. Other top UK universities",
+          "Program Preferences": "Economics, Mathematics, Finance, Quantitative Finance, Business Administration"
+        },
+        "Topics of Interest to Study": {
+          "Major Field of Study": "Mathematics with Finance/Economics",
+          "Specific Subjects": [
+            "Quantitative Analysis",
+            "Financial Modeling",
+            "Economics",
+            "Statistics",
+            "Computer Science (programming for finance)"
+          ],
+          "Interdisciplinary Interests": "Intersection of Mathematics, Computer Science, and Finance"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "6c3f06eb-3c05-4705-87d5-48427e8671af",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "nextSteps",
+      "label": "Next Steps",
+      "ordinal": 70,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Next Steps for Counselor\":{\"Action Items\":\"Review Finance Guide recommendations with student, Coordinate competition preparation timeline, Monitor FLE improvement progress\",\"Research Tasks\":\"Identify summer finance programs suitable for student, Research mentorship opportunities in finance sector\",\"Preparation for Next Meeting\":\"Prepare list of finance-specific extracurriculars and internship opportunities\"},\"Next Steps for Student\":{\"Books\":[\"Complete Mossad\",\"Complete Rich Dad Poor Dad\"],\"Guides\":[\"Read Finance Guide from Unifrog\"],\"Competitions\":[\"Prepare for next UKMT level\",\"Participate in similar competitions\"],\"Community Service\":[\"Continue CS Giveback Program\",\"Plan next phase\"],\"Council\":[\"Maintain responsibilities as MUN Coordinator\"],\"Passion Project\":[\"Build Stock Market Simulator (Indian markets) with milestones\"],\"Research Tasks\":[\"Visit useful websites for finance career exploration\",\"Explore online learning opportunities\"],\"Decisions\":[\"Decide topics to explore within finance\",\"Select specific areas of interest (e.g., Investment Banking vs Quantitative Finance)\"]},\"Next Steps for Parent\":{\"Action Items\":\"Support student's reading schedule, Monitor workload balance, Ensure adequate rest and recreation time\",\"Information Gathering\":\"Research finance summer programs, Understand admission requirements for target universities\",\"Support Required\":\"Encourage without overwhelming, Provide resources for finance exploration\"},\"Next Meeting Details\":{\"Date\":\"September 15, 2025\",\"Format\":\"In-person\",\"Agenda\":\"Review progress on reading tasks, Discuss competition results, Finalize finance specialization areas, Plan summer 2026 activities\"}}"
+      ],
+      "parsedValue": {
+        "Next Steps for Counselor": {
+          "Action Items": "Review Finance Guide recommendations with student, Coordinate competition preparation timeline, Monitor FLE improvement progress",
+          "Research Tasks": "Identify summer finance programs suitable for student, Research mentorship opportunities in finance sector",
+          "Preparation for Next Meeting": "Prepare list of finance-specific extracurriculars and internship opportunities"
+        },
+        "Next Steps for Student": {
+          "Books": ["Complete Mossad", "Complete Rich Dad Poor Dad"],
+          "Guides": ["Read Finance Guide from Unifrog"],
+          "Competitions": [
+            "Prepare for next UKMT level",
+            "Participate in similar competitions"
+          ],
+          "Community Service": [
+            "Continue CS Giveback Program",
+            "Plan next phase"
+          ],
+          "Council": ["Maintain responsibilities as MUN Coordinator"],
+          "Passion Project": [
+            "Build Stock Market Simulator (Indian markets) with milestones"
+          ],
+          "Research Tasks": [
+            "Visit useful websites for finance career exploration",
+            "Explore online learning opportunities"
+          ],
+          "Decisions": [
+            "Decide topics to explore within finance",
+            "Select specific areas of interest (e.g., Investment Banking vs Quantitative Finance)"
+          ]
+        },
+        "Next Steps for Parent": {
+          "Action Items": "Support student's reading schedule, Monitor workload balance, Ensure adequate rest and recreation time",
+          "Information Gathering": "Research finance summer programs, Understand admission requirements for target universities",
+          "Support Required": "Encourage without overwhelming, Provide resources for finance exploration"
+        },
+        "Next Meeting Details": {
+          "Date": "September 15, 2025",
+          "Format": "In-person",
+          "Agenda": "Review progress on reading tasks, Discuss competition results, Finalize finance specialization areas, Plan summer 2026 activities"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "6ce46a14-4174-4eac-b17f-6fc7977aff35",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "assessmentMeters",
+      "label": "Assessment Meters",
+      "ordinal": 80,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Student Anxiety Levels\":{\"Pre-Session Anxiety\":\"3/10 - Low\",\"Post-Session Anxiety\":\"2/10 - Low\",\"Anxiety Triggers\":\"Meeting expectations for competitive university admissions, FLE performance concerns\"},\"Parent Anxiety Level\":{\"Parent Anxiety\":\"5/10 - Moderate\",\"Parent Concerns\":\"Ensuring balanced approach to activities, University admission competitiveness, Managing student workload\"},\"Counselor Assessment Meters\":{\"Urgency Level\":\"4/10 - Moderate (FLE improvement needed)\",\"Student Proficiency in English\":\"6/10 - Above Average (strong comprehension, needs work on writing)\",\"Career Choice Clarity\":\"7/10 - Good (Clear interest in Math/Finance, needs specific pathway refinement)\",\"Academic Choice Clarity\":\"8/10 - Very Good (Strong alignment with STEM and Math-based subjects)\"},\"Financial Considerations\":{\"Financial Constraints\":\"None mentioned - appears financially stable\",\"Financial Support Level\":\"8/10 - Strong family support\",\"Scholarship Needs\":\"Not critical but would be beneficial for competitive applications\"}}"
+      ],
+      "parsedValue": {
+        "Student Anxiety Levels": {
+          "Pre-Session Anxiety": "3/10 - Low",
+          "Post-Session Anxiety": "2/10 - Low",
+          "Anxiety Triggers": "Meeting expectations for competitive university admissions, FLE performance concerns"
+        },
+        "Parent Anxiety Level": {
+          "Parent Anxiety": "5/10 - Moderate",
+          "Parent Concerns": "Ensuring balanced approach to activities, University admission competitiveness, Managing student workload"
+        },
+        "Counselor Assessment Meters": {
+          "Urgency Level": "4/10 - Moderate (FLE improvement needed)",
+          "Student Proficiency in English": "6/10 - Above Average (strong comprehension, needs work on writing)",
+          "Career Choice Clarity": "7/10 - Good (Clear interest in Math/Finance, needs specific pathway refinement)",
+          "Academic Choice Clarity": "8/10 - Very Good (Strong alignment with STEM and Math-based subjects)"
+        },
+        "Financial Considerations": {
+          "Financial Constraints": "None mentioned - appears financially stable",
+          "Financial Support Level": "8/10 - Strong family support",
+          "Scholarship Needs": "Not critical but would be beneficial for competitive applications"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "10de77a2-8b0f-4f7a-a896-51cdba49966f",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "directionalChanges",
+      "label": "Directional Changes",
+      "ordinal": 90,
+      "valueType": "OBJECT",
+      "value": [
+        "{\"Changes in Student Direction\":{\"Previous Goals\":\"Not specified - General academic excellence\",\"Current Goals\":\"Clear focus on Math/Finance pathway, Target top-tier universities (Harvard, NYU, IIT), Build finance-specific profile through competitions and projects\",\"Reason for Change\":\"Developed clear interest through self-exploration (reading finance books, Investopedia simulator), Strong STEM performance revealed natural aptitude\",\"Impact of Change\":\"Positive - More focused extracurricular strategy, Better alignment of activities with career goals, Increased motivation and self-directed learning\"}}"
+      ],
+      "parsedValue": {
+        "Changes in Student Direction": {
+          "Previous Goals": "Not specified - General academic excellence",
+          "Current Goals": "Clear focus on Math/Finance pathway, Target top-tier universities (Harvard, NYU, IIT), Build finance-specific profile through competitions and projects",
+          "Reason for Change": "Developed clear interest through self-exploration (reading finance books, Investopedia simulator), Strong STEM performance revealed natural aptitude",
+          "Impact of Change": "Positive - More focused extracurricular strategy, Better alignment of activities with career goals, Increased motivation and self-directed learning"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "7f8e9d0c-1b2a-3c4d-5e6f-7a8b9c0d1e2f",
+      "mediaId": "78fee9fe-5faa-446a-a420-1ed209bdd512",
+      "key": "counselorRemarks",
+      "label": "Additional Remarks (Counselors Only)",
+      "ordinal": 100,
+      "valueType": "STRING",
+      "value": [
+        "The student shows strong academic performance (especially STEM), impressive competition participation (UKMT/UKBC), leadership (MUN), active community service (CS Giveback), and clear alignment to Math/Finance pathways. Key strengths: Self-directed learner, Strong quantitative skills, Demonstrated leadership, Commitment to community service. Areas for development: FLE proficiency for competitive admissions, Time management across multiple commitments, Narrowing down specific finance specialization. Recommended focus: Continue building finance-specific profile through competitions and projects, Maintain strong STEM grades while improving FLE, Explore summer finance programs for hands-on experience, Consider finance-related research opportunities. Overall assessment: Strong candidate for top-tier universities with clear career direction. Profile shows authenticity and depth rather than breadth-only approach."
+      ],
+      "parsedValue": {
+        "Additional Remarks": {
+          "Remarks": ""
+        }
+      },
+      "enabled": true
+    }
+  ]
+}

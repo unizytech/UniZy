@@ -302,7 +302,7 @@ export function EmotionAnalysisModal({ isOpen, onClose, data, extractionId, onRe
               </svg>
               <p className="text-gray-600 font-medium">No emotion analysis available</p>
               <p className="text-gray-400 text-sm mt-1">
-                Emotion analysis may still be processing or not enabled for this consultation type.
+                Emotion analysis may still be processing or not enabled for this session type.
               </p>
             </div>
           ) : (
@@ -732,7 +732,7 @@ function AnxietySummarySection({ segmentValue }: { segmentValue: Record<string, 
       <div className="grid grid-cols-3 gap-4">
         {/* Pre-Consultation Level */}
         <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Pre-Consultation</div>
+          <div className="text-xs text-gray-500 mb-1">Pre-Session</div>
           <span className={`inline-block px-3 py-1.5 rounded-full text-sm font-semibold ${getLevelColor(preLevel)}`}>
             {preLevel || 'N/A'}
           </span>
@@ -751,7 +751,7 @@ function AnxietySummarySection({ segmentValue }: { segmentValue: Record<string, 
 
         {/* Post-Consultation Level */}
         <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Post-Consultation</div>
+          <div className="text-xs text-gray-500 mb-1">Post-Session</div>
           <span className={`inline-block px-3 py-1.5 rounded-full text-sm font-semibold ${getLevelColor(postLevel)}`}>
             {postLevel || 'N/A'}
           </span>

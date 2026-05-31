@@ -136,11 +136,11 @@ export default function DoctorSharingScreen() {
 
   const handleCreate = async () => {
     if (!doctorAId || !doctorBId) {
-      setError('Please select both doctors');
+      setError('Please select both counsellors');
       return;
     }
     if (doctorAId === doctorBId) {
-      setError('Cannot link a doctor to themselves');
+      setError('Cannot link a counsellor to themselves');
       return;
     }
 
@@ -232,7 +232,7 @@ export default function DoctorSharingScreen() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-slate-400">Loading doctor sharing data...</span>
+        <span className="ml-3 text-slate-400">Loading counsellor sharing data...</span>
       </div>
     );
   }
@@ -240,7 +240,7 @@ export default function DoctorSharingScreen() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white">Doctor Sharing Management</h2>
+        <h2 className="text-xl font-bold text-white">Counsellor Sharing Management</h2>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
@@ -263,7 +263,7 @@ export default function DoctorSharingScreen() {
 
           {/* Hospital Filter */}
           <div>
-            <label className="block text-sm text-slate-400 mb-1">Hospital (filter doctors)</label>
+            <label className="block text-sm text-slate-400 mb-1">School (filter counsellors)</label>
             <select
               value={selectedHospitalId}
               onChange={e => {
@@ -273,7 +273,7 @@ export default function DoctorSharingScreen() {
               }}
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
             >
-              <option value="">All hospitals</option>
+              <option value="">All schools</option>
               {hospitals.map(h => (
                 <option key={h.id} value={h.id}>{h.hospital_name}</option>
               ))}
@@ -283,26 +283,26 @@ export default function DoctorSharingScreen() {
           {/* Doctor Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Doctor A</label>
+              <label className="block text-sm text-slate-400 mb-1">Counsellor A</label>
               <select
                 value={doctorAId}
                 onChange={e => setDoctorAId(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
               >
-                <option value="">Select doctor...</option>
+                <option value="">Select counsellor...</option>
                 {filteredDoctors.filter(d => d.id !== doctorBId).map(d => (
                   <option key={d.id} value={d.id}>{d.full_name} ({d.email})</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Doctor B</label>
+              <label className="block text-sm text-slate-400 mb-1">Counsellor B</label>
               <select
                 value={doctorBId}
                 onChange={e => setDoctorBId(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
               >
-                <option value="">Select doctor...</option>
+                <option value="">Select counsellor...</option>
                 {filteredDoctors.filter(d => d.id !== doctorAId).map(d => (
                   <option key={d.id} value={d.id}>{d.full_name} ({d.email})</option>
                 ))}
@@ -321,7 +321,7 @@ export default function DoctorSharingScreen() {
                   onChange={() => setSharingMode('all')}
                   className="text-blue-600"
                 />
-                <span className="text-sm text-slate-300">Share all patients</span>
+                <span className="text-sm text-slate-300">Share all students</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -330,7 +330,7 @@ export default function DoctorSharingScreen() {
                   onChange={() => setSharingMode('specific')}
                   className="text-blue-600"
                 />
-                <span className="text-sm text-slate-300">Share specific patients</span>
+                <span className="text-sm text-slate-300">Share specific students</span>
               </label>
             </div>
           </div>
@@ -339,11 +339,11 @@ export default function DoctorSharingScreen() {
           {sharingMode === 'specific' && (
             <div>
               <label className="block text-sm text-slate-400 mb-1">
-                Select Patients ({selectedPatientIds.length} selected)
+                Select Students ({selectedPatientIds.length} selected)
               </label>
               <input
                 type="text"
-                placeholder="Search patients..."
+                placeholder="Search students..."
                 value={patientSearch}
                 onChange={e => setPatientSearch(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-2"
@@ -351,7 +351,7 @@ export default function DoctorSharingScreen() {
               <div className="max-h-48 overflow-y-auto bg-slate-700/50 rounded-lg border border-slate-600 divide-y divide-slate-700">
                 {filteredPatients.length === 0 ? (
                   <div className="p-3 text-sm text-slate-500">
-                    {patients.length === 0 ? 'Select a hospital first to load patients' : 'No patients match search'}
+                    {patients.length === 0 ? 'Select a school first to load students' : 'No students match search'}
                   </div>
                 ) : (
                   filteredPatients.slice(0, 50).map(p => (
@@ -379,7 +379,7 @@ export default function DoctorSharingScreen() {
               disabled={!doctorAId || !doctorBId || actionLoading === 'create'}
               className="px-5 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
             >
-              {actionLoading === 'create' ? 'Creating...' : 'Link Doctors'}
+              {actionLoading === 'create' ? 'Creating...' : 'Link Counsellors'}
             </button>
           </div>
         </div>
@@ -407,7 +407,7 @@ export default function DoctorSharingScreen() {
                   onChange={() => setEditMode('all')}
                   className="text-blue-600"
                 />
-                <span className="text-sm text-slate-300">Share all patients</span>
+                <span className="text-sm text-slate-300">Share all students</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -416,7 +416,7 @@ export default function DoctorSharingScreen() {
                   onChange={() => setEditMode('specific')}
                   className="text-blue-600"
                 />
-                <span className="text-sm text-slate-300">Share specific patients</span>
+                <span className="text-sm text-slate-300">Share specific students</span>
               </label>
             </div>
           </div>
@@ -424,18 +424,18 @@ export default function DoctorSharingScreen() {
           {editMode === 'specific' && (
             <div>
               <label className="block text-sm text-slate-400 mb-1">
-                Selected Patients ({editPatientIds.length})
+                Selected Students ({editPatientIds.length})
               </label>
               <input
                 type="text"
-                placeholder="Search patients..."
+                placeholder="Search students..."
                 value={patientSearch}
                 onChange={e => setPatientSearch(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-2"
               />
               <div className="max-h-48 overflow-y-auto bg-slate-700/50 rounded-lg border border-slate-600 divide-y divide-slate-700">
                 {filteredPatients.length === 0 ? (
-                  <div className="p-3 text-sm text-slate-500">No patients available</div>
+                  <div className="p-3 text-sm text-slate-500">No students available</div>
                 ) : (
                   filteredPatients.slice(0, 50).map(p => (
                     <label key={p.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-600/50 cursor-pointer">
@@ -496,8 +496,8 @@ export default function DoctorSharingScreen() {
                         : 'bg-blue-500/20 text-blue-400'
                     }`}>
                       {link.sharing_mode === 'all_patients'
-                        ? 'All patients'
-                        : `${link.patient_count ?? 0} patient(s)`}
+                        ? 'All students'
+                        : `${link.patient_count ?? 0} student(s)`}
                     </span>
                     <span className="text-xs text-slate-500">
                       Created {new Date(link.created_at).toLocaleDateString()}

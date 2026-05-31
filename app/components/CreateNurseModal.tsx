@@ -103,7 +103,7 @@ export default function CreateNurseModal({
       <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Create New Nurse</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Create New Assistant</h2>
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -135,7 +135,7 @@ export default function CreateNurseModal({
               type="text"
               value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              placeholder="Enter nurse's full name"
+              placeholder="Enter assistant's full name"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               required
             />
@@ -149,7 +149,7 @@ export default function CreateNurseModal({
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="nurse@hospital.com"
+              placeholder="assistant@school.com"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               required
             />
@@ -167,20 +167,20 @@ export default function CreateNurseModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Common qualifications: RN (Registered Nurse), BSN, LPN, NP, APRN
+              Common qualifications: RN (Registered Assistant), BSN, LPN, NP, APRN
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hospital
+              School
             </label>
             <select
               value={form.hospital_id}
               onChange={(e) => setForm({ ...form, hospital_id: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
-              <option value="">Select hospital (optional)</option>
+              <option value="">Select school (optional)</option>
               {hospitals.map((hospital) => (
                 <option key={hospital.id} value={hospital.id}>
                   {hospital.hospital_name}
@@ -212,7 +212,7 @@ export default function CreateNurseModal({
                   Creating...
                 </span>
               ) : (
-                'Create Nurse'
+                'Create Assistant'
               )}
             </button>
           </div>

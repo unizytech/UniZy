@@ -116,7 +116,7 @@ export function BulkClonePanel({ consultationTypes, userId, onComplete }: BulkCl
     }
 
     if (sourceType === targetType) {
-      setError('Source and target consultation types must be different');
+      setError('Source and target session types must be different');
       return;
     }
 
@@ -176,7 +176,7 @@ export function BulkClonePanel({ consultationTypes, userId, onComplete }: BulkCl
           <div className="flex-1">
             <h3 className="text-sm font-medium text-blue-900">Bulk Clone Segments</h3>
             <p className="mt-1 text-sm text-blue-700">
-              Quickly add segments from an existing consultation type to a new one. Select source, target, and segments to clone.
+              Quickly add segments from an existing session type to a new one. Select source, target, and segments to clone.
             </p>
           </div>
         </div>
@@ -184,13 +184,13 @@ export function BulkClonePanel({ consultationTypes, userId, onComplete }: BulkCl
 
       {/* Source and Target Selection */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">1. Select Consultation Types</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">1. Select Session Types</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Source Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Source Consultation Type
+              Source Session Type
             </label>
             <select
               value={sourceType}
@@ -209,7 +209,7 @@ export function BulkClonePanel({ consultationTypes, userId, onComplete }: BulkCl
           {/* Target Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Target Consultation Type
+              Target Session Type
             </label>
             <select
               value={targetType}
@@ -263,7 +263,7 @@ export function BulkClonePanel({ consultationTypes, userId, onComplete }: BulkCl
             </div>
           ) : availableSegments.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              No segments available for this consultation type
+              No segments available for this session type
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

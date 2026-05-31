@@ -4,7 +4,7 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'Unizy',
-  description: 'Unizy - AI-powered consultation transcription and insights extraction',
+  description: 'Unizy - AI-powered session transcription and insights extraction',
 };
 
 export default function RootLayout({

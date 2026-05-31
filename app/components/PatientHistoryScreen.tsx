@@ -339,8 +339,8 @@ interface EmotionDisplayProps {
 
 function EmotionDisplay({ emotionSummary }: EmotionDisplayProps) {
   const sections = [
-    { key: 'anxiety_pre_consultation', label: 'Pre-Consultation Anxiety', icon: '😰' },
-    { key: 'anxiety_post_consultation', label: 'Post-Consultation Anxiety', icon: '😌' },
+    { key: 'anxiety_pre_consultation', label: 'Pre-Session Anxiety', icon: '😰' },
+    { key: 'anxiety_post_consultation', label: 'Post-Session Anxiety', icon: '😌' },
     { key: 'audio_anxiety', label: 'Voice Analysis', icon: '🎤' },
     { key: 'other_emotions', label: 'Other Emotions', icon: '🎭' },
     { key: 'financial_concerns', label: 'Financial Concerns', icon: '💰' },
@@ -386,7 +386,7 @@ function EmotionPatternSummaryDisplay({ patternSummary }: EmotionPatternSummaryD
   if (!patternSummary.has_emotion_data || patternSummary.patterns.length === 0) {
     return (
       <p className="text-gray-500 text-sm italic">
-        No emotion analysis data from recent consultations.
+        No emotion analysis data from recent sessions.
       </p>
     );
   }
@@ -429,7 +429,7 @@ function EmotionPatternSummaryDisplay({ patternSummary }: EmotionPatternSummaryD
   return (
     <div className="space-y-2">
       <p className="text-xs text-gray-500 mb-2">
-        Based on last {patternSummary.visits_analyzed} consultation{patternSummary.visits_analyzed !== 1 ? 's' : ''}
+        Based on last {patternSummary.visits_analyzed} session{patternSummary.visits_analyzed !== 1 ? 's' : ''}
       </p>
       <div className="space-y-2">
         {patternSummary.patterns.map((pattern, idx) => (
@@ -464,7 +464,7 @@ function TopInterventionsDisplay({ interventions }: TopInterventionsDisplayProps
   if (!interventions || interventions.length === 0) {
     return (
       <p className="text-gray-500 text-sm italic">
-        No recommended interventions from recent consultation.
+        No recommended interventions from recent session.
       </p>
     );
   }
@@ -981,7 +981,7 @@ export function PatientHistoryScreen() {
       const consultations = await getConsultationHistory(patientId, selectedDoctorId || undefined, 1, 10, accessToken);
       setConsultationHistory(consultations.consultations);
     } catch (err: any) {
-      setError(err.message || 'Failed to load patient history');
+      setError(err.message || 'Failed to load student history');
       setConsultationHistory([]);
     } finally {
       setIsLoadingHistory(false);
@@ -1007,7 +1007,7 @@ export function PatientHistoryScreen() {
   // Load prescreen data when tab is clicked
   const loadPrescreenData = async (patientId: string) => {
     if (!selectedDoctorId) {
-      setError('Please select a doctor to view prescreen data');
+      setError('Please select a counsellor to view prescreen data');
       return;
     }
 
@@ -1044,7 +1044,7 @@ export function PatientHistoryScreen() {
       const details = await getExtractionDetails(consultation.extraction_id, true, getAccessToken());
       setConsultationDetails(details);
     } catch (err: any) {
-      setError(err.message || 'Failed to load consultation details');
+      setError(err.message || 'Failed to load session details');
       setConsultationDetails(null);
     } finally {
       setIsLoadingConsultationDetails(false);
@@ -1070,9 +1070,9 @@ export function PatientHistoryScreen() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Patient History</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Student History</h1>
               <p className="text-sm text-gray-500 mt-1">
-                View patient medical history, prescriptions, and context
+                View student medical history, prescriptions, and context
               </p>
             </div>
           </div>
@@ -1099,7 +1099,7 @@ export function PatientHistoryScreen() {
               />
               {selectedDoctorId && (
                 <p className="text-xs text-gray-500 mt-2">
-                  Showing patients for selected doctor only
+                  Showing students for selected counsellor only
                 </p>
               )}
             </div>
@@ -1107,14 +1107,14 @@ export function PatientHistoryScreen() {
             {/* Patient Selection */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Patient
+                Select Student
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={selectedDoctorId ? "Type to filter patients..." : "Search by name or patient ID..."}
+                  placeholder={selectedDoctorId ? "Type to filter students..." : "Search by name or student ID..."}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                 />
                 {(isSearching || isLoadingDoctorPatients) && (
@@ -1179,14 +1179,14 @@ export function PatientHistoryScreen() {
                       (patient.patient_id?.toLowerCase().includes(query))
                     );
                   }).length === 0 && (
-                    <p className="px-4 py-3 text-sm text-gray-500 italic">No patients match your search</p>
+                    <p className="px-4 py-3 text-sm text-gray-500 italic">No students match your search</p>
                   )}
                 </div>
               )}
 
               {/* Show empty state when doctor selected but no patients */}
               {selectedDoctorId && !isLoadingDoctorPatients && doctorPatients.length === 0 && (
-                <p className="mt-2 text-sm text-gray-500 italic">No patients found for this doctor</p>
+                <p className="mt-2 text-sm text-gray-500 italic">No students found for this counsellor</p>
               )}
 
               {/* Search Results Dropdown - When no doctor selected, show search results */}
@@ -1235,7 +1235,7 @@ export function PatientHistoryScreen() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p className="text-gray-600">Loading patient history...</p>
+                <p className="text-gray-600">Loading student history...</p>
               </div>
             ) : error ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -1253,10 +1253,10 @@ export function PatientHistoryScreen() {
                   <span className="text-3xl">🔍</span>
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Search for a Patient
+                  Search for a Student
                 </h3>
                 <p className="text-gray-500">
-                  Enter a patient name or ID in the search box to view their medical history.
+                  Enter a student name or ID in the search box to view their medical history.
                 </p>
               </div>
             ) : selectedPatient ? (
@@ -1286,7 +1286,7 @@ export function PatientHistoryScreen() {
                           }`}
                         >
                           <span>📄</span>
-                          Consult Details
+                          Session Details
                         </button>
                         <button
                           onClick={() => {
@@ -1299,7 +1299,7 @@ export function PatientHistoryScreen() {
                               ? 'bg-blue-100 text-blue-500 hover:text-blue-700'
                               : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                           }`}
-                          title="Close consultation details"
+                          title="Close session details"
                         >
                           ×
                         </button>
@@ -1326,7 +1326,7 @@ export function PatientHistoryScreen() {
                           className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md flex items-center gap-2 border border-gray-200"
                         >
                           <span>📅</span>
-                          Consultations ({consultationHistory.length})
+                          Sessions ({consultationHistory.length})
                           <svg className={`w-4 h-4 transition-transform ${isConsultationDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
@@ -1334,7 +1334,7 @@ export function PatientHistoryScreen() {
                         {isConsultationDropdownOpen && (
                           <div className="absolute right-0 mt-1 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
                             <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
-                              <p className="text-xs font-medium text-gray-500 uppercase">Recent Consultations</p>
+                              <p className="text-xs font-medium text-gray-500 uppercase">Recent Sessions</p>
                             </div>
                             {consultationHistory.map((consultation) => (
                               <button
@@ -1352,7 +1352,7 @@ export function PatientHistoryScreen() {
                                 <div className="flex items-start justify-between">
                                   <div>
                                     <p className="text-sm font-medium text-gray-900">
-                                      {consultation.consultation_type_name || 'Consultation'}
+                                      {consultation.consultation_type_name || 'Session'}
                                     </p>
                                     <p className="text-xs text-gray-500">
                                       {formatDate(consultation.created_at)}
@@ -1394,7 +1394,7 @@ export function PatientHistoryScreen() {
                     ) : !selectedDoctorId ? (
                       <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                         <span className="text-4xl">👨‍⚕️</span>
-                        <p className="mt-3 text-gray-600">Please select a doctor to view prescreen data.</p>
+                        <p className="mt-3 text-gray-600">Please select a counsellor to view prescreen data.</p>
                       </div>
                     ) : prescreenData ? (
                       <>
@@ -1404,15 +1404,15 @@ export function PatientHistoryScreen() {
                             <div className="flex items-center gap-3">
                               <span className="text-2xl">📋</span>
                               <div>
-                                <h3 className="font-semibold text-purple-900">Pre-Consultation Summary</h3>
+                                <h3 className="font-semibold text-purple-900">Pre-Session Summary</h3>
                                 <p className="text-sm text-purple-700">
-                                  {prescreenData.consultation_count} consultations • Last visit: {prescreenData.last_visit_date || 'N/A'}
+                                  {prescreenData.consultation_count} sessions • Last visit: {prescreenData.last_visit_date || 'N/A'}
                                 </p>
                               </div>
                             </div>
                             {prescreenData.has_prescreen && (
                               <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                Nurse Assessment Available
+                                Assistant Assessment Available
                               </span>
                             )}
                           </div>
@@ -1420,7 +1420,7 @@ export function PatientHistoryScreen() {
 
                         {/* Warning Factors (CAUTION) */}
                         <SectionCard
-                          title="Patient Warning Factors"
+                          title="Student Warning Factors"
                           icon="⚠️"
                           isExpanded={true}
                           isEmpty={!prescreenData.warning_factors}
@@ -1428,14 +1428,14 @@ export function PatientHistoryScreen() {
                           {prescreenData.warning_factors ? (
                             <div className="space-y-3">
                               {prescreenData.warning_factors_date && (
-                                <p className="text-xs text-gray-500">From consultation on {prescreenData.warning_factors_date}</p>
+                                <p className="text-xs text-gray-500">From session on {prescreenData.warning_factors_date}</p>
                               )}
                               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                                 <DataDisplay data={prescreenData.warning_factors} />
                               </div>
                             </div>
                           ) : (
-                            <p className="text-gray-500 italic">No warning factors recorded for this patient.</p>
+                            <p className="text-gray-500 italic">No warning factors recorded for this student.</p>
                           )}
                         </SectionCard>
 
@@ -1449,7 +1449,7 @@ export function PatientHistoryScreen() {
                           {prescreenData.past_diagnosis_summary ? (
                             <div className="space-y-3">
                               {prescreenData.past_diagnosis_summary_date && (
-                                <p className="text-xs text-gray-500">From consultation on {prescreenData.past_diagnosis_summary_date}</p>
+                                <p className="text-xs text-gray-500">From session on {prescreenData.past_diagnosis_summary_date}</p>
                               )}
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <DataDisplay data={prescreenData.past_diagnosis_summary} />
@@ -1519,7 +1519,7 @@ export function PatientHistoryScreen() {
                           {prescreenData.last_prescription ? (
                             <div className="space-y-2">
                               {prescreenData.last_prescription_date && (
-                                <p className="text-xs text-gray-500 mb-2">From consultation on {prescreenData.last_prescription_date}</p>
+                                <p className="text-xs text-gray-500 mb-2">From session on {prescreenData.last_prescription_date}</p>
                               )}
                               <PrescriptionDisplay prescription={prescreenData.last_prescription} />
                             </div>
@@ -1531,7 +1531,7 @@ export function PatientHistoryScreen() {
                         {/* Prescreen Template Data (if available) */}
                         {prescreenData.has_prescreen && prescreenData.prescreen_data && (
                           <SectionCard
-                            title="Nurse Assessment Data"
+                            title="Assistant Assessment Data"
                             icon="📝"
                             metadata={prescreenData.prescreen_metadata}
                             isExpanded={true}
@@ -1545,8 +1545,8 @@ export function PatientHistoryScreen() {
                     ) : (
                       <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                         <span className="text-4xl">📋</span>
-                        <p className="mt-3 text-gray-600">No nurse assessment data available for this patient.</p>
-                        <p className="text-sm text-gray-400 mt-1">Nurse assessment data will appear here when available.</p>
+                        <p className="mt-3 text-gray-600">No assistant assessment data available for this student.</p>
+                        <p className="text-sm text-gray-400 mt-1">Assistant assessment data will appear here when available.</p>
                       </div>
                     )}
                   </div>
@@ -1561,7 +1561,7 @@ export function PatientHistoryScreen() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span className="text-gray-600">Loading consultation details...</span>
+                        <span className="text-gray-600">Loading session details...</span>
                       </div>
                     ) : consultationDetails ? (
                       <>
@@ -1572,7 +1572,7 @@ export function PatientHistoryScreen() {
                               <span className="text-2xl">📄</span>
                               <div>
                                 <h3 className="font-semibold text-blue-900">
-                                  {selectedConsultation?.consultation_type_name || 'Consultation'} Details
+                                  {selectedConsultation?.consultation_type_name || 'Session'} Details
                                 </h3>
                                 <p className="text-sm text-blue-700">
                                   {formatDate(consultationDetails.created_at)}
@@ -1636,14 +1636,14 @@ export function PatientHistoryScreen() {
                         ) : (
                           <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
                             <span className="text-3xl">📭</span>
-                            <p className="mt-2 text-gray-600">No segment data available for this consultation.</p>
+                            <p className="mt-2 text-gray-600">No segment data available for this session.</p>
                           </div>
                         )}
                       </>
                     ) : (
                       <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                         <span className="text-4xl">📄</span>
-                        <p className="mt-3 text-gray-600">Select a consultation from the list to view details.</p>
+                        <p className="mt-3 text-gray-600">Select a session from the list to view details.</p>
                       </div>
                     )}
                   </div>

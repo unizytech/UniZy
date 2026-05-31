@@ -560,9 +560,9 @@ export function HospitalDefaultTemplateScreen() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Hospital Default Templates</h2>
+          <h2 className="text-xl font-bold text-white">School Default Templates</h2>
           <p className="text-slate-400 text-sm mt-1">
-            Set default extraction templates for each hospital. Doctor-specific defaults take priority.
+            Set default extraction templates for each school. Counsellor-specific defaults take priority.
           </p>
         </div>
       </div>
@@ -574,7 +574,7 @@ export function HospitalDefaultTemplateScreen() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search hospitals..."
+            placeholder="Search schools..."
             className="w-full px-4 py-2 pl-10 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -582,7 +582,7 @@ export function HospitalDefaultTemplateScreen() {
           </svg>
         </div>
         <div className="text-sm text-slate-400">
-          {filteredHospitals.length} hospital{filteredHospitals.length !== 1 ? 's' : ''}
+          {filteredHospitals.length} school{filteredHospitals.length !== 1 ? 's' : ''}
         </div>
       </div>
 
@@ -608,7 +608,7 @@ export function HospitalDefaultTemplateScreen() {
             </colgroup>
             <thead>
               <tr className="bg-slate-800/80 border-b border-slate-700">
-                <th className="text-left px-3 py-3 text-sm font-medium text-slate-300">Hospital</th>
+                <th className="text-left px-3 py-3 text-sm font-medium text-slate-300">School</th>
                 <th className="text-left px-3 py-3 text-sm font-medium text-slate-300">Code</th>
                 <th className="text-left px-3 py-3 text-sm font-medium text-slate-300">Default Template</th>
                 <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">Realtime</th>
@@ -622,7 +622,7 @@ export function HospitalDefaultTemplateScreen() {
               {filteredHospitals.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
-                    {searchTerm ? 'No hospitals match your search.' : 'No hospitals found.'}
+                    {searchTerm ? 'No schools match your search.' : 'No schools found.'}
                   </td>
                 </tr>
               ) : (
@@ -1159,7 +1159,7 @@ export function HospitalDefaultTemplateScreen() {
                                                   onClick={() => handleSetDefaultEhr(hospital.id, integration.id)}
                                                   disabled={updatingHospitalId === hospital.id}
                                                   className="px-2 py-1 text-xs text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors disabled:opacity-50"
-                                                  title="Set as default for new doctors"
+                                                  title="Set as default for new counsellors"
                                                 >
                                                   Set Default
                                                 </button>
@@ -1213,10 +1213,10 @@ export function HospitalDefaultTemplateScreen() {
 
                           {/* Doctor EHR Assignment Section */}
                           <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                            <h4 className="text-sm font-medium text-white mb-4">Doctor EHR Assignments</h4>
+                            <h4 className="text-sm font-medium text-white mb-4">Counsellor EHR Assignments</h4>
                             <p className="text-xs text-slate-400 mb-4">
-                              Assign which EHR system each doctor&apos;s extractions will be sent to.
-                              New doctors are automatically assigned to the hospital&apos;s default EHR.
+                              Assign which EHR system each counsellor&apos;s extractions will be sent to.
+                              New counsellors are automatically assigned to the school&apos;s default EHR.
                             </p>
 
                             {/* Loading state */}
@@ -1230,7 +1230,7 @@ export function HospitalDefaultTemplateScreen() {
                             {loadingDoctorsHospitalId !== hospital.id && (
                               <>
                                 {(hospitalDoctors[hospital.id] || []).length === 0 ? (
-                                  <p className="text-sm text-slate-500 italic">No doctors found for this hospital</p>
+                                  <p className="text-sm text-slate-500 italic">No counsellors found for this school</p>
                                 ) : (
                                   <div className="space-y-2 max-h-64 overflow-y-auto">
                                     {(hospitalDoctors[hospital.id] || []).map((doctor) => (
@@ -1290,9 +1290,9 @@ export function HospitalDefaultTemplateScreen() {
           <div className="text-sm text-blue-200">
             <p className="font-medium mb-1">Default Template Priority</p>
             <p className="text-blue-300/80">
-              When a doctor performs an extraction, the template is resolved in this order:
-              <span className="font-medium"> Doctor&apos;s default</span> &rarr;
-              <span className="font-medium"> Hospital&apos;s default</span> &rarr;
+              When a counsellor performs an extraction, the template is resolved in this order:
+              <span className="font-medium"> Counsellor&apos;s default</span> &rarr;
+              <span className="font-medium"> School&apos;s default</span> &rarr;
               <span className="font-medium"> None (manual selection required)</span>
             </p>
           </div>
