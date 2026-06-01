@@ -8,13 +8,19 @@
 do $$
 declare fn record; r record; newdef text;
 begin
+  -- NOTE: pg_get_functiondef() raises 42809 if handed an aggregate/window function, and the planner
+  -- may evaluate a WHERE-clause pg_get_functiondef() against pg_catalog rows (e.g. array_agg) before
+  -- the namespace filter is applied. So restrict to public NORMAL functions (prokind='f') in the
+  -- WHERE — with NO pg_get_functiondef there — and call pg_get_functiondef only inside the loop.
   for fn in
-    select p.oid, pg_get_functiondef(p.oid) as def, p.proname, pg_get_function_identity_arguments(p.oid) as idargs
+    select p.oid, p.proname, pg_get_function_identity_arguments(p.oid) as idargs
     from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
-    where ns.nspname = 'public'
-      and pg_get_functiondef(p.oid) ~ '\m(doctor_name|doctor_email|linked_doctor_name|linked_doctor_email|nurse_name|sharing_doctor_id|unique_doctors|unique_hospitals|total_patients|patient_count|patient_external_id|hospital_ids)\M'
+    where ns.nspname = 'public' and p.prokind = 'f'
   loop
-    newdef := fn.def;
+    newdef := pg_get_functiondef(fn.oid);
+    if newdef !~ '\m(doctor_name|doctor_email|linked_doctor_name|linked_doctor_email|nurse_name|sharing_doctor_id|unique_doctors|unique_hospitals|total_patients|patient_count|patient_external_id|hospital_ids)\M' then
+      continue;
+    end if;
     for r in select * from (values
       ('linked_doctor_name','linked_counsellor_name'),
       ('linked_doctor_email','linked_counsellor_email'),
