@@ -8,7 +8,7 @@ shape a consumer should expect to POST to their EHR API.
 
 The real formatters live in their respective EHR service modules; this file
 only provides the invocation glue with empty context so the response shape
-can be previewed without real patient/doctor/visit data.
+can be previewed without real student/counsellor/visit data.
 """
 
 import logging
@@ -21,9 +21,9 @@ def _empty_aosta(extraction: Dict[str, Any], template_code: str) -> Dict[str, An
     from services.aosta_service import format_for_aosta
     return format_for_aosta(
         extraction_insights=extraction,
-        patient_id="",
-        doctor_id="",
-        hospital_code="",
+        student_id="",
+        counsellor_id="",
+        school_code="",
         ip_id=None,
         op_id=None,
     )
@@ -59,10 +59,10 @@ def _empty_kg_initial(extraction: Dict[str, Any], template_code: str) -> Dict[st
     from services.kg_service import format_for_kg
     return format_for_kg(
         extraction_data=extraction,
-        patient_id="",
-        doctor_id="",
+        student_id="",
+        counsellor_id="",
         extraction_id="",
-        doctor_name="",
+        counsellor_name="",
         uhid="",
         visit_id="",
     )
@@ -72,10 +72,10 @@ def _empty_kg_reassess(extraction: Dict[str, Any], template_code: str) -> Dict[s
     from services.kg_service import format_for_kg_reassess
     return format_for_kg_reassess(
         extraction_data=extraction,
-        patient_id="",
-        doctor_id="",
+        student_id="",
+        counsellor_id="",
         extraction_id="",
-        doctor_name="",
+        counsellor_name="",
         uhid="",
         visit_id="",
     )
@@ -85,10 +85,10 @@ def _empty_kg_nephro_initial(extraction: Dict[str, Any], template_code: str) -> 
     from services.kg_nephro_service import format_for_kg_nephro
     return format_for_kg_nephro(
         extraction_data=extraction,
-        patient_id="",
-        doctor_id="",
+        student_id="",
+        counsellor_id="",
         extraction_id="",
-        doctor_name="",
+        counsellor_name="",
         uhid="",
         visit_id="",
     )
@@ -98,35 +98,13 @@ def _empty_kg_nephro_reassess(extraction: Dict[str, Any], template_code: str) ->
     from services.kg_nephro_service import format_for_kg_nephro_reassess
     return format_for_kg_nephro_reassess(
         extraction_data=extraction,
-        patient_id="",
-        doctor_id="",
+        student_id="",
+        counsellor_id="",
         extraction_id="",
-        doctor_name="",
+        counsellor_name="",
         uhid="",
         visit_id="",
     )
-
-
-def _empty_neopead(extraction: Dict[str, Any], template_code: str) -> Dict[str, Any]:
-    from services.neo_lookup_dispatcher import apply_template_lookups
-    from services.raster_api_service import (
-        _validate_and_fix_neo_daily_payload,
-        _validate_and_fix_neo_proforma_payload,
-        _validate_and_fix_neo_op_payload,
-        _sanitize_escaped_slashes,
-    )
-
-    payload = apply_template_lookups({**extraction}, template_code)
-
-    template_upper = (template_code or "").upper()
-    if template_upper in ("NEO_DAILY", "NEONATAL_DAILY"):
-        payload = _validate_and_fix_neo_daily_payload(payload)
-    elif template_upper in ("NEO_PROFORMA", "NEONATAL_PROFORMA"):
-        payload = _validate_and_fix_neo_proforma_payload(payload)
-    elif template_upper in ("NEO_OP", "NEONATAL_OP"):
-        payload = _validate_and_fix_neo_op_payload(payload)
-
-    return _sanitize_escaped_slashes(payload)
 
 
 EMPTY_PAYLOAD_GENERATORS: Dict[str, Callable[[Dict[str, Any], str], Dict[str, Any]]] = {
@@ -137,7 +115,6 @@ EMPTY_PAYLOAD_GENERATORS: Dict[str, Callable[[Dict[str, Any], str], Dict[str, An
     "kg_reassess": _empty_kg_reassess,
     "kg_nephro_initial": _empty_kg_nephro_initial,
     "kg_nephro_reassess": _empty_kg_nephro_reassess,
-    "neopead": _empty_neopead,
 }
 
 
@@ -157,20 +134,20 @@ METADATA_FIELDS: Dict[str, list] = {
         "patientDetail.sex", "patientDetail.template_id_raster",
     ],
     "kg_initial": [
-        "patient_id", "uhid", "visit_id", "role", "doctor_id", "extraction_id",
-        "form_type", "timestamp", "doctor_name", "time", "vitals.date_time",
+        "student_id", "uhid", "visit_id", "role", "counsellor_id", "extraction_id",
+        "form_type", "timestamp", "counsellor_name", "time", "vitals.date_time",
     ],
     "kg_reassess": [
-        "patient_id", "uhid", "visit_id", "role", "doctor_id", "extraction_id",
-        "form_type", "timestamp", "doctor_name", "time", "vitals.date_time",
+        "student_id", "uhid", "visit_id", "role", "counsellor_id", "extraction_id",
+        "form_type", "timestamp", "counsellor_name", "time", "vitals.date_time",
     ],
     "kg_nephro_initial": [
-        "patient_id", "uhid", "visit_id", "role", "doctor_id", "extraction_id",
-        "form_type", "timestamp", "doctor_name", "time", "vitals.date_time",
+        "student_id", "uhid", "visit_id", "role", "counsellor_id", "extraction_id",
+        "form_type", "timestamp", "counsellor_name", "time", "vitals.date_time",
     ],
     "kg_nephro_reassess": [
-        "patient_id", "uhid", "visit_id", "role", "doctor_id", "extraction_id",
-        "form_type", "timestamp", "doctor_name", "time",
+        "student_id", "uhid", "visit_id", "role", "counsellor_id", "extraction_id",
+        "form_type", "timestamp", "counsellor_name", "time",
     ],
     "neopead": [],  # Neopead payload is extraction-driven; no fixed metadata fields
 }
@@ -261,7 +238,7 @@ def format_kg_payload(formatter_code: str, **kwargs) -> Optional[Dict[str, Any]]
 
     Returns None if formatter_code is not a KG-family formatter — caller
     treats this as "skip KG send" (likely a misconfig: template points at
-    a non-KG formatter but the doctor/hospital is routed to KG).
+    a non-KG formatter but the counsellor/school is routed to KG).
     """
     fmt = KG_LIVE_FORMATTERS.get(formatter_code)
     if not fmt:

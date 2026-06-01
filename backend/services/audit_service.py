@@ -6,7 +6,7 @@ Provides HIPAA-compliant audit logging for all PHI (Protected Health Information
 HIPAA Requirements:
 - Log WHO accessed data (client/user identification)
 - Log WHAT was accessed (resource type, action)
-- Log WHOSE data was accessed (patient, doctor identifiers)
+- Log WHOSE data was accessed (student, counsellor identifiers)
 - Log WHEN access occurred (timestamp)
 - Log HOW access occurred (endpoint, method, IP)
 - Retain logs for minimum 6 years
@@ -21,7 +21,7 @@ Usage:
         request=request,
         response_status=200,
         response_time_ms=150,
-        patient_id="P123",
+        student_id="P123",
         action="read",
         resource_type="extraction",
     )
@@ -55,7 +55,7 @@ class AuditService:
 
     # Endpoints that access PHI (Protected Health Information)
     PHI_ENDPOINTS = [
-        "/api/v1/patients/",
+        "/api/v1/students/",
         "/api/v1/extractions/",
         "/api/v1/summary/extract",
         "/api/v1/option1/recording/",
@@ -64,7 +64,7 @@ class AuditService:
 
     # PHI field categories for detailed logging
     PHI_FIELD_CATEGORIES = {
-        "patient_demographics": ["name", "dob", "address", "phone", "email", "patient_id"],
+        "patient_demographics": ["name", "dob", "address", "phone", "email", "student_id"],
         "medical_history": ["diagnosis", "medications", "allergies", "conditions"],
         "treatment": ["prescription", "treatment_plan", "procedures"],
         "clinical_notes": ["chief_complaint", "hpi", "physical_exam", "assessment"],
@@ -93,7 +93,7 @@ class AuditService:
         Returns:
             Resource type string (e.g., 'patient', 'extraction')
         """
-        if "/patients/" in path:
+        if "/students/" in path:
             return "patient"
         elif "/extractions/" in path:
             return "extraction"
@@ -103,7 +103,7 @@ class AuditService:
             return "recording"
         elif "/merge/" in path:
             return "merge"
-        elif "/doctors/" in path:
+        elif "/counsellors/" in path:
             return "doctor"
         else:
             return "unknown"
@@ -143,8 +143,8 @@ class AuditService:
         request: Request,
         response_status: int,
         response_time_ms: int,
-        patient_id: Optional[str] = None,
-        doctor_id: Optional[UUID] = None,
+        student_id: Optional[str] = None,
+        counsellor_id: Optional[UUID] = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[str] = None,
         action: Optional[str] = None,
@@ -163,9 +163,9 @@ class AuditService:
             request: FastAPI request object
             response_status: HTTP response status code
             response_time_ms: Response time in milliseconds
-            patient_id: Patient identifier (external or internal)
-            doctor_id: Doctor who owns/created the data
-            resource_type: Type of resource accessed (patient, extraction, etc.)
+            student_id: Student identifier (external or internal)
+            counsellor_id: Counsellor who owns/created the data
+            resource_type: Type of resource accessed (student, extraction, etc.)
             resource_id: Specific resource identifier
             action: Action performed (read, create, update, delete, export)
             phi_fields: List of PHI field names accessed
@@ -212,9 +212,9 @@ class AuditService:
                 "resource_id": resource_id,
 
                 # WHOSE
-                "patient_id": patient_id,
-                "doctor_id": str(doctor_id) if doctor_id else None,
-                "hospital_id": str(client_context.hospital_id) if client_context.hospital_id else None,
+                "student_id": student_id,
+                "counsellor_id": str(counsellor_id) if counsellor_id else None,
+                "school_id": str(client_context.school_id) if client_context.school_id else None,
 
                 # HOW
                 "endpoint": str(request.url.path),
@@ -242,7 +242,7 @@ class AuditService:
 
             logger.debug(
                 f"PHI audit: {action} {resource_type} by {client_context.client_name} "
-                f"(patient={truncate_id(patient_id)}, status={response_status})"
+                f"(student={truncate_id(student_id)}, status={response_status})"
             )
 
         except Exception as e:
@@ -317,19 +317,19 @@ class AuditService:
             return "consultation_type_segment"
         if "/consultation-types" in path:
             return "consultation_type"
-        if "/doctor-templates" in path:
+        if "/counsellor-templates" in path:
             return "doctor_template"
-        if "/doctor-medicines" in path or ("/medicines" in path and "/hospital" not in path):
+        if "/counsellor-medicines" in path or ("/medicines" in path and "/school" not in path):
             return "doctor_medicine"
-        if "/hospital-medicines" in path or "/medicine-list" in path:
+        if "/school-medicines" in path or "/medicine-list" in path:
             return "hospital_medicine_list"
-        if "/doctor-investigations" in path or ("/investigations" in path and "/hospital" not in path):
+        if "/counsellor-investigations" in path or ("/investigations" in path and "/school" not in path):
             return "doctor_investigation"
-        if "/hospital-investigations" in path or "/investigation-list" in path:
+        if "/school-investigations" in path or "/investigation-list" in path:
             return "hospital_investigation_list"
-        if "/nurses" in path:
+        if "/assistants" in path:
             return "nurse"
-        if "/doctors" in path:
+        if "/counsellors" in path:
             return "doctor"
         if "/admin/clients" in path or "/api-clients" in path:
             return "api_client"
@@ -518,35 +518,35 @@ class AuditService:
         except Exception as e:
             logger.error(f"Failed to log auth failure: {type(e).__name__}")
 
-    async def get_patient_access_history(
+    async def get_student_access_history(
         self,
-        patient_id: str,
+        student_id: str,
         limit: int = 100,
         offset: int = 0,
     ) -> List[dict]:
         """
-        Get access history for a specific patient.
+        Get access history for a specific student.
 
         Args:
-            patient_id: Patient identifier to query
+            student_id: Student identifier to query
             limit: Maximum number of records to return
             offset: Number of records to skip
 
         Returns:
-            List of audit log entries for the patient
+            List of audit log entries for the student
         """
         try:
             result = retry_on_network_error(
                 lambda: supabase.table("phi_audit_log")
                 .select("*")
-                .eq("patient_id", patient_id)
+                .eq("student_id", student_id)
                 .order("created_at", desc=True)
                 .range(offset, offset + limit - 1)
                 .execute()
             )
             return result.data or []
         except Exception as e:
-            logger.error(f"Error getting patient access history: {e}")
+            logger.error(f"Error getting student access history: {e}")
             return []
 
     async def get_client_access_history(
@@ -584,7 +584,7 @@ class AuditService:
         self,
         start_date: datetime,
         end_date: datetime,
-        patient_id: Optional[str] = None,
+        student_id: Optional[str] = None,
         client_id: Optional[UUID] = None,
         action: Optional[str] = None,
         limit: int = 1000,
@@ -595,7 +595,7 @@ class AuditService:
         Args:
             start_date: Start of reporting period
             end_date: End of reporting period
-            patient_id: Filter by patient (optional)
+            student_id: Filter by student (optional)
             client_id: Filter by client (optional)
             action: Filter by action type (optional)
             limit: Maximum records to return
@@ -611,8 +611,8 @@ class AuditService:
                 .lte("created_at", end_date.isoformat())
             )
 
-            if patient_id:
-                query = query.eq("patient_id", patient_id)
+            if student_id:
+                query = query.eq("student_id", student_id)
             if client_id:
                 query = query.eq("client_id", str(client_id))
             if action:

@@ -78,12 +78,12 @@ export interface MergeRequest {
   source_submission_ids?: string[];
   /** Target template code (e.g., "OP_GENERAL", "OP_SMITH_1225141530") */
   target_template_code: string;
-  doctor_id: string;
+  counsellor_id: string;
   merge_notes?: string;
   /** Optional JSON sources to merge (up to 4 total sources) */
   uploaded_json_sources?: UploadedJsonSource[];
-  /** Required for JSON-only merges (external patient ID like "PAT-12345") */
-  patient_id?: string;
+  /** Required for JSON-only merges (external student ID like "PAT-12345") */
+  student_id?: string;
 }
 
 export interface MergePreviewRequest {
@@ -93,11 +93,11 @@ export interface MergePreviewRequest {
   source_submission_ids?: string[];
   /** Target template code (e.g., "OP_GENERAL", "OP_SMITH_1225141530") */
   target_template_code: string;
-  doctor_id: string;
+  counsellor_id: string;
   /** Optional JSON sources to merge (up to 4 total sources) */
   uploaded_json_sources?: UploadedJsonSource[];
-  /** Required for JSON-only merges (external patient ID like "PAT-12345") */
-  patient_id?: string;
+  /** Required for JSON-only merges (external student ID like "PAT-12345") */
+  student_id?: string;
 }
 
 export interface MergeMetadata {
@@ -151,20 +151,20 @@ export interface MergeStatusResponse {
   completed_at?: string;
 }
 
-export interface PatientTimelineExtraction {
+export interface StudentTimelineExtraction {
   extraction_id: string;
   consultation_type_code: string;
   consultation_type_name: string;
   created_at: string;
-  doctor_name?: string;
+  counsellor_name?: string;
   is_merged: boolean;
   source_count: number;
   segment_count: number;
 }
 
-export interface PatientTimelineResponse {
-  patient_id: string;
-  extractions: PatientTimelineExtraction[];
+export interface StudentTimelineResponse {
+  student_id: string;
+  extractions: StudentTimelineExtraction[];
   total_count: number;
 }
 
@@ -173,7 +173,7 @@ export interface SourceExtractionInfo {
   consultation_type_code: string;
   consultation_type_name: string;
   created_at: string;
-  doctor_name?: string;
+  counsellor_name?: string;
   merge_order: number;
   merge_strategy: string;
 }
@@ -310,14 +310,14 @@ export async function previewMerge(
 }
 
 /**
- * Get patient extraction timeline
+ * Get student extraction timeline
  */
-export async function getPatientTimeline(
+export async function getStudentTimeline(
   patientId: string,
   consultationTypeCode?: string,
   accessToken?: string | null
-): Promise<PatientTimelineResponse> {
-  let url = `/api/v1/extractions/patient/${patientId}/timeline`;
+): Promise<StudentTimelineResponse> {
+  let url = `/api/v1/extractions/student/${patientId}/timeline`;
   if (consultationTypeCode) {
     url += `?consultation_type_code=${encodeURIComponent(consultationTypeCode)}`;
   }
@@ -326,7 +326,7 @@ export async function getPatientTimeline(
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to fetch patient timeline');
+    throw new Error(error.detail || 'Failed to fetch student timeline');
   }
 
   return response.json();

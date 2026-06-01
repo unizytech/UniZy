@@ -8,8 +8,8 @@ from dependencies.auth import (
     get_current_client,
     get_optional_client,
     require_scope,
-    require_hospital_access,
-    require_doctor_access,
+    require_school_access,
+    require_counsellor_access,
     require_admin,
 )
 
@@ -17,7 +17,7 @@ __all__ = [
     "get_current_client",
     "get_optional_client",
     "require_scope",
-    "require_hospital_access",
-    "require_doctor_access",
+    "require_school_access",
+    "require_counsellor_access",
     "require_admin",
 ]

@@ -7,7 +7,7 @@ This service provides the full extraction pipeline used by both:
 
 Ensures both flows have identical behavior:
 - Update session.consultation_type_id
-- Save to medical_extractions table
+- Save to extractions table
 - Schedule emotion extraction (if enabled)
 """
 
@@ -15,10 +15,31 @@ import asyncio
 import logging
 import time
 import uuid
+from contextvars import ContextVar
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+# Schema-derived merge metadata for the CURRENT continuation merge (set at the call site).
+# A ContextVar keeps it async-safe across concurrent extractions without threading the
+# metadata through every helper signature. Empty dict => fall back to the static medical
+# constants below (keeps the medical `main` path working even if a schema can't be loaded).
+_merge_meta_ctx: "ContextVar[dict]" = ContextVar("_merge_meta_ctx", default={})
+
+
+def _merge_meta_for(key: str):
+    """Return the MergeMeta for an output key from the current context, or None."""
+    meta = _merge_meta_ctx.get()
+    return meta.get(key) if meta else None
+
+
+def _is_merge_list_key(key: str) -> bool:
+    """A segment is a merge-able list if the schema says so OR it's a known medical list key."""
+    m = _merge_meta_for(key)
+    if m is not None and m.is_list:
+        return True
+    return key in _LIST_SEGMENT_KEYS
 
 # ============================================================================
 # LIST AVAILABILITY CACHE (with TTL and invalidation)
@@ -27,51 +48,51 @@ logger = logging.getLogger(__name__)
 _list_availability_cache: Dict[str, Dict[str, Any]] = {}
 _LIST_CACHE_TTL_SECONDS = 31536000  # 1 year (effectively infinite - invalidated on list updates, cleared on server restart)
 
-def _get_cache_key(doctor_id: uuid.UUID) -> str:
-    return f"list_avail_{doctor_id}"
+def _get_cache_key(counsellor_id: uuid.UUID) -> str:
+    return f"list_avail_{counsellor_id}"
 
-def get_cached_list_availability(doctor_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+def get_cached_list_availability(counsellor_id: uuid.UUID) -> Optional[Dict[str, Any]]:
     """Get cached list availability if not expired."""
-    cache_key = _get_cache_key(doctor_id)
+    cache_key = _get_cache_key(counsellor_id)
     if cache_key in _list_availability_cache:
         entry = _list_availability_cache[cache_key]
         if datetime.now() < entry["expires_at"]:
-            logger.debug(f"[LIST_CACHE] ♻️ Cache HIT for doctor {str(doctor_id)[:8]}...")
+            logger.debug(f"[LIST_CACHE] ♻️ Cache HIT for counsellor {str(counsellor_id)[:8]}...")
             return entry["data"]
         else:
             # Expired, remove it
             del _list_availability_cache[cache_key]
     return None
 
-def set_cached_list_availability(doctor_id: uuid.UUID, data: Dict[str, Any]) -> None:
+def set_cached_list_availability(counsellor_id: uuid.UUID, data: Dict[str, Any]) -> None:
     """Cache list availability with TTL."""
-    cache_key = _get_cache_key(doctor_id)
+    cache_key = _get_cache_key(counsellor_id)
     _list_availability_cache[cache_key] = {
         "data": data,
         "expires_at": datetime.now() + timedelta(seconds=_LIST_CACHE_TTL_SECONDS),
         "cached_at": datetime.now()
     }
-    logger.debug(f"[LIST_CACHE] 💾 Cached for doctor {str(doctor_id)[:8]}... (TTL: ∞, invalidated on update)")
+    logger.debug(f"[LIST_CACHE] 💾 Cached for counsellor {str(counsellor_id)[:8]}... (TTL: ∞, invalidated on update)")
 
-def invalidate_list_cache(doctor_id: uuid.UUID) -> bool:
-    """Invalidate cache for a specific doctor. Call this when lists are updated."""
-    cache_key = _get_cache_key(doctor_id)
+def invalidate_list_cache(counsellor_id: uuid.UUID) -> bool:
+    """Invalidate cache for a specific counsellor. Call this when lists are updated."""
+    cache_key = _get_cache_key(counsellor_id)
     if cache_key in _list_availability_cache:
         del _list_availability_cache[cache_key]
-        logger.debug(f"[LIST_CACHE] 🗑️ Invalidated cache for doctor {str(doctor_id)[:8]}...")
+        logger.debug(f"[LIST_CACHE] 🗑️ Invalidated cache for counsellor {str(counsellor_id)[:8]}...")
         return True
     return False
 
-def invalidate_list_cache_by_hospital(hospital_id: uuid.UUID) -> int:
-    """Invalidate cache for all doctors in a hospital. Call when hospital lists are updated."""
-    # For hospital-level changes, we invalidate all caches since we don't track doctor→hospital mapping here
+def invalidate_list_cache_by_school(school_id: uuid.UUID) -> int:
+    """Invalidate cache for all counsellors in a school. Call when school lists are updated."""
+    # For school-level changes, we invalidate all caches since we don't track counsellor→school mapping here
     # This is a simple approach; a more sophisticated one would track the mapping
     count = len(_list_availability_cache)
     _list_availability_cache.clear()
-    logger.debug(f"[LIST_CACHE] 🗑️ Invalidated ALL caches ({count} entries) due to hospital list update")
+    logger.debug(f"[LIST_CACHE] 🗑️ Invalidated ALL caches ({count} entries) due to school list update")
     return count
 
-async def check_list_availability_parallel(doctor_id: uuid.UUID) -> Dict[str, Any]:
+async def check_list_availability_parallel(counsellor_id: uuid.UUID) -> Dict[str, Any]:
     """
     Check medicine and investigation list availability in PARALLEL with caching.
 
@@ -79,13 +100,13 @@ async def check_list_availability_parallel(doctor_id: uuid.UUID) -> Dict[str, An
     Reduces latency from ~1.2s to ~0.3s (4 sequential calls → 4 parallel calls).
 
     Args:
-        doctor_id: Doctor UUID to check
+        counsellor_id: Counsellor UUID to check
 
     Returns:
         Dict with keys: has_medicine_list, has_investigation_list, medicine_status, investigation_status
     """
     # Check cache first
-    cached = get_cached_list_availability(doctor_id)
+    cached = get_cached_list_availability(counsellor_id)
     if cached:
         return cached
 
@@ -95,8 +116,8 @@ async def check_list_availability_parallel(doctor_id: uuid.UUID) -> Dict[str, An
     from services.investigation_service import has_investigation_lists
 
     # Run both checks in parallel using asyncio
-    medicine_task = asyncio.to_thread(has_medicine_lists, doctor_id)
-    investigation_task = asyncio.to_thread(has_investigation_lists, doctor_id)
+    medicine_task = asyncio.to_thread(has_medicine_lists, counsellor_id)
+    investigation_task = asyncio.to_thread(has_investigation_lists, counsellor_id)
 
     medicine_status, investigation_status = await asyncio.gather(
         medicine_task, investigation_task
@@ -116,7 +137,7 @@ async def check_list_availability_parallel(doctor_id: uuid.UUID) -> Dict[str, An
     )
 
     # Cache the result
-    set_cached_list_availability(doctor_id, result)
+    set_cached_list_availability(counsellor_id, result)
 
     return result
 
@@ -213,7 +234,7 @@ _KEY_EQUIVALENCE_GROUPS = [
     ("referralDetails", "referralInformation"),
     # Emergency contact variants
     ("emergencyContact", "emergency"),
-    # Patient info variants
+    # Student info variants
     ("patientInformation", "patientDetails", "patientDemographics"),
 ]
 
@@ -373,7 +394,7 @@ def _smart_merge_continuation(
     # come from different radiology cancer sites (e.g. RS_BREAST → RS_PROSTATE),
     # treat this as a NEW visit rather than a continuation. Visit detection
     # upstream does NOT gate on template/consultation_type, so this can happen
-    # for multi-site cancer patients seen by the same doctor in the same window.
+    # for multi-site cancer students seen by the same counsellor in the same window.
     # Wholesale-skip the merge to avoid TOXICITY library_ids and other site-
     # specific data bleeding across.
     parent_site = _radiology_site_from_insights(parent_data)
@@ -416,7 +437,7 @@ def _smart_merge_continuation(
                 )
                 continue
             # When validator ran, skip list segments — validator's carry_forward is the authority
-            if validator_result and key in _LIST_SEGMENT_KEYS and isinstance(parent_value, list):
+            if validator_result and _is_merge_list_key(key) and isinstance(parent_value, list):
                 logger.debug(
                     f"[CONTINUATION_MERGE] Skipped list '{key}' — validator will handle via carry_forward"
                 )
@@ -427,7 +448,7 @@ def _smart_merge_continuation(
             logger.debug(f"[CONTINUATION_MERGE] Carried forward empty '{key}' from parent")
         else:
             # Phase 1.5: Field-by-field merge for radiology-shaped dict segments.
-            # Without this, a doctor refining ONE field on PLAN/EXAMINATION_<SITE>/
+            # Without this, a counsellor refining ONE field on PLAN/EXAMINATION_<SITE>/
             # RT_CONSIDERATIONS would silently drop all the other parent fields.
             if key in _DICT_FIELD_MERGE_KEYS and isinstance(parent_value, dict) and isinstance(current_value, dict):
                 # Plan swap detection: when plan_template_id changes, treat current
@@ -464,6 +485,18 @@ def _smart_merge_continuation(
                         f"early={len(merged_tox.get('early_toxicities', []))} "
                         f"late={len(merged_tox.get('late_toxicities', []))}"
                     )
+            # Phase 1.7: Generic DEEP-merge for any other object segment (counselling
+            # studentContext/futureGoals/nextSteps/assessmentMeters/..., or any cross-template
+            # object). Without this, a follow-up that touches one nested field would drop the
+            # rest of the parent's object. Union nested scalar-arrays; latest-wins on scalars.
+            elif isinstance(parent_value, dict) and isinstance(current_value, dict):
+                _m = _merge_meta_for(key)
+                _nap = set(_m.nested_array_paths) if _m else set()
+                merged_obj = _deep_merge_object(parent_value, current_value, _nap)
+                if merged_obj != current_value:
+                    insights[key] = merged_obj
+                    merged_empty += 1
+                    logger.debug(f"[CONTINUATION_MERGE] Deep-merged object segment '{key}'")
 
     # Phase 2: Apply validator results (carry_forward + cross_segment_patches)
     if validator_result:
@@ -690,7 +723,7 @@ def _smart_merge_continuation(
                         f"from '{target_key}' — {patch.get('reason', 'N/A')}"
                     )
             elif action == "flag":
-                # Log-only: flag for awareness but don't modify data (doctor decision needed)
+                # Log-only: flag for awareness but don't modify data (counsellor decision needed)
                 logger.warning(
                     f"[CONTINUATION_MERGE] Cross-segment flag: '{item_name}' in '{target_key}' — "
                     f"{patch.get('type', 'unknown')}: {patch.get('reason', 'N/A')}"
@@ -699,9 +732,13 @@ def _smart_merge_continuation(
         if patches_applied > 0:
             logger.info(f"[CONTINUATION_MERGE] Applied {patches_applied} cross-segment patches")
 
-    # Phase 3: Dosage enrichment — restore detail lost by Gemini's "continue as usual" summaries
-    # For list segments where items match by name, copy empty fields from parent
-    for key in _LIST_SEGMENT_KEYS:
+    # Phase 3: Field enrichment — restore detail lost by Gemini's "continue as usual" summaries.
+    # For list-of-object segments where items match by identity (medical: medicine name;
+    # counselling: task_name), copy empty fields from the matching parent item. List-of-string
+    # segments (e.g. keyFacts) are skipped naturally — their items aren't dicts.
+    _meta = _merge_meta_ctx.get()
+    _enrich_keys = set(_LIST_SEGMENT_KEYS) | {k for k, m in _meta.items() if m.is_list}
+    for key in _enrich_keys:
         current_list = insights.get(key)
         parent_list = parent_data.get(key)
         if not isinstance(current_list, list) or not isinstance(parent_list, list):
@@ -796,13 +833,93 @@ def _union_lists(parent_list: list, current_list: list, key: str) -> list:
     return merged
 
 
+def _union_string_list(parent_list: list, current_list: list) -> list:
+    """Union two arrays preserving current order first, then parent extras.
+
+    Strings dedupe case-insensitively on the FULL trimmed value (status-prefixed items like
+    'Ongoing: X' vs 'Completed: X' are intentionally kept distinct). Non-string items dedupe
+    by equality. Used for nested string-arrays inside object segments.
+    """
+    if not isinstance(parent_list, list):
+        return current_list
+    if not isinstance(current_list, list):
+        return parent_list
+    merged = list(current_list)
+    seen = {v.strip().lower() for v in current_list if isinstance(v, str)}
+    for v in parent_list:
+        if isinstance(v, str):
+            if v.strip().lower() not in seen:
+                merged.append(v)
+                seen.add(v.strip().lower())
+        elif v not in merged:
+            merged.append(v)
+    return merged
+
+
+def _is_scalar_list(value: Any) -> bool:
+    """True if value is a (possibly empty) list containing only scalar items (str/num/bool)."""
+    return isinstance(value, list) and all(
+        isinstance(v, (str, int, float, bool)) for v in value
+    )
+
+
+def _deep_merge_object(parent: Any, current: Any, nested_array_paths: Optional[set] = None, path: tuple = ()) -> Any:
+    """Recursively DEEP-merge an object segment — never a shallow overwrite or blind append.
+
+    Philosophy (must hold across templates):
+    - dict + dict: recurse key-by-key, preserving keys present in only one side.
+    - list + list of scalars: UNION (no data loss). Detected structurally so it works even
+      when parent/current came from different templates; `nested_array_paths` (from the
+      current template's schema, if available) is an additional hint.
+    - list + list of objects: current wins (item-level identity merge is handled by the
+      validator/Phase-3 for top-level lists; we don't guess identity for nested object-lists).
+    - scalar: current wins when non-empty, else inherit parent (latest-wins with carry-forward).
+    Empty current values always inherit the parent's value.
+    """
+    nested_array_paths = nested_array_paths or set()
+    if not isinstance(parent, dict) or not isinstance(current, dict):
+        return current if not _is_segment_empty(current) else parent
+
+    result = dict(current)
+    for k, p_val in parent.items():
+        cur_path = path + (k,)
+        c_val = current.get(k)
+        if k not in current or _is_segment_empty(c_val):
+            if not _is_segment_empty(p_val):
+                result[k] = p_val
+            continue
+        if isinstance(p_val, dict) and isinstance(c_val, dict):
+            result[k] = _deep_merge_object(p_val, c_val, nested_array_paths, cur_path)
+        elif isinstance(p_val, list) and isinstance(c_val, list):
+            # Union scalar arrays (structural detection OR schema hint); object-lists: current wins.
+            if cur_path in nested_array_paths or (_is_scalar_list(p_val) and _is_scalar_list(c_val)):
+                result[k] = _union_string_list(p_val, c_val)
+            else:
+                result[k] = c_val
+        else:
+            result[k] = c_val  # scalar latest-wins (current already non-empty)
+    return result
+
+
 def _get_item_name(item: Any, segment_key: str) -> Optional[str]:
-    """Extract the name/identifier from a list item based on segment type."""
+    """Extract the name/identifier from a list item based on segment type.
+
+    Schema-driven first: if the current merge metadata names an identity field for this
+    segment (e.g. tasks -> task_name), use it. Falls back to the medical heuristics below
+    so the legacy/medical path keeps working when no metadata is present.
+    """
     if isinstance(item, str):
         return item
 
     if not isinstance(item, dict):
         return None
+
+    m = _merge_meta_for(segment_key)
+    if m is not None and m.item_identity_field:
+        val = item.get(m.item_identity_field)
+        if val:
+            return val
+        # fall through to heuristics if the identity field is empty/missing
 
     key_lower = segment_key.lower()
 
@@ -831,11 +948,16 @@ def _get_item_name(item: Any, segment_key: str) -> Optional[str]:
 # CONTINUATION VALIDATOR: Conditional Trigger + Helpers
 # ============================================================================
 
-# Keywords indicating doctor wants to stop/change/remove something
+# Keywords indicating an item should be stopped/changed/removed/completed.
+# Medical (stop/discontinue medication) + counselling lifecycle (a task is done/dropped).
 _STOP_KEYWORDS = [
+    # medical
     "stop", "discontinue", "remove", "cancel", "no need", "not required",
     "don't take", "avoid", "only take", "change to", "switch to", "replace",
     "no longer", "withdraw", "off the", "taper off",
+    # counselling task lifecycle
+    "done", "completed", "complete", "finished", "dropped", "drop that",
+    "cancelled", "abandoned", "withdrew", "skip", "no longer needed",
 ]
 
 # Keywords indicating investigation results are being discussed
@@ -859,14 +981,25 @@ def _find_equivalent_list_key(key: str, target_dict: dict) -> Optional[str]:
 
 
 def _extract_list_segments(data: dict) -> dict:
-    """Extract only list-type segments for validator input."""
-    return {k: v for k, v in data.items() if k in _LIST_SEGMENT_KEYS and isinstance(v, list) and v}
+    """Extract only list-type segments for validator input (schema-driven, medical fallback)."""
+    return {k: v for k, v in data.items() if isinstance(v, list) and v and _is_merge_list_key(k)}
+
+
+# Non-list segments the validator reasons over for cross-segment checks. Counselling keys
+# (futureGoals/academics/...) sit alongside the legacy medical keys; only the keys actually
+# present in `data` are surfaced, so this is a harmless union across domains.
+_CROSS_SEGMENT_CONTEXT_KEYS = [
+    # counselling
+    'futureGoals', 'academics', 'directionalChanges', 'assessmentMeters', 'nextSteps',
+    # medical (legacy / main)
+    'allergy', 'allergies', 'vitals', 'historyOfPresentIllness', 'hpi',
+]
 
 
 def _extract_context_segments(data: dict) -> dict:
-    """Extract allergy, HPI, vitals for cross-segment validation."""
+    """Extract the non-list context segments used for cross-segment validation."""
     context = {}
-    for key in ['allergy', 'allergies', 'vitals', 'historyOfPresentIllness', 'hpi']:
+    for key in _CROSS_SEGMENT_CONTEXT_KEYS:
         if key in data and not _is_segment_empty(data[key]):
             context[key] = data[key]
     return context
@@ -922,7 +1055,7 @@ def _should_run_validator(
         if has_parent_lists and has_stop_intent:
             reasons.append("stop_intent_with_parent_lists")
 
-    # Trigger 3: Allergy + prescription both non-empty (patient safety)
+    # Trigger 3: Allergy + prescription both non-empty (student safety)
     allergy_data = next((insights.get(k) for k in ['allergy', 'allergies'] if insights.get(k)), None)
     rx_data = next((insights.get(k) for k in ['prescription', 'prescriptionOp', 'prescriptionDischarge', 'medications'] if insights.get(k)), None)
     if not _is_segment_empty(allergy_data) and not _is_segment_empty(rx_data):
@@ -1054,8 +1187,8 @@ def _find_diagnosis_key(insights: Dict[str, Any]) -> Optional[str]:
 async def _save_extraction_async(
     session_id: uuid.UUID,
     consultation_type_id: uuid.UUID,
-    doctor_id: Optional[uuid.UUID],
-    patient_id: Optional[uuid.UUID],
+    counsellor_id: Optional[uuid.UUID],
+    student_id: Optional[uuid.UUID],
     extraction_mode: str,
     model_used: str,
     segments: list,
@@ -1093,8 +1226,8 @@ async def _save_extraction_async(
             save_medical_extraction,
             session_id=session_id,
             consultation_type_id=consultation_type_id,
-            doctor_id=doctor_id,
-            patient_id=patient_id,
+            counsellor_id=counsellor_id,
+            student_id=student_id,
             extraction_mode=extraction_mode,
             model_used=model_used,
             segments=segments,
@@ -1119,16 +1252,16 @@ async def _save_extraction_async(
         # to the WER denominator (otherwise the aggregate is computed only over
         # edited records and biased upward by outliers). Comparing the original
         # against itself yields 0 errors and the AI word count for the
-        # denominator — when the doctor later edits, the row is upserted with
+        # denominator — when the counsellor later edits, the row is upserted with
         # real WER values.
-        if isinstance(full_extraction, dict) and doctor_id:
+        if isinstance(full_extraction, dict) and counsellor_id:
             try:
                 from services.accuracy_metrics_service import compute_and_save_accuracy_metrics
                 asyncio.create_task(compute_and_save_accuracy_metrics(
                     extraction_id=extraction_id,
                     original_json=full_extraction,
                     edited_json=full_extraction,
-                    doctor_id=str(doctor_id),
+                    counsellor_id=str(counsellor_id),
                     transcript_text=transcript_text,
                 ))
             except Exception as acc_err:
@@ -1167,7 +1300,7 @@ async def perform_template_extraction(
     3. Derives consultation_type_id from template
     4. Updates session.consultation_type_id in database
     5. Performs extraction using extract_summary_dynamic()
-    6. Saves extraction to medical_extractions table
+    6. Saves extraction to extractions table
     7. Schedules triage/consultation insights (fire-and-forget)
     8. Returns extraction results
 
@@ -1232,14 +1365,14 @@ async def perform_template_extraction(
         template_code = session.get('template_code')
         template_name = session.get('template_name')  # Display name for readability
         extraction_mode = session.get('extraction_mode')
-        doctor_id_str = session.get('doctor_id')
-        patient_id_str = session.get('patient_id')
+        counsellor_id_str = session.get('counsellor_id')
+        student_id_str = session.get('student_id')
 
         step1_duration = time_module.time() - step1_start
         logger.info(f"[TIMING_EXTRACTION] Step 1 (session load): {step1_duration:.3f}s")
         logger.debug(
             f"[EXTRACTION_SERVICE] Session loaded - template_code={template_code}, "
-            f"mode={extraction_mode}, doctor={doctor_id_str}"
+            f"mode={extraction_mode}, counsellor={counsellor_id_str}"
         )
 
         # Step 1.5: Check for pre-generated prompts from /live/chunk (parallel prompt generation)
@@ -1261,7 +1394,7 @@ async def perform_template_extraction(
                             session_duration_seconds=live_audio_duration,
                             audio_duration_seconds=live_audio_duration,
                             session_id=session_id,
-                            doctor_id=uuid.UUID(doctor_id_str) if doctor_id_str else None,
+                            counsellor_id=uuid.UUID(counsellor_id_str) if counsellor_id_str else None,
                             consultation_type_code=template_code,
                             template_code=template_code,
                         )
@@ -1289,41 +1422,41 @@ async def perform_template_extraction(
                         user_prompt_with_transcript = cached_artifacts["user_prompt_template"].replace("{transcript}", transcript)
                         logger.debug(f"[EXTRACTION_SERVICE] ✅ Transcript injected into cached user_prompt ({len(transcript)} chars)")
 
-                        # FRESH PATIENT CONTEXT INJECTION
-                        # Patient context was NOT cached (to ensure we get latest prescriptions/summaries)
+                        # FRESH STUDENT CONTEXT INJECTION
+                        # Student context was NOT cached (to ensure we get latest prescriptions/summaries)
                         # Fetch and inject it now
-                        cached_patient_id = live_cached_prompts.get("patient_id")
-                        if cached_patient_id:
+                        cached_student_id = live_cached_prompts.get("student_id")
+                        if cached_student_id:
                             try:
-                                from services.patient_context_service import (
-                                    get_patient_context_for_extraction,
-                                    format_patient_context_for_prompt
+                                from services.student_context_service import (
+                                    get_student_context_for_extraction,
+                                    format_student_context_for_prompt
                                 )
-                                patient_context = get_patient_context_for_extraction(
-                                    patient_id=cached_patient_id,
-                                    doctor_id=doctor_id_str,
+                                patient_context = get_student_context_for_extraction(
+                                    student_id=cached_student_id,
+                                    counsellor_id=counsellor_id_str,
                                     num_past_consultations=3
                                 )
                                 if patient_context.get("has_context"):
-                                    patient_context_text = format_patient_context_for_prompt(patient_context)
+                                    student_context_text = format_student_context_for_prompt(patient_context)
                                     # Inject before "Return ONLY the JSON object" line
                                     if "Return ONLY the JSON object" in user_prompt_with_transcript:
                                         user_prompt_with_transcript = user_prompt_with_transcript.replace(
                                             "Return ONLY the JSON object",
-                                            f"{patient_context_text}\nReturn ONLY the JSON object"
+                                            f"{student_context_text}\nReturn ONLY the JSON object"
                                         )
                                     else:
                                         # Fallback: append at end
-                                        user_prompt_with_transcript += f"\n{patient_context_text}"
+                                        user_prompt_with_transcript += f"\n{student_context_text}"
                                     logger.debug(
-                                        f"[EXTRACTION_SERVICE] ✅ Fresh patient context injected for {cached_patient_id[:8]}... "
+                                        f"[EXTRACTION_SERVICE] ✅ Fresh student context injected for {cached_student_id[:8]}... "
                                         f"(prescriptions={len(patient_context.get('past_prescriptions', []))}, "
                                         f"summaries={len(patient_context.get('past_summaries', []))})"
                                     )
                                 else:
-                                    logger.debug(f"[EXTRACTION_SERVICE] No patient context found for {cached_patient_id[:8]}...")
+                                    logger.debug(f"[EXTRACTION_SERVICE] No student context found for {cached_student_id[:8]}...")
                             except Exception as e:
-                                logger.warning(f"[EXTRACTION_SERVICE] Failed to fetch patient context: {e}")
+                                logger.warning(f"[EXTRACTION_SERVICE] Failed to fetch student context: {e}")
 
                         cached_artifacts = {
                             **cached_artifacts,
@@ -1338,11 +1471,11 @@ async def perform_template_extraction(
             logger.info("[EXTRACTION_SERVICE] TRANSCRIPT_ONLY mode - skipping extraction")
             return None
 
-        # Step 3: Validate doctor_id
-        doctor_uuid = uuid.UUID(doctor_id_str) if doctor_id_str else None
-        if not doctor_uuid:
-            logger.error("[EXTRACTION_SERVICE] No doctor_id in session")
-            raise ValueError("doctor_id required for template-based extraction")
+        # Step 3: Validate counsellor_id
+        counsellor_uuid = uuid.UUID(counsellor_id_str) if counsellor_id_str else None
+        if not counsellor_uuid:
+            logger.error("[EXTRACTION_SERVICE] No counsellor_id in session")
+            raise ValueError("counsellor_id required for template-based extraction")
 
         # Step 3.5: Check medicine/investigation list availability (PARALLEL + CACHED)
         # This determines whether to inject lists into prompts and run post-processing
@@ -1355,7 +1488,7 @@ async def perform_template_extraction(
             list_availability = live_cached_prompts.get("list_availability")
             logger.info(f"[TIMING_LIST_CHECK] ⚡ SKIPPED - using cached from /live/chunk")
         else:
-            list_availability = await check_list_availability_parallel(doctor_uuid)
+            list_availability = await check_list_availability_parallel(counsellor_uuid)
             list_check_duration = time.time() - list_check_start
             logger.info(f"[TIMING_LIST_CHECK] Total list availability check: {list_check_duration:.3f}s")
 
@@ -1390,7 +1523,7 @@ async def perform_template_extraction(
             logger.debug(f"[EXTRACTION_SERVICE] Looking up template by code: {template_code} (no session_context)")
             template_lookup_start = time_module.time()
             from services.supabase_service import get_active_template_by_code_cached
-            active_template = get_active_template_by_code_cached(doctor_uuid, template_code)
+            active_template = get_active_template_by_code_cached(counsellor_uuid, template_code)
             template_lookup_duration = time_module.time() - template_lookup_start
             logger.info(f"[TIMING_EXTRACTION] Template lookup (slow path): {template_lookup_duration:.3f}s")
 
@@ -1400,38 +1533,38 @@ async def perform_template_extraction(
                 f"attempting default template"
             )
 
-            # Priority 0: Nurse fallback (when session has nurse_id)
-            nurse_id_str = session.get('nurse_id')
-            if nurse_id_str:
-                from services.nurse_templates_service import get_nurse_default_template
-                nurse_default = get_nurse_default_template(
-                    uuid.UUID(nurse_id_str), doctor_uuid
+            # Priority 0: Assistant fallback (when session has assistant_id)
+            assistant_id_str = session.get('assistant_id')
+            if assistant_id_str:
+                from services.assistant_templates_service import get_assistant_default_template
+                nurse_default = get_assistant_default_template(
+                    uuid.UUID(assistant_id_str), counsellor_uuid
                 )
                 if nurse_default:
                     active_template = get_active_template_by_code_cached(
-                        doctor_uuid, nurse_default["template_code"]
+                        counsellor_uuid, nurse_default["template_code"]
                     )
                     if active_template:
-                        logger.info(f"[EXTRACTION_SERVICE] Resolved via nurse fallback: {nurse_default['template_code']}")
+                        logger.info(f"[EXTRACTION_SERVICE] Resolved via assistant fallback: {nurse_default['template_code']}")
 
-            # Priority 1: Doctor default -> Hospital default
+            # Priority 1: Counsellor default -> School default
             if not active_template:
-                from services.doctor_templates_service import get_doctor_default_template
-                default_template = get_doctor_default_template(doctor_uuid)
+                from services.counsellor_templates_service import get_counsellor_default_template
+                default_template = get_counsellor_default_template(counsellor_uuid)
 
                 if default_template:
                     active_template = get_active_template_by_code_cached(
-                        doctor_uuid, default_template["template_code"]
+                        counsellor_uuid, default_template["template_code"]
                     )
                     if active_template:
                         logger.info(
-                            f"[EXTRACTION_SERVICE] Resolved to doctor/hospital default: "
+                            f"[EXTRACTION_SERVICE] Resolved to counsellor/school default: "
                             f"{default_template['template_code']}"
                         )
 
             # Priority 2: OP_CORE via cached lookup
             if not active_template:
-                active_template = get_active_template_by_code_cached(doctor_uuid, "OP_CORE")
+                active_template = get_active_template_by_code_cached(counsellor_uuid, "OP_CORE")
                 if active_template:
                     logger.info(f"[EXTRACTION_SERVICE] Resolved to OP_CORE fallback")
 
@@ -1439,7 +1572,7 @@ async def perform_template_extraction(
             if not active_template:
                 raise ValueError(
                     f"No template found for code '{template_code}' and no default template available "
-                    f"for doctor {doctor_uuid}"
+                    f"for counsellor {counsellor_uuid}"
                 )
 
         # Step 5: Get consultation_type_id from template
@@ -1521,13 +1654,13 @@ async def perform_template_extraction(
         result = await extract_summary_dynamic(
             transcript=transcript,
             consultation_type_id=str(consultation_type_id),
-            doctor_id=str(doctor_uuid),
+            counsellor_id=str(counsellor_uuid),
             template_code=template_code,
             mode=extraction_mode,
             model=extraction_model,
             cached_artifacts=cached_artifacts,
             session_id=str(session_id),  # Pass for LLM usage tracking
-            patient_id=patient_id_str,  # Pass for history context injection (prescriptions, summaries, caution)
+            student_id=student_id_str,  # Pass for history context injection (prescriptions, summaries, caution)
             has_medicine_list=list_availability.get("has_medicine_list", True),
             has_investigation_list=list_availability.get("has_investigation_list", True),
             is_continuation=is_continuation,
@@ -1568,11 +1701,11 @@ async def perform_template_extraction(
 
         # ============================================================================
         # Step 8.5: POST-PROCESSING (BLOCKING - must complete before return)
-        # This corrects medicine/investigation names from doctor's preferred lists
+        # This corrects medicine/investigation names from counsellor's preferred lists
         # ============================================================================
 
-        # Medicine post-processing (only if doctor has medicine lists)
-        if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
+        # Medicine post-processing (only if counsellor has medicine lists)
+        if counsellor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
             try:
                 import time as time_module
                 medicine_postprocess_start = time_module.time()
@@ -1588,12 +1721,12 @@ async def perform_template_extraction(
                     else:
                         diagnosis = str(diag_val) if diag_val else ""
 
-                logger.debug(f"[EXTRACTION_SERVICE] Running medicine post-processing for doctor {doctor_uuid}")
+                logger.debug(f"[EXTRACTION_SERVICE] Running medicine post-processing for counsellor {counsellor_uuid}")
 
-                # Post-process prescription - corrects medicine names to match doctor's list
+                # Post-process prescription - corrects medicine names to match counsellor's list
                 insights = await postprocess_prescription_extraction(
                     extraction_data=insights,
-                    doctor_id=doctor_uuid,
+                    counsellor_id=counsellor_uuid,
                     extraction_id=extraction_id,
                     submission_id=str(submission_id) if submission_id else str(session_id),
                     diagnosis=diagnosis,
@@ -1606,23 +1739,23 @@ async def perform_template_extraction(
 
             except Exception as e:
                 logger.warning(f"[EXTRACTION_SERVICE] Medicine post-processing failed (non-fatal): {e}")
-        elif doctor_uuid and not list_availability.get("has_medicine_list"):
-            logger.debug(f"[EXTRACTION_SERVICE] Skipping medicine post-processing - no lists for doctor {doctor_uuid}")
+        elif counsellor_uuid and not list_availability.get("has_medicine_list"):
+            logger.debug(f"[EXTRACTION_SERVICE] Skipping medicine post-processing - no lists for counsellor {counsellor_uuid}")
 
-        # Investigation post-processing (only if doctor has investigation lists)
-        if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
+        # Investigation post-processing (only if counsellor has investigation lists)
+        if counsellor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
             try:
                 import time as time_module
                 investigation_postprocess_start = time_module.time()
 
                 from services.investigation_service import postprocess_investigations_extraction
 
-                logger.debug(f"[EXTRACTION_SERVICE] Running investigation post-processing for doctor {doctor_uuid}")
+                logger.debug(f"[EXTRACTION_SERVICE] Running investigation post-processing for counsellor {counsellor_uuid}")
 
-                # Post-process investigations - corrects investigation names to match doctor's list
+                # Post-process investigations - corrects investigation names to match counsellor's list
                 insights = await postprocess_investigations_extraction(
                     extraction_data=insights,
-                    doctor_id=doctor_uuid,
+                    counsellor_id=counsellor_uuid,
                     extraction_id=extraction_id,
                     submission_id=str(submission_id) if submission_id else str(session_id),
                     template_id=None,
@@ -1634,65 +1767,8 @@ async def perform_template_extraction(
 
             except Exception as e:
                 logger.warning(f"[EXTRACTION_SERVICE] Investigation post-processing failed (non-fatal): {e}")
-        elif doctor_uuid and not list_availability.get("has_investigation_list"):
-            logger.debug(f"[EXTRACTION_SERVICE] Skipping investigation post-processing - no lists for doctor {doctor_uuid}")
-
-        # NEO-specific medicine post-processing
-        # The standard postprocess_prescription_extraction looks for 'prescription'/'medications' keys
-        # which NEO templates don't have. This handles NEO-specific fields like antibiotics_list,
-        # medications_drugIds, procedures_ivAntibioticIds, maternalAntibioticsArray, etc.
-        _ct_upper_neo = (consultation_type_code or "").upper()
-        if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
-            if _ct_upper_neo.startswith("NEO") or _ct_upper_neo.startswith("NEONATAL"):
-                try:
-                    import time as time_module
-                    neo_medicine_postprocess_start = time_module.time()
-
-                    from services.medicine_service import postprocess_neo_prescription_extraction
-
-                    logger.debug(f"[EXTRACTION_SERVICE] Running NEO medicine post-processing for {consultation_type_code}")
-
-                    insights = await postprocess_neo_prescription_extraction(
-                        extraction_data=insights,
-                        doctor_id=doctor_uuid,
-                        extraction_id=extraction_id,
-                        submission_id=str(submission_id) if submission_id else str(session_id),
-                        consultation_type_code=consultation_type_code,
-                        log_matches=True
-                    )
-
-                    neo_medicine_postprocess_time = time_module.time() - neo_medicine_postprocess_start
-                    logger.info(f"[TIMING_POSTPROCESS] NEO medicine post-processing: {neo_medicine_postprocess_time:.3f}s")
-
-                except Exception as e:
-                    logger.warning(f"[EXTRACTION_SERVICE] NEO medicine post-processing failed (non-fatal): {e}")
-
-        # NEO-specific investigation post-processing
-        # Handles procedures_investigationsTest (comma-separated names) in NEO_ADMISSION
-        if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
-            if _ct_upper_neo.startswith("NEO") or _ct_upper_neo.startswith("NEONATAL"):
-                try:
-                    import time as time_module
-                    neo_inv_postprocess_start = time_module.time()
-
-                    from services.investigation_service import postprocess_neo_investigation_extraction
-
-                    logger.debug(f"[EXTRACTION_SERVICE] Running NEO investigation post-processing for {consultation_type_code}")
-
-                    insights = await postprocess_neo_investigation_extraction(
-                        extraction_data=insights,
-                        doctor_id=doctor_uuid,
-                        extraction_id=extraction_id,
-                        submission_id=str(submission_id) if submission_id else str(session_id),
-                        consultation_type_code=consultation_type_code,
-                        log_matches=True
-                    )
-
-                    neo_inv_postprocess_time = time_module.time() - neo_inv_postprocess_start
-                    logger.info(f"[TIMING_POSTPROCESS] NEO investigation post-processing: {neo_inv_postprocess_time:.3f}s")
-
-                except Exception as e:
-                    logger.warning(f"[EXTRACTION_SERVICE] NEO investigation post-processing failed (non-fatal): {e}")
+        elif counsellor_uuid and not list_availability.get("has_investigation_list"):
+            logger.debug(f"[EXTRACTION_SERVICE] Skipping investigation post-processing - no lists for counsellor {counsellor_uuid}")
 
         # ============================================================================
         # Step 8.6: CONTINUATION MERGE — Template-Gated Safety Net + Micro-Validator
@@ -1703,14 +1779,14 @@ async def perform_template_extraction(
         # 3. Allergy-prescription safety check (fire-and-forget, pure code)
         # Only runs for continuations.
         # ============================================================================
-        if is_continuation and isinstance(insights, dict) and patient_id_str and parent_extraction_ids:
+        if is_continuation and isinstance(insights, dict) and student_id_str and parent_extraction_ids:
             try:
                 import time as time_module
                 from services.supabase_service import supabase as _sb
                 from services.history_extraction_utils import get_extraction_data
 
                 # Fetch the most recent parent extraction (transitive — latest has cumulative context)
-                parent_result = _sb.table("medical_extractions")\
+                parent_result = _sb.table("extractions")\
                     .select("id, original_extraction_json, edited_extraction_json")\
                     .in_("id", parent_extraction_ids)\
                     .order("created_at", desc=True)\
@@ -1718,6 +1794,20 @@ async def perform_template_extraction(
                     .execute()
 
                 parent_data = get_extraction_data(parent_result.data[0]) if parent_result.data else {}
+
+                # Schema-driven merge metadata for the CURRENT template. Set on a ContextVar
+                # that the merge helpers read; always reset in `finally`. (Cross-template
+                # continuations still deep-merge correctly via the structural _deep_merge_object
+                # path; extractions has no template_id column to look the parent up by.)
+                _merge_ctx_token = None
+                try:
+                    from services.merge_metadata_service import get_merge_metadata
+                    _tpl_id = (active_template or {}).get('id') or (active_template or {}).get('template_id')
+                    _merge_meta = get_merge_metadata(_tpl_id, (active_template or {}).get('assembled_schema_json'))
+                    _merge_ctx_token = _merge_meta_ctx.set(_merge_meta)
+                    logger.debug(f"[CONTINUATION_MERGE] Loaded merge metadata: {len(_merge_meta)} segments")
+                except Exception as e:
+                    logger.warning(f"[CONTINUATION_MERGE] Merge metadata load failed (using medical fallback): {e}")
 
                 if parent_data:
                     # Prepare inputs
@@ -1768,7 +1858,8 @@ async def perform_template_extraction(
                         validator_result=validator_result,
                     )
 
-                    # Phase 4: Fire-and-forget allergy-prescription safety check
+                    # Phase 4: Fire-and-forget allergy-prescription safety check.
+                    # Inert for counselling (no allergy/prescription segments → no-op).
                     try:
                         asyncio.create_task(_check_allergy_prescription_conflict(
                             str(extraction_id), insights
@@ -1778,6 +1869,14 @@ async def perform_template_extraction(
 
             except Exception as e:
                 logger.warning(f"[CONTINUATION_MERGE] Smart merge failed (non-fatal): {e}")
+            finally:
+                # Always clear the merge-metadata ContextVar for this request.
+                _tok = locals().get('_merge_ctx_token')
+                if _tok is not None:
+                    try:
+                        _merge_meta_ctx.reset(_tok)
+                    except Exception:
+                        pass
 
         # ============================================================================
         # LETTER RENDER: For templates with a Jinja layout (currently radiology),
@@ -1793,7 +1892,7 @@ async def perform_template_extraction(
                 attach_letter_artifacts(
                     insights,
                     _letter_template_id,
-                    patient_id_str,
+                    student_id_str,
                     session_record=session,
                 )
         except Exception as e:
@@ -1801,18 +1900,9 @@ async def perform_template_extraction(
 
         # ============================================================================
         # EHR PAYLOAD: Compute formatted payload for ehr_payload_json
-        # Raw insights go to original_extraction_json, formatted goes to ehr_payload_json
+        # (Template-specific lookup formatting removed with the NEO subsystem.)
         # ============================================================================
         ehr_payload = None
-        try:
-            # Only compute ehr_payload for templates that have lookups (neo_*/neonatal_*)
-            _ct_upper = (consultation_type_code or "").upper()
-            if _ct_upper.startswith("NEO") or _ct_upper.startswith("NEONATAL"):
-                import copy
-                from services.neo_lookup_dispatcher import apply_template_lookups
-                ehr_payload = apply_template_lookups(copy.deepcopy(insights), consultation_type_code)
-        except Exception as e:
-            logger.warning(f"[EXTRACTION_SERVICE] EHR payload computation failed (non-fatal): {e}")
 
         # Rebuild segments from RAW insights (not formatted)
         segments = []
@@ -1839,8 +1929,8 @@ async def perform_template_extraction(
             _save_extraction_async(
                 session_id=session_id,
                 consultation_type_id=consultation_type_id,
-                doctor_id=doctor_uuid,
-                patient_id=uuid.UUID(patient_id_str) if patient_id_str else None,
+                counsellor_id=counsellor_uuid,
+                student_id=uuid.UUID(student_id_str) if student_id_str else None,
                 extraction_mode=extraction_mode,
                 model_used=extraction_model,
                 segments=segments,
@@ -1880,8 +1970,8 @@ async def perform_template_extraction(
             send_nudge_medical_records(
                 extraction_id=str(extraction_id),
                 full_extraction=insights,
-                patient_id=patient_id_str,
-                doctor_id=str(doctor_uuid) if doctor_uuid else None,
+                student_id=student_id_str,
+                counsellor_id=str(counsellor_uuid) if counsellor_uuid else None,
                 template_code=consultation_type_code,
                 submission_id=str(submission_id) if submission_id else None,
             )
@@ -1894,7 +1984,7 @@ async def perform_template_extraction(
             asyncio.create_task(schedule_translation(
                 extraction_id=extraction_id,
                 extraction_data=insights,
-                doctor_id=str(doctor_uuid) if doctor_uuid else None,
+                counsellor_id=str(counsellor_uuid) if counsellor_uuid else None,
                 processing_mode_code=session.get('processing_mode', 'default') or 'default',
             ))
         except Exception as e:
@@ -1941,8 +2031,8 @@ async def perform_template_extraction(
                     extraction_id=extraction_id,
                     transcript=transcript,  # Pass transcript for consultation insights extraction
                     extraction_data=insights,  # Pass extraction data for downstream services
-                    doctor_id=str(doctor_uuid) if doctor_uuid else None,
-                    patient_id=patient_id_str,
+                    counsellor_id=str(counsellor_uuid) if counsellor_uuid else None,
+                    student_id=student_id_str,
                     consultation_type_code=consultation_type_code,
                     include_gemini=True,  # Use Gemini AI for richer triage insights
                     enable_consultation_insights=enable_insights,  # Pass insights toggle
@@ -1959,77 +2049,70 @@ async def perform_template_extraction(
                     extraction_id=extraction_id,
                     transcript=transcript,
                     extraction_data=insights,
-                    doctor_id=str(doctor_uuid) if doctor_uuid else None,
-                    patient_id=patient_id_str,
+                    counsellor_id=str(counsellor_uuid) if counsellor_uuid else None,
+                    student_id=student_id_str,
                 )
                 logger.debug(f"[EXTRACTION_SERVICE] Scheduled consultation insights directly (triage disabled) for extraction {extraction_id}")
             except Exception as e:
                 logger.warning(f"[EXTRACTION_SERVICE] Failed to schedule consultation insights: {e}")
 
         # Step 9b: Unified EHR Routing (fire-and-forget)
-        # Routes to EHR based on doctor's ehr_type_id (not template)
-        # - Doctor's ehr_type_id determines which EHR to send to
-        # - Hospital's config provides the URL for that EHR type
+        # Routes to EHR based on counsellor's ehr_type_id (not template)
+        # - Counsellor's ehr_type_id determines which EHR to send to
+        # - School's config provides the URL for that EHR type
         # - Template code is used for Neopead URL suffix lookup
-        neonatal_raster_templates = [
-            "NEO_DAILY", "NEO_DAILY_FREE", "NEO_PROFORMA", "NEO_OP",
-            "NEO_DISCHARGE", "NEO_ADMISSION",
-            "NEO_PROFORMA_FREE", "NEO_DISCHARGE_FREE",
-            "NEO_POSTNATAL_DAY_FREE", "NEO_POSTNATAL_DISCHARGE_FREE",
-        ]
-
-        if doctor_uuid:
+        if counsellor_uuid:
             try:
                 from services.ehr_routing_service import schedule_ehr_sync
 
                 # Build patient_info dict with all fields needed by various EHRs
                 patient_info = {}
 
-                # UHID: Prefer patient_identifier from session (passed by EHR in recording API call)
-                # Falls back to patients table lookup if session value not available
-                session_uhid = session.get("patient_identifier", "") if session else ""
+                # UHID: Prefer student_identifier from session (passed by EHR in recording API call)
+                # Falls back to students table lookup if session value not available
+                session_uhid = session.get("student_identifier", "") if session else ""
 
-                # Fetch patient data for EHR routing (add_info for Raster/Neopead)
-                if patient_id_str:
+                # Fetch student data for EHR routing (add_info for Raster/Neopead)
+                if student_id_str:
                     try:
-                        patient_result = supabase.table("patients").select(
-                            "patient_id, add_info"
-                        ).eq("id", patient_id_str).execute()
+                        student_result = supabase.table("students").select(
+                            "student_id, add_info"
+                        ).eq("id", student_id_str).execute()
 
-                        if patient_result.data:
-                            patient_record = patient_result.data[0]
-                            patient_info["patient_id"] = session_uhid or patient_record.get("patient_id", "")  # UHID
-                            patient_add_info = patient_record.get("add_info") or {}
+                        if student_result.data:
+                            student_record = student_result.data[0]
+                            patient_info["student_id"] = session_uhid or student_record.get("student_id", "")  # UHID
+                            student_add_info = student_record.get("add_info") or {}
 
                             # Neopead fields from add_info (Raster fields now come from recording_metadata)
-                            patient_info["neopead_add_info"] = patient_add_info
+                            patient_info["neopead_add_info"] = student_add_info
 
-                            logger.debug(f"[EXTRACTION_SERVICE] Built patient_info for EHR routing: uhid={patient_info.get('patient_id')} (from={'session' if session_uhid else 'db'})")
+                            logger.debug(f"[EXTRACTION_SERVICE] Built patient_info for EHR routing: uhid={patient_info.get('student_id')} (from={'session' if session_uhid else 'db'})")
                     except Exception as e:
-                        logger.warning(f"[EXTRACTION_SERVICE] Failed to fetch patient data for EHR: {e}")
+                        logger.warning(f"[EXTRACTION_SERVICE] Failed to fetch student data for EHR: {e}")
 
-                # If patient DB lookup failed but we have session UHID, still set it
-                if not patient_info.get("patient_id") and session_uhid:
-                    patient_info["patient_id"] = session_uhid
+                # If student DB lookup failed but we have session UHID, still set it
+                if not patient_info.get("student_id") and session_uhid:
+                    patient_info["student_id"] = session_uhid
 
-                # Fetch hospital_code for Aosta
-                if doctor_uuid:
+                # Fetch school_code for Aosta
+                if counsellor_uuid:
                     try:
-                        doctor_result = supabase.table("doctors").select(
-                            "hospital_id, hospitals(hospital_code)"
-                        ).eq("id", str(doctor_uuid)).execute()
+                        counsellor_result = supabase.table("counsellors").select(
+                            "school_id, schools(school_code)"
+                        ).eq("id", str(counsellor_uuid)).execute()
 
-                        if doctor_result.data:
-                            hospital_data = doctor_result.data[0].get("hospitals") or {}
-                            patient_info["hospital_code"] = hospital_data.get("hospital_code", "")
-                            patient_info["doctor_id"] = str(doctor_uuid)
+                        if counsellor_result.data:
+                            school_data = counsellor_result.data[0].get("schools") or {}
+                            patient_info["school_code"] = school_data.get("school_code", "")
+                            patient_info["counsellor_id"] = str(counsellor_uuid)
                     except Exception as e:
-                        logger.warning(f"[EXTRACTION_SERVICE] Failed to fetch hospital code for EHR: {e}")
+                        logger.warning(f"[EXTRACTION_SERVICE] Failed to fetch school code for EHR: {e}")
 
-                # KG formatter reads patient_info["patient_uuid"] (the medical_extractions.patient_id
-                # UUID, distinct from the UHID string stored at patient_info["patient_id"]).
-                if patient_id_str:
-                    patient_info["patient_uuid"] = patient_id_str
+                # KG formatter reads patient_info["patient_uuid"] (the extractions.student_id
+                # UUID, distinct from the UHID string stored at patient_info["student_id"]).
+                if student_id_str:
+                    patient_info["patient_uuid"] = student_id_str
 
                 # Get recording metadata for EHR routing fields
                 if session:
@@ -2055,38 +2138,34 @@ async def perform_template_extraction(
                     patient_info["template_id_aosta"] = recording_metadata.get("template_id") or recording_metadata.get("Template_id") or ""
                     patient_info["template_name_aosta"] = recording_metadata.get("template_name") or recording_metadata.get("Template_Name") or ""
 
-                # Inject UHID into extraction data for Neopead templates
                 extraction_data = insights.copy()
-                if consultation_type_code in neonatal_raster_templates and patient_info.get("patient_id"):
-                    extraction_data["uhid"] = patient_info["patient_id"]
-                    logger.debug(f"[EXTRACTION_SERVICE] Injected UHID into {consultation_type_code} extraction data")
 
                 # NEW: Publish to realtime table (fire-and-forget, zero latency impact)
                 try:
                     from services.realtime_publisher_service import publish_extraction_response_fire_and_forget
 
-                    # Get hospital_id from doctor lookup (already done above)
-                    hospital_id_for_realtime = None
-                    if doctor_result and doctor_result.data:
-                        hospital_id_for_realtime = doctor_result.data[0].get("hospital_id")
+                    # Get school_id from counsellor lookup (already done above)
+                    school_id_for_realtime = None
+                    if counsellor_result and counsellor_result.data:
+                        school_id_for_realtime = counsellor_result.data[0].get("school_id")
 
-                    if hospital_id_for_realtime and submission_id:
+                    if school_id_for_realtime and submission_id:
                         asyncio.create_task(publish_extraction_response_fire_and_forget(
                             submission_id=str(submission_id),
-                            hospital_id=hospital_id_for_realtime,
-                            doctor_id=str(doctor_uuid) if doctor_uuid else None,
+                            school_id=school_id_for_realtime,
+                            counsellor_id=str(counsellor_uuid) if counsellor_uuid else None,
                             extraction_id=str(extraction_id),
                             insights=insights,
-                            hospital_code=patient_info.get("hospital_code"),
+                            school_code=patient_info.get("school_code"),
                             recording_metadata=recording_metadata if session else None,
-                            uhid=patient_info.get("patient_id", ""),
+                            uhid=patient_info.get("student_id", ""),
                         ))
                 except Exception as e:
                     logger.warning(f"[EXTRACTION_SERVICE] Failed to schedule realtime publish: {e}")
 
-                # Schedule EHR sync (fire-and-forget based on doctor's ehr_type_id)
+                # Schedule EHR sync (fire-and-forget based on counsellor's ehr_type_id)
                 schedule_ehr_sync(
-                    doctor_id=str(doctor_uuid),
+                    counsellor_id=str(counsellor_uuid),
                     extraction_data=extraction_data,
                     patient_info=patient_info,
                     template_code=consultation_type_code,
@@ -2103,8 +2182,8 @@ async def perform_template_extraction(
             'submission_id': str(submission_id) if submission_id else None,
             'extraction_id': str(extraction_id),  # Always include for webhook tracking
             'session_id': str(session_id),
-            'doctor_id': str(doctor_uuid),
-            'patient_id': patient_id_str,
+            'counsellor_id': str(counsellor_uuid),
+            'student_id': student_id_str,
             'template_code': template_code,  # Unique identifier for DB lookups
             'template_name': template_name,  # Display name for readability
             'extraction_mode': extraction_mode,
@@ -2124,63 +2203,11 @@ async def perform_template_extraction(
             logger.debug(f"[EXTRACTION_RETURN] Insights Keys: {list(insights.keys())}")
             logger.debug(f"[EXTRACTION_RETURN] Total Fields: {len(insights)}")
 
-            # For NEO templates, verify schema structure
-            if consultation_type_code in neonatal_raster_templates:
-                logger.debug(f"[EXTRACTION_RETURN] 🔬 NEO Schema - Verifying Structure for Frontend Display:")
-
-                # Sample field types
-                sample_fields = {}
-                for key, value in list(insights.items())[:10]:
-                    sample_fields[key] = type(value).__name__
-                logger.debug(f"[EXTRACTION_RETURN] Sample Field Types: {sample_fields}")
-
-                # Check for nested objects (should be flat for NEO schemas)
-                nested_count = sum(1 for v in insights.values() if isinstance(v, dict))
-                array_count = sum(1 for v in insights.values() if isinstance(v, list))
-                logger.debug(f"[EXTRACTION_RETURN] Nested Objects: {nested_count}, Arrays: {array_count}")
-
-                # Log specific expected fields
-                if consultation_type_code == "NEO_DAILY":
-                    critical_fields = ["uhid", "invasiveVentilation", "respiratoryIndication"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_DAILY Critical Fields Present: {present}")
-
-                elif consultation_type_code == "NEO_DAILY_FREE":
-                    critical_fields = ["uhid", "currentProblems", "managementPlan"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_DAILY_FREE Critical Fields Present: {present}")
-
-                elif consultation_type_code == "NEO_PROFORMA":
-                    critical_fields = ["patientUHID", "gestationalAge", "medicalProblemIDs"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_PROFORMA Critical Fields Present: {present}")
-
-                elif consultation_type_code == "NEO_PROFORMA_FREE":
-                    critical_fields = ["uhid", "obstetricHistory", "delivery"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_PROFORMA_FREE Critical Fields Present: {present}")
-
-                elif consultation_type_code == "NEO_DISCHARGE_FREE":
-                    critical_fields = ["uhid", "status", "medications"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_DISCHARGE_FREE Critical Fields Present: {present}")
-
-                elif consultation_type_code == "NEO_POSTNATAL_DAY_FREE":
-                    critical_fields = ["uhid", "diagnosis", "notes"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_POSTNATAL_DAY_FREE Critical Fields Present: {present}")
-
-                elif consultation_type_code == "NEO_POSTNATAL_DISCHARGE_FREE":
-                    critical_fields = ["uhid", "status", "postnatalCourse"]
-                    present = [f for f in critical_fields if f in insights]
-                    logger.debug(f"[EXTRACTION_RETURN] NEO_POSTNATAL_DISCHARGE_FREE Critical Fields Present: {present}")
-
+            # Check if segmented or flat
+            if insights and isinstance(list(insights.values())[0] if insights else None, dict):
+                logger.debug(f"[EXTRACTION_RETURN] Segmented Data - Segment Names: {list(insights.keys())}")
             else:
-                # Check if segmented or flat
-                if insights and isinstance(list(insights.values())[0] if insights else None, dict):
-                    logger.debug(f"[EXTRACTION_RETURN] Segmented Data - Segment Names: {list(insights.keys())}")
-                else:
-                    logger.debug(f"[EXTRACTION_RETURN] Flat Data Structure")
+                logger.debug(f"[EXTRACTION_RETURN] Flat Data Structure")
         else:
             logger.warning(f"[EXTRACTION_RETURN] ⚠️  No insights data!")
 

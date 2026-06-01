@@ -55,7 +55,7 @@ class CompareResponse(BaseModel):
 
 COMPARISON_PROMPT = """You are an expert medical transcription quality analyst. Your task is to compare a test transcript against a ground truth transcription and evaluate its accuracy.
 
-**GROUND TRUTH (may include diarization labels like "Doctor:", "Patient:", "Speaker 1:", etc.):**
+**GROUND TRUTH (may include diarization labels like "Counsellor:", "Student:", "Speaker 1:", etc.):**
 {ground_truth}
 
 **TEST TRANSCRIPT (may not have diarization labels):**
@@ -76,7 +76,7 @@ COMPARISON_PROMPT = """You are an expert medical transcription quality analyst. 
 4. **Completeness (0-100%)**: How complete is the test transcript compared to the ground truth? Are all important statements, medical information, and context captured?
 
 **IMPORTANT NOTES:**
-- The ground truth may have diarization labels (Doctor:, Patient:, etc.). The test transcript may not.
+- The ground truth may have diarization labels (Counsellor:, Student:, etc.). The test transcript may not.
 - When comparing content, IGNORE the diarization labels and focus on the actual text content.
 - Be strict with medical terminology - even small errors matter in medical contexts.
 - Consider contextual accuracy, not just word-by-word matching.

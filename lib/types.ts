@@ -150,8 +150,8 @@ export interface SegmentConfig {
 
 export interface ExtractionRequest {
   transcript: string;
-  doctor_id?: string;
-  patient_id?: string;  // Patient ID for context (optional - also stored in session)
+  counsellor_id?: string;
+  student_id?: string;  // Student ID for context (optional - also stored in session)
   template_code?: string;  // Unique identifier for DB lookups (primary)
   template_name?: string;  // Display name for human readability
   processing_mode?: string;  // Processing mode code (fast, default, thorough, ultra, ultra_fast)
@@ -170,8 +170,8 @@ export interface ExtractionMetadata {
   correlation_id: string | null;
   submission_id: string | null;
   extraction_id: string;
-  doctor_id: string | null;
-  patient_id: string | null;  // External varchar, not DB id
+  counsellor_id: string | null;
+  student_id: string | null;  // External varchar, not DB id
   template_code: string | null;  // Template code used for extraction
   mode: ExtractionMode | 'merge';  // core, additional, full, or merge
   segment_count: number;
@@ -185,7 +185,7 @@ export interface OPExtractionResponse {
   metadata: ExtractionMetadata;
 }
 
-export interface MedicalExtractionResponse {
+export interface ExtractionResponse {
   success: boolean;
   insights: Record<string, any>;
   metadata: ExtractionMetadata;
@@ -205,14 +205,14 @@ export interface Template {
   consultation_type_code?: string | null;
   consultation_type_name?: string | null;
   specialization?: string | null; // For visibility filtering
-  hospital_id?: string | null;
-  doctor_id?: string | null; // NULL = common template, UUID = doctor-owned
+  school_id?: string | null;
+  counsellor_id?: string | null; // NULL = common template, UUID = counsellor-owned
 }
 
-// Junction table: Template link for doctors (is_active = soft-delete flag)
-export interface DoctorTemplate {
+// Junction table: Template link for counsellors (is_active = soft-delete flag)
+export interface CounsellorTemplate {
   id: string;
-  doctor_id: string;
+  counsellor_id: string;
   template_id: string;
   is_active: boolean; // true = linked, false = soft-deleted
   activated_at: string;
@@ -220,8 +220,8 @@ export interface DoctorTemplate {
   updated_at: string;
 }
 
-// Doctor template (directly owned by doctor)
-// DEPRECATED: Use Template with doctor_id field instead
+// Counsellor template (directly owned by counsellor)
+// DEPRECATED: Use Template with counsellor_id field instead
 export interface ActivatedTemplate {
   id: string;  // Template UUID
   template_code: string;
@@ -230,7 +230,7 @@ export interface ActivatedTemplate {
   consultation_type_code: string;
   consultation_type_name: string;
   description: string;
-  doctor_id: string;  // Owner of template
+  counsellor_id: string;  // Owner of template
   is_active: boolean;
   is_default: boolean;
   created_at: string;
@@ -279,34 +279,34 @@ export interface SegmentListResponse {
 export interface MergeTargetTemplate {
   template_code: string;        // Use as dropdown value
   template_name: string;        // Display in dropdown
-  is_common: boolean;           // true if common template (doctor_id = NULL)
+  is_common: boolean;           // true if common template (counsellor_id = NULL)
 }
 
-// Response from GET /api/v1/summary/templates?filter_type=doctor&doctor_id=<uuid>
-export interface DoctorTemplatesResponse {
+// Response from GET /api/v1/summary/templates?filter_type=doctor&counsellor_id=<uuid>
+export interface CounsellorTemplatesResponse {
   success: boolean;
   templates: MergeTargetTemplate[];
   count: number;
 }
 
 // ============================================================================
-// Nurse Types
+// Assistant Types
 // ============================================================================
 
-export interface Nurse {
+export interface Assistant {
   id: string;
   email: string;
   full_name: string;
   qualification: string | null;
-  hospital_id: string | null;
+  school_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface NurseTemplate {
+export interface AssistantTemplate {
   id: string;
-  nurse_id: string;
+  assistant_id: string;
   template_id: string;
   template_code: string;
   template_name?: string;
@@ -316,11 +316,11 @@ export interface NurseTemplate {
   created_at: string;
 }
 
-export interface NurseDoctor {
+export interface AssistantCounsellor {
   id: string;
-  doctor_id: string;
-  doctor_name: string;
-  doctor_email: string;
+  counsellor_id: string;
+  counsellor_name: string;
+  counsellor_email: string;
   specialization: string | null;
   is_active: boolean;
 }
@@ -347,11 +347,11 @@ export interface SuggestedQuestion {
 
 export interface QASearchResult {
   extraction_id: string;
-  patient_id?: string;
+  student_id?: string;
   patient_name?: string;
-  patient_external_id?: string;
-  doctor_id?: string;
-  doctor_name?: string;
+  student_external_id?: string;
+  counsellor_id?: string;
+  counsellor_name?: string;
   consultation_type_name?: string;
   created_at: string;
   similarity_score: number;
@@ -385,14 +385,14 @@ export interface TemporalReference {
   visit_offset?: number;
 }
 
-export interface PatientVisit {
+export interface StudentVisit {
   extraction_id: string;
   created_at: string;
   consultation_type_id?: string;
   consultation_type_code?: string;
   consultation_type_name?: string;
-  doctor_id?: string;
-  doctor_name?: string;
+  counsellor_id?: string;
+  counsellor_name?: string;
 }
 
 export interface QAPriorContext {
@@ -404,9 +404,9 @@ export interface QAPriorContext {
 
 export interface QAQueryRequest {
   query: string;
-  hospital_id?: string;  // Required for admin users without hospital in auth context
-  doctor_id?: string;
-  patient_id?: string;
+  school_id?: string;  // Required for admin users without hospital in auth context
+  counsellor_id?: string;
+  student_id?: string;
   consultation_type_id?: string;
   extraction_id?: string;  // Reference specific extraction/visit
   date_from?: string;
@@ -447,7 +447,7 @@ export interface QAQueryResponse {
   // Temporal/longitudinal response data
   temporal_references?: TemporalReference[];
   longitudinal_data?: Record<string, any>;  // Comparison/change data
-  referenced_visits?: PatientVisit[];  // Visits referenced in response
+  referenced_visits?: StudentVisit[];  // Visits referenced in response
   // Performance metrics
   reframe_time_ms?: number;
   temporal_resolution_time_ms?: number;
@@ -532,10 +532,10 @@ export const FEATURE_FLAG_LABELS: Record<string, string> = {
   edit_prescription: 'Edit Prescription',
   edit_investigation: 'Edit Investigation',
   edit_record: 'Edit Record',
-  patient_qa: 'Patient Q&A',
-  doctor_qa: 'Doctor Q&A',
+  patient_qa: 'Student Q&A',
+  doctor_qa: 'Counsellor Q&A',
   template_configuration: 'Template Configuration',
-  patient_registration: 'Patient Registration',
+  patient_registration: 'Student Registration',
   billing: 'Billing',
   nudge_plan: 'Nudge Plan',
   iris: 'IRIS',

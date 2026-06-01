@@ -81,7 +81,7 @@ class WebhookService:
         Args:
             insights: Extracted medical insights data
             metadata: Standardized metadata (correlation_id, submission_id, extraction_id,
-                     doctor_id, patient_id, mode, segment_count, processing_mode, timestamp)
+                     counsellor_id, student_id, mode, segment_count, processing_mode, timestamp)
             source: Source of the extraction ("recording", "transcript_only_extraction", "merge")
             excluded_segment_codes: Set of segment codes to filter from payload (template-level exclusions)
 
@@ -271,7 +271,7 @@ class WebhookService:
         Args:
             insights: Extracted medical insights
             metadata: Standardized metadata (correlation_id, submission_id, extraction_id,
-                     doctor_id, patient_id, mode, segment_count, processing_mode, timestamp)
+                     counsellor_id, student_id, mode, segment_count, processing_mode, timestamp)
             source: Source of extraction
             excluded_segment_codes: Set of segment codes to filter from payload (template-level exclusions)
 
@@ -321,7 +321,7 @@ class WebhookService:
         logger.info(f"[WEBHOOK_PAYLOAD] ========== WEBHOOK PAYLOAD BUILT ==========")
         logger.info(f"[WEBHOOK_PAYLOAD] Source: {source}")
         logger.info(f"[WEBHOOK_PAYLOAD] Extraction ID: {metadata.get('extraction_id')}")
-        logger.info(f"[WEBHOOK_PAYLOAD] Doctor ID: {metadata.get('doctor_id')}")
+        logger.info(f"[WEBHOOK_PAYLOAD] Counsellor ID: {metadata.get('counsellor_id')}")
         logger.info(f"[WEBHOOK_PAYLOAD] Mode: {metadata.get('mode')}")
         logger.info(f"[WEBHOOK_PAYLOAD] Segment Count: {metadata.get('segment_count')}")
 
@@ -356,7 +356,7 @@ async def send_insights_webhook(
     Args:
         insights: Extracted medical insights data
         metadata: Standardized metadata (correlation_id, submission_id, extraction_id,
-                 doctor_id, patient_id, mode, segment_count, processing_mode, timestamp)
+                 counsellor_id, student_id, mode, segment_count, processing_mode, timestamp)
         source: Source of extraction ("recording", "transcript_only_extraction", "merge")
         excluded_segment_codes: Set of segment codes to filter from payload (template-level exclusions)
 
@@ -393,7 +393,7 @@ async def send_error_webhook(
         error_message: Human-readable error description
         session_id: Recording session UUID string
         submission_id: Processing job submission UUID string
-        session_data: Session dict (used to extract doctor_id, patient_id, etc.)
+        session_data: Session dict (used to extract counsellor_id, student_id, etc.)
         source: Source identifier (e.g., "recording", "reprocess", "merge")
         error_code: Machine-readable error code (e.g., "NO_AUDIO", "TRANSCRIPTION_FAILED")
 
@@ -413,21 +413,21 @@ async def send_error_webhook(
         metadata = {
             "correlation_id": session.get("correlation_id"),
             "submission_id": submission_id,
-            "doctor_id": session.get("doctor_id"),
-            "patient_id": session.get("patient_id"),
+            "counsellor_id": session.get("counsellor_id"),
+            "student_id": session.get("student_id"),
             "template_code": session.get("template_code"),
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
 
         # Check if realtime is enabled (skip webhook if so - UI already gets the error)
         try:
-            from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-            from services.supabase_service import get_doctor_hospital_id_cached
+            from services.realtime_publisher_service import is_realtime_enabled_for_school
+            from services.supabase_service import get_counsellor_school_id_cached
             import uuid as uuid_mod
-            _doctor_id = session.get("doctor_id")
-            _hospital_id = get_doctor_hospital_id_cached(uuid_mod.UUID(_doctor_id)) if _doctor_id else None
-            if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                logger.debug(f"[WEBHOOK:ERROR] Skipping error webhook - realtime enabled for hospital")
+            _doctor_id = session.get("counsellor_id")
+            _hospital_id = get_counsellor_school_id_cached(uuid_mod.UUID(_doctor_id)) if _doctor_id else None
+            if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                logger.debug(f"[WEBHOOK:ERROR] Skipping error webhook - realtime enabled for school")
                 return True
         except Exception:
             pass  # If realtime check fails, send webhook anyway
@@ -484,16 +484,8 @@ async def send_emotion_analysis_webhook(
             logger.warning(f"[WEBHOOK:EMOTION] Extraction not found: {extraction_id}")
             return False
 
-        # Get unified emotion segments (7 segments as of Jan 2026)
-        unified_emotion_codes = [
-            "ANXIETY_POST_CONSULTATION",
-            "FINANCIAL_CONCERNS",
-            "OTHER_EMOTIONS_DETECTED",
-            "TREATMENT_COMPLIANCE_LIKELIHOOD",
-            "DOCTOR_COMMUNICATION_STYLE",
-            "INTERACTION_DYNAMICS",      # New in Jan 2026
-            "CONGRUENCE_SUMMARY"          # New in Jan 2026 (replaces EMOTION_CONGRUENCE_ANALYSIS)
-        ]
+        # Get unified emotion segments (counselling 3-speaker model) — single source of truth
+        from services.supabase_service import UNIFIED_EMOTION_SEGMENT_CODES as unified_emotion_codes
 
         segments_response = (
             supabase.table("extraction_segments")
@@ -517,33 +509,33 @@ async def send_emotion_analysis_webhook(
             logger.warning(f"[WEBHOOK:EMOTION] No emotion data to send for extraction_id={extraction_id}")
             return False
 
-        # Lookup patient preferred_language
-        patient_preferred_language = None
-        _patient_id = extraction.get("patient_id")
+        # Lookup student preferred_language
+        student_preferred_language = None
+        _patient_id = extraction.get("student_id")
         if _patient_id:
             try:
                 pat_lang_res = (
-                    supabase.table("patients")
+                    supabase.table("students")
                     .select("preferred_language")
                     .eq("id", _patient_id)
                     .limit(1)
                     .execute()
                 )
                 if pat_lang_res.data:
-                    patient_preferred_language = pat_lang_res.data[0].get("preferred_language")
+                    student_preferred_language = pat_lang_res.data[0].get("preferred_language")
             except Exception as e:
-                logger.debug(f"[WEBHOOK:EMOTION] Patient language lookup failed: {e}")
+                logger.debug(f"[WEBHOOK:EMOTION] Student language lookup failed: {e}")
 
         # Build session_info from extraction
         consultation_type = extraction.get("consultation_types", {})
         session_info = {
             "extraction_id": extraction_id,
             "submission_id": extraction.get("submission_id"),
-            "doctor_id": extraction.get("doctor_id"),
-            "patient_id": _patient_id,
+            "counsellor_id": extraction.get("counsellor_id"),
+            "student_id": _patient_id,
             "consultation_type_code": consultation_type.get("type_code"),
             "consultation_type_name": consultation_type.get("type_name"),
-            "preferred_language": patient_preferred_language,
+            "preferred_language": student_preferred_language,
         }
 
         # Build payload with unified emotions only

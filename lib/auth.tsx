@@ -19,7 +19,7 @@ export interface AdminUser {
   email: string;
   full_name: string | null;
   role: 'super_admin' | 'admin' | 'viewer';
-  hospital_id: string | null;
+  school_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -36,8 +36,8 @@ interface AuthContextType {
   getAccessToken: () => string | null;
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  isHospitalAdmin: boolean;
-  adminHospitalId: string | null;
+  isSchoolAdmin: boolean;
+  adminSchoolId: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -264,8 +264,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getAccessToken,
       isAdmin: adminUser !== null && adminUser.is_active,
       isSuperAdmin: adminUser?.role === 'super_admin',
-      isHospitalAdmin: adminUser !== null && adminUser.is_active && adminUser.hospital_id !== null,
-      adminHospitalId: adminUser?.hospital_id ?? null,
+      isSchoolAdmin: adminUser !== null && adminUser.is_active && adminUser.school_id !== null,
+      adminSchoolId: adminUser?.school_id ?? null,
     }}>
       {children}
     </AuthContext.Provider>

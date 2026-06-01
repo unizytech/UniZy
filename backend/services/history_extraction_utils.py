@@ -1,13 +1,13 @@
 """
 History Extraction Utilities
 
-Shared utilities for extracting and processing patient history data from medical extractions.
-Used by both patient_context_service.py and patient_history.py for consistency.
+Shared utilities for extracting and processing student history data from extractions.
+Used by both student_context_service.py and student_history.py for consistency.
 
 Functions:
-1. Nurse Extraction Filtering:
-   - filter_nurse_extractions() - Filter out nurse-initiated extractions (nurse_id or PRESCREEN template)
-   - is_nurse_extraction() - Check if single extraction is nurse-initiated
+1. Assistant Extraction Filtering:
+   - filter_assistant_extractions() - Filter out assistant-initiated extractions (assistant_id or PRESCREEN template)
+   - is_assistant_extraction() - Check if single extraction is assistant-initiated
    - Legacy aliases: filter_prescreen_extractions, is_prescreen_extraction (for import compatibility)
 
 2. Extraction Data Access:
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Nurse Extraction Filtering Utilities
+# Assistant Extraction Filtering Utilities
 # =============================================================================
 
 def _get_recording_session_fields(extraction: Dict[str, Any]) -> Dict[str, Any]:
@@ -70,38 +70,38 @@ def _get_recording_session_fields(extraction: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
-def filter_nurse_extractions(
+def filter_assistant_extractions(
     extractions: List[Dict[str, Any]],
     max_results: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """
-    Filter out nurse-initiated extractions from a list.
+    Filter out assistant-initiated extractions from a list.
 
-    Nurse extractions are identified by:
-    1. recording_sessions.nurse_id IS NOT NULL (primary check)
-    2. template_code contains "PRESCREEN" (legacy fallback for 52 records with NULL nurse_id)
+    Assistant extractions are identified by:
+    1. recording_sessions.assistant_id IS NOT NULL (primary check)
+    2. template_code contains "PRESCREEN" (legacy fallback for 52 records with NULL assistant_id)
 
     These extractions typically don't have meaningful clinical data
     (prescriptions, diagnoses, etc.) so they should be excluded from
-    patient history queries.
+    student history queries.
 
     Args:
         extractions: List of extraction dicts with recording_sessions join
-                     (must include recording_sessions(template_code, nurse_id) in select)
+                     (must include recording_sessions(template_code, assistant_id) in select)
         max_results: Optional limit on number of results to return
 
     Returns:
-        List of non-nurse extractions
+        List of non-assistant extractions
     """
     filtered = []
     for ext in extractions:
         rs = _get_recording_session_fields(ext)
 
-        # Primary: skip if nurse_id is set
-        if rs.get("nurse_id"):
+        # Primary: skip if assistant_id is set
+        if rs.get("assistant_id"):
             continue
 
-        # Legacy fallback: skip PRESCREEN template extractions (for records with NULL nurse_id)
+        # Legacy fallback: skip PRESCREEN template extractions (for records with NULL assistant_id)
         template_code = rs.get("template_code", "") or ""
         if template_code and "PRESCREEN" in template_code.upper():
             continue
@@ -115,25 +115,25 @@ def filter_nurse_extractions(
 
 
 # Legacy alias for import compatibility
-filter_prescreen_extractions = filter_nurse_extractions
+filter_prescreen_extractions = filter_assistant_extractions
 
 
-def is_nurse_extraction(extraction: Dict[str, Any]) -> bool:
+def is_assistant_extraction(extraction: Dict[str, Any]) -> bool:
     """
-    Check if a single extraction is a nurse-initiated extraction.
+    Check if a single extraction is an assistant-initiated extraction.
 
-    Checks nurse_id first, then falls back to PRESCREEN template_code for legacy records.
+    Checks assistant_id first, then falls back to PRESCREEN template_code for legacy records.
 
     Args:
         extraction: Extraction dict with recording_sessions join
 
     Returns:
-        True if nurse extraction, False otherwise
+        True if assistant extraction, False otherwise
     """
     rs = _get_recording_session_fields(extraction)
 
-    # Primary: check nurse_id
-    if rs.get("nurse_id"):
+    # Primary: check assistant_id
+    if rs.get("assistant_id"):
         return True
 
     # Legacy fallback: check PRESCREEN template_code
@@ -142,7 +142,7 @@ def is_nurse_extraction(extraction: Dict[str, Any]) -> bool:
 
 
 # Legacy alias for import compatibility
-is_prescreen_extraction = is_nurse_extraction
+is_prescreen_extraction = is_assistant_extraction
 
 
 # =============================================================================
@@ -444,7 +444,7 @@ def parse_medicines_from_text(
     Parse medicine names from free-text prescription strings.
 
     Handles patterns like:
-    - "Doctor prescribed: 1) Penicillin, to be taken once every two days."
+    - "Counsellor prescribed: 1) Penicillin, to be taken once every two days."
     - "Paracetamol 500mg TID, Omeprazole 20mg OD"
     - "Tab. Metformin 500mg twice daily"
 

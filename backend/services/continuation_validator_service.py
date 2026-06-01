@@ -1,13 +1,16 @@
 """
 Continuation Merge Micro-Validator Service
 
-Validates Gemini's merge decisions for continuation extractions by reviewing:
+Validates the AI's merge decisions for continuation (follow-up session) extractions by reviewing:
 1. Parent list items that are missing from current output (accidental drops vs deliberate removals)
-2. Cross-segment consistency (allergy-prescription conflicts, investigation state, vitals contradictions)
+2. Cross-segment consistency (task lifecycle/date sanity, next-meeting date, goal-direction
+   consistency, assessment-meter latest-wins)
 
-This is a focused, single-purpose Gemini call (~2-3s) that only runs when triggered
-by specific conditions (missing items, stop intent, allergy+Rx, investigation results).
-On failure, the caller falls back to empty-segment-only carry-forward.
+This is a focused, single-purpose AI call (~2-3s) that only runs when triggered by specific
+conditions (missing items, lifecycle/stop intent). On failure, the caller falls back to
+empty-segment-only carry-forward. The return contract
+{carry_forward, confirm_removed, cross_segment_patches} is consumed by the merge engine in
+extraction_service._smart_merge_continuation.
 """
 
 import json
@@ -53,94 +56,90 @@ async def validate_continuation_merge(
         else:
             context_summary[key] = value
 
-    prompt = f"""You are a medical record merge validator. A doctor recorded a continuation
-of a prior visit. The AI extracted data from the new recording and was supposed to merge
-it with the prior recording's data.
+    prompt = f"""You are a school/university-counselling session merge validator. A counsellor
+recorded a follow-up session that continues a prior session with the same student. The AI
+extracted data from the new recording and was supposed to MERGE it with the prior session's
+record (a deep merge: carry everything forward, update what changed, add what's new).
 
-Your job: validate the merge decisions for LIST segments only.
+Your job: validate the merge decisions for LIST segments only (e.g. `tasks`, `keyFacts`).
 
-PARENT LIST ITEMS (from prior recording):
+PARENT LIST ITEMS (from the prior session):
 {json.dumps(parent_lists, indent=2, default=str)}
 
 CURRENT LIST ITEMS (AI's merged output):
 {json.dumps(current_lists, indent=2, default=str)}
 
-CURRENT NON-LIST CONTEXT:
+CURRENT NON-LIST CONTEXT (goals, academics, assessment meters, next steps, etc.):
 {json.dumps(context_summary, indent=2, default=str)}
 
-TRANSCRIPT OF CURRENT RECORDING:
+TRANSCRIPT OF CURRENT SESSION:
 {transcript}
 
-TASK 1 — MISSING ITEM VALIDATION:
-For each parent item NOT present in the current output, determine:
-1. Was it DELIBERATELY REMOVED? (doctor explicitly stopped/cancelled/resolved it in transcript)
-2. Was it ACCIDENTALLY DROPPED? (not mentioned in transcript, should be carried forward)
-3. Was it REFINED? (same concept, different name — e.g., "Suspected Pneumonia" → "Bacterial Pneumonia")
+ITEM IDENTITY:
+- `tasks`: each item is an object identified by its `task_name`.
+- `keyFacts`: each item is a single sentence string; the string itself is its identity.
 
-IMPORTANT — CHIEF COMPLAINTS SPECIFICITY:
-- If the parent has a SPECIFIC complaint (e.g., "Right wrist and finger pain for 1 week") and the
-  current output has a VAGUE version (e.g., "Pain"), carry forward the PARENT's specific version
-  and mark the vague current version for removal. Medical records need specificity — site, duration,
-  and context must be preserved. The parent's wording is preferred over the current's if the parent
-  is more detailed about the same complaint.
+TASK 1 — MISSING ITEM VALIDATION:
+For each parent item NOT present in the current output, decide which applies:
+1. DELIBERATELY REMOVED — the counsellor explicitly completed / cancelled / dropped it in the
+   transcript (e.g. "you've finished the Common App essay", "let's drop the chess club idea").
+2. ACCIDENTALLY DROPPED — not mentioned in the transcript at all → should be carried forward.
+3. REFINED — same item, reworded/clarified (e.g. "Draft essay" → "Draft Common App personal essay").
+
+IMPORTANT — KEY-FACT SPECIFICITY:
+- If the parent has a SPECIFIC fact (e.g. "Targeting Computer Science at top-10 US universities")
+  and the current output has a VAGUE version (e.g. "Interested in university"), carry forward the
+  PARENT's specific version and mark the vague current version for removal. Counselling records
+  need specificity — keep the more detailed wording for the same fact.
 
 IMPORTANT — PARTIAL CHANGES:
-- Doctor may stop ONLY SOME medications (e.g., "stop A and B" but C, D should continue).
+- The counsellor may complete/cancel ONLY SOME tasks (e.g. "finish A and B" but C, D continue).
   Evaluate EACH missing item independently against the transcript.
-- Doctor may review results for ONLY SOME investigations. Others stay as "ordered."
-  Do NOT assume all investigations got results just because some did.
-- Doctor may resolve ONLY SOME complaints while others persist. Check each one.
+- Resolve ONLY SOME facts/goals while others persist. Check each one.
 
-TASK 2 — INVESTIGATION RESULTS REVIEW:
-Check ALL investigation items in BOTH parent AND current lists (not just missing items).
-If the transcript discusses results for ANY investigation — whether the investigation is missing
-from current OR still present in current — it means the test has been PERFORMED:
-- REMOVE it from investigations (confirm_removed) — it is no longer pending
-- ADD the result to examination via cross_segment_patch (add_to_examination)
-- This applies whether the investigation is only in parent, or in BOTH parent and current
-- Common phrases indicating results were reviewed: "saw your X-ray", "X-ray shows", "report is normal",
-  "results came back", "test shows", "looked at your scan", "your blood work is fine"
-- Investigations NOT discussed in transcript must remain in their current state
-
-Example: Doctor says "when we saw your X-ray, your bone is quite weak" →
-  1. confirm_removed: segment=investigations, item_name="X-Ray Hand", reason="results discussed - bone weakness noted"
-  2. cross_segment_patch: type="investigation_result", segment="examination", action="add_to_examination",
-     item={{"name": "X-Ray Hand", "value": "Bone weakness noted"}}, reason="X-ray results reviewed in transcript"
+TASK 2 — TASK LIFECYCLE & DATE SANITY:
+Check ALL `tasks` items in BOTH parent AND current lists:
+- If the transcript says a task is DONE / COMPLETED / FINISHED / DROPPED / CANCELLED → REMOVE it
+  from `tasks` (confirm_removed). Phrases: "you've completed", "that's done", "we can drop", "skip
+  that one", "no longer needed".
+- DATE SANITY: flag any task whose `end_date` is before its `start_date`, or whose dates are
+  clearly stale/implausible relative to the session — emit a `flag` patch (do NOT auto-delete).
+- Tasks NOT discussed in the transcript must remain in their current state.
 
 TASK 3 — CROSS-SEGMENT CONSISTENCY CHECKS:
-Check these cross-segment relationships:
-
-a) ALLERGY ↔ PRESCRIPTION: Any prescribed drug that conflicts with an allergy?
-   → Action: remove the conflicting drug from prescription
-
-b) VITALS ↔ TRANSCRIPT: Vitals showing abnormal values but transcript says condition resolved?
-   → Action: flag for review (e.g., "fever resolved" but temperature still shows 102°F)
+a) NEXT MEETING DATE: if `nextSteps` has a next-meeting Date, it should be parseable and not in
+   the past relative to the session → otherwise `flag`.
+b) DIRECTION ↔ GOALS: if `directionalChanges` indicates the student changed direction (e.g. switched
+   target course/career), ensure `futureGoals`/`academics` reflect the NEW direction; if a stale
+   goal still lingers that contradicts the change, `flag` it (counsellor decision needed).
+c) ASSESSMENT METERS (latest-wins): post-session values (e.g. Post-Session Anxiety) should come
+   from the CURRENT session, not the parent. If a current value is present, it wins.
 
 Return JSON with exactly this structure:
 {{
   "carry_forward": [
-    {{"segment": "prescription", "item": {{}}, "reason": "not mentioned in transcript, should continue"}}
+    {{"segment": "tasks", "item": {{}}, "reason": "not mentioned in transcript, should continue"}}
   ],
   "confirm_removed": [
-    {{"segment": "prescription", "item_name": "Paracetamol", "reason": "doctor explicitly said stop"}},
-    {{"segment": "investigations", "item_name": "X-Ray Hand", "reason": "results discussed - bone weakness noted"}}
+    {{"segment": "tasks", "item_name": "Draft Common App essay", "reason": "counsellor said it's completed"}},
+    {{"segment": "keyFacts", "item_name": "Interested in university", "reason": "replaced by more specific parent fact"}}
   ],
   "cross_segment_patches": [
-    {{"type": "allergy_conflict", "segment": "prescription", "item_name": "Amoxicillin", "action": "remove", "reason": "conflicts with Amoxicillin allergy"}},
-    {{"type": "investigation_result", "segment": "examination", "action": "add_to_examination", "item": {{"name": "X-Ray Hand", "value": "Bone weakness noted"}}, "reason": "X-ray results reviewed in transcript"}},
-    {{"type": "complaint_specificity", "segment": "chiefComplaints", "item_name": "Pain", "action": "remove", "reason": "replaced by more specific parent complaint"}}
+    {{"type": "task_date", "segment": "tasks", "item_name": "Visit campus", "action": "flag", "reason": "end_date is before start_date"}},
+    {{"type": "next_meeting_date", "segment": "nextSteps", "item_name": "Next meeting", "action": "flag", "reason": "scheduled date is in the past"}},
+    {{"type": "goal_inconsistency", "segment": "futureGoals", "item_name": "Medicine", "action": "flag", "reason": "student switched target to Computer Science"}}
   ]
 }}
 
 Rules:
-- carry_forward.item must be the FULL item object copied from the parent data
-- If ALL parent items are present in current with no issues, return empty arrays
-- Only flag allergy conflicts when there's a clear drug-allergy match
-- Be conservative: when in doubt, carry forward (patient safety > data cleanliness)
-- Do NOT invent items that weren't in parent or current data
-- Evaluate EACH item independently — partial stops/results/resolutions are common
-- For investigation results: ALWAYS pair a confirm_removed with an add_to_examination patch so data is not lost
-- For chief complaints: PREFER the parent's specific wording over the current's vague version of the same complaint"""
+- carry_forward.item must be the FULL item object copied from the parent data.
+- If ALL parent items are present in current with no issues, return empty arrays.
+- Be conservative: when in doubt, carry forward (preserving the student's record > tidiness).
+- Do NOT invent items that weren't in parent or current data.
+- Evaluate EACH item independently — partial completions/removals are common.
+- Use `action: "remove"` only inside confirm_removed; cross_segment_patches should generally use
+  `action: "flag"` (log-only) unless an item clearly must be removed.
+- For key facts: PREFER the parent's specific wording over the current's vague version of the same fact."""
 
     try:
         # Log inputs for observability

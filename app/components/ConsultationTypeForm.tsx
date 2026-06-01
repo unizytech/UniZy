@@ -83,7 +83,7 @@ export function ConsultationTypeForm({
         icon_name: iconName || undefined,
         color_code: colorCode || undefined,
         clone_from_consultation_type_id: creationMode === 'clone' ? sourceConsultationTypeId : undefined,
-        // Default visibility: all doctors, hospitals, and specializations can see it
+        // Default visibility: all counsellors, schools, and specializations can see it
         // (no visibility restrictions on creation - can be edited later)
       };
 

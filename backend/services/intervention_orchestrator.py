@@ -28,11 +28,11 @@ Priority Adjustments (severity-based, applied in individual services):
 Financial concerns-based (from emotion analysis):
 - Allied health interventions: Priority downgraded if financial concerns HIGH/MEDIUM
   - HIGH → MEDIUM, MEDIUM → LOW
-  - Rationale: Patients with financial concerns unlikely to buy additional services
+  - Rationale: Students with financial concerns unlikely to buy additional services
 
 Take-Up Prediction:
 - Each intervention gets a take_up_likelihood (0-100) score
-- Predicts likelihood patient will accept/follow intervention
+- Predicts likelihood student will accept/follow intervention
 - Based on clinical severity, anxiety, financial concerns, compliance, fear/distress
 - IMPORTANT: Priority score is NOT adjusted by take-up likelihood
 - Dashboard uses take_up_likelihood separately for risk segmentation (no double counting)
@@ -63,7 +63,7 @@ class Intervention:
     priority_score: int             # 0-100
     reason: str                     # Plain English explanation
     action: str                     # Simple action statement
-    revenue_estimate: Optional[float] = None  # Only for REVENUE (from hospital pricing)
+    revenue_estimate: Optional[float] = None  # Only for REVENUE (from school pricing)
     linked_assessment_type: str = ""  # Which assessment triggered this
     linked_assessment_id: Optional[uuid.UUID] = None  # FK to assessment record
     consultation_insights_id: Optional[uuid.UUID] = None  # FK to consultation_insights
@@ -118,7 +118,7 @@ class InterventionResult:
 
 async def generate_all_interventions(
     extraction_id: uuid.UUID,
-    hospital_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
     consultation_insights_id: Optional[uuid.UUID] = None
 ) -> InterventionResult:
     """
@@ -127,8 +127,8 @@ async def generate_all_interventions(
     Main entry point called from background tasks after all assessments complete.
 
     Args:
-        extraction_id: UUID of the medical extraction
-        hospital_id: UUID of the hospital (for revenue pricing lookup)
+        extraction_id: UUID of the extraction
+        school_id: UUID of the school (for revenue pricing lookup)
         consultation_insights_id: UUID of consultation_insights record
 
     Returns:
@@ -140,7 +140,7 @@ async def generate_all_interventions(
         get_other_clinical_needs_by_extraction,
         get_dropoff_risk_by_extraction,
         get_care_quality_by_extraction,
-        get_all_hospital_pricing,
+        get_all_school_pricing,
         get_extraction_segments,
         get_consultation_insights_by_extraction,
     )
@@ -170,11 +170,11 @@ async def generate_all_interventions(
             f"quality={'yes' if care_quality else 'no'}"
         )
 
-        # Get hospital pricing for revenue interventions
-        hospital_pricing = {}
-        if hospital_id:
-            hospital_pricing = get_all_hospital_pricing(hospital_id)
-            logger.debug(f"[ORCHESTRATOR] Loaded {len(hospital_pricing)} pricing entries for hospital {hospital_id}")
+        # Get school pricing for revenue interventions
+        school_pricing = {}
+        if school_id:
+            school_pricing = get_all_school_pricing(school_id)
+            logger.debug(f"[ORCHESTRATOR] Loaded {len(school_pricing)} pricing entries for school {school_id}")
 
         # Get emotional segments for retention and revenue interventions
         emotional_segments = {}
@@ -212,7 +212,7 @@ async def generate_all_interventions(
             allied_health_needs=allied_health,
             clinical_severity=clinical_severity,
             other_clinical_needs=other_clinical,
-            hospital_pricing=hospital_pricing,
+            school_pricing=school_pricing,
             consultation_insights_id=consultation_insights_id,
             care_quality_risk=care_quality,  # For SPECIALIST_REFERRAL_NEEDED
             financial_concerns_level=financial_concerns_level,  # For priority adjustment
@@ -349,7 +349,7 @@ async def generate_all_interventions(
 
 async def generate_and_save_interventions(
     extraction_id: uuid.UUID,
-    hospital_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
     consultation_insights_id: Optional[uuid.UUID] = None
 ) -> Dict[str, Any]:
     """
@@ -358,8 +358,8 @@ async def generate_and_save_interventions(
     Convenience function that combines generation and persistence.
 
     Args:
-        extraction_id: UUID of the medical extraction
-        hospital_id: UUID of the hospital
+        extraction_id: UUID of the extraction
+        school_id: UUID of the school
         consultation_insights_id: UUID of consultation_insights record
 
     Returns:
@@ -370,7 +370,7 @@ async def generate_and_save_interventions(
     # Generate all interventions
     result = await generate_all_interventions(
         extraction_id=extraction_id,
-        hospital_id=hospital_id,
+        school_id=school_id,
         consultation_insights_id=consultation_insights_id
     )
 
@@ -405,7 +405,7 @@ def get_intervention_summary(extraction_id: uuid.UUID) -> Dict[str, Any]:
     Get a summary of interventions for an extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         Dict with intervention counts and top interventions

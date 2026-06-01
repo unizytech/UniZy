@@ -35,11 +35,11 @@ IST = timezone(timedelta(hours=5, minutes=30))
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-_SPEAKER_PREFIX_RE = re.compile(r'^(Doctor|Patient|Speaker\s*\d+)\s*:', re.MULTILINE | re.IGNORECASE)
+_SPEAKER_PREFIX_RE = re.compile(r'^(Counsellor|Student|Speaker\s*\d+)\s*:', re.MULTILINE | re.IGNORECASE)
 
 
 def _count_speakers(transcript: Optional[str]) -> int:
-    """Count distinct Doctor/Patient/Speaker N prefixes in the transcript."""
+    """Count distinct Counsellor/Student/Speaker N prefixes in the transcript."""
     if not transcript:
         return 0
     prefixes = {m.group(1).strip().lower().replace(" ", "") for m in _SPEAKER_PREFIX_RE.finditer(transcript)}
@@ -74,16 +74,16 @@ def _range_utc_bounds(start: date, end: date) -> Tuple[str, str]:
 
 
 def _fetch_core_dataset(
-    hospital_id: str,
-    doctor_id: Optional[str],
-    nurse_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    assistant_id: Optional[str],
     start: date,
     end: date,
 ) -> List[Dict[str, Any]]:
     """Return a flat per-session dataset joined with job + extraction + metrics.
 
     Each dict has keys:
-      session_id, created_at, doctor_id, doctor_name, nurse_id, template_code,
+      session_id, created_at, counsellor_id, counsellor_name, assistant_id, template_code,
       total_duration_seconds, total_chunks, pj_status, pj_transcript,
       pj_error_message, pj_total_processing_time_seconds,
       pj_stitching_time_seconds, pj_transcription_time_seconds,
@@ -93,37 +93,37 @@ def _fetch_core_dataset(
     """
     start_iso, end_iso = _range_utc_bounds(start, end)
 
-    # ---- Doctors in this hospital (for name lookup + hospital filter) ----
-    docs_res = supabase.table("doctors")\
-        .select("id, full_name, hospital_id")\
-        .eq("hospital_id", hospital_id)\
+    # ---- Counsellors in this school (for name lookup + school filter) ----
+    docs_res = supabase.table("counsellors")\
+        .select("id, full_name, school_id")\
+        .eq("school_id", school_id)\
         .execute()
     doctors = docs_res.data or []
-    doctor_by_id = {d["id"]: d["full_name"] for d in doctors}
-    doctor_ids_in_hospital = list(doctor_by_id.keys())
-    if not doctor_ids_in_hospital:
+    counsellor_by_id = {d["id"]: d["full_name"] for d in doctors}
+    counsellor_ids_in_school = list(counsellor_by_id.keys())
+    if not counsellor_ids_in_school:
         return []
 
-    # ---- Nurses in this hospital (for name lookup when session is nurse-recorded) ----
-    nurses_res = supabase.table("nurses")\
-        .select("id, full_name, hospital_id")\
-        .eq("hospital_id", hospital_id)\
+    # ---- Assistants in this school (for name lookup when session is assistant-recorded) ----
+    assistants_res = supabase.table("assistants")\
+        .select("id, full_name, school_id")\
+        .eq("school_id", school_id)\
         .execute()
-    nurse_by_id = {n["id"]: n["full_name"] for n in (nurses_res.data or [])}
+    assistant_by_id = {n["id"]: n["full_name"] for n in (assistants_res.data or [])}
 
     # ---- Sessions matching filters ----
     # Exclude in-progress / cancelled — only consultations that actually submitted
     q = supabase.table("recording_sessions")\
-        .select("id, created_at, doctor_id, nurse_id, template_code, total_duration_seconds, total_chunks, status")\
+        .select("id, created_at, counsellor_id, assistant_id, template_code, total_duration_seconds, total_chunks, status")\
         .gte("created_at", start_iso)\
         .lt("created_at", end_iso)\
         .not_.in_("status", ["RECORDING", "CANCELLED"])
-    if doctor_id:
-        q = q.eq("doctor_id", doctor_id)
+    if counsellor_id:
+        q = q.eq("counsellor_id", counsellor_id)
     else:
-        q = q.in_("doctor_id", doctor_ids_in_hospital)
-    if nurse_id:
-        q = q.eq("nurse_id", nurse_id)
+        q = q.in_("counsellor_id", counsellor_ids_in_school)
+    if assistant_id:
+        q = q.eq("assistant_id", assistant_id)
     q = q.order("created_at")
     sessions = q.execute().data or []
     session_ids = [s["id"] for s in sessions]
@@ -143,7 +143,7 @@ def _fetch_core_dataset(
         latest_pj.setdefault(row["session_id"], row)
 
     # ---- Latest medical_extraction per session ----
-    me_rows = supabase.table("medical_extractions")\
+    me_rows = supabase.table("extractions")\
         .select("id, session_id, edit_count, original_extraction_json, "
                 "edited_extraction_json, created_at")\
         .in_("session_id", session_ids)\
@@ -172,19 +172,19 @@ def _fetch_core_dataset(
         me = latest_me.get(s["id"], {})
         acc = accuracy_by_ext.get(me.get("id")) if me else None
         # Name shown in the Tracker's "Name" column = whoever recorded the session
-        _nurse_id = s.get("nurse_id")
-        _doctor_id = s.get("doctor_id")
-        if _nurse_id and _nurse_id in nurse_by_id:
-            display_name = nurse_by_id[_nurse_id]
+        _nurse_id = s.get("assistant_id")
+        _doctor_id = s.get("counsellor_id")
+        if _nurse_id and _nurse_id in assistant_by_id:
+            display_name = assistant_by_id[_nurse_id]
         else:
-            display_name = doctor_by_id.get(_doctor_id, "")
+            display_name = counsellor_by_id.get(_doctor_id, "")
 
         dataset.append({
             "session_id": s["id"],
             "created_at": s["created_at"],
-            "doctor_id": _doctor_id,
-            "doctor_name": doctor_by_id.get(_doctor_id, ""),
-            "nurse_id": _nurse_id,
+            "counsellor_id": _doctor_id,
+            "counsellor_name": counsellor_by_id.get(_doctor_id, ""),
+            "assistant_id": _nurse_id,
             "display_name": display_name,
             "template_code": s.get("template_code") or "",
             "total_duration_seconds": float(s["total_duration_seconds"] or 0),
@@ -232,7 +232,7 @@ def _entity_error_counts_live(rec: Dict[str, Any]) -> Dict[str, int]:
 
     Keeps the Tracker column values consistent with the detail modal and
     resilient to stale `extraction_accuracy_metrics` rows (e.g. when a
-    doctor's rows were computed before the JSON-string coercion or
+    counsellor's rows were computed before the JSON-string coercion or
     set-based matching landed).
     """
     from services.accuracy_metrics_service import _compute_entity_errors
@@ -280,7 +280,7 @@ def _row_for_session(rec: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "Date": ist_dt.isoformat(),
-        "Name": rec.get("display_name") or rec.get("doctor_name") or "",
+        "Name": rec.get("display_name") or rec.get("counsellor_name") or "",
         "Consult ID/No/Time": f"{_short_id(rec['session_id'])} @ {ist_t}",
         "Session ID": rec["session_id"],
         "Consult Duration (min)": audio_min,
@@ -312,13 +312,13 @@ TRACKER_COLS = [
 
 
 def get_tracker_rows(
-    hospital_id: str,
-    doctor_id: Optional[str],
-    nurse_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    assistant_id: Optional[str],
     start: date,
     end: date,
 ) -> List[Dict[str, Any]]:
-    dataset = _fetch_core_dataset(hospital_id, doctor_id, nurse_id, start, end)
+    dataset = _fetch_core_dataset(school_id, counsellor_id, assistant_id, start, end)
     return [_row_for_session(r) for r in dataset]
 
 
@@ -329,7 +329,7 @@ def get_tracker_rows(
 
 AGGREGATE_METRICS = [
     ("Throughput", "Total consultations"),
-    ("Throughput", "Notes per doctor"),
+    ("Throughput", "Notes per counsellor"),
     ("Performance", "Avg consultation duration (min)"),
     ("Performance", "Avg report generation time (sec)"),
     ("Acceptance", "Signed off unchanged"),
@@ -369,15 +369,15 @@ def _count_entities_in_original(extraction_json: Dict[str, Any]) -> int:
 
 
 def get_aggregate_rows(
-    hospital_id: str,
-    doctor_id: Optional[str],
-    nurse_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    assistant_id: Optional[str],
     start: date,
     end: date,
 ) -> Tuple[List[date], List[Dict[str, Any]]]:
     """Return (dates_in_range, aggregate_rows). Each row has 'category', 'metric',
     and one field per date keyed as 'YYYY-MM-DD'."""
-    dataset = _fetch_core_dataset(hospital_id, doctor_id, nurse_id, start, end)
+    dataset = _fetch_core_dataset(school_id, counsellor_id, assistant_id, start, end)
     dates = list(_iter_dates(start, end))
 
     # Bucket records by IST date
@@ -396,9 +396,9 @@ def get_aggregate_rows(
             total = len(recs)
             if metric == "Total consultations":
                 row[key] = total
-            elif metric == "Notes per doctor":
-                distinct_doctors = len({r["doctor_id"] for r in recs if r.get("doctor_id")})
-                row[key] = round(total / distinct_doctors, 2) if distinct_doctors else 0
+            elif metric == "Notes per counsellor":
+                distinct_counsellors = len({r["counsellor_id"] for r in recs if r.get("counsellor_id")})
+                row[key] = round(total / distinct_counsellors, 2) if distinct_counsellors else 0
             elif metric == "Avg consultation duration (min)":
                 vals = [r["total_duration_seconds"] / 60.0 for r in recs if r["total_duration_seconds"]]
                 row[key] = round(sum(vals) / len(vals), 2) if vals else 0
@@ -515,7 +515,7 @@ def get_aggregate_rows(
             elif metric == "Adjusted WER - description editing (%)":
                 # Pooled WER after subtracting paraphrases AND deletion errors.
                 # Deletions in description-style free-text fields (e.g.
-                # chiefComplaints[*].description) are typically the doctor
+                # chiefComplaints[*].description) are typically the counsellor
                 # trimming verbose AI prose, not real STT errors. Falls back
                 # to the paraphrase-adjusted value (then to raw WER) when the
                 # newer column hasn't been backfilled yet.
@@ -564,7 +564,7 @@ def _timings_row(rec: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "ist_time": _ist_time(rec["created_at"]),
         "sess": _short_id(rec["session_id"]),
-        "recorded_by": "nurse" if rec.get("nurse_id") else "doctor",
+        "recorded_by": "nurse" if rec.get("assistant_id") else "doctor",
         "template": rec["template_code"],
         "audio_s": round(audio_s, 2),
         "total_chunks": rec["total_chunks"],
@@ -579,28 +579,28 @@ def _timings_row(rec: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_timings_tables(
-    hospital_id: str,
-    doctor_id: Optional[str],
-    nurse_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    assistant_id: Optional[str],
     start: date,
     end: date,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Returns {'doctor_all': rows-for-selected-doctor, 'attendant_nurse': rows-for-selected-nurse}.
+    """Returns {'doctor_all': rows-for-selected-counsellor, 'attendant_nurse': rows-for-selected-assistant}.
 
-    - doctor_all: all sessions for the selected doctor (doctor-recorded + nurse-recorded)
-    - attendant_nurse: sessions for the selected nurse; empty when nurse_id is None
+    - doctor_all: all sessions for the selected counsellor (counsellor-recorded + assistant-recorded)
+    - attendant_nurse: sessions for the selected assistant; empty when assistant_id is None
     """
-    doctor_rows: List[Dict[str, Any]] = []
-    if doctor_id:
-        ds = _fetch_core_dataset(hospital_id, doctor_id, None, start, end)
-        doctor_rows = [_timings_row(r) for r in ds]
+    counsellor_rows: List[Dict[str, Any]] = []
+    if counsellor_id:
+        ds = _fetch_core_dataset(school_id, counsellor_id, None, start, end)
+        counsellor_rows = [_timings_row(r) for r in ds]
 
-    nurse_rows: List[Dict[str, Any]] = []
-    if nurse_id:
-        ds = _fetch_core_dataset(hospital_id, None, nurse_id, start, end)
-        nurse_rows = [_timings_row(r) for r in ds]
+    assistant_rows: List[Dict[str, Any]] = []
+    if assistant_id:
+        ds = _fetch_core_dataset(school_id, None, assistant_id, start, end)
+        assistant_rows = [_timings_row(r) for r in ds]
 
-    return {"doctor_all": doctor_rows, "attendant_nurse": nurse_rows}
+    return {"doctor_all": counsellor_rows, "attendant_nurse": assistant_rows}
 
 
 # ---------------------------------------------------------------------------
@@ -772,7 +772,7 @@ def _edit_detail_rows(rec: Dict[str, Any], magnitude_filter: Optional[str], addi
             continue
         out.append({
             "session_id": rec["session_id"],
-            "name": rec.get("display_name") or rec.get("doctor_name") or "",
+            "name": rec.get("display_name") or rec.get("counsellor_name") or "",
             "segment": seg,
             "magnitude": r["magnitude"],
             "additive": r["additive"],
@@ -802,7 +802,7 @@ def _dates_detail_rows(rec: Dict[str, Any]) -> List[Dict[str, Any]]:
                 if _normalize_value(o_list[idx]) != _normalize_value(e_list[idx]):
                     out.append({
                         "session_id": rec["session_id"],
-                        "name": rec.get("display_name") or rec.get("doctor_name") or "",
+                        "name": rec.get("display_name") or rec.get("counsellor_name") or "",
                         "segment": f"{path}[{idx}]",
                         "diff": [f"{_scalar(o_list[idx])} → {_scalar(e_list[idx])}"],
                     })
@@ -810,7 +810,7 @@ def _dates_detail_rows(rec: Dict[str, Any]) -> List[Dict[str, Any]]:
             if _normalize_value(o) != _normalize_value(e):
                 out.append({
                     "session_id": rec["session_id"],
-                    "name": rec.get("display_name") or rec.get("doctor_name") or "",
+                    "name": rec.get("display_name") or rec.get("counsellor_name") or "",
                     "segment": path,
                     "diff": [f"{_scalar(o)} → {_scalar(e)}"],
                 })
@@ -858,7 +858,7 @@ def _entity_detail_rows(rec: Dict[str, Any], kind: str) -> List[Dict[str, Any]]:
                 if ai_dose and doc_dose and ai_dose != doc_dose and not _key_in_transcript(ai_dose, transcript_tokens):
                     out.append({
                         "session_id": rec["session_id"],
-                        "name": rec.get("display_name") or rec.get("doctor_name") or "",
+                        "name": rec.get("display_name") or rec.get("counsellor_name") or "",
                         "segment": k,
                         "kind": "dose_changed",
                         "item": display_fn(ai_i),
@@ -869,7 +869,7 @@ def _entity_detail_rows(rec: Dict[str, Any], kind: str) -> List[Dict[str, Any]]:
             if not _key_in_transcript(name, transcript_tokens):
                 out.append({
                     "session_id": rec["session_id"],
-                    "name": rec.get("display_name") or rec.get("doctor_name") or "",
+                    "name": rec.get("display_name") or rec.get("counsellor_name") or "",
                     "segment": k,
                     "kind": "ai_hallucinated_removed",
                     "item": display_fn(ai_i) or name or "",
@@ -880,7 +880,7 @@ def _entity_detail_rows(rec: Dict[str, Any], kind: str) -> List[Dict[str, Any]]:
             if _key_in_transcript(name, transcript_tokens):
                 out.append({
                     "session_id": rec["session_id"],
-                    "name": rec.get("display_name") or rec.get("doctor_name") or "",
+                    "name": rec.get("display_name") or rec.get("counsellor_name") or "",
                     "segment": k,
                     "kind": "ai_missed_added",
                     "item": display_fn(doc_i) or name or "",
@@ -908,7 +908,7 @@ def _wer_detail_rows(rec: Dict[str, Any]) -> List[Dict[str, Any]]:
             continue
         out.append({
             "session_id": rec["session_id"],
-            "name": rec.get("display_name") or rec.get("doctor_name") or "",
+            "name": rec.get("display_name") or rec.get("counsellor_name") or "",
             "segment": s.get("segment_code", ""),
             "errors": errs,
             "subs_ai_error": int(s.get("substitutions_ai_error") or 0),
@@ -923,9 +923,9 @@ def _wer_detail_rows(rec: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def get_metric_detail(
-    hospital_id: str,
-    doctor_id: Optional[str],
-    nurse_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    assistant_id: Optional[str],
     start: date,
     end: date,
     metric: str,
@@ -939,7 +939,7 @@ def get_metric_detail(
     if metric not in METRIC_CODES:
         raise ValueError(f"Unknown metric: {metric}")
 
-    dataset = _fetch_core_dataset(hospital_id, doctor_id, nurse_id, start, end)
+    dataset = _fetch_core_dataset(school_id, counsellor_id, assistant_id, start, end)
     if session_id:
         dataset = [r for r in dataset if r["session_id"] == session_id]
 
@@ -981,9 +981,9 @@ def _write_sheet(ws, columns: List[str], rows: List[Dict[str, Any]]):
 
 
 def build_xlsx(
-    hospital_id: str,
-    doctor_id: Optional[str],
-    nurse_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    assistant_id: Optional[str],
     start: date,
     end: date,
 ) -> bytes:
@@ -993,8 +993,8 @@ def build_xlsx(
     drill-down but intentionally NOT exported to Excel — the Excel is
     intended to be the POC tracker artifact, not the ops-timing view.
     """
-    tracker_rows = get_tracker_rows(hospital_id, doctor_id, nurse_id, start, end)
-    dates, agg_rows = get_aggregate_rows(hospital_id, doctor_id, nurse_id, start, end)
+    tracker_rows = get_tracker_rows(school_id, counsellor_id, assistant_id, start, end)
+    dates, agg_rows = get_aggregate_rows(school_id, counsellor_id, assistant_id, start, end)
 
     wb = Workbook()
 

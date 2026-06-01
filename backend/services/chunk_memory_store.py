@@ -8,7 +8,7 @@ Thread-safe in-memory storage for audio chunks to reduce latency:
 - DB serves as fallback if memory is unavailable (server restart, etc.)
 
 Key Design:
-- session_id is the key (not doctor_id) - isolates concurrent recordings
+- session_id is the key (not counsellor_id) - isolates concurrent recordings
 - Chunks ordered by chunk_index (0, 1, 2, ...)
 - TTL-based cleanup prevents memory exhaustion
 - Thread-safe with locks for concurrent access

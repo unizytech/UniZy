@@ -19,7 +19,7 @@ Priority Level:
 - LOW: 1 indicator
 - NONE: 0 indicators
 
-Includes [POTENTIAL] markers for missed opportunities where patient may benefit
+Includes [POTENTIAL] markers for missed opportunities where student may benefit
 from allied health services even if not explicitly discussed.
 
 Author: Unizy Health
@@ -115,8 +115,8 @@ class AlliedHealthResult:
 async def calculate_and_save_allied_needs(
     extraction_id: uuid.UUID,
     consultation_insights: Dict[str, Any],
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
     consultation_insights_id: Optional[uuid.UUID] = None
 ) -> Optional[uuid.UUID]:
     """
@@ -126,10 +126,10 @@ async def calculate_and_save_allied_needs(
     Uses AI-extracted consultation insights (no keyword-based fallback).
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         consultation_insights: AI-extracted consultation insights (REQUIRED)
-        doctor_id: Optional doctor UUID
-        patient_id: Optional patient UUID
+        counsellor_id: Optional counsellor UUID
+        student_id: Optional student UUID
 
     Returns:
         UUID of saved assessment, or None on error
@@ -159,9 +159,9 @@ async def calculate_and_save_allied_needs(
         other_needs = get_other_clinical_needs_by_extraction(str(extraction_id))
         other_clinical_needs_id = other_needs.get("id") if other_needs else None
 
-        # Get patient age from insights
-        patient_signals = consultation_insights.get("patient_signals", {})
-        patient_age = patient_signals.get("estimated_age_years")
+        # Get student age from insights
+        student_signals = consultation_insights.get("student_signals", {})
+        patient_age = student_signals.get("estimated_age_years")
 
         # Use AI insights mapping function
         result_dict = map_insights_to_allied_health_needs(
@@ -198,8 +198,8 @@ async def calculate_and_save_allied_needs(
         # input_data here contains only minimal context for audit/debugging
         needs_data = {
             "extraction_id": str(extraction_id),
-            "patient_id": str(patient_id) if patient_id else None,
-            "doctor_id": str(doctor_id) if doctor_id else None,
+            "student_id": str(student_id) if student_id else None,
+            "counsellor_id": str(counsellor_id) if counsellor_id else None,
             "consultation_insights_id": str(consultation_insights_id) if consultation_insights_id else None,
             "priority_level": result.priority_level.value,
             "is_mental_health": result.is_mental_health,

@@ -63,7 +63,7 @@ async def get_pending_segment_requests(
     Returns segments with status='pending_approval' that need schema completion.
 
     **Returns:**
-    - segments: List of pending segment records with doctor and consultation type info
+    - segments: List of pending segment records with counsellor and consultation type info
     - count: Total number of pending requests
     """
     try:
@@ -109,7 +109,7 @@ async def approve_segment_request(
     6. Returns approved segment details
 
     **Template Junction Table Insertion:**
-    - When a doctor requests a segment from within a template, the segment.template_id is set
+    - When a counsellor requests a segment from within a template, the segment.template_id is set
     - Upon approval, the segment is automatically added to that template's segment list
     - The unique combination (template_id, segment_id) ensures no duplicates
     - Default configuration is inherited from the segment request
@@ -190,11 +190,11 @@ async def create_client(
 
     **Client Types:**
     - `ehr`: EHR integration (server-to-server) - uses API Key authentication
-      - REQUIRES hospital_id (one API key per hospital)
+      - REQUIRES school_id (one API key per school)
     - `mobile_app`: Mobile application - uses Service JWT authentication
-      - hospital_id=NULL means global access to all hospitals
+      - school_id=NULL means global access to all schools
     - `web_app`: External web application (white-label) - uses Service JWT authentication
-      - hospital_id=NULL means global access to all hospitals
+      - school_id=NULL means global access to all schools
 
     **IMPORTANT:** The API key or JWT token is only shown ONCE in the response.
     Store it securely - it cannot be retrieved later.
@@ -212,7 +212,7 @@ async def create_client(
 async def list_clients(
     client_type: Optional[str] = Query(None, description="Filter by client type"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    hospital_id: Optional[str] = Query(None, description="Filter by hospital ID"),
+    school_id: Optional[str] = Query(None, description="Filter by school ID"),
     client: ClientContext = Depends(require_admin),
 ) -> Dict[str, Any]:
     """
@@ -221,7 +221,7 @@ async def list_clients(
     **Query Parameters:**
     - client_type: Filter by 'ehr', 'mobile_app', or 'web_app'
     - is_active: Filter by active/inactive status
-    - hospital_id: Filter by hospital (NULL shows global clients)
+    - school_id: Filter by school (NULL shows global clients)
 
     **Returns:**
     - clients: List of API client records (without sensitive credentials)
@@ -229,7 +229,7 @@ async def list_clients(
     """
     try:
         query = supabase.table("api_clients").select(
-            "id, client_name, client_type, auth_mode, hospital_id, allowed_doctor_ids, "
+            "id, client_name, client_type, auth_mode, school_id, allowed_counsellor_ids, "
             "scopes, is_active, rate_limit_per_hour, token_expiry_minutes, contact_email, description, "
             "api_key_prefix, created_at, updated_at, last_used_at"
         )
@@ -238,8 +238,8 @@ async def list_clients(
             query = query.eq("client_type", client_type)
         if is_active is not None:
             query = query.eq("is_active", is_active)
-        if hospital_id:
-            query = query.eq("hospital_id", hospital_id)
+        if school_id:
+            query = query.eq("school_id", school_id)
 
         result = retry_on_network_error(
             lambda: query.order("created_at", desc=True).execute()
@@ -273,7 +273,7 @@ async def get_client(
         result = retry_on_network_error(
             lambda: supabase.table("api_clients")
             .select(
-                "id, client_name, client_type, auth_mode, hospital_id, allowed_doctor_ids, "
+                "id, client_name, client_type, auth_mode, school_id, allowed_counsellor_ids, "
                 "scopes, is_active, rate_limit_per_hour, token_expiry_minutes, contact_email, description, "
                 "api_key_prefix, created_at, updated_at, last_used_at"
             )
@@ -309,7 +309,7 @@ async def update_client(
 
     **Request Body:**
     - client_name: New name (optional)
-    - allowed_doctor_ids: New doctor restrictions (optional)
+    - allowed_counsellor_ids: New counsellor restrictions (optional)
     - scopes: New scopes (optional)
     - rate_limit_per_hour: New rate limit (optional)
     - is_active: Enable/disable client (optional)
@@ -323,9 +323,9 @@ async def update_client(
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Convert UUIDs to strings
-        if "allowed_doctor_ids" in update_data and update_data["allowed_doctor_ids"]:
-            update_data["allowed_doctor_ids"] = [
-                str(d) for d in update_data["allowed_doctor_ids"]
+        if "allowed_counsellor_ids" in update_data and update_data["allowed_counsellor_ids"]:
+            update_data["allowed_counsellor_ids"] = [
+                str(d) for d in update_data["allowed_counsellor_ids"]
             ]
 
         result = retry_on_network_error(
@@ -541,18 +541,18 @@ async def get_client_usage(
 # HIPAA Audit Log Viewer
 # =============================================================================
 
-@router.get("/audit/patient/{patient_id}")
-async def get_patient_audit_log(
-    patient_id: str,
+@router.get("/audit/student/{student_id}")
+async def get_student_audit_log(
+    student_id: str,
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     client: ClientContext = Depends(require_admin),
 ) -> Dict[str, Any]:
     """
-    Get audit log entries for a specific patient.
+    Get audit log entries for a specific student.
 
     **Path Parameters:**
-    - patient_id: Patient identifier
+    - student_id: Student identifier
 
     **Query Parameters:**
     - limit: Maximum records to return (default: 100, max: 1000)
@@ -562,15 +562,15 @@ async def get_patient_audit_log(
     - entries: List of audit log entries
     - count: Number of entries returned
     """
-    entries = await audit_service.get_patient_access_history(
-        patient_id=patient_id,
+    entries = await audit_service.get_student_access_history(
+        student_id=student_id,
         limit=limit,
         offset=offset,
     )
 
     return {
         "success": True,
-        "patient_id": patient_id,
+        "student_id": student_id,
         "entries": entries,
         "count": len(entries),
     }
@@ -615,7 +615,7 @@ async def get_client_audit_log(
 async def get_audit_report(
     start_date: str = Query(..., description="Start date (ISO format)"),
     end_date: str = Query(..., description="End date (ISO format)"),
-    patient_id: Optional[str] = Query(None),
+    student_id: Optional[str] = Query(None),
     client_id: Optional[str] = Query(None),
     action: Optional[str] = Query(None, description="Filter by action (read, create, update, delete)"),
     limit: int = Query(1000, ge=1, le=10000),
@@ -627,7 +627,7 @@ async def get_audit_report(
     **Query Parameters:**
     - start_date: Start of reporting period (ISO format)
     - end_date: End of reporting period (ISO format)
-    - patient_id: Filter by patient (optional)
+    - student_id: Filter by student (optional)
     - client_id: Filter by API client (optional)
     - action: Filter by action type (optional)
     - limit: Maximum records to return (default: 1000)
@@ -646,7 +646,7 @@ async def get_audit_report(
     entries = await audit_service.get_access_report(
         start_date=start,
         end_date=end,
-        patient_id=patient_id,
+        student_id=student_id,
         client_id=uuid.UUID(client_id) if client_id else None,
         action=action,
         limit=limit,
@@ -659,7 +659,7 @@ async def get_audit_report(
             "end": end_date,
         },
         "filters": {
-            "patient_id": patient_id,
+            "student_id": student_id,
             "client_id": client_id,
             "action": action,
         },

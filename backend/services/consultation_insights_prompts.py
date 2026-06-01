@@ -5,7 +5,7 @@ Prompts and schemas for extracting clinical signals needed for:
 - Clinical Severity Assessment
 - Other Clinical Needs
 - Allied Health Needs (all 9 indicators including mental health and education)
-- Patient Dropoff Risk (retention risk with 5 churn indicators)
+- Student Dropoff Risk (retention risk with 5 churn indicators)
 
 This module uses ICD-10 context validation - the LLM cross-references its own
 extracted ICD codes to validate clinical signals, reducing error propagation.
@@ -15,7 +15,7 @@ Features:
 - ICD code cross-validation for accuracy
 - Evidence-based extraction with reasoning trails
 - Full priority/severity calculation functions matching original services
-- Patient dropoff risk calculation (retention risk)
+- Student dropoff risk calculation (retention risk)
 - Integration with existing assessment services
 
 Author: Claude Code
@@ -114,7 +114,7 @@ Cross-validate your assessments against the ICD codes - if E11.65 (diabetes with
 1. **Be Evidence-Based**: Only mark indicators as TRUE if there is clear evidence in the transcript or extracted segments
 2. **Cross-Validate with ICD**: Your ICD codes should align with your clinical signals. If there's a mismatch, prefer the more clinically accurate interpretation from the transcript
 3. **Quote Evidence**: Include FULL quotes from the transcript as evidence (do NOT truncate with "..." - include the complete sentence/statement)
-4. **Age Estimation**: If patient age is mentioned, extract it. If inferable (e.g., "retired", "senior"), estimate. Otherwise mark as unknown
+4. **Age Estimation**: If student age is mentioned, extract it. If inferable (e.g., "retired", "senior"), estimate. Otherwise mark as unknown
 5. **Be Conservative**: When uncertain, lean towards FALSE for boolean indicators
 
 ## EXTRACTION GUIDELINES
@@ -290,7 +290,7 @@ Cross-validate your assessments against the ICD codes - if E11.65 (diabetes with
 ### Mental Health Signals
 
 **anxiety_level**
-- Assess from patient behavior and verbal cues: None, Mild, Moderate, Severe
+- Assess from student behavior and verbal cues: None, Mild, Moderate, Severe
 - Severe: Panic, unable to cope, overwhelming worry, physical symptoms (trembling, sweating)
 - Moderate: Visible worry, repeated questions about prognosis, difficulty focusing
 - Mild: Some concern but generally engaged, minor nervousness
@@ -320,40 +320,40 @@ Cross-validate your assessments against the ICD codes - if E11.65 (diabetes with
 - Keywords: "newly diagnosed", "new onset", "first time", "just diagnosed", "recent diagnosis", "diagnosed today", "confirmed today", "initial diagnosis"
 
 **understanding_barrier_present**
-- TRUE if patient shows difficulty understanding treatment
-- Look for: repeated questions, confusion about medications, "I don't understand", doctor repeating explanations, need for simplification
-- Also TRUE if patient asks many clarifying questions about how to take medications or what the disease means
+- TRUE if student shows difficulty understanding treatment
+- Look for: repeated questions, confusion about medications, "I don't understand", counsellor repeating explanations, need for simplification
+- Also TRUE if student asks many clarifying questions about how to take medications or what the disease means
 
 **education_discussed**
-- TRUE if patient education, training, or teaching mentioned
+- TRUE if student education, training, or teaching mentioned
 - Also look for these words: "let me explain", "you need to understand", "disease education", "self-management training"
 
 **education_potential**
 - TRUE if new/complex diagnosis present but no formal education discussion occurred
-- Infers potential benefit from patient education even if not explicitly discussed
+- Infers potential benefit from student education even if not explicitly discussed
 - Consider TRUE when: new chronic diagnosis (diabetes, HTN, etc.) or complex treatment regimen without education
 
 ### Competitor Signals (Retention Risk)
 
 **competitor_intent_detected**
-- TRUE if patient mentions considering other healthcare providers
-- Look for: mentions of other hospitals, clinics, or doctors by name
-- Look for: "second opinion elsewhere", "check with another doctor", "I heard XYZ is better"
-- Look for: comparison statements ("the other hospital said...", "at ABC they do it differently")
+- TRUE if student mentions considering other healthcare providers
+- Look for: mentions of other schools, clinics, or counsellors by name
+- Look for: "second opinion elsewhere", "check with another counsellor", "I heard XYZ is better"
+- Look for: comparison statements ("the other school said...", "at ABC they do it differently")
 - Be conservative: Only TRUE if clear intent to seek care elsewhere
 
 **competitor_names_mentioned**
-- List specific competitor names if mentioned (hospital names, clinic names, doctor names)
+- List specific competitor names if mentioned (school names, clinic names, counsellor names)
 - Empty array if no specific names
 
 **competitor_reason**
-- Why patient is considering alternatives: cost, quality, convenience, recommendation, dissatisfaction
+- Why student is considering alternatives: cost, quality, convenience, recommendation, dissatisfaction
 - null if no competitor intent
 
 ### Access/Logistics Signals (Retention Risk)
 
 **access_barriers_detected**
-- TRUE if patient mentions difficulty accessing care
+- TRUE if student mentions difficulty accessing care
 - Look for: distance/travel concerns ("too far", "difficult to come", "long journey")
 - Look for: transportation issues ("no vehicle", "can't drive", "need someone to bring me")
 - Look for: waiting time complaints ("waited hours", "long queue", "appointment delays")
@@ -365,8 +365,8 @@ Cross-validate your assessments against the ICD codes - if E11.65 (diabetes with
 - Empty array if no barriers
 
 **access_severity**
-- None, Mild, Moderate, Severe based on impact on patient's ability to return
-- Severe: Patient explicitly states they may not be able to come back
+- None, Mild, Moderate, Severe based on impact on student's ability to return
+- Severe: Student explicitly states they may not be able to come back
 - Moderate: Significant inconvenience expressed
 - Mild: Minor complaint without impact on return likelihood
 
@@ -386,10 +386,10 @@ Return a valid JSON object matching the schema exactly. All fields are required.
 CONSULTATION_INSIGHTS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # 1. Patient Signals
-        "patient_signals": types.Schema(
+        # 1. Student Signals
+        "student_signals": types.Schema(
             type=types.Type.OBJECT,
-            description="Patient demographic signals",
+            description="Student demographic signals",
             properties={
                 "estimated_age_years": types.Schema(
                     type=types.Type.INTEGER,
@@ -877,7 +877,7 @@ CONSULTATION_INSIGHTS_SCHEMA = types.Schema(
                 ),
                 "understanding_barrier_present": types.Schema(
                     type=types.Type.BOOLEAN,
-                    description="Patient shows difficulty understanding treatment"
+                    description="Student shows difficulty understanding treatment"
                 ),
                 "understanding_barrier_evidence": types.Schema(
                     type=types.Type.ARRAY,
@@ -886,7 +886,7 @@ CONSULTATION_INSIGHTS_SCHEMA = types.Schema(
                 ),
                 "education_discussed": types.Schema(
                     type=types.Type.BOOLEAN,
-                    description="Patient education or training mentioned"
+                    description="Student education or training mentioned"
                 ),
                 "education_potential": types.Schema(
                     type=types.Type.BOOLEAN,
@@ -912,12 +912,12 @@ CONSULTATION_INSIGHTS_SCHEMA = types.Schema(
             properties={
                 "competitor_intent_detected": types.Schema(
                     type=types.Type.BOOLEAN,
-                    description="Patient considering other healthcare providers"
+                    description="Student considering other healthcare providers"
                 ),
                 "competitor_names_mentioned": types.Schema(
                     type=types.Type.ARRAY,
                     items=types.Schema(type=types.Type.STRING),
-                    description="Other hospitals/clinics/doctors mentioned"
+                    description="Other schools/clinics/counsellors mentioned"
                 ),
                 "competitor_reason": types.Schema(
                     type=types.Type.STRING,
@@ -940,7 +940,7 @@ CONSULTATION_INSIGHTS_SCHEMA = types.Schema(
             properties={
                 "access_barriers_detected": types.Schema(
                     type=types.Type.BOOLEAN,
-                    description="Patient mentions difficulty accessing care"
+                    description="Student mentions difficulty accessing care"
                 ),
                 "access_barrier_types": types.Schema(
                     type=types.Type.ARRAY,
@@ -961,7 +961,7 @@ CONSULTATION_INSIGHTS_SCHEMA = types.Schema(
         ),
     },
     required=[
-        "patient_signals",
+        "student_signals",
         "clinical_severity_signals",
         "diagnostic_needs",
         "medication_signals",
@@ -1091,7 +1091,7 @@ Extract clinical signals for:
 def get_consultation_insights_signal_groups() -> list[str]:
     """Get list of all signal group names in the schema (v1.3.0 - includes all 14 groups)."""
     return [
-        "patient_signals",
+        "student_signals",
         "clinical_severity_signals",
         "diagnostic_needs",
         "medication_signals",
@@ -1216,7 +1216,7 @@ def map_insights_to_clinical_severity(
     Args:
         insights: Extracted consultation insights
         icd_codes: List of ICD-10 codes from DIAGNOSIS segment
-        specialty: Doctor specialty (for specialty scoring)
+        specialty: Counsellor specialty (for specialty scoring)
 
     Returns:
         Dict with severity_level, component scores, and input fields
@@ -1416,7 +1416,7 @@ def map_insights_to_other_clinical_needs(insights: Dict[str, Any]) -> Dict[str, 
     if true_count >= 3:
         priority_level = PriorityLevel.HIGH
     elif is_recurring_diagnostics and is_rx_refill:
-        # Special case: recurring + refill = HIGH (chronic patient needing ongoing care)
+        # Special case: recurring + refill = HIGH (chronic student needing ongoing care)
         priority_level = PriorityLevel.HIGH
     elif true_count == 2:
         priority_level = PriorityLevel.MEDIUM
@@ -1471,8 +1471,8 @@ def map_insights_to_allied_health_needs(
 
     Args:
         insights: Extracted consultation insights
-        is_chronic: Whether patient has chronic condition (from clinical severity)
-        patient_age: Patient age in years
+        is_chronic: Whether student has chronic condition (from clinical severity)
+        patient_age: Student age in years
 
     Returns:
         Dict with all 9 indicators, priority_level, and reasons
@@ -1485,7 +1485,7 @@ def map_insights_to_allied_health_needs(
     wellness = insights.get("wellness_signals", {})
     mental = insights.get("mental_health_signals", {})
     education = insights.get("education_signals", {})
-    patient = insights.get("patient_signals", {})
+    patient = insights.get("student_signals", {})
 
     # Use provided age or extracted age (cast to int - Gemini may return string or "unknown")
     _raw_age = patient_age or patient.get("estimated_age_years")
@@ -1701,12 +1701,12 @@ def map_insights_to_allied_health_needs(
 
     if is_homecare:
         if is_homecare_explicit:
-            reasons["homecare_reasons"].append(f"Patient age: {age} years (>70)")
+            reasons["homecare_reasons"].append(f"Student age: {age} years (>70)")
             reasons["homecare_reasons"].append("Chronic condition present")
             mobility_types = homecare.get("mobility_issue_type", [])
             reasons["homecare_reasons"].append(f"Mobility issues: {', '.join(mobility_types)}")
         elif is_homecare_potential:
-            reasons["homecare_reasons"].append("[POTENTIAL] Elderly/chronic patient - may benefit from home care services")
+            reasons["homecare_reasons"].append("[POTENTIAL] Elderly/chronic student - may benefit from home care services")
 
     if is_sleep_therapy:
         if is_sleep_therapy_explicit:
@@ -1743,7 +1743,7 @@ def map_insights_to_allied_health_needs(
             reasons["treatment_education_reasons"].append(f"New diagnosis: {', '.join(keywords[:2])}")
             reasons["treatment_education_reasons"].append("Understanding barrier identified")
         elif is_treatment_education_potential:
-            reasons["treatment_education_reasons"].append("[POTENTIAL] New/complex diagnosis - may benefit from patient education")
+            reasons["treatment_education_reasons"].append("[POTENTIAL] New/complex diagnosis - may benefit from student education")
 
     if is_wellness:
         if is_wellness_explicit:
@@ -1789,8 +1789,8 @@ def check_missed_allied_health_opportunities(
 
     Args:
         insights: Extracted consultation insights
-        is_chronic: Whether patient has chronic condition
-        patient_age: Patient age in years
+        is_chronic: Whether student has chronic condition
+        patient_age: Student age in years
         threshold: Minimum number of missed opportunities to flag (default: 2)
 
     Returns:
@@ -1808,7 +1808,7 @@ def check_missed_allied_health_opportunities(
     wellness = insights.get("wellness_signals", {})
     mental = insights.get("mental_health_signals", {})
     education = insights.get("education_signals", {})
-    patient = insights.get("patient_signals", {})
+    patient = insights.get("student_signals", {})
 
     _raw_age = patient_age or patient.get("estimated_age_years")
     try:
@@ -1879,7 +1879,7 @@ def check_missed_allied_health_opportunities(
     is_homecare_potential = homecare.get("homecare_potential", False)
     if is_homecare_potential and not is_homecare_explicit:
         missed_indicators.append("homecare")
-        missed_details["homecare"] = "Elderly/chronic patient may benefit from home care services"
+        missed_details["homecare"] = "Elderly/chronic student may benefit from home care services"
 
     # 5. Sleep Therapy (with diagnosis guardrail - same as map_insights_to_allied_health_needs)
     is_sleep_therapy_explicit = (
@@ -1933,7 +1933,7 @@ def check_missed_allied_health_opportunities(
     is_treatment_education_potential = education.get("education_potential", False)
     if is_treatment_education_potential and not is_treatment_education_explicit:
         missed_indicators.append("treatment_education")
-        missed_details["treatment_education"] = "New/complex diagnosis but formal patient education not discussed"
+        missed_details["treatment_education"] = "New/complex diagnosis but formal student education not discussed"
 
     # 9. Wellness
     is_wellness_explicit = (
@@ -1962,7 +1962,7 @@ def check_missed_allied_health_opportunities(
 # ============================================================================
 
 class DropoffRiskLevel(Enum):
-    """Patient dropoff risk levels."""
+    """Student dropoff risk levels."""
     LOW = "LOW"           # 5-29%
     MEDIUM = "MEDIUM"     # 30-49%
     HIGH = "HIGH"         # 50-69%
@@ -2002,7 +2002,7 @@ def map_insights_to_dropoff_risk(
     follow_up_segment: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Map consultation insights + emotional segments to patient dropoff risk.
+    Map consultation insights + emotional segments to student dropoff risk.
 
     Calculates 5 churn indicators:
     - C1: Financial Risk (25%) - Financial concerns, price sensitivity
@@ -2036,7 +2036,7 @@ def map_insights_to_dropoff_risk(
     financial_seg = emotional_segments.get("FINANCIAL_CONCERNS", {})
     other_emotions_seg = emotional_segments.get("OTHER_EMOTIONS_DETECTED", {})
     compliance_seg = emotional_segments.get("TREATMENT_COMPLIANCE_LIKELIHOOD", {})
-    doctor_comm_seg = emotional_segments.get("DOCTOR_COMMUNICATION_STYLE", {})
+    counsellor_comm_seg = emotional_segments.get("DOCTOR_COMMUNICATION_STYLE", {})
     congruence_seg = emotional_segments.get("CONGRUENCE_SUMMARY", {})
 
     # Extract consultation insights signals
@@ -2053,11 +2053,11 @@ def map_insights_to_dropoff_risk(
     financial_severity = financial_seg.get("severity", "None")
     if financial_severity in ["Severe", "High"]:
         c1_is_true = True
-        c1_reasons.append(f"Patient has {financial_severity.lower()} financial concerns")
+        c1_reasons.append(f"Student has {financial_severity.lower()} financial concerns")
 
     if financial_seg.get("alternative_treatment_requested", False):
         c1_is_true = True
-        c1_reasons.append("Patient requested alternative treatment due to cost")
+        c1_reasons.append("Student requested alternative treatment due to cost")
 
     # Check for Financial barrier in compliance
     key_barriers = compliance_seg.get("key_barriers", [])
@@ -2066,14 +2066,14 @@ def map_insights_to_dropoff_risk(
             barrier_severity = barrier.get("severity", "Minor")
             if barrier_severity in ["Major", "Moderate"]:
                 c1_is_true = True
-                c1_reasons.append(f"Patient has {barrier_severity.lower()} financial barrier to treatment")
+                c1_reasons.append(f"Student has {barrier_severity.lower()} financial barrier to treatment")
 
     specific_concerns = financial_seg.get("specific_concerns", [])
     cost_concerns = ["Treatment cost", "Medication cost", "Test/procedure cost"]
     matched_concerns = [c for c in specific_concerns if c in cost_concerns]
     if matched_concerns:
         c1_is_true = True
-        c1_reasons.append(f"Patient expressed concerns about: {', '.join(matched_concerns).lower()}")
+        c1_reasons.append(f"Student expressed concerns about: {', '.join(matched_concerns).lower()}")
 
     # =========================================================================
     # C2: Competitor Risk (10%)
@@ -2090,16 +2090,16 @@ def map_insights_to_dropoff_risk(
 
         # Build human-readable reason (no technical codes)
         if names:
-            c2_reasons.append(f"Patient mentioned other providers: {', '.join(names[:3])}")
+            c2_reasons.append(f"Student mentioned other providers: {', '.join(names[:3])}")
         if reason:
             c2_reasons.append(reason)
         if evidence:
-            # Include patient quote if available
+            # Include student quote if available
             for quote in evidence[:1]:
                 if quote and len(quote) > 10:
-                    c2_reasons.append(f'Patient states: "{quote}"')
+                    c2_reasons.append(f'Student states: "{quote}"')
         if not c2_reasons:
-            c2_reasons.append("Patient considering alternative healthcare providers")
+            c2_reasons.append("Student considering alternative healthcare providers")
 
     # =========================================================================
     # C3: Dissatisfaction & Rapport Risk (25%)
@@ -2115,17 +2115,17 @@ def map_insights_to_dropoff_risk(
 
     if anxiety_trajectory == "Worsened":
         c3_is_true = True
-        c3_reasons.append(f"Patient anxiety worsened during consultation (from {anxiety_pre_level} to {anxiety_post_level})")
+        c3_reasons.append(f"Student anxiety worsened during consultation (from {anxiety_pre_level} to {anxiety_post_level})")
 
     # Anxiety stable AND post_level >= Moderate
     if anxiety_trajectory == "Stable" and anxiety_post_level in ["Moderate", "Severe"]:
         c3_is_true = True
-        c3_reasons.append(f"Patient shows persistent {anxiety_post_level.lower()} anxiety level")
+        c3_reasons.append(f"Student shows persistent {anxiety_post_level.lower()} anxiety level")
 
-    # Doctor increased anxiety
-    if doctor_comm_seg.get("patient_anxiety_impact") == "Increased":
+    # Counsellor increased anxiety
+    if counsellor_comm_seg.get("patient_anxiety_impact") == "Increased":
         c3_is_true = True
-        c3_reasons.append("Doctor communication may have increased patient anxiety")
+        c3_reasons.append("Counsellor communication may have increased student anxiety")
 
     # Check for negative emotions in OTHER_EMOTIONS_DETECTED
     emotions_detected = other_emotions_seg.get("emotions_detected", [])
@@ -2137,11 +2137,11 @@ def map_insights_to_dropoff_risk(
 
             if emotion_name in ["Anger", "Frustration"] and severity in ["Moderate", "Severe"]:
                 c3_is_true = True
-                c3_reasons.append(f"Patient showed {severity.lower()} {emotion_name.lower()}")
+                c3_reasons.append(f"Student showed {severity.lower()} {emotion_name.lower()}")
 
             if emotion_name == "Distress" and clinical_sig == "High":
                 c3_is_true = True
-                c3_reasons.append("Patient showed significant distress during consultation")
+                c3_reasons.append("Student showed significant distress during consultation")
 
     # Low congruence score
     _raw_cong = congruence_seg.get("congruence_score")
@@ -2173,7 +2173,7 @@ def map_insights_to_dropoff_risk(
         # Only trigger access risk if there are TRUE logistics barriers
         if logistics_barriers:
             c4_is_true = True
-            c4_reasons.append(f"Patient faces logistics barriers: {', '.join(logistics_barriers)}")
+            c4_reasons.append(f"Student faces logistics barriers: {', '.join(logistics_barriers)}")
 
             access_severity = access_signals.get("access_severity", "None")
             if access_severity in ["Moderate", "Severe"]:
@@ -2189,7 +2189,7 @@ def map_insights_to_dropoff_risk(
         if isinstance(barrier, dict) and barrier.get("barrier_type") == "Logistical":
             c4_is_true = True
             barrier_severity = barrier.get("severity", "Minor")
-            c4_reasons.append(f"Patient has {barrier_severity.lower()} logistical barrier to treatment compliance")
+            c4_reasons.append(f"Student has {barrier_severity.lower()} logistical barrier to treatment compliance")
 
     # =========================================================================
     # C5: Compliance Risk (30%)
@@ -2200,7 +2200,7 @@ def map_insights_to_dropoff_risk(
     compliance_likelihood = compliance_seg.get("likelihood", "Moderate")
     if compliance_likelihood in ["Very Low", "Low"]:
         c5_is_true = True
-        c5_reasons.append(f"Patient has {compliance_likelihood.lower()} likelihood of following treatment plan")
+        c5_reasons.append(f"Student has {compliance_likelihood.lower()} likelihood of following treatment plan")
 
     # Vague follow-up timeline
     # IMPORTANT: A timeline like "After 5 days, if symptoms persist" is NOT vague

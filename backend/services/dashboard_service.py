@@ -1,16 +1,16 @@
 """
 Dashboard Service
 
-Provides aggregation logic for the hospital management dashboard:
+Provides aggregation logic for the school management dashboard:
 - Intervention summary by period (today/week/MTD/YTD)
 - Category breakdown with aggregate risk scores
-- Patient list with intervention details
+- Student list with intervention details
 - Outcome tracking and ROI metrics
 - Time-to-action analytics
 
 6 Dashboard Categories (remapped from 7 DB categories):
-- TREATMENT_COMPLIANCE: Treatment adherence (score-only from patient_dropoff_risk) - score-based
-- DROP_OFF_RISK: Patient retention risk (from RETENTION_RISK) - score-based
+- TREATMENT_COMPLIANCE: Treatment adherence (score-only from student_dropoff_risk) - score-based
+- DROP_OFF_RISK: Student retention risk (from RETENTION_RISK) - score-based
 - FOLLOWUP_DUE: Actionable follow-up needs (from FOLLOWUP_DUE) - intervention-based
 - HEALTH_SERVICES: Health service needs (from RX_REFILL + DIAGNOSTICS_DUE + ALLIED_HEALTH) - intervention-based
 - SURGERY_CANDIDATE: Surgical conversion (from OP_TO_IP) - intervention-based
@@ -49,7 +49,7 @@ REVENUE_CATEGORIES = ["HEALTH_SERVICES", "SURGERY_CANDIDATE"]
 
 # Mapping from dashboard categories to underlying DB intervention_category values
 DASHBOARD_TO_DB_CATEGORIES = {
-    "TREATMENT_COMPLIANCE": [],  # Score-only: derived from patient_dropoff_risk, no DB interventions
+    "TREATMENT_COMPLIANCE": [],  # Score-only: derived from student_dropoff_risk, no DB interventions
     "DROP_OFF_RISK": ["RETENTION_RISK"],
     "FOLLOWUP_DUE": ["FOLLOWUP_DUE"],
     "HEALTH_SERVICES": ["RX_REFILL", "DIAGNOSTICS_DUE", "ALLIED_HEALTH"],
@@ -82,7 +82,7 @@ RISK_BANDS = {
 @dataclass
 class PeriodStats:
     """Statistics for a time period."""
-    total_patients: int = 0
+    total_students: int = 0
     patients_with_interventions: int = 0
     percentage: float = 0.0
     revenue_potential: float = 0.0
@@ -95,7 +95,7 @@ class CategoryStats:
     label: str
     icon: str
     color: str
-    patient_count: int = 0
+    student_count: int = 0
     intervention_count: int = 0
     revenue_potential: float = 0.0
     aggregate_risk_score: float = 0.0
@@ -108,18 +108,18 @@ class CategoryStats:
 
 @dataclass
 class BreakdownStats:
-    """Statistics for a breakdown row (doctor or department)."""
-    id: str  # doctor_id or specialization name
-    name: str  # doctor name or specialization
-    specialization: Optional[str] = None  # Only for doctor breakdown
-    by_category: Dict[str, int] = field(default_factory=dict)  # category -> patient_count
+    """Statistics for a breakdown row (counsellor or department)."""
+    id: str  # counsellor_id or specialization name
+    name: str  # counsellor name or specialization
+    specialization: Optional[str] = None  # Only for counsellor breakdown
+    by_category: Dict[str, int] = field(default_factory=dict)  # category -> student_count
     total_at_risk: int = 0
 
 
 @dataclass
-class PatientMetricRow:
-    """Per-patient clinical metric row."""
-    patient_id: str
+class StudentMetricRow:
+    """Per-student clinical metric row."""
+    student_id: str
     patient_name: str
     mrn: Optional[str] = None
     compliance_likelihood: Optional[str] = None
@@ -134,7 +134,7 @@ class PatientMetricRow:
 @dataclass
 class DashboardSummary:
     """Main dashboard summary."""
-    total_patients: int = 0
+    total_students: int = 0
     patients_with_interventions: int = 0
     percentage: float = 0.0
     revenue_potential: float = 0.0
@@ -143,7 +143,7 @@ class DashboardSummary:
     high_risk_categories: List[str] = field(default_factory=list)
     by_department: List[BreakdownStats] = field(default_factory=list)
     by_doctor: List[BreakdownStats] = field(default_factory=list)
-    by_patient: List[PatientMetricRow] = field(default_factory=list)
+    by_patient: List[StudentMetricRow] = field(default_factory=list)
 
 
 # =============================================================================
@@ -236,9 +236,9 @@ def calculate_aggregate_risk_score(interventions: List[Dict[str, Any]]) -> float
 # =============================================================================
 
 def get_intervention_summary(
-    hospital_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
     department_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     period: str = "mtd",
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
@@ -250,9 +250,9 @@ def get_intervention_summary(
     OPTIMIZED: Uses single SQL RPC function for all aggregation.
 
     Args:
-        hospital_id: Filter by hospital
+        school_id: Filter by school
         department_id: Filter by department
-        doctor_id: Filter by doctor
+        counsellor_id: Filter by counsellor
         period: "today", "week", "mtd", "ytd", or "custom"
         start_date: Start date for custom period
         end_date: End date for custom period
@@ -286,8 +286,8 @@ def get_intervention_summary(
 
         # Call the optimized RPC v2 function for main period
         rpc_result = supabase.rpc("get_dashboard_summary_v2", {
-            "p_hospital_id": str(hospital_id) if hospital_id else None,
-            "p_doctor_id": str(doctor_id) if doctor_id else None,
+            "p_school_id": str(school_id) if school_id else None,
+            "p_counsellor_id": str(counsellor_id) if counsellor_id else None,
             "p_start_date": main_start.isoformat(),
             "p_end_date": main_end.isoformat(),
             "p_min_priority_score": min_priority_score,
@@ -300,14 +300,14 @@ def get_intervention_summary(
         rpc_data = rpc_result.data
 
         # Map RPC result to summary
-        summary.total_patients = rpc_data.get("total_patients", 0)
+        summary.total_students = rpc_data.get("total_students", 0)
         summary.patients_with_interventions = rpc_data.get("patients_with_interventions", 0)
         summary.revenue_potential = float(rpc_data.get("revenue_potential", 0))
 
         # Calculate percentage
-        if summary.total_patients > 0:
+        if summary.total_students > 0:
             summary.percentage = round(
-                summary.patients_with_interventions / summary.total_patients * 100, 1
+                summary.patients_with_interventions / summary.total_students * 100, 1
             )
 
         # Map category breakdown
@@ -321,7 +321,7 @@ def get_intervention_summary(
                 label=config.get("label", cat_name),
                 icon=config.get("icon", "📌"),
                 color=config.get("color", "gray"),
-                patient_count=cat_data.get("patient_count", 0),
+                student_count=cat_data.get("student_count", 0),
                 intervention_count=cat_data.get("intervention_count", 0),
                 revenue_potential=float(cat_data.get("revenue_potential", 0)),
                 aggregate_risk_score=float(cat_data.get("aggregate_risk_score", 50)),
@@ -350,9 +350,9 @@ def get_intervention_summary(
                     card_type=config.get("card_type", "intervention"),
                 ))
 
-        # Sort categories by patient_count descending, but keep original order for ties
+        # Sort categories by student_count descending, but keep original order for ties
         summary.by_category.sort(
-            key=lambda x: (-x.patient_count, DASHBOARD_CATEGORIES.index(x.category) if x.category in DASHBOARD_CATEGORIES else 999)
+            key=lambda x: (-x.student_count, DASHBOARD_CATEGORIES.index(x.category) if x.category in DASHBOARD_CATEGORIES else 999)
         )
 
         # Map department breakdown
@@ -365,9 +365,9 @@ def get_intervention_summary(
                 total_at_risk=dept_data.get("total_at_risk", 0),
             ))
 
-        # Map doctor breakdown
-        by_doctor_raw = rpc_data.get("by_doctor", []) or []
-        for doc_data in by_doctor_raw:
+        # Map counsellor breakdown
+        by_counsellor_raw = rpc_data.get("by_doctor", []) or []
+        for doc_data in by_counsellor_raw:
             summary.by_doctor.append(BreakdownStats(
                 id=doc_data.get("id", ""),
                 name=doc_data.get("name", ""),
@@ -377,10 +377,10 @@ def get_intervention_summary(
             ))
 
         # Map by_patient breakdown
-        by_patient_raw = rpc_data.get("by_patient", []) or []
-        for pat_data in by_patient_raw:
-            summary.by_patient.append(PatientMetricRow(
-                patient_id=str(pat_data.get("patient_id", "")),
+        by_student_raw = rpc_data.get("by_patient", []) or []
+        for pat_data in by_student_raw:
+            summary.by_patient.append(StudentMetricRow(
+                student_id=str(pat_data.get("student_id", "")),
                 patient_name=pat_data.get("patient_name", "Unknown"),
                 mrn=pat_data.get("mrn"),
                 compliance_likelihood=pat_data.get("compliance_likelihood"),
@@ -398,7 +398,7 @@ def get_intervention_summary(
             if period_name == period:
                 # Use main result for the requested period
                 summary.by_period[period_name] = PeriodStats(
-                    total_patients=summary.total_patients,
+                    total_students=summary.total_students,
                     patients_with_interventions=summary.patients_with_interventions,
                     percentage=summary.percentage,
                     revenue_potential=summary.revenue_potential,
@@ -406,8 +406,8 @@ def get_intervention_summary(
             else:
                 # Quick RPC call for other periods (just totals, not full breakdown)
                 period_result = supabase.rpc("get_dashboard_summary_v2", {
-                    "p_hospital_id": str(hospital_id) if hospital_id else None,
-                    "p_doctor_id": str(doctor_id) if doctor_id else None,
+                    "p_school_id": str(school_id) if school_id else None,
+                    "p_counsellor_id": str(counsellor_id) if counsellor_id else None,
                     "p_start_date": p_start.isoformat(),
                     "p_end_date": p_end.isoformat(),
                     "p_min_priority_score": min_priority_score,
@@ -415,10 +415,10 @@ def get_intervention_summary(
 
                 if period_result.data:
                     p_data = period_result.data
-                    total = p_data.get("total_patients", 0)
+                    total = p_data.get("total_students", 0)
                     with_int = p_data.get("patients_with_interventions", 0)
                     summary.by_period[period_name] = PeriodStats(
-                        total_patients=total,
+                        total_students=total,
                         patients_with_interventions=with_int,
                         percentage=round(with_int / total * 100, 1) if total > 0 else 0,
                         revenue_potential=float(p_data.get("revenue_potential", 0)),
@@ -426,8 +426,8 @@ def get_intervention_summary(
                 else:
                     summary.by_period[period_name] = PeriodStats()
 
-        logger.info(f"[DASHBOARD] Summary (RPC): {summary.patients_with_interventions} patients with interventions, "
-                   f"{len(summary.by_doctor)} doctors, {len(summary.by_department)} departments")
+        logger.info(f"[DASHBOARD] Summary (RPC): {summary.patients_with_interventions} students with interventions, "
+                   f"{len(summary.by_doctor)} counsellors, {len(summary.by_department)} departments")
         return summary
 
     except Exception as e:
@@ -435,11 +435,11 @@ def get_intervention_summary(
         return summary
 
 
-def get_patients_by_category(
+def get_students_by_category(
     category: Optional[str] = None,
-    hospital_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
     department_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     priority_threshold: str = "MEDIUM",
     page: int = 1,
     page_size: int = 20,
@@ -447,13 +447,13 @@ def get_patients_by_category(
     period: str = "ytd",
 ) -> Dict[str, Any]:
     """
-    Get patient list, optionally filtered by category.
+    Get student list, optionally filtered by category.
 
     Args:
         category: Dashboard category to filter by (None = all categories)
-        hospital_id: Filter by hospital
+        school_id: Filter by school
         department_id: Filter by department
-        doctor_id: Filter by doctor
+        counsellor_id: Filter by counsellor
         priority_threshold: Minimum priority
         page: Page number (1-indexed)
         page_size: Items per page
@@ -461,7 +461,7 @@ def get_patients_by_category(
         period: Time period filter: "today", "week", "mtd", "ytd"
 
     Returns:
-        Dict with patients list, total_count, pagination info
+        Dict with students list, total_count, pagination info
     """
     try:
         offset = (page - 1) * page_size
@@ -478,30 +478,30 @@ def get_patients_by_category(
         }
         min_priority_score = priority_scores.get(priority_threshold.upper(), 50)
 
-        # If hospital_id filter, first get doctor_ids for that hospital
-        # (medical_extractions doesn't have hospital_id - must filter via doctors table)
-        hospital_doctor_ids = None
-        if hospital_id:
-            doctors_result = supabase.table("doctors").select("id").eq("hospital_id", str(hospital_id)).execute()
-            hospital_doctor_ids = [d["id"] for d in (doctors_result.data or [])]
-            if not hospital_doctor_ids:
-                logger.info(f"[DASHBOARD] No doctors found for hospital {hospital_id}")
+        # If school_id filter, first get counsellor_ids for that school
+        # (extractions doesn't have school_id - must filter via counsellors table)
+        school_counsellor_ids = None
+        if school_id:
+            counsellors_result = supabase.table("counsellors").select("id").eq("school_id", str(school_id)).execute()
+            school_counsellor_ids = [d["id"] for d in (counsellors_result.data or [])]
+            if not school_counsellor_ids:
+                logger.info(f"[DASHBOARD] No counsellors found for school {school_id}")
                 return {
-                    "patients": [],
+                    "students": [],
                     "total_count": 0,
                     "page": page,
                     "page_size": page_size,
                     "has_more": False,
                 }
 
-        # Build query - removed hospital_id from medical_extractions select
-        # Note: patients table uses patient_id (not mrn) as the identifier
-        query = supabase.table("patient_interventions").select(
+        # Build query - removed school_id from extractions select
+        # Note: students table uses student_id (not mrn) as the identifier
+        query = supabase.table("student_interventions").select(
             "id, extraction_id, intervention_code, intervention_category, "
             "priority_level, priority_score, take_up_likelihood, revenue_estimate, "
             "trigger_reason, action, created_at, "
-            "medical_extractions!inner(patient_id, doctor_id, created_at, "
-            "doctors(full_name), patients(full_name, patient_id))"
+            "extractions!inner(student_id, counsellor_id, created_at, "
+            "counsellors(full_name), students(full_name, student_id))"
         )
 
         # Map dashboard category to DB categories if needed
@@ -513,12 +513,12 @@ def get_patients_by_category(
                 # Legacy DB category passed directly
                 db_categories = [category]
 
-        # TREATMENT_COMPLIANCE has no DB interventions - query patient_dropoff_risk instead
+        # TREATMENT_COMPLIANCE has no DB interventions - query student_dropoff_risk instead
         if category == "TREATMENT_COMPLIANCE":
-            return _get_treatment_compliance_patients(
-                hospital_id=hospital_id,
-                doctor_id=doctor_id,
-                hospital_doctor_ids=hospital_doctor_ids,
+            return _get_treatment_compliance_students(
+                school_id=school_id,
+                counsellor_id=counsellor_id,
+                school_counsellor_ids=school_counsellor_ids,
                 period=period,
                 page=page,
                 page_size=page_size,
@@ -539,11 +539,11 @@ def get_patients_by_category(
         query = query.gte("created_at", start_date.isoformat())
         query = query.lte("created_at", (end_date + timedelta(days=1)).isoformat())
 
-        # Filter by doctor_id(s) instead of hospital_id
-        if doctor_id:
-            query = query.eq("medical_extractions.doctor_id", str(doctor_id))
-        elif hospital_doctor_ids:
-            query = query.in_("medical_extractions.doctor_id", hospital_doctor_ids)
+        # Filter by counsellor_id(s) instead of school_id
+        if counsellor_id:
+            query = query.eq("extractions.counsellor_id", str(counsellor_id))
+        elif school_counsellor_ids:
+            query = query.in_("extractions.counsellor_id", school_counsellor_ids)
 
         # Apply sorting
         if sort_by == "revenue_potential":
@@ -553,9 +553,9 @@ def get_patients_by_category(
         else:
             query = query.order("priority_score", desc=True)
 
-        # Get total count - need to join medical_extractions for doctor filter
-        count_query = supabase.table("patient_interventions").select(
-            "id, medical_extractions!inner(doctor_id)", count="exact"
+        # Get total count - need to join extractions for counsellor filter
+        count_query = supabase.table("student_interventions").select(
+            "id, extractions!inner(counsellor_id)", count="exact"
         )
         if db_categories:
             if len(db_categories) == 1:
@@ -567,10 +567,10 @@ def get_patients_by_category(
         count_query = count_query.gte("priority_score", min_priority_score)
         count_query = count_query.gte("created_at", start_date.isoformat())
         count_query = count_query.lte("created_at", (end_date + timedelta(days=1)).isoformat())
-        if doctor_id:
-            count_query = count_query.eq("medical_extractions.doctor_id", str(doctor_id))
-        elif hospital_doctor_ids:
-            count_query = count_query.in_("medical_extractions.doctor_id", hospital_doctor_ids)
+        if counsellor_id:
+            count_query = count_query.eq("extractions.counsellor_id", str(counsellor_id))
+        elif school_counsellor_ids:
+            count_query = count_query.in_("extractions.counsellor_id", school_counsellor_ids)
         count_result = count_query.execute()
         total_count = count_result.count or 0
 
@@ -579,24 +579,24 @@ def get_patients_by_category(
         result = query.execute()
         interventions = result.data or []
 
-        # Group by patient
-        patients_map: Dict[str, Dict[str, Any]] = {}
+        # Group by student
+        students_map: Dict[str, Dict[str, Any]] = {}
         for i in interventions:
-            ext = i.get("medical_extractions", {})
-            patient_id = ext.get("patient_id")
+            ext = i.get("extractions", {})
+            student_id = ext.get("student_id")
 
-            if not patient_id:
+            if not student_id:
                 continue
 
-            if patient_id not in patients_map:
-                patient_info = ext.get("patients", {}) or {}
-                doctor_info = ext.get("doctors", {}) or {}
+            if student_id not in students_map:
+                patient_info = ext.get("students", {}) or {}
+                counsellor_info = ext.get("counsellors", {}) or {}
 
-                patients_map[patient_id] = {
-                    "patient_id": patient_id,
+                students_map[student_id] = {
+                    "student_id": student_id,
                     "patient_name": patient_info.get("full_name", "Unknown"),
-                    "mrn": patient_info.get("patient_id"),  # patients table uses patient_id as MRN
-                    "doctor_name": doctor_info.get("full_name"),
+                    "mrn": patient_info.get("student_id"),  # students table uses student_id as MRN
+                    "counsellor_name": counsellor_info.get("full_name"),
                     "last_consultation": ext.get("created_at"),
                     "interventions": [],
                     "total_revenue_potential": 0,
@@ -617,7 +617,7 @@ def get_patients_by_category(
                 except (ValueError, TypeError):
                     days_since = 0
 
-            patients_map[patient_id]["interventions"].append({
+            students_map[student_id]["interventions"].append({
                 "id": str(intervention_id),
                 "code": i.get("intervention_code"),
                 "category": i.get("intervention_category"),  # The 7 dashboard categories
@@ -630,12 +630,12 @@ def get_patients_by_category(
                 "status": i.get("status", "PENDING"),  # Intervention status
                 "days_since_generated": days_since,
             })
-            patients_map[patient_id]["total_revenue_potential"] += float(i.get("revenue_estimate") or 0)
+            students_map[student_id]["total_revenue_potential"] += float(i.get("revenue_estimate") or 0)
 
-        patients = list(patients_map.values())
+        patients = list(students_map.values())
 
         return {
-            "patients": patients,
+            "students": patients,
             "total_count": total_count,
             "page": page,
             "page_size": page_size,
@@ -643,9 +643,9 @@ def get_patients_by_category(
         }
 
     except Exception as e:
-        logger.error(f"[DASHBOARD] Failed to get patients by category: {e}", exc_info=True)
+        logger.error(f"[DASHBOARD] Failed to get students by category: {e}", exc_info=True)
         return {
-            "patients": [],
+            "students": [],
             "total_count": 0,
             "page": page,
             "page_size": page_size,
@@ -668,37 +668,37 @@ def _build_compliance_trigger_reason(r: Dict[str, Any]) -> str:
     return f"Compliance likelihood: {r.get('compliance_likelihood')}"
 
 
-def _get_treatment_compliance_patients(
-    hospital_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
-    hospital_doctor_ids: Optional[List[str]] = None,
+def _get_treatment_compliance_students(
+    school_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    school_counsellor_ids: Optional[List[str]] = None,
     period: str = "ytd",
     page: int = 1,
     page_size: int = 20,
 ) -> Dict[str, Any]:
     """
-    Get patients for TREATMENT_COMPLIANCE category.
-    Queries patient_dropoff_risk directly (score-based, no DB interventions).
-    Returns patients with low/very_low compliance likelihood.
+    Get students for TREATMENT_COMPLIANCE category.
+    Queries student_dropoff_risk directly (score-based, no DB interventions).
+    Returns students with low/very_low compliance likelihood.
     """
     try:
         offset = (page - 1) * page_size
         start_date, end_date = get_date_range(period)
 
-        # Query patient_dropoff_risk for low compliance patients
-        query = supabase.table("patient_dropoff_risk").select(
-            "id, patient_id, compliance_likelihood, dropoff_probability, "
+        # Query student_dropoff_risk for low compliance students
+        query = supabase.table("student_dropoff_risk").select(
+            "id, student_id, compliance_likelihood, dropoff_probability, "
             "compliance_risk_reasons, reasons, created_at, "
-            "medical_extractions!inner(doctor_id, doctors(full_name), patients(full_name, patient_id))",
+            "extractions!inner(counsellor_id, counsellors(full_name), students(full_name, student_id))",
             count="exact"
         ).in_("compliance_likelihood", ["Very Low", "Low"])
         query = query.gte("created_at", start_date.isoformat())
         query = query.lte("created_at", (end_date + timedelta(days=1)).isoformat())
 
-        if doctor_id:
-            query = query.eq("medical_extractions.doctor_id", str(doctor_id))
-        elif hospital_doctor_ids:
-            query = query.in_("medical_extractions.doctor_id", hospital_doctor_ids)
+        if counsellor_id:
+            query = query.eq("extractions.counsellor_id", str(counsellor_id))
+        elif school_counsellor_ids:
+            query = query.in_("extractions.counsellor_id", school_counsellor_ids)
 
         query = query.order("created_at", desc=True)
         query = query.range(offset, offset + page_size - 1)
@@ -706,22 +706,22 @@ def _get_treatment_compliance_patients(
         rows = result.data or []
         total_count = result.count or 0
 
-        # Group by patient
-        patients_map: Dict[str, Dict[str, Any]] = {}
+        # Group by student
+        students_map: Dict[str, Dict[str, Any]] = {}
         for r in rows:
-            ext = r.get("medical_extractions", {})
-            patient_id = r.get("patient_id")
-            if not patient_id or patient_id in patients_map:
+            ext = r.get("extractions", {})
+            student_id = r.get("student_id")
+            if not student_id or student_id in students_map:
                 continue
 
-            patient_info = ext.get("patients", {}) or {}
-            doctor_info = ext.get("doctors", {}) or {}
+            patient_info = ext.get("students", {}) or {}
+            counsellor_info = ext.get("counsellors", {}) or {}
 
-            patients_map[patient_id] = {
-                "patient_id": patient_id,
+            students_map[student_id] = {
+                "student_id": student_id,
                 "patient_name": patient_info.get("full_name", "Unknown"),
-                "mrn": patient_info.get("patient_id"),
-                "doctor_name": doctor_info.get("full_name"),
+                "mrn": patient_info.get("student_id"),
+                "counsellor_name": counsellor_info.get("full_name"),
                 "last_consultation": ext.get("created_at") or r.get("created_at"),
                 "interventions": [{
                     "id": str(r.get("id", "")),
@@ -740,16 +740,16 @@ def _get_treatment_compliance_patients(
             }
 
         return {
-            "patients": list(patients_map.values()),
+            "students": list(students_map.values()),
             "total_count": total_count,
             "page": page,
             "page_size": page_size,
             "has_more": (offset + page_size) < total_count,
         }
     except Exception as e:
-        logger.error(f"[DASHBOARD] Failed to get treatment compliance patients: {e}", exc_info=True)
+        logger.error(f"[DASHBOARD] Failed to get treatment compliance students: {e}", exc_info=True)
         return {
-            "patients": [],
+            "students": [],
             "total_count": 0,
             "page": page,
             "page_size": page_size,
@@ -758,9 +758,9 @@ def _get_treatment_compliance_patients(
 
 
 def get_outcome_metrics(
-    hospital_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
     department_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     period: str = "mtd",
 ) -> Dict[str, Any]:
     """
@@ -772,14 +772,14 @@ def get_outcome_metrics(
     try:
         start_date, end_date = get_date_range(period)
 
-        # If hospital_id filter, first get doctor_ids for that hospital
-        # (medical_extractions doesn't have hospital_id - must filter via doctors table)
-        hospital_doctor_ids = None
-        if hospital_id:
-            doctors_result = supabase.table("doctors").select("id").eq("hospital_id", str(hospital_id)).execute()
-            hospital_doctor_ids = [d["id"] for d in (doctors_result.data or [])]
-            if not hospital_doctor_ids:
-                logger.info(f"[DASHBOARD] No doctors found for hospital {hospital_id}")
+        # If school_id filter, first get counsellor_ids for that school
+        # (extractions doesn't have school_id - must filter via counsellors table)
+        school_counsellor_ids = None
+        if school_id:
+            counsellors_result = supabase.table("counsellors").select("id").eq("school_id", str(school_id)).execute()
+            school_counsellor_ids = [d["id"] for d in (counsellors_result.data or [])]
+            if not school_counsellor_ids:
+                logger.info(f"[DASHBOARD] No counsellors found for school {school_id}")
                 return {
                     "total_interventions": 0,
                     "by_status": {},
@@ -790,21 +790,21 @@ def get_outcome_metrics(
                     "revenue_capture_rate": 0,
                 }
 
-        # Query intervention outcomes - removed hospital_id from select
+        # Query intervention outcomes - removed school_id from select
         query = supabase.table("intervention_outcomes").select(
             "id, status, actual_revenue, generated_at, first_contact_at, completed_at, "
-            "patient_interventions!inner(intervention_category, revenue_estimate, "
-            "medical_extractions!inner(doctor_id))"
+            "student_interventions!inner(intervention_category, revenue_estimate, "
+            "extractions!inner(counsellor_id))"
         )
 
         query = query.gte("generated_at", start_date.isoformat())
         query = query.lte("generated_at", (end_date + timedelta(days=1)).isoformat())
 
-        # Filter by doctor_id(s) instead of hospital_id
-        if doctor_id:
-            query = query.eq("patient_interventions.medical_extractions.doctor_id", str(doctor_id))
-        elif hospital_doctor_ids:
-            query = query.in_("patient_interventions.medical_extractions.doctor_id", hospital_doctor_ids)
+        # Filter by counsellor_id(s) instead of school_id
+        if counsellor_id:
+            query = query.eq("student_interventions.extractions.counsellor_id", str(counsellor_id))
+        elif school_counsellor_ids:
+            query = query.in_("student_interventions.extractions.counsellor_id", school_counsellor_ids)
 
         result = query.execute()
         outcomes = result.data or []
@@ -828,7 +828,7 @@ def get_outcome_metrics(
             by_status[status] = by_status.get(status, 0) + 1
 
             # Revenue tracking
-            pi = o.get("patient_interventions", {})
+            pi = o.get("student_interventions", {})
             potential_revenue += float(pi.get("revenue_estimate") or 0)
 
             if status == "COMPLETED":
@@ -863,7 +863,7 @@ def get_outcome_metrics(
 
 
 def get_time_to_action_metrics(
-    hospital_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
     period: str = "mtd",
 ) -> Dict[str, Any]:
     """
@@ -878,7 +878,7 @@ def get_time_to_action_metrics(
         # Query outcomes with contact/completion times
         query = supabase.table("intervention_outcomes").select(
             "generated_at, first_contact_at, completed_at, status, "
-            "patient_interventions!inner(priority_level, intervention_category)"
+            "student_interventions!inner(priority_level, intervention_category)"
         )
 
         query = query.gte("generated_at", start_date.isoformat())
@@ -903,7 +903,7 @@ def get_time_to_action_metrics(
                 contact_times.append(contact_hours)
 
                 # Group by priority
-                pi = o.get("patient_interventions", {})
+                pi = o.get("student_interventions", {})
                 priority = pi.get("priority_level", "MEDIUM")
                 if priority not in by_priority:
                     by_priority[priority] = {"contact": [], "completion": []}
@@ -921,7 +921,7 @@ def get_time_to_action_metrics(
                 completion_days = (completed - generated).total_seconds() / (3600 * 24)
                 completion_times.append(completion_days)
 
-                pi = o.get("patient_interventions", {})
+                pi = o.get("student_interventions", {})
                 priority = pi.get("priority_level", "MEDIUM")
                 if priority in by_priority:
                     by_priority[priority]["completion"].append(completion_days)
@@ -1018,7 +1018,7 @@ def update_intervention_status(
         if not result.data:
             # Create if doesn't exist
             # First get the intervention to get generated_at
-            int_result = supabase.table("patient_interventions")\
+            int_result = supabase.table("student_interventions")\
                 .select("created_at")\
                 .eq("id", str(intervention_id))\
                 .single()\
@@ -1050,7 +1050,7 @@ __all__ = [
     "DASHBOARD_TO_DB_CATEGORIES",
     "CATEGORY_CONFIG",
     "get_intervention_summary",
-    "get_patients_by_category",
+    "get_students_by_category",
     "get_outcome_metrics",
     "get_time_to_action_metrics",
     "update_intervention_status",

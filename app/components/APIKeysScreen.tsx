@@ -4,7 +4,7 @@
  * API Keys Management Screen
  *
  * Allows administrators to:
- * - Create API keys for hospitals (EHR integrations)
+ * - Create API keys for schools (EHR integrations)
  * - Create service tokens for mobile/web apps
  * - View, rotate, and revoke API keys
  * - Monitor usage statistics
@@ -22,9 +22,9 @@ interface APIClient {
   client_type: 'ehr' | 'mobile_app' | 'web_app';
   auth_mode: 'api_key' | 'token';
   api_key_prefix: string | null;
-  hospital_id: string | null;
-  hospital_name?: string;
-  allowed_doctor_ids: string[] | null;
+  school_id: string | null;
+  school_name?: string;
+  allowed_counsellor_ids: string[] | null;
   scopes: string[];
   is_active: boolean;
   rate_limit_per_hour: number;
@@ -35,10 +35,10 @@ interface APIClient {
   last_used_at: string | null;
 }
 
-interface Hospital {
+interface School {
   id: string;
-  hospital_name: string;
-  hospital_code: string | null;
+  school_name: string;
+  school_code: string | null;
   city: string | null;
   state: string | null;
 }
@@ -47,7 +47,7 @@ interface NewClientForm {
   client_name: string;
   client_type: 'ehr' | 'mobile_app' | 'web_app';
   auth_mode: 'api_key' | 'token';
-  hospital_id: string;
+  school_id: string;
   scopes: string[];
   rate_limit_per_hour: number;
   token_expiry_minutes: number;
@@ -82,7 +82,7 @@ export function APIKeysScreen() {
 
   // State
   const [clients, setClients] = useState<APIClient[]>([]);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [hospitals, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,7 +115,7 @@ export function APIKeysScreen() {
     client_name: '',
     client_type: 'ehr',
     auth_mode: 'api_key',
-    hospital_id: '',
+    school_id: '',
     scopes: DEFAULT_SCOPES,
     rate_limit_per_hour: 1000,
     token_expiry_minutes: 120,
@@ -142,20 +142,20 @@ export function APIKeysScreen() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch hospitals
-  const fetchHospitals = useCallback(async () => {
+  // Fetch schools
+  const fetchSchools = useCallback(async () => {
     try {
       const token = getAccessToken();
-      const response = await authGet('/api/v1/doctors/hospitals', token);
+      const response = await authGet('/api/v1/counsellors/schools', token);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch hospitals: ${response.statusText}`);
+        throw new Error(`Failed to fetch schools: ${response.statusText}`);
       }
 
       const data = await response.json();
-      setHospitals(data.hospitals || []);
+      setSchools(data.schools || []);
     } catch (err) {
-      console.error('Failed to fetch hospitals:', err);
+      console.error('Failed to fetch schools:', err);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -164,7 +164,7 @@ export function APIKeysScreen() {
     try {
       setEhrTypesLoading(true);
       const token = getAccessToken();
-      const response = await authGet('/api/v1/hospitals/ehr-types?include_inactive=true', token);
+      const response = await authGet('/api/v1/schools/ehr-types?include_inactive=true', token);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch EHR types: ${response.statusText}`);
@@ -183,7 +183,7 @@ export function APIKeysScreen() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchClients(), fetchHospitals(), fetchEhrTypes()]);
+      await Promise.all([fetchClients(), fetchSchools(), fetchEhrTypes()]);
       setLoading(false);
     };
     loadData();
@@ -200,8 +200,8 @@ export function APIKeysScreen() {
       return;
     }
 
-    if (formData.client_type === 'ehr' && !formData.hospital_id) {
-      setFormError('Hospital is required for EHR clients');
+    if (formData.client_type === 'ehr' && !formData.school_id) {
+      setFormError('School is required for EHR clients');
       return;
     }
 
@@ -212,7 +212,7 @@ export function APIKeysScreen() {
         client_name: formData.client_name,
         client_type: formData.client_type,
         auth_mode: formData.client_type === 'ehr' ? formData.auth_mode : 'api_key',
-        hospital_id: formData.client_type === 'ehr' ? formData.hospital_id : null,
+        school_id: formData.client_type === 'ehr' ? formData.school_id : null,
         scopes: formData.scopes,
         rate_limit_per_hour: formData.rate_limit_per_hour,
         token_expiry_minutes: formData.auth_mode === 'token' ? formData.token_expiry_minutes : 60,
@@ -251,7 +251,7 @@ export function APIKeysScreen() {
         client_type: 'ehr',
         auth_mode: 'api_key',
         token_expiry_minutes: 120,
-        hospital_id: '',
+        school_id: '',
         scopes: DEFAULT_SCOPES,
         rate_limit_per_hour: 1000,
         contact_email: '',
@@ -427,7 +427,7 @@ export function APIKeysScreen() {
 
     setEhrTypeSubmitting(true);
     try {
-      const response = await authPost('/api/v1/hospitals/ehr-types', getAccessToken(), {
+      const response = await authPost('/api/v1/schools/ehr-types', getAccessToken(), {
         ehr_code: ehrTypeForm.ehr_code,
         ehr_name: ehrTypeForm.ehr_name,
         default_api_url: ehrTypeForm.default_api_url || null,
@@ -461,7 +461,7 @@ export function APIKeysScreen() {
 
     setEhrTypeSubmitting(true);
     try {
-      const response = await authPut(`/api/v1/hospitals/ehr-types/${editingEhrType.id}`, getAccessToken(), {
+      const response = await authPut(`/api/v1/schools/ehr-types/${editingEhrType.id}`, getAccessToken(), {
         ehr_name: ehrTypeForm.ehr_name,
         default_api_url: ehrTypeForm.default_api_url || '',
         description: ehrTypeForm.description || '',
@@ -486,7 +486,7 @@ export function APIKeysScreen() {
     if (!confirm(`Are you sure you want to deactivate "${ehrType.ehr_name}"?`)) return;
 
     try {
-      const response = await authDelete(`/api/v1/hospitals/ehr-types/${ehrType.id}`, getAccessToken());
+      const response = await authDelete(`/api/v1/schools/ehr-types/${ehrType.id}`, getAccessToken());
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -501,7 +501,7 @@ export function APIKeysScreen() {
 
   const handleReactivateEhrType = async (ehrType: EhrType) => {
     try {
-      const response = await authPut(`/api/v1/hospitals/ehr-types/${ehrType.id}`, getAccessToken(), {
+      const response = await authPut(`/api/v1/schools/ehr-types/${ehrType.id}`, getAccessToken(), {
         is_active: true,
       });
 
@@ -532,11 +532,11 @@ export function APIKeysScreen() {
     navigator.clipboard.writeText(text);
   };
 
-  // Get hospital name by ID
-  const getHospitalName = (hospitalId: string | null) => {
+  // Get school name by ID
+  const getSchoolName = (hospitalId: string | null) => {
     if (!hospitalId) return 'Global Access';
     const hospital = hospitals.find(h => h.id === hospitalId);
-    return hospital?.hospital_name || hospitalId;
+    return hospital?.school_name || hospitalId;
   };
 
   // Format date
@@ -685,7 +685,7 @@ export function APIKeysScreen() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-300">
-                      {getHospitalName(client.hospital_id)}
+                      {getSchoolName(client.school_id)}
                     </td>
                     <td className="px-4 py-3">
                       {client.api_key_prefix ? (
@@ -960,21 +960,21 @@ export function APIKeysScreen() {
                   </div>
                 )}
 
-                {/* Hospital (for EHR only) */}
+                {/* School (for EHR only) */}
                 {formData.client_type === 'ehr' && (
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">
                       School *
                     </label>
                     <select
-                      value={formData.hospital_id}
-                      onChange={(e) => setFormData({ ...formData, hospital_id: e.target.value })}
+                      value={formData.school_id}
+                      onChange={(e) => setFormData({ ...formData, school_id: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select a school</option>
                       {hospitals.map((hospital) => (
                         <option key={hospital.id} value={hospital.id}>
-                          {hospital.hospital_name}
+                          {hospital.school_name}
                           {hospital.city && ` - ${hospital.city}`}
                         </option>
                       ))}

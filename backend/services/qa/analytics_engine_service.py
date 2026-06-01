@@ -25,39 +25,39 @@ logger = logging.getLogger(__name__)
 DATABASE_SCHEMA = """
 Available tables for analytics:
 
-1. medical_extractions
+1. extractions
    - id (UUID, PK)
-   - doctor_id (UUID, FK) -- Use doctors.hospital_id to filter by hospital
-   - patient_id (UUID, FK)
+   - counsellor_id (UUID, FK) -- Use counsellors.school_id to filter by school
+   - student_id (UUID, FK)
    - consultation_type_id (UUID, FK)
    - extraction_mode (VARCHAR)
    - segment_count (INT)
    - created_at (TIMESTAMPTZ)
-   NOTE: medical_extractions does NOT have hospital_id. Join with doctors table to filter by hospital.
+   NOTE: extractions does NOT have school_id. Join with counsellors table to filter by school.
 
 2. consultation_types
    - id (UUID, PK)
    - type_code (VARCHAR)
    - type_name (VARCHAR)
 
-3. doctors
+3. counsellors
    - id (UUID, PK)
    - full_name (VARCHAR)
    - email (VARCHAR)
    - specialization (VARCHAR)
-   - hospital_id (UUID, FK)
+   - school_id (UUID, FK)
 
-4. patients
+4. students
    - id (UUID, PK)
-   - patient_id (VARCHAR) -- external UHID
+   - student_id (VARCHAR) -- external UHID
    - full_name (VARCHAR)
    - date_of_birth (DATE)
    - gender (VARCHAR)
 
-5. hospitals
+5. schools
    - id (UUID, PK)
-   - hospital_name (VARCHAR)
-   - hospital_code (VARCHAR)
+   - school_name (VARCHAR)
+   - school_code (VARCHAR)
 
 6. clinical_severity_assessments
    - id (UUID, PK)
@@ -66,10 +66,10 @@ Available tables for analytics:
    - severity_score (INT)
    - created_at (TIMESTAMPTZ)
 
-7. patient_interventions
+7. student_interventions
    - id (UUID, PK)
    - extraction_id (UUID, FK)
-   - patient_id (UUID, FK)
+   - student_id (UUID, FK)
    - intervention_code (VARCHAR)
    - intervention_category (VARCHAR) -- OP_TO_IP, FOLLOWUP_DUE, etc.
    - priority (VARCHAR) -- low, medium, high, critical
@@ -88,7 +88,7 @@ Generate PostgreSQL SELECT queries only. Never generate INSERT, UPDATE, DELETE, 
 {DATABASE_SCHEMA}
 
 Rules:
-1. Always include hospital_id filter for security: WHERE hospital_id = '{{hospital_id}}'
+1. Always include school_id filter for security: WHERE school_id = '{{school_id}}'
 2. Only generate SELECT queries
 3. Use proper date functions for time-based queries (NOW(), INTERVAL)
 4. For counts, always alias as 'count' or 'total'
@@ -99,7 +99,7 @@ Rules:
 
 Respond with JSON only:
 {{
-  "sql": "SELECT ... FROM ... WHERE hospital_id = '{{hospital_id}}' ...",
+  "sql": "SELECT ... FROM ... WHERE school_id = '{{school_id}}' ...",
   "chart_type": "bar" | "line" | "pie" | "stat_card",
   "title": "Chart/Stat title",
   "description": "Brief description of what this shows"
@@ -133,7 +133,7 @@ class AnalyticsEngineService:
 
         result = await service.execute_analytics_query(
             query="How many extractions were done this month?",
-            hospital_id=hospital_uuid
+            school_id=school_uuid
         )
 
         print(result["chart"])  # ChartData or StatCardData
@@ -176,18 +176,18 @@ class AnalyticsEngineService:
     async def execute_analytics_query(
         self,
         query: str,
-        hospital_id: UUID,
-        doctor_id: Optional[UUID] = None,
-        patient_id: Optional[UUID] = None
+        school_id: UUID,
+        counsellor_id: Optional[UUID] = None,
+        student_id: Optional[UUID] = None
     ) -> Dict[str, Any]:
         """
         Convert natural language to SQL and execute analytics query.
 
         Args:
             query: Natural language analytics query
-            hospital_id: Hospital ID for scoping
-            doctor_id: Optional doctor filter
-            patient_id: Optional patient filter
+            school_id: School ID for scoping
+            counsellor_id: Optional counsellor filter
+            student_id: Optional student filter
 
         Returns:
             Dict with chart/stat_card data or error
@@ -202,19 +202,19 @@ class AnalyticsEngineService:
 
             # Build filter context for LLM
             filter_context = []
-            if doctor_id:
-                filter_context.append(f"Doctor ID filter: {doctor_id}")
-            if patient_id:
-                filter_context.append(f"Patient ID filter: {patient_id}")
+            if counsellor_id:
+                filter_context.append(f"Counsellor ID filter: {counsellor_id}")
+            if student_id:
+                filter_context.append(f"Student ID filter: {student_id}")
             filter_str = "\n".join(filter_context) if filter_context else "No additional filters"
 
             prompt = f"""Generate SQL for this analytics question:
 "{query}"
 
-Hospital ID to use: {hospital_id}
+School ID to use: {school_id}
 {filter_str}
 
-Remember: Only SELECT queries, always filter by hospital_id."""
+Remember: Only SELECT queries, always filter by school_id."""
 
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -257,11 +257,11 @@ Remember: Only SELECT queries, always filter by hospital_id."""
                 sql_result = supabase.rpc("exec_sql", {"sql_query": sql}).execute()
             except Exception as sql_error:
                 logger.warning(f"SQL execution failed, trying fallback: {sql_error}")
-                return await self._execute_direct_analytics(query, hospital_id, doctor_id, patient_id)
+                return await self._execute_direct_analytics(query, school_id, counsellor_id, student_id)
 
             if not sql_result.data:
                 # Try direct execution for simple queries
-                return await self._execute_direct_analytics(query, hospital_id, doctor_id, patient_id)
+                return await self._execute_direct_analytics(query, school_id, counsellor_id, student_id)
 
             data = sql_result.data
 
@@ -288,7 +288,7 @@ Remember: Only SELECT queries, always filter by hospital_id."""
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse SQL generation response: {e}")
-            return await self._execute_direct_analytics(query, hospital_id, doctor_id)
+            return await self._execute_direct_analytics(query, school_id, counsellor_id)
         except Exception as e:
             logger.error(f"Analytics query failed: {e}", exc_info=True)
             return {
@@ -299,9 +299,9 @@ Remember: Only SELECT queries, always filter by hospital_id."""
     async def _execute_direct_analytics(
         self,
         query: str,
-        hospital_id: UUID,
-        doctor_id: Optional[UUID] = None,
-        patient_id: Optional[UUID] = None
+        school_id: UUID,
+        counsellor_id: Optional[UUID] = None,
+        student_id: Optional[UUID] = None
     ) -> Dict[str, Any]:
         """Fallback: Execute predefined analytics queries"""
         from services.supabase_service import supabase
@@ -312,10 +312,10 @@ Remember: Only SELECT queries, always filter by hospital_id."""
         if "how many" in query_lower and "extraction" in query_lower:
             from datetime import date, timedelta
 
-            # Build base query - filter by hospital through doctors table
-            query_builder = supabase.table("medical_extractions")\
-                .select("id, doctors!inner(hospital_id)", count="exact")\
-                .eq("doctors.hospital_id", str(hospital_id))
+            # Build base query - filter by school through counsellors table
+            query_builder = supabase.table("extractions")\
+                .select("id, counsellors!inner(school_id)", count="exact")\
+                .eq("counsellors.school_id", str(school_id))
 
             # Apply date filter
             if "today" in query_lower:
@@ -343,9 +343,9 @@ Remember: Only SELECT queries, always filter by hospital_id."""
         # Distribution queries
         if "distribution" in query_lower and "consultation" in query_lower:
             # Get consultation type distribution
-            result = supabase.table("medical_extractions")\
-                .select("consultation_type_id, consultation_types(type_name), doctors!inner(hospital_id)")\
-                .eq("doctors.hospital_id", str(hospital_id))\
+            result = supabase.table("extractions")\
+                .select("consultation_type_id, consultation_types(type_name), counsellors!inner(school_id)")\
+                .eq("counsellors.school_id", str(school_id))\
                 .execute()
 
             # Count by type

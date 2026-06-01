@@ -2,7 +2,7 @@
 Embedding Job Service
 
 Background job management for embedding operations:
-- Queue re-embedding for hospital
+- Queue re-embedding for school
 - Embed single extraction
 - Track embedding progress
 """
@@ -23,8 +23,8 @@ class EmbeddingJobService:
     Usage:
         service = EmbeddingJobService()
 
-        # Queue re-embedding for hospital
-        job_id = await service.queue_reembedding_job(hospital_id)
+        # Queue re-embedding for school
+        job_id = await service.queue_reembedding_job(school_id)
 
         # Embed single extraction
         await service.reembed_single_extraction(extraction_id)
@@ -39,15 +39,15 @@ class EmbeddingJobService:
 
     async def queue_reembedding_job(
         self,
-        hospital_id: UUID,
+        school_id: UUID,
         model_code: Optional[str] = None,
         force: bool = False
     ) -> Dict[str, Any]:
         """
-        Queue a background job to re-embed all extractions for a hospital.
+        Queue a background job to re-embed all extractions for a school.
 
         Args:
-            hospital_id: Hospital ID
+            school_id: School ID
             model_code: Optional specific model to use
             force: If True, re-embed even if hash unchanged
 
@@ -56,21 +56,21 @@ class EmbeddingJobService:
         """
         from services.supabase_service import supabase
 
-        job_id = f"reembed_{hospital_id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        job_id = f"reembed_{school_id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
-        # Check if job already running for this hospital
+        # Check if job already running for this school
         for existing_job_id, job in self._running_jobs.items():
-            if job.get("hospital_id") == str(hospital_id) and job.get("status") == "running":
+            if job.get("school_id") == str(school_id) and job.get("status") == "running":
                 return {
                     "success": False,
-                    "message": "Re-embedding job already in progress for this hospital",
+                    "message": "Re-embedding job already in progress for this school",
                     "existing_job_id": existing_job_id
                 }
 
         # Count extractions to process
-        count_result = supabase.table("medical_extractions")\
+        count_result = supabase.table("extractions")\
             .select("id", count="exact")\
-            .eq("hospital_id", str(hospital_id))\
+            .eq("school_id", str(school_id))\
             .execute()
 
         extraction_count = count_result.count or 0
@@ -84,7 +84,7 @@ class EmbeddingJobService:
 
         # Create job record
         self._running_jobs[job_id] = {
-            "hospital_id": str(hospital_id),
+            "school_id": str(school_id),
             "model_code": model_code,
             "status": "running",
             "total": extraction_count,
@@ -95,7 +95,7 @@ class EmbeddingJobService:
 
         # Start background task
         asyncio.create_task(
-            self._run_reembedding_job(job_id, hospital_id, model_code, force)
+            self._run_reembedding_job(job_id, school_id, model_code, force)
         )
 
         return {
@@ -108,7 +108,7 @@ class EmbeddingJobService:
     async def _run_reembedding_job(
         self,
         job_id: str,
-        hospital_id: UUID,
+        school_id: UUID,
         model_code: Optional[str],
         force: bool
     ):
@@ -117,9 +117,9 @@ class EmbeddingJobService:
 
         try:
             # Fetch all extraction IDs
-            result = supabase.table("medical_extractions")\
+            result = supabase.table("extractions")\
                 .select("id")\
-                .eq("hospital_id", str(hospital_id))\
+                .eq("school_id", str(school_id))\
                 .execute()
 
             extraction_ids = [row["id"] for row in (result.data or [])]
@@ -156,11 +156,11 @@ class EmbeddingJobService:
         """Get status of a re-embedding job"""
         return self._running_jobs.get(job_id)
 
-    def list_jobs(self, hospital_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
-        """List all jobs, optionally filtered by hospital"""
+    def list_jobs(self, school_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
+        """List all jobs, optionally filtered by school"""
         jobs = []
         for job_id, job in self._running_jobs.items():
-            if hospital_id and job.get("hospital_id") != str(hospital_id):
+            if school_id and job.get("school_id") != str(school_id):
                 continue
             jobs.append({"job_id": job_id, **job})
         return jobs
@@ -211,7 +211,7 @@ async def schedule_extraction_embedding(extraction_id: UUID) -> None:
 
     for attempt in range(max_retries):
         try:
-            result = supabase.table("medical_extractions")\
+            result = supabase.table("extractions")\
                 .select("id")\
                 .eq("id", str(extraction_id))\
                 .single()\

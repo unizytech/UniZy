@@ -16,7 +16,7 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
-def adapt_schema_for_openai(json_schema: Dict[str, Any], name: str = "medical_extraction") -> Dict[str, Any]:
+def adapt_schema_for_openai(json_schema: Dict[str, Any], name: str = "extraction") -> Dict[str, Any]:
     """
     Wrap a standard JSON Schema in OpenAI's response_format structure.
 
@@ -28,7 +28,7 @@ def adapt_schema_for_openai(json_schema: Dict[str, Any], name: str = "medical_ex
 
     Args:
         json_schema: Standard JSON Schema dict
-        name: Name identifier for the schema (default: "medical_extraction")
+        name: Name identifier for the schema (default: "extraction")
 
     Returns:
         OpenAI response_format dict

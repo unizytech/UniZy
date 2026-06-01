@@ -4,7 +4,7 @@ Fix context: `_flatten_insights` previously didn't expose top-level camelCase
 scalar segments (e.g. `presentingComplaints`) under their snake_case alias,
 so layout placeholders like `{{ presenting_complaints }}` rendered empty.
 
-This script picks up every medical_extractions row whose template has a
+This script picks up every extractions row whose template has a
 `letter_template_jinja` (radiology RS_*) and re-runs `attach_letter_artifacts`
 against `original_extraction_json`. `edited_extraction_json` is left untouched
 to preserve manual edits.
@@ -48,7 +48,7 @@ def _iter_extractions(template_codes: list[str]):
     while True:
         sessions = (
             supabase.table("recording_sessions")
-            .select("id, template_code, patient_id")
+            .select("id, template_code, student_id")
             .in_("template_code", template_codes)
             .range(page * page_size, (page + 1) * page_size - 1)
             .execute()
@@ -59,8 +59,8 @@ def _iter_extractions(template_codes: list[str]):
             return
         sess_by_id = {s["id"]: s for s in sessions}
         ext_rows = (
-            supabase.table("medical_extractions")
-            .select("id, session_id, patient_id, original_extraction_json")
+            supabase.table("extractions")
+            .select("id, session_id, student_id, original_extraction_json")
             .in_("session_id", list(sess_by_id.keys()))
             .execute()
             .data
@@ -98,14 +98,14 @@ def main() -> None:
             skipped += 1
             continue
 
-        patient_id = ext.get("patient_id") or sess.get("patient_id")
+        student_id = ext.get("student_id") or sess.get("student_id")
         old_letter = insights.get("consult_letter") or ""
 
         try:
             attach_letter_artifacts(
                 insights,
                 template_id,
-                patient_id,
+                student_id,
                 session_record=sess,
             )
         except Exception as e:
@@ -119,7 +119,7 @@ def main() -> None:
             continue
 
         try:
-            supabase.table("medical_extractions").update(
+            supabase.table("extractions").update(
                 {"original_extraction_json": insights}
             ).eq("id", ext_id).execute()
             updated += 1

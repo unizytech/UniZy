@@ -11,7 +11,7 @@ import {
   ConsultationTypeResponse,
   ConsultationTypeCode,
   ExtractionRequest,
-  MedicalExtractionResponse,
+  ExtractionResponse,
   SegmentListResponse,
   TemplateListResponse,
   ExtractionMode,
@@ -21,7 +21,7 @@ import {
   BrevityLevel,
   TerminologyStyle,
   MergeTargetTemplate,
-  DoctorTemplatesResponse,
+  CounsellorTemplatesResponse,
 } from './types';
 import { authGet, authPost, authPut, authDelete, createAuthHeaders, AuthOptions } from './apiClient';
 
@@ -91,8 +91,8 @@ export interface CreateConsultationTypeRequest {
   color_code?: string;
   clone_from_consultation_type_id?: string;  // Clone segments from existing consultation type
   // Visibility controls (optional - if all empty/undefined, everyone can see this consultation type)
-  visible_to_hospitals?: string[];  // Hospital UUIDs that can see this consultation type
-  visible_to_doctors?: string[];  // Doctor UUIDs that can see this consultation type
+  visible_to_schools?: string[];  // School UUIDs that can see this consultation type
+  visible_to_counsellors?: string[];  // Counsellor UUIDs that can see this consultation type
   visible_to_specializations?: string[];  // Specializations that can see this consultation type
 }
 
@@ -120,7 +120,7 @@ export async function createConsultationType(
 export async function extractMedicalSummary(
   request: ExtractionRequest,
   auth?: string | AuthOptions | null
-): Promise<MedicalExtractionResponse> {
+): Promise<ExtractionResponse> {
   const response = await authPost(`/api/v1/summary/extract`, auth ?? null, request);
 
   if (!response.ok) {
@@ -145,7 +145,7 @@ export async function getSegments(
   auth?: string | AuthOptions | null
 ): Promise<SegmentListResponse> {
   const params = new URLSearchParams();
-  if (userId) params.append('doctor_id', userId);
+  if (userId) params.append('counsellor_id', userId);
   if (mode) params.append('mode', mode);
 
   const endpoint = `/api/v1/summary/segments/${encodeURIComponent(consultationTypeCode)}${params.toString() ? '?' + params.toString() : ''}`;
@@ -165,7 +165,7 @@ export async function getSegments(
 /**
  * Get available templates for a consultation type
  * @param consultationTypeCode - Consultation type code
- * @param doctorId - Optional doctor ID for visibility filtering (hospital, specialization, platform-wide)
+ * @param doctorId - Optional counsellor ID for visibility filtering (school, specialization, platform-wide)
  * @param filterType - Optional filter ('admin', 'doctor', 'all')
  * @param auth - Bearer token or API key for authentication
  */
@@ -177,7 +177,7 @@ export async function getTemplates(
 ): Promise<TemplateListResponse> {
   const params = new URLSearchParams();
   if (doctorId) {
-    params.append('doctor_id', doctorId);
+    params.append('counsellor_id', doctorId);
   }
   if (filterType) {
     params.append('filter_type', filterType);
@@ -196,7 +196,7 @@ export async function getTemplates(
 /**
  * Get all templates across all consultation types
  * @param filterType - Optional filter ('admin', 'doctor', 'all')
- * @param doctorId - Optional doctor ID for visibility filtering
+ * @param doctorId - Optional counsellor ID for visibility filtering
  * @param auth - Bearer token or API key for authentication
  */
 export async function getAllTemplates(
@@ -209,7 +209,7 @@ export async function getAllTemplates(
     params.append('filter_type', filterType);
   }
   if (doctorId) {
-    params.append('doctor_id', doctorId);
+    params.append('counsellor_id', doctorId);
   }
 
   const endpoint = `/api/v1/summary/templates${params.toString() ? `?${params.toString()}` : ''}`;
@@ -231,7 +231,7 @@ export async function activateTemplate(
   userId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; template: any }> {
-  const endpoint = `/api/v1/summary/templates/${encodeURIComponent(consultationTypeCode)}/activate/${encodeURIComponent(templateCode)}?doctor_id=${userId}`;
+  const endpoint = `/api/v1/summary/templates/${encodeURIComponent(consultationTypeCode)}/activate/${encodeURIComponent(templateCode)}?counsellor_id=${userId}`;
   const response = await authPost(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -254,7 +254,7 @@ export interface CreateTemplateData {
   specialty?: string;
   use_case?: string;
   specialization?: string;
-  hospital_id?: string;
+  school_id?: string;
   estimated_extraction_time_seconds?: number;
   is_active?: boolean; // Whether template is active (default: true)
   // New inheritance options
@@ -289,7 +289,7 @@ export async function createTemplate(
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; template: any; segments_configured?: number }> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('doctor_id', doctorId);
+  if (doctorId) params.append('counsellor_id', doctorId);
 
   const endpoint = `/api/v1/summary/admin/templates${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authPost(endpoint, auth ?? null, data);
@@ -672,19 +672,19 @@ export async function bulkUpdateTemplateFieldConfig(
 
 
 // ============================================================================
-// Doctor Template Segment APIs (EHR-authenticated)
-// These are for doctors configuring their own templates via the Doctor Config screen
+// Counsellor Template Segment APIs (EHR-authenticated)
+// These are for counsellors configuring their own templates via the Counsellor Config screen
 // ============================================================================
 
 /**
- * Get template segment configuration (Doctor/EHR-authenticated)
+ * Get template segment configuration (Counsellor/EHR-authenticated)
  */
-export async function getDoctorTemplateSegments(
+export async function getCounsellorTemplateSegments(
   templateCode: string,
   doctorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; template_code: string; template_name: string; segments: any[]; count: number }> {
-  const endpoint = `/api/v1/summary/doctor/templates/${encodeURIComponent(templateCode)}/segments?doctor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments?counsellor_id=${encodeURIComponent(doctorId)}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -696,16 +696,16 @@ export async function getDoctorTemplateSegments(
 }
 
 /**
- * Update a template segment configuration (Doctor/EHR-authenticated)
+ * Update a template segment configuration (Counsellor/EHR-authenticated)
  */
-export async function updateDoctorTemplateSegment(
+export async function updateCounsellorTemplateSegment(
   templateCode: string,
   segmentCode: string,
   config: TemplateSegmentConfig,
   doctorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; configuration: any }> {
-  const endpoint = `/api/v1/summary/doctor/templates/${encodeURIComponent(templateCode)}/segments/${encodeURIComponent(segmentCode)}?doctor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments/${encodeURIComponent(segmentCode)}?counsellor_id=${encodeURIComponent(doctorId)}`;
   const response = await authPut(endpoint, auth ?? null, config);
 
   if (!response.ok) {
@@ -717,15 +717,15 @@ export async function updateDoctorTemplateSegment(
 }
 
 /**
- * Bulk update template segments (Doctor/EHR-authenticated)
+ * Bulk update template segments (Counsellor/EHR-authenticated)
  */
-export async function bulkUpdateDoctorTemplateSegments(
+export async function bulkUpdateCounsellorTemplateSegments(
   templateCode: string,
   segments: Array<{ segment_code: string } & TemplateSegmentConfig>,
   doctorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; configurations: any[] }> {
-  const endpoint = `/api/v1/summary/doctor/templates/${encodeURIComponent(templateCode)}/segments/bulk?doctor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments/bulk?counsellor_id=${encodeURIComponent(doctorId)}`;
   const response = await authPost(endpoint, auth ?? null, { segments });
 
   if (!response.ok) {
@@ -737,14 +737,14 @@ export async function bulkUpdateDoctorTemplateSegments(
 }
 
 /**
- * Inherit segment configuration from consultation type (Doctor/EHR-authenticated)
+ * Inherit segment configuration from consultation type (Counsellor/EHR-authenticated)
  */
-export async function inheritDoctorTemplateConfiguration(
+export async function inheritCounsellorTemplateConfiguration(
   templateCode: string,
   doctorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; segments_configured: number; segments: any[] }> {
-  const endpoint = `/api/v1/summary/doctor/templates/${encodeURIComponent(templateCode)}/inherit?doctor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/inherit?counsellor_id=${encodeURIComponent(doctorId)}`;
   const response = await authPost(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -909,13 +909,13 @@ export async function unassignSegmentFromTemplate(
 // ============================================================================
 
 /**
- * Validate doctor's segment configuration
+ * Validate counsellor's segment configuration
  */
 export async function validateSegmentConfig(
   userId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; validation: ValidationResult }> {
-  const endpoint = `/api/v1/summary/segments/validate?doctor_id=${userId}`;
+  const endpoint = `/api/v1/summary/segments/validate?counsellor_id=${userId}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1120,7 +1120,7 @@ export async function updateSegment(
 }
 
 // ============================================================================
-// Segment Approval Workflow (Doctor → Admin)
+// Segment Approval Workflow (Counsellor → Admin)
 // ============================================================================
 
 /**
@@ -1361,23 +1361,23 @@ export async function syncSegmentFromParent(
 }
 
 // ============================================================================
-// NEW: Doctor Templates API
+// NEW: Counsellor Templates API
 // ============================================================================
 
 /**
- * Get all templates for a doctor
+ * Get all templates for a counsellor
  */
 export async function getActivatedTemplates(
   doctorId: string,
   accessToken?: string | null
 ): Promise<{ success: boolean; templates: ActivatedTemplate[]; count: number }> {
   const response = await authGet(
-    `/api/v1/summary/templates?doctor_id=${doctorId}&filter_type=doctor`,
+    `/api/v1/summary/templates?counsellor_id=${doctorId}&filter_type=doctor`,
     accessToken ?? null
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch doctor templates: ${response.statusText}`);
+    throw new Error(`Failed to fetch counsellor templates: ${response.statusText}`);
   }
 
   const data = await response.json();
@@ -1390,30 +1390,30 @@ export async function getActivatedTemplates(
 }
 
 /**
- * Get templates accessible to a doctor for merge target dropdown
+ * Get templates accessible to a counsellor for merge target dropdown
  *
- * Returns templates the doctor can use for merge operations:
- * - Owned templates (doctor_id matches)
- * - Shared templates (via doctor_templates junction)
- * - Common templates (doctor_id = NULL)
+ * Returns templates the counsellor can use for merge operations:
+ * - Owned templates (counsellor_id matches)
+ * - Shared templates (via counsellor_templates junction)
+ * - Common templates (counsellor_id = NULL)
  *
  * Uses the existing /templates endpoint and transforms the response
  * to a simplified format for dropdown display.
  *
- * @param doctorId - Doctor UUID
+ * @param doctorId - Counsellor UUID
  * @param auth - Bearer token or API key for authentication
  */
-export async function getDoctorTemplates(
+export async function getCounsellorTemplates(
   doctorId: string,
   auth?: string | AuthOptions | null
-): Promise<DoctorTemplatesResponse> {
+): Promise<CounsellorTemplatesResponse> {
   // Use existing endpoint with filter_type=doctor
-  const endpoint = `/api/v1/summary/templates?filter_type=doctor&doctor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/templates?filter_type=doctor&counsellor_id=${encodeURIComponent(doctorId)}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || `Failed to fetch doctor templates: ${response.statusText}`);
+    throw new Error(error.detail || `Failed to fetch counsellor templates: ${response.statusText}`);
   }
 
   const data = await response.json();
@@ -1422,7 +1422,7 @@ export async function getDoctorTemplates(
   const templates = (data.templates || []).map((t: any) => ({
     template_code: t.template_code,
     template_name: t.template_name,
-    is_common: t.doctor_id === null || t.doctor_id === undefined,
+    is_common: t.counsellor_id === null || t.counsellor_id === undefined,
   }));
 
   return {
@@ -1433,9 +1433,9 @@ export async function getDoctorTemplates(
 }
 
 /**
- * Get all templates accessible to a doctor (owned, shared, common)
+ * Get all templates accessible to a counsellor (owned, shared, common)
  */
-export async function getDoctorAccessibleTemplates(
+export async function getCounsellorAccessibleTemplates(
   doctorId: string,
   consultationTypeId?: string,
   includeCommon: boolean = true,
@@ -1443,7 +1443,7 @@ export async function getDoctorAccessibleTemplates(
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; templates: any[]; count: number }> {
   const params = new URLSearchParams({
-    doctor_id: doctorId,
+    counsellor_id: doctorId,
     include_common: includeCommon.toString(),
     active_only: activeOnly.toString(),
   });
@@ -1452,7 +1452,7 @@ export async function getDoctorAccessibleTemplates(
     params.append('consultation_type_id', consultationTypeId);
   }
 
-  const endpoint = `/api/v1/doctor-templates/accessible?${params}`;
+  const endpoint = `/api/v1/counsellor-templates/accessible?${params}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1471,22 +1471,22 @@ export async function getTemplateShares(
 ): Promise<{
   success: boolean;
   shares: {
-    doctors: Array<{
+    counsellors: Array<{
       id: string;
-      doctor_id: string;
-      doctor_name: string;
+      counsellor_id: string;
+      counsellor_name: string;
       email: string;
       specialization: string;
-      hospital_id: string;
+      school_id: string;
       is_active: boolean;
       activated_at: string;
     }>;
-    hospital_ids: string[];
+    school_ids: string[];
     specializations: string[];
     total_shares: number;
   };
 }> {
-  const endpoint = `/api/v1/doctor-templates/template-shares/${templateId}`;
+  const endpoint = `/api/v1/counsellor-templates/template-shares/${templateId}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1498,20 +1498,20 @@ export async function getTemplateShares(
 }
 
 /**
- * Share template with individual doctors
+ * Share template with individual counsellors
  */
 export async function shareTemplate(
-  sharingDoctorId: string,
+  sharingCounsellorId: string,
   templateId: string,
   doctorIds: string[],
   newOwnerId?: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; shared_count: number; failed_count: number; failures: any[]; ownership_assigned?: any }> {
-  const endpoint = `/api/v1/doctor-templates/share`;
+  const endpoint = `/api/v1/counsellor-templates/share`;
   const response = await authPost(endpoint, auth ?? null, {
-    sharing_doctor_id: sharingDoctorId,
+    sharing_counsellor_id: sharingCounsellorId,
     template_id: templateId,
-    doctor_ids: doctorIds,
+    counsellor_ids: doctorIds,
     new_owner_id: newOwnerId || null,
   });
 
@@ -1524,44 +1524,44 @@ export async function shareTemplate(
 }
 
 /**
- * Share template with all doctors in a hospital
+ * Share template with all counsellors in a school
  */
-export async function shareTemplateWithHospital(
-  sharingDoctorId: string,
+export async function shareTemplateWithSchool(
+  sharingCounsellorId: string,
   templateId: string,
   hospitalId: string,
   newOwnerId?: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; shared_count: number; ownership_assigned?: any }> {
-  const endpoint = `/api/v1/doctor-templates/share-hospital`;
+  const endpoint = `/api/v1/counsellor-templates/share-school`;
   const response = await authPost(endpoint, auth ?? null, {
-    sharing_doctor_id: sharingDoctorId,
+    sharing_counsellor_id: sharingCounsellorId,
     template_id: templateId,
-    hospital_id: hospitalId,
+    school_id: hospitalId,
     new_owner_id: newOwnerId || null,
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || `Failed to share template with hospital: ${response.statusText}`);
+    throw new Error(error.detail || `Failed to share template with school: ${response.statusText}`);
   }
 
   return response.json();
 }
 
 /**
- * Share template with all doctors of a specialization
+ * Share template with all counsellors of a specialization
  */
 export async function shareTemplateWithSpecialization(
-  sharingDoctorId: string,
+  sharingCounsellorId: string,
   templateId: string,
   specialization: string,
   newOwnerId?: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; shared_count: number; ownership_assigned?: any }> {
-  const endpoint = `/api/v1/doctor-templates/share-specialization`;
+  const endpoint = `/api/v1/counsellor-templates/share-specialization`;
   const response = await authPost(endpoint, auth ?? null, {
-    sharing_doctor_id: sharingDoctorId,
+    sharing_counsellor_id: sharingCounsellorId,
     template_id: templateId,
     specialization: specialization,
     new_owner_id: newOwnerId || null,
@@ -1576,9 +1576,9 @@ export async function shareTemplateWithSpecialization(
 }
 
 /**
- * Activate a template for a doctor
+ * Activate a template for a counsellor
  */
-export async function activateDoctorTemplate(
+export async function activateCounsellorTemplate(
   doctorId: string,
   templateId: string,
   consultationTypeId: string,
@@ -1590,9 +1590,9 @@ export async function activateDoctorTemplate(
   message: string;
   deactivated_previous: boolean;
 }> {
-  const endpoint = `/api/v1/doctor-templates/activate`;
+  const endpoint = `/api/v1/counsellor-templates/activate`;
   const response = await authPost(endpoint, auth ?? null, {
-    doctor_id: doctorId,
+    counsellor_id: doctorId,
     template_id: templateId,
     consultation_type_id: consultationTypeId,
   });
@@ -1606,9 +1606,9 @@ export async function activateDoctorTemplate(
 }
 
 /**
- * Deactivate a template for a doctor
+ * Deactivate a template for a counsellor
  */
-export async function deactivateDoctorTemplate(
+export async function deactivateCounsellorTemplate(
   doctorId: string,
   templateId: string,
   auth?: string | AuthOptions | null
@@ -1618,11 +1618,11 @@ export async function deactivateDoctorTemplate(
   message: string;
 }> {
   const params = new URLSearchParams({
-    doctor_id: doctorId,
+    counsellor_id: doctorId,
     template_id: templateId,
   });
 
-  const endpoint = `/api/v1/doctor-templates/deactivate?${params}`;
+  const endpoint = `/api/v1/counsellor-templates/deactivate?${params}`;
   const response = await authPost(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1634,21 +1634,21 @@ export async function deactivateDoctorTemplate(
 }
 
 /**
- * Revoke doctor's access to a template
+ * Revoke counsellor's access to a template
  */
 export async function revokeTemplateAccess(
-  sharingDoctorId: string,
+  sharingCounsellorId: string,
   doctorId: string,
   templateId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean }> {
   const params = new URLSearchParams({
-    sharing_doctor_id: sharingDoctorId,
-    doctor_id: doctorId,
+    sharing_counsellor_id: sharingCounsellorId,
+    counsellor_id: doctorId,
     template_id: templateId,
   });
 
-  const endpoint = `/api/v1/doctor-templates/revoke?${params}`;
+  const endpoint = `/api/v1/counsellor-templates/revoke?${params}`;
   const response = await authDelete(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1660,7 +1660,7 @@ export async function revokeTemplateAccess(
 }
 
 /**
- * Activate from consultation type - Create doctor-owned template from consultation type
+ * Activate from consultation type - Create counsellor-owned template from consultation type
  */
 export async function activateFromConsultationType(
   doctorId: string,
@@ -1672,9 +1672,9 @@ export async function activateFromConsultationType(
   template: any;
   message: string;
 }> {
-  const endpoint = `/api/v1/doctor-templates/activate-from-consultation-type`;
+  const endpoint = `/api/v1/counsellor-templates/activate-from-consultation-type`;
   const response = await authPost(endpoint, auth ?? null, {
-    doctor_id: doctorId,
+    counsellor_id: doctorId,
     consultation_type_id: consultationTypeId,
     template_name: templateName,
   });
@@ -1688,7 +1688,7 @@ export async function activateFromConsultationType(
 }
 
 /**
- * Clone template - Create doctor-owned copy of an existing template
+ * Clone template - Create counsellor-owned copy of an existing template
  */
 export async function cloneTemplate(
   doctorId: string,
@@ -1700,9 +1700,9 @@ export async function cloneTemplate(
   template: any;
   message: string;
 }> {
-  const endpoint = `/api/v1/doctor-templates/clone`;
+  const endpoint = `/api/v1/counsellor-templates/clone`;
   const response = await authPost(endpoint, auth ?? null, {
-    doctor_id: doctorId,
+    counsellor_id: doctorId,
     source_template_id: sourceTemplateId,
     template_name: templateName,
   });
@@ -1716,9 +1716,9 @@ export async function cloneTemplate(
 }
 
 /**
- * Get doctor dashboard - Returns visible consultation types and accessible templates
+ * Get counsellor dashboard - Returns visible consultation types and accessible templates
  */
-export async function getDoctorDashboard(
+export async function getCounsellorDashboard(
   doctorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{
@@ -1737,12 +1737,12 @@ export async function getDoctorDashboard(
   consultation_types_count: number;
   templates_count: number;
 }> {
-  const endpoint = `/api/v1/doctor-templates/dashboard/${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/counsellor-templates/dashboard/${encodeURIComponent(doctorId)}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || `Failed to get doctor dashboard: ${response.statusText}`);
+    throw new Error(error.detail || `Failed to get counsellor dashboard: ${response.statusText}`);
   }
 
   return response.json();
@@ -1979,7 +1979,7 @@ export async function getTriageSuggestions(
 
 export interface UpdateExtractionRequest {
   edited_data: Record<string, unknown>;
-  edited_by: string;  // Doctor UUID
+  edited_by: string;  // Counsellor UUID
 }
 
 export interface UpdateExtractionResponse {
@@ -2032,7 +2032,7 @@ export async function saveExtractionEdits(
  * This is a wrapper for cases where only submission_id is available
  * (from the recording workflow) and not the extraction_id.
  *
- * Lookup path: submission_id -> processing_jobs -> medical_extractions
+ * Lookup path: submission_id -> processing_jobs -> extractions
  */
 export async function saveExtractionEditsBySubmission(
   submissionId: string,

@@ -247,7 +247,7 @@ class SchemaTransformer:
         result: Dict[str, Any] = {}
         self.unmapped_fields = {}
 
-        # ========== 1. PATIENT DEMOGRAPHICS ==========
+        # ========== 1. STUDENT DEMOGRAPHICS ==========
         if "patient_info" in data:
             pi = data["patient_info"]
             demographics = {
@@ -257,11 +257,11 @@ class SchemaTransformer:
                 "gender": pi.get("gender"),
                 "consultationDate": pi.get("date"),
                 "visitId": pi.get("visit_id"),
-                "doctorName": pi.get("doctor_name")
+                "doctorName": pi.get("counsellor_name")
             }
             self._add_if_not_empty(result, "patientDemographics", demographics)
         elif not self.sparse_mode:
-            result["patientDemographics"] = self._empty_patient_demographics()
+            result["patientDemographics"] = self._empty_student_demographics()
 
         # ========== 2. EXTENDED HISTORY (NEW SECTION) ==========
         if "history" in data:
@@ -820,7 +820,7 @@ class SchemaTransformer:
 
     # ========== EMPTY SECTION TEMPLATES ==========
 
-    def _empty_patient_demographics(self) -> Dict[str, str]:
+    def _empty_student_demographics(self) -> Dict[str, str]:
         return {
             "name": "",
             "mrNumber": "",

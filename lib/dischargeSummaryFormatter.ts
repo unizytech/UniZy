@@ -5,7 +5,7 @@
  */
 
 interface DischargeSummaryData {
-  // SEGMENT 1: Patient Information (11 fields)
+  // SEGMENT 1: Student Information (11 fields)
   patient_information: {
     name: string;
     age: string;
@@ -108,7 +108,7 @@ interface DischargeSummaryData {
     complications: string; // String (comma/newline separated) - NOT array
   };
 
-  // SEGMENT 11: Hospital Course (5 fields) - FLATTENED SCHEMA
+  // SEGMENT 11: School Course (5 fields) - FLATTENED SCHEMA
   hospital_course: {
     summary: string;
     daily_progress: string; // String - ORIGINAL NAME RESTORED, NOT array
@@ -162,7 +162,7 @@ interface DischargeSummaryData {
     approved_by: string;
     report_date: string;
     report_time: string;
-    hospital_name: string;
+    school_name: string;
     hospital_address: string;
     hospital_contact: string;
   };
@@ -251,7 +251,7 @@ export function formatDischargeSummaryHTML(
   const intraopFindings = parseList(data.treatment_details?.intraoperative_findings || '');
   const emergencyContactInfo = typeof data.emergency_contact === 'string' ? data.emergency_contact : '';
 
-  // Patient header for all pages (repeated at top of each page)
+  // Student header for all pages (repeated at top of each page)
   const patientHeader = `
     <div class="patient-header">
         <div class="patient-header-left">
@@ -675,7 +675,7 @@ export function formatDischargeSummaryHTML(
 
 
     <div class="section">
-        <div class="section-header">Course In Hospital :</div>
+        <div class="section-header">Course In School :</div>
         <div class="content">${data.hospital_course?.summary || 'N/A'}</div>
         ${shouldShow(data.treatment_summary?.treatment_summary) ? `
             <div class="sub-section">
@@ -685,7 +685,7 @@ export function formatDischargeSummaryHTML(
         ` : ''}
         ${shouldShow(data.treatment_summary?.patient_response) ? `
             <div class="sub-section">
-                <div class="sub-section-header">Patient Response:</div>
+                <div class="sub-section-header">Student Response:</div>
                 <div class="content">${data.treatment_summary.patient_response}</div>
             </div>
         ` : ''}
@@ -754,7 +754,7 @@ export function formatDischargeSummaryHTML(
 
     <div class="section">
         <div class="section-header">Advice On Discharge :</div>
-        <div class="content">Post drug interaction explained to the patient.</div>
+        <div class="content">Post drug interaction explained to the student.</div>
         ${Array.isArray(data.treatment_plan_advice) && data.treatment_plan_advice.length > 0
             ? `<ul>${data.treatment_plan_advice.filter((i: any) => i).map((i: any) => `<li>${i}</li>`).join('')}</ul>`
             : ''}
@@ -793,7 +793,7 @@ export function formatDischargeSummaryHTML(
 
     <div class="section">
         <div class="contact-info">
-            FOR DOCTOR APPOINTMENT NO : ${doctorAppointmentNumber}
+            FOR COUNSELLOR APPOINTMENT NO : ${doctorAppointmentNumber}
         </div>
     </div>
 

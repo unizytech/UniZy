@@ -2,11 +2,11 @@
 Accuracy Metrics Service
 
 Computes WER (Word Error Rate) and entity error metrics by comparing
-AI-generated extraction vs doctor's edited version.
+AI-generated extraction vs counsellor's edited version.
 
 Key design decisions:
-- Modified WER: Only counts AI errors, NOT doctor additions of new information
-- Uses transcript as source-of-truth to distinguish AI errors from doctor enhancements
+- Modified WER: Only counts AI errors, NOT counsellor additions of new information
+- Uses transcript as source-of-truth to distinguish AI errors from counsellor enhancements
 - Fire-and-forget: Called via asyncio.create_task() to avoid pipeline latency
 """
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Segments where deletions count as AI errors when the deleted word is absent
 # from transcript. Narrative / template-driven segments (examination, history,
-# HPI, protocol, etc.) frequently contain stock clinical phrasing the doctor
+# HPI, protocol, etc.) frequently contain stock clinical phrasing the counsellor
 # never verbalizes ("CVS Normal", "non-tender") — those get trimmed from the
 # final note but it's a template limitation, not an AI hallucination. So we
 # only gate deletions on the clinically-structured list segments.
@@ -31,11 +31,11 @@ DELETION_GATED_SEGMENTS = {
     "investigationsOp", "prescriptionDischarge",
 }
 
-# Segments where the doctor's data source is NOT the audio — typically nurse-
+# Segments where the counsellor's data source is NOT the audio — typically assistant-
 # measured vitals or chart-reviewed lab orders entered manually. For these,
-# every insertion is treated as a doctor_addition even if the added token
+# every insertion is treated as a counsellor_addition even if the added token
 # coincidentally matches a transcript word. Otherwise short tokens like "3"
-# or "100" register as AI errors when the doctor enters a vitals number that
+# or "100" register as AI errors when the counsellor enters a vitals number that
 # happens to appear elsewhere in the conversation. Symmetric in spirit to
 # DELETION_GATED_SEGMENTS.
 INSERTION_GATED_SEGMENTS = {
@@ -151,13 +151,13 @@ def _in_transcript(token: str, transcript_lookup: set) -> bool:
     return any(v in transcript_lookup for v in _token_variants(token))
 
 
-# Clinical terms the AI routinely uses when the patient/doctor uttered a
+# Clinical terms the AI routinely uses when the student/counsellor uttered a
 # lay equivalent. Value = set of lay-synonym tokens that, if present in the
 # transcript lookup, re-classify the flagged word from "real AI error" to
 # "paraphrase". Empty set = always treat as paraphrase (interpretive /
 # meta-wording AI adds by default: "attributed", "capacity", units, etc.).
 CLINICAL_PARAPHRASES: Dict[str, set] = {
-    # Clinical nouns ↔ patient-spoken lay words
+    # Clinical nouns ↔ student-spoken lay words
     "hypoglycemia": {"sugar", "low"},
     "hyperglycemia": {"sugar", "high"},
     "constipation": {"motion", "bowel", "stool"},
@@ -297,7 +297,7 @@ def _levenshtein_aligned(
 
 def compute_modified_wer(
     ai_text: str,
-    doctor_text: str,
+    counsellor_text: str,
     transcript_text: str,
     segment_code: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -310,22 +310,22 @@ def compute_modified_wer(
                            Narrative segments (examination, history, HPI,
                            protocol, treatmentPlan, …) are template-driven,
                            so we treat all their deletions as physician trims.
-      - Insertion   (_→Y): error iff doctor's word Y IS in transcript.
+      - Insertion   (_→Y): error iff counsellor's word Y IS in transcript.
 
     WER = (subs_ai_error + dels_ai_error + ins_ai_error) / ai_word_count.
     """
     # Gate deletions only for clinically-structured list segments
     gate_deletions = segment_code in DELETION_GATED_SEGMENTS
-    # Gate insertions for nurse-collected segments (vitals/investigations) where
-    # the doctor's source isn't audio.
+    # Gate insertions for assistant-collected segments (vitals/investigations) where
+    # the counsellor's source isn't audio.
     gate_insertions = segment_code in INSERTION_GATED_SEGMENTS
     ai_tokens = _tokenize(ai_text)
-    doctor_tokens = _tokenize(doctor_text)
+    counsellor_tokens = _tokenize(counsellor_text)
     # Fuzzy transcript lookup: raw tokens + stems + number-word pairs,
     # so "inhale" ↔ "inhalation" and "two" ↔ "2" don't falsely flag.
     transcript_lookup = _build_transcript_lookup(transcript_text)
 
-    if not ai_tokens and not doctor_tokens:
+    if not ai_tokens and not counsellor_tokens:
         return {
             "wer": 0.0, "wer_adjusted": 0.0, "wer_adjusted_descriptions": 0.0,
             "substitutions": 0, "deletions": 0, "insertions": 0,
@@ -335,7 +335,7 @@ def compute_modified_wer(
             "ai_word_count": 0, "doctor_word_count": 0,
         }
 
-    ops = _levenshtein_aligned(ai_tokens, doctor_tokens)
+    ops = _levenshtein_aligned(ai_tokens, counsellor_tokens)
 
     subs = dels = ins = 0
     subs_ai_error = dels_ai_error = ins_ai_error = 0
@@ -363,7 +363,7 @@ def compute_modified_wer(
             ins += 1
             if not gate_insertions and _in_transcript(t, transcript_lookup):
                 ins_ai_error += 1
-                # Insertions are words the doctor *added* — paraphrase check
+                # Insertions are words the counsellor *added* — paraphrase check
                 # runs on the added word's lay form vs AI terminology.
                 if _is_clinical_paraphrase(t, transcript_lookup):
                     paraphrase_count += 1
@@ -378,7 +378,7 @@ def compute_modified_wer(
     adjusted_wer = adjusted_errors / max(ai_word_count, 1)
     # Adjusted-for-description-editing: also subtract deletion errors.
     # Deletions on chiefComplaints/description fields are typically the
-    # doctor trimming verbose AI prose, not true STT errors.
+    # counsellor trimming verbose AI prose, not true STT errors.
     adjusted_desc_errors = max(error_count - paraphrase_count - dels_ai_error, 0)
     adjusted_wer_descriptions = adjusted_desc_errors / max(ai_word_count, 1)
 
@@ -395,7 +395,7 @@ def compute_modified_wer(
         "doctor_trims": doctor_trims,
         "doctor_additions": doctor_additions,
         "ai_word_count": ai_word_count,
-        "doctor_word_count": len(doctor_tokens),
+        "doctor_word_count": len(counsellor_tokens),
     }
 
 
@@ -491,7 +491,7 @@ def _dx_display_name(item: Any) -> str:
 
 def _compute_entity_errors(
     ai_json: Dict[str, Any],
-    doctor_json: Dict[str, Any],
+    counsellor_json: Dict[str, Any],
     transcript_text: str
 ) -> Dict[str, Any]:
     """
@@ -499,8 +499,8 @@ def _compute_entity_errors(
 
     For each structured list (prescription / investigations / diagnosis):
       - Matched pair by canonical key → correct (reorders don't inflate errors).
-      - AI-only item (doctor removed) → error iff AI's key NOT in transcript.
-      - Doctor-only item (doctor added) → error iff doctor's key IS in transcript.
+      - AI-only item (counsellor removed) → error iff AI's key NOT in transcript.
+      - Counsellor-only item (counsellor added) → error iff counsellor's key IS in transcript.
     """
     transcript_lookup = _build_transcript_lookup(transcript_text)
     transcript_tokens = transcript_lookup  # alias so downstream arg name still reads sensibly
@@ -511,16 +511,16 @@ def _compute_entity_errors(
     }
     total_entities = 0
     incorrect_entities = 0   # matched but other field differs (e.g. dose) AND AI's value not in transcript
-    missing_entities = 0     # AI had, doctor removed, and AI's value not in transcript
-    missed_entities = 0      # doctor added, value is in transcript → AI missed
+    missing_entities = 0     # AI had, counsellor removed, and AI's value not in transcript
+    missed_entities = 0      # counsellor added, value is in transcript → AI missed
     correct_entities = 0
 
     # ---- Prescription ----
     for key in ("prescription", "medications", "drugs", "rx"):
-        if key in ai_json and key not in doctor_json:
+        if key in ai_json and key not in counsellor_json:
             continue  # artifact
         ai_items = _coerce_json(ai_json.get(key, []))
-        doc_items = _coerce_json(doctor_json.get(key, []))
+        doc_items = _coerce_json(counsellor_json.get(key, []))
         if not isinstance(ai_items, list) or not isinstance(doc_items, list):
             continue
         matched, ai_only, doc_only = _match_items(ai_items, doc_items, _drug_name)
@@ -544,10 +544,10 @@ def _compute_entity_errors(
 
     # ---- Investigations ----
     for key in ("investigations", "lab_tests", "diagnostics"):
-        if key in ai_json and key not in doctor_json:
+        if key in ai_json and key not in counsellor_json:
             continue
         ai_items = _coerce_json(ai_json.get(key, []))
-        doc_items = _coerce_json(doctor_json.get(key, []))
+        doc_items = _coerce_json(counsellor_json.get(key, []))
         if not isinstance(ai_items, list) or not isinstance(doc_items, list):
             continue
         matched, ai_only, doc_only = _match_items(ai_items, doc_items, _inv_name)
@@ -567,10 +567,10 @@ def _compute_entity_errors(
 
     # ---- Diagnosis ----
     for key in ("diagnosis", "diagnoses", "provisional_diagnosis", "final_diagnosis"):
-        if key in ai_json and key not in doctor_json:
+        if key in ai_json and key not in counsellor_json:
             continue
         ai_val = _coerce_json(ai_json.get(key))
-        doc_val = _coerce_json(doctor_json.get(key))
+        doc_val = _coerce_json(counsellor_json.get(key))
         if ai_val is None and doc_val is None:
             continue
         if isinstance(ai_val, list) and isinstance(doc_val, list):
@@ -618,7 +618,7 @@ async def compute_and_save_accuracy_metrics(
     extraction_id: uuid.UUID,
     original_json: Dict[str, Any],
     edited_json: Dict[str, Any],
-    doctor_id: Optional[str],
+    counsellor_id: Optional[str],
     transcript_text: Optional[str] = None,
 ):
     """
@@ -639,7 +639,7 @@ async def compute_and_save_accuracy_metrics(
         # If transcript not provided, fetch it
         if transcript_text is None:
             try:
-                result = supabase.table("medical_extractions")\
+                result = supabase.table("extractions")\
                     .select("transcript_text")\
                     .eq("id", str(extraction_id))\
                     .execute()
@@ -654,17 +654,17 @@ async def compute_and_save_accuracy_metrics(
         segment_metrics = []
         total_ai_words = 0
         total_doc_words = 0
-        total_doctor_additions = 0
+        total_counsellor_additions = 0
         segments_unchanged = 0
         segments_modified = 0
         all_keys = set(list(original_json.keys()) + list(edited_json.keys()))
         # Skip pass-through metadata segments — these are copied from
-        # recording_metadata / EHR context (uhid, opid, ipid, patient name,
+        # recording_metadata / EHR context (uhid, opid, ipid, student name,
         # admission date, etc.) rather than extracted from the transcript,
         # so they shouldn't contribute to WER.
         skip_keys = {
             # generic session / template metadata
-            "metadata", "template_code", "consultation_type", "doctor_name",
+            "metadata", "template_code", "consultation_type", "counsellor_name",
             "patient_info", "session_info",
             # extraction-JSON segments populated from EHR metadata / KP API inputs
             "reportMetadata", "patientInformation", "emergencyContact",
@@ -675,7 +675,7 @@ async def compute_and_save_accuracy_metrics(
 
         def _count_ai_words(val: Any) -> int:
             """Tokens in an AI segment value — used to grow the WER denominator
-            even for segments the doctor didn't touch."""
+            even for segments the counsellor didn't touch."""
             if is_empty_like(val):
                 return 0
             return len(_tokenize(_flatten_segment_to_text(val)))
@@ -683,11 +683,11 @@ async def compute_and_save_accuracy_metrics(
         for key in sorted(all_keys):
             if key in skip_keys:
                 continue
-            # Skip segments that only exist in edited (new segments added by doctor)
+            # Skip segments that only exist in edited (new segments added by counsellor)
             if key not in original_json:
                 continue
             # Artifact guard: the EHR edit flow drops untouched segments, so a
-            # key in original but missing from edited means the doctor didn't
+            # key in original but missing from edited means the counsellor didn't
             # touch it — not a real edit.
             if key not in edited_json:
                 segments_unchanged += 1
@@ -725,7 +725,7 @@ async def compute_and_save_accuracy_metrics(
 
             total_ai_words += wer_result["ai_word_count"]
             total_doc_words += wer_result["doctor_word_count"]
-            total_doctor_additions += wer_result["doctor_additions"]
+            total_counsellor_additions += wer_result["doctor_additions"]
 
             segment_metrics.append({
                 "segment_code": key,
@@ -757,7 +757,7 @@ async def compute_and_save_accuracy_metrics(
         overall_wer = total_errors / max(total_ai_words, 1)
         overall_wer_adjusted = max(total_errors - total_paraphrases, 0) / max(total_ai_words, 1)
         # "Adjusted for description editing": also subtract deletion errors,
-        # which are typically doctor trims of verbose AI prose in description-
+        # which are typically counsellor trims of verbose AI prose in description-
         # style free-text fields (e.g. chiefComplaints[*].description).
         overall_wer_adjusted_descriptions = (
             max(total_errors - total_paraphrases - total_deletion_errors, 0)
@@ -770,7 +770,7 @@ async def compute_and_save_accuracy_metrics(
         # Save to DB
         metrics_row = {
             "extraction_id": str(extraction_id),
-            "doctor_id": doctor_id,
+            "counsellor_id": counsellor_id,
             "overall_wer": round(min(overall_wer, 1.0), 4),
             "overall_wer_adjusted": round(min(overall_wer_adjusted, 1.0), 4),
             "overall_wer_adjusted_descriptions": round(min(overall_wer_adjusted_descriptions, 1.0), 4),
@@ -778,8 +778,8 @@ async def compute_and_save_accuracy_metrics(
             "entity_error_rate": entity_result["entity_error_rate"],
             "entity_errors": entity_result,
             "total_words_ai_original": total_ai_words,
-            "total_words_doctor_edit": total_doc_words,
-            "doctor_additions_count": total_doctor_additions,
+            "total_words_counsellor_edit": total_doc_words,
+            "counsellor_additions_count": total_counsellor_additions,
             "segments_unchanged": segments_unchanged,
             "segments_modified": segments_modified,
             "segments_total": segments_total,

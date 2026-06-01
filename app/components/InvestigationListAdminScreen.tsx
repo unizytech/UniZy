@@ -3,9 +3,9 @@
 /**
  * Investigation List Admin Screen
  *
- * Admin interface for managing doctor investigation lists:
- * 1. Doctor Investigations - Personal investigation lists with CSV upload
- * 2. Hospital Investigations - Shared hospital-level investigation lists
+ * Admin interface for managing counsellor investigation lists:
+ * 1. Counsellor Investigations - Personal investigation lists with CSV upload
+ * 2. School Investigations - Shared school-level investigation lists
  * 3. Feedback Review - Review and process investigation matching feedback
  */
 
@@ -30,16 +30,16 @@ interface Investigation {
   updated_at: string;
 }
 
-interface Doctor {
+interface Counsellor {
   id: string;
   full_name: string;
   email: string;
   specialization?: string;
 }
 
-interface Hospital {
+interface School {
   id: string;
-  hospital_name: string;
+  school_name: string;
 }
 
 interface FeedbackRecord {
@@ -91,14 +91,14 @@ export function InvestigationListAdminScreen() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Doctor selection
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  // Counsellor selection
+  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [selectedCounsellorId, setSelectedCounsellorId] = useState<string>('');
 
-  // Hospital selection
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
-  const [hospitalInvestigations, setHospitalInvestigations] = useState<Investigation[]>([]);
+  // School selection
+  const [hospitals, setSchools] = useState<School[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [hospitalInvestigations, setSchoolInvestigations] = useState<Investigation[]>([]);
 
   // Data states
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
@@ -120,61 +120,61 @@ export function InvestigationListAdminScreen() {
   // File upload ref
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load doctors and hospitals on mount
+  // Load counsellors and schools on mount
   useEffect(() => {
-    loadDoctors();
-    loadHospitals();
+    loadCounsellors();
+    loadSchools();
   }, []);
 
-  // Load data when doctor, view mode, or filters change
+  // Load data when counsellor, view mode, or filters change
   useEffect(() => {
-    if (selectedDoctorId) {
+    if (selectedCounsellorId) {
       if (viewMode === 'doctor-investigations') {
-        loadDoctorInvestigations();
+        loadCounsellorInvestigations();
       } else if (viewMode === 'feedback-review') {
         loadFeedbackRecords();
       }
     }
-  }, [selectedDoctorId, viewMode, feedbackFilter, confidenceFilter, typeFilter]);
+  }, [selectedCounsellorId, viewMode, feedbackFilter, confidenceFilter, typeFilter]);
 
-  // Load hospital investigations when hospital is selected
+  // Load school investigations when school is selected
   useEffect(() => {
-    if (selectedHospitalId && viewMode === 'hospital-investigations') {
-      loadHospitalInvestigations();
+    if (selectedSchoolId && viewMode === 'hospital-investigations') {
+      loadSchoolInvestigations();
     }
-  }, [selectedHospitalId, viewMode, typeFilter, categoryFilter]);
+  }, [selectedSchoolId, viewMode, typeFilter, categoryFilter]);
 
-  const loadDoctors = async () => {
+  const loadCounsellors = async () => {
     try {
-      const response = await authGet('/api/v1/doctors', getAccessToken());
+      const response = await authGet('/api/v1/counsellors', getAccessToken());
       if (!response.ok) throw new Error('Failed to load counsellors');
       const data = await response.json();
-      setDoctors(data.doctors || []);
-      if (data.doctors?.length > 0 && !selectedDoctorId) {
-        setSelectedDoctorId(data.doctors[0].id);
+      setCounsellors(data.counsellors || []);
+      if (data.counsellors?.length > 0 && !selectedCounsellorId) {
+        setSelectedCounsellorId(data.counsellors[0].id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load counsellors');
     }
   };
 
-  const loadHospitals = async () => {
+  const loadSchools = async () => {
     try {
-      const response = await authGet('/api/v1/doctors/hospitals', getAccessToken());
+      const response = await authGet('/api/v1/counsellors/schools', getAccessToken());
       if (!response.ok) throw new Error('Failed to load schools');
       const data = await response.json();
-      setHospitals(data.hospitals || []);
-      if (data.hospitals?.length > 0 && !selectedHospitalId) {
-        setSelectedHospitalId(data.hospitals[0].id);
+      setSchools(data.schools || []);
+      if (data.schools?.length > 0 && !selectedSchoolId) {
+        setSelectedSchoolId(data.schools[0].id);
       }
     } catch (err) {
-      // Silently fail - hospitals endpoint might not exist yet
-      console.error('Failed to load hospitals:', err);
+      // Silently fail - schools endpoint might not exist yet
+      console.error('Failed to load schools:', err);
     }
   };
 
-  const loadHospitalInvestigations = async () => {
-    if (!selectedHospitalId) return;
+  const loadSchoolInvestigations = async () => {
+    if (!selectedSchoolId) return;
     try {
       setLoading(true);
       setError(null);
@@ -183,12 +183,12 @@ export function InvestigationListAdminScreen() {
       if (categoryFilter !== 'all') params.append('category', categoryFilter);
 
       const response = await authGet(
-        `/api/v1/investigations/hospital/${selectedHospitalId}?${params.toString()}`,
+        `/api/v1/investigations/school/${selectedSchoolId}?${params.toString()}`,
         getAccessToken()
       );
       if (!response.ok) throw new Error('Failed to load school investigations');
       const data = await response.json();
-      setHospitalInvestigations(data.investigations || []);
+      setSchoolInvestigations(data.investigations || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load school investigations');
     } finally {
@@ -196,8 +196,8 @@ export function InvestigationListAdminScreen() {
     }
   };
 
-  const loadDoctorInvestigations = async () => {
-    if (!selectedDoctorId) return;
+  const loadCounsellorInvestigations = async () => {
+    if (!selectedCounsellorId) return;
     try {
       setLoading(true);
       setError(null);
@@ -207,7 +207,7 @@ export function InvestigationListAdminScreen() {
       if (searchQuery) params.append('search', searchQuery);
 
       const response = await authGet(
-        `/api/v1/investigations/${selectedDoctorId}?${params.toString()}`,
+        `/api/v1/investigations/${selectedCounsellorId}?${params.toString()}`,
         getAccessToken()
       );
       if (!response.ok) throw new Error('Failed to load investigations');
@@ -221,14 +221,14 @@ export function InvestigationListAdminScreen() {
   };
 
   const loadFeedbackRecords = async () => {
-    if (!selectedDoctorId) return;
+    if (!selectedCounsellorId) return;
     try {
       setLoading(true);
       setError(null);
 
       const endpoint = feedbackFilter === 'pending'
-        ? `/api/v1/investigations/feedback/${selectedDoctorId}/pending`
-        : `/api/v1/investigations/feedback/${selectedDoctorId}/history`;
+        ? `/api/v1/investigations/feedback/${selectedCounsellorId}/pending`
+        : `/api/v1/investigations/feedback/${selectedCounsellorId}/history`;
 
       const params = new URLSearchParams();
       if (feedbackFilter !== 'pending' && feedbackFilter !== 'all') {
@@ -260,12 +260,12 @@ export function InvestigationListAdminScreen() {
 
     try {
       const response = await authDelete(
-        `/api/v1/investigations/${selectedDoctorId}/${investigationId}`,
+        `/api/v1/investigations/${selectedCounsellorId}/${investigationId}`,
         getAccessToken()
       );
       if (!response.ok) throw new Error('Failed to delete investigation');
       setSuccessMessage('Investigation deleted successfully');
-      loadDoctorInvestigations();
+      loadCounsellorInvestigations();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
     }
@@ -280,7 +280,7 @@ export function InvestigationListAdminScreen() {
       formData.append('file', file);
 
       const response = await authFetch(
-        `${API_BASE_URL}/api/v1/investigations/${selectedDoctorId}/upload?replace_existing=${replaceExisting}`,
+        `${API_BASE_URL}/api/v1/investigations/${selectedCounsellorId}/upload?replace_existing=${replaceExisting}`,
         getAccessToken(),
         {
           method: 'POST',
@@ -297,7 +297,7 @@ export function InvestigationListAdminScreen() {
         `Upload complete: ${result.successful || result.successful_imports || 0} imported, ${result.failed || result.failed_imports || 0} failed`
       );
       setShowUploadModal(false);
-      loadDoctorInvestigations();
+      loadCounsellorInvestigations();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload');
     } finally {
@@ -332,7 +332,7 @@ export function InvestigationListAdminScreen() {
     try {
       setLoading(true);
       const response = await authPost(
-        `/api/v1/investigations/feedback/bulk-agree?doctor_id=${selectedDoctorId}`,
+        `/api/v1/investigations/feedback/bulk-agree?counsellor_id=${selectedCounsellorId}`,
         getAccessToken(),
         pendingIds
       );
@@ -367,7 +367,7 @@ export function InvestigationListAdminScreen() {
     return true;
   });
 
-  const filteredHospitalInvestigations = hospitalInvestigations.filter(inv => {
+  const filteredSchoolInvestigations = hospitalInvestigations.filter(inv => {
     if (searchQuery.trim()) {
       const search = searchQuery.toLowerCase();
       return (
@@ -379,24 +379,24 @@ export function InvestigationListAdminScreen() {
     return true;
   });
 
-  const handleDeleteHospitalInvestigation = async (investigationId: string) => {
+  const handleDeleteSchoolInvestigation = async (investigationId: string) => {
     if (!confirm('Are you sure you want to delete this hospital investigation?')) return;
 
     try {
       const response = await authDelete(
-        `/api/v1/investigations/hospital/${selectedHospitalId}/${investigationId}`,
+        `/api/v1/investigations/school/${selectedSchoolId}/${investigationId}`,
         getAccessToken()
       );
       if (!response.ok) throw new Error('Failed to delete school investigation');
       setSuccessMessage('School investigation deleted successfully');
-      loadHospitalInvestigations();
+      loadSchoolInvestigations();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
     }
   };
 
-  const handleHospitalFileUpload = async (file: File, replaceExisting: boolean) => {
-    if (!selectedHospitalId || !selectedDoctorId) {
+  const handleSchoolFileUpload = async (file: File, replaceExisting: boolean) => {
+    if (!selectedSchoolId || !selectedCounsellorId) {
       setError('Please select both a school and a counsellor (as admin)');
       return;
     }
@@ -409,7 +409,7 @@ export function InvestigationListAdminScreen() {
       formData.append('file', file);
 
       const response = await authFetch(
-        `${API_BASE_URL}/api/v1/investigations/hospital/${selectedHospitalId}/upload?created_by=${selectedDoctorId}&replace_existing=${replaceExisting}`,
+        `${API_BASE_URL}/api/v1/investigations/school/${selectedSchoolId}/upload?created_by=${selectedCounsellorId}&replace_existing=${replaceExisting}`,
         getAccessToken(),
         {
           method: 'POST',
@@ -423,7 +423,7 @@ export function InvestigationListAdminScreen() {
         `Upload complete: ${result.successful_imports || 0} imported, ${result.failed_imports || 0} failed`
       );
       setShowUploadModal(false);
-      loadHospitalInvestigations();
+      loadSchoolInvestigations();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload');
     } finally {
@@ -459,7 +459,7 @@ export function InvestigationListAdminScreen() {
                 : 'Review and process investigation matching feedback'}
             </p>
           </div>
-          {viewMode === 'doctor-investigations' && selectedDoctorId && (
+          {viewMode === 'doctor-investigations' && selectedCounsellorId && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -478,7 +478,7 @@ export function InvestigationListAdminScreen() {
               </button>
             </div>
           )}
-          {viewMode === 'hospital-investigations' && selectedHospitalId && (
+          {viewMode === 'hospital-investigations' && selectedSchoolId && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -544,15 +544,15 @@ export function InvestigationListAdminScreen() {
         </div>
       </div>
 
-      {/* Doctor Selector */}
+      {/* Counsellor Selector */}
       {(viewMode === 'doctor-investigations' || viewMode === 'feedback-review') && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Counsellor
           </label>
           <select
-            value={selectedDoctorId}
-            onChange={(e) => setSelectedDoctorId(e.target.value)}
+            value={selectedCounsellorId}
+            onChange={(e) => setSelectedCounsellorId(e.target.value)}
             className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg bg-white"
             style={{ color: '#111827' }}
           >
@@ -583,8 +583,8 @@ export function InvestigationListAdminScreen() {
         </div>
       )}
 
-      {/* Doctor Investigations View */}
-      {viewMode === 'doctor-investigations' && selectedDoctorId && (
+      {/* Counsellor Investigations View */}
+      {viewMode === 'doctor-investigations' && selectedCounsellorId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -608,7 +608,7 @@ export function InvestigationListAdminScreen() {
                   value={categoryFilter}
                   onChange={(e) => {
                     setCategoryFilter(e.target.value);
-                    loadDoctorInvestigations();
+                    loadCounsellorInvestigations();
                   }}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
                 >
@@ -721,7 +721,7 @@ export function InvestigationListAdminScreen() {
       )}
 
       {/* Feedback Review View */}
-      {viewMode === 'feedback-review' && selectedDoctorId && (
+      {viewMode === 'feedback-review' && selectedCounsellorId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -800,22 +800,22 @@ export function InvestigationListAdminScreen() {
         </div>
       )}
 
-      {/* Hospital Selector */}
+      {/* School Selector */}
       {viewMode === 'hospital-investigations' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select School
           </label>
           <select
-            value={selectedHospitalId}
-            onChange={(e) => setSelectedHospitalId(e.target.value)}
+            value={selectedSchoolId}
+            onChange={(e) => setSelectedSchoolId(e.target.value)}
             className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg bg-white"
             style={{ color: '#111827' }}
           >
             <option value="" style={{ color: '#111827' }}>-- Select a School --</option>
             {hospitals.map(hospital => (
               <option key={hospital.id} value={hospital.id} style={{ color: '#111827' }}>
-                {hospital.hospital_name}
+                {hospital.school_name}
               </option>
             ))}
           </select>
@@ -827,8 +827,8 @@ export function InvestigationListAdminScreen() {
         </div>
       )}
 
-      {/* Hospital Investigations View */}
-      {viewMode === 'hospital-investigations' && selectedHospitalId && (
+      {/* School Investigations View */}
+      {viewMode === 'hospital-investigations' && selectedSchoolId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -876,7 +876,7 @@ export function InvestigationListAdminScreen() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading school investigations...</p>
             </div>
-          ) : filteredHospitalInvestigations.length === 0 ? (
+          ) : filteredSchoolInvestigations.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <p>No school investigations found</p>
               <button
@@ -909,7 +909,7 @@ export function InvestigationListAdminScreen() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredHospitalInvestigations.map(investigation => (
+                  {filteredSchoolInvestigations.map(investigation => (
                     <tr key={investigation.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -947,7 +947,7 @@ export function InvestigationListAdminScreen() {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteHospitalInvestigation(investigation.id)}
+                            onClick={() => handleDeleteSchoolInvestigation(investigation.id)}
                             className="text-red-600 hover:text-red-700 text-sm font-medium"
                           >
                             Delete
@@ -973,23 +973,23 @@ export function InvestigationListAdminScreen() {
           }}
           onSave={async (data) => {
             try {
-              // Determine if we're in hospital or doctor context
-              const isHospitalContext = viewMode === 'hospital-investigations';
+              // Determine if we're in school or counsellor context
+              const isSchoolContext = viewMode === 'hospital-investigations';
 
-              if (isHospitalContext) {
-                // Hospital investigation save
-                if (!selectedHospitalId) {
+              if (isSchoolContext) {
+                // School investigation save
+                if (!selectedSchoolId) {
                   setError('Please select a school first');
                   return;
                 }
-                if (!selectedDoctorId) {
+                if (!selectedCounsellorId) {
                   setError('Please select a counsellor as admin for audit trail');
                   return;
                 }
 
                 const endpoint = editingInvestigation
-                  ? `/api/v1/investigations/hospital/${selectedHospitalId}/${editingInvestigation.id}`
-                  : `/api/v1/investigations/hospital/${selectedHospitalId}?created_by=${selectedDoctorId}`;
+                  ? `/api/v1/investigations/school/${selectedSchoolId}/${editingInvestigation.id}`
+                  : `/api/v1/investigations/school/${selectedSchoolId}?created_by=${selectedCounsellorId}`;
 
                 const response = editingInvestigation
                   ? await authPut(endpoint, getAccessToken(), data)
@@ -999,12 +999,12 @@ export function InvestigationListAdminScreen() {
                 setSuccessMessage(editingInvestigation ? 'School investigation updated' : 'School investigation added');
                 setShowInvestigationModal(false);
                 setEditingInvestigation(null);
-                loadHospitalInvestigations();
+                loadSchoolInvestigations();
               } else {
-                // Doctor investigation save
+                // Counsellor investigation save
                 const endpoint = editingInvestigation
-                  ? `/api/v1/investigations/${selectedDoctorId}/${editingInvestigation.id}`
-                  : `/api/v1/investigations/${selectedDoctorId}`;
+                  ? `/api/v1/investigations/${selectedCounsellorId}/${editingInvestigation.id}`
+                  : `/api/v1/investigations/${selectedCounsellorId}`;
 
                 const response = editingInvestigation
                   ? await authPut(endpoint, getAccessToken(), data)
@@ -1014,7 +1014,7 @@ export function InvestigationListAdminScreen() {
                 setSuccessMessage(editingInvestigation ? 'Investigation updated' : 'Investigation added');
                 setShowInvestigationModal(false);
                 setEditingInvestigation(null);
-                loadDoctorInvestigations();
+                loadCounsellorInvestigations();
               }
             } catch (err) {
               setError(err instanceof Error ? err.message : 'Failed to save');
@@ -1027,9 +1027,9 @@ export function InvestigationListAdminScreen() {
       {showUploadModal && (
         <UploadModal
           onClose={() => { setShowUploadModal(false); setError(null); }}
-          onUpload={viewMode === 'hospital-investigations' ? handleHospitalFileUpload : handleFileUpload}
+          onUpload={viewMode === 'hospital-investigations' ? handleSchoolFileUpload : handleFileUpload}
           fileInputRef={fileInputRef}
-          isHospitalUpload={viewMode === 'hospital-investigations'}
+          isSchoolUpload={viewMode === 'hospital-investigations'}
           isUploading={isUploading}
           uploadError={error}
         />
@@ -1336,12 +1336,12 @@ interface UploadModalProps {
   onClose: () => void;
   onUpload: (file: File, replaceExisting: boolean) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  isHospitalUpload?: boolean;
+  isSchoolUpload?: boolean;
   isUploading?: boolean;
   uploadError?: string | null;
 }
 
-function UploadModal({ onClose, onUpload, fileInputRef, isHospitalUpload = false, isUploading = false, uploadError = null }: UploadModalProps) {
+function UploadModal({ onClose, onUpload, fileInputRef, isSchoolUpload = false, isUploading = false, uploadError = null }: UploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
 
@@ -1350,9 +1350,9 @@ function UploadModal({ onClose, onUpload, fileInputRef, isHospitalUpload = false
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
-            {isHospitalUpload ? 'Upload School Investigation List' : 'Upload Investigation List'}
+            {isSchoolUpload ? 'Upload School Investigation List' : 'Upload Investigation List'}
           </h2>
-          {isHospitalUpload && (
+          {isSchoolUpload && (
             <p className="text-sm text-gray-600 mt-1">
               School investigations are shared across all counsellors in this school.
             </p>
@@ -1441,7 +1441,7 @@ function UploadModal({ onClose, onUpload, fileInputRef, isHospitalUpload = false
               className="w-4 h-4 text-blue-600 border-gray-300 rounded disabled:opacity-50"
             />
             <label htmlFor="replace_existing" className={`text-sm ${isUploading ? 'text-gray-400' : 'text-gray-700'}`}>
-              {isHospitalUpload
+              {isSchoolUpload
                 ? 'Replace all existing school investigations (instead of merging)'
                 : 'Replace all existing investigations (instead of merging)'}
             </label>

@@ -8,7 +8,7 @@ Generates text embeddings using multiple providers:
 
 Features:
 - Provider abstraction via ABC
-- Per-hospital model configuration
+- Per-school model configuration
 - TTL caching for embeddings
 - LLM usage tracking
 """
@@ -292,7 +292,7 @@ class EmbeddingService:
         embedding, usage = await service.generate_embedding(
             texts=["What are the common diagnoses?"],
             input_type="search_query",
-            hospital_id=hospital_uuid
+            school_id=school_uuid
         )
 
         # Embed a full extraction
@@ -302,7 +302,7 @@ class EmbeddingService:
     # Provider instances (lazy loaded)
     _providers: Dict[str, BaseEmbeddingProvider] = {}
 
-    # Cache for model configs (hospital_id -> model_config)
+    # Cache for model configs (school_id -> model_config)
     _model_cache: TTLCache = TTLCache(maxsize=100, ttl=3600)  # 1 hour TTL
 
     # Cache for embeddings (content_hash -> embedding)
@@ -330,25 +330,25 @@ class EmbeddingService:
 
         return self._providers[cache_key]
 
-    async def get_active_model(self, hospital_id: Optional[UUID] = None) -> Dict[str, Any]:
+    async def get_active_model(self, school_id: Optional[UUID] = None) -> Dict[str, Any]:
         """
-        Get the active embedding model for a hospital.
-        Falls back to default model if no hospital-specific config.
+        Get the active embedding model for a school.
+        Falls back to default model if no school-specific config.
 
         Returns dict with: model_code, model_name, provider, dimensions
         """
         from services.supabase_service import supabase
 
-        cache_key = str(hospital_id) if hospital_id else "default"
+        cache_key = str(school_id) if school_id else "default"
 
         if cache_key in self._model_cache:
             return self._model_cache[cache_key]
 
-        # Try hospital-specific setting first
-        if hospital_id:
+        # Try school-specific setting first
+        if school_id:
             settings_result = supabase.table("qa_engine_settings")\
                 .select("embedding_model_id, embedding_models(*)")\
-                .eq("hospital_id", str(hospital_id))\
+                .eq("school_id", str(school_id))\
                 .limit(1)\
                 .execute()
 
@@ -401,7 +401,7 @@ class EmbeddingService:
         self,
         texts: List[str],
         input_type: str = "search_document",
-        hospital_id: Optional[UUID] = None,
+        school_id: Optional[UUID] = None,
         use_cache: bool = True
     ) -> Tuple[List[List[float]], Dict[str, Any]]:
         """
@@ -410,14 +410,14 @@ class EmbeddingService:
         Args:
             texts: List of texts to embed
             input_type: "search_document" for indexing, "search_query" for queries
-            hospital_id: Hospital ID for model lookup
+            school_id: School ID for model lookup
             use_cache: Whether to use cached embeddings
 
         Returns:
             Tuple of (embeddings list, usage metadata)
         """
         # Get active model config
-        model_config = await self.get_active_model(hospital_id)
+        model_config = await self.get_active_model(school_id)
 
         # Check cache for single text
         if use_cache and len(texts) == 1:
@@ -479,7 +479,7 @@ class EmbeddingService:
         force: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
-        Generate and store embeddings for a medical extraction.
+        Generate and store embeddings for an extraction.
 
         Creates both document-level and segment-level embeddings.
 
@@ -493,12 +493,12 @@ class EmbeddingService:
         from services.supabase_service import supabase
 
         try:
-            # Fetch extraction data with doctor's hospital_id
-            ext_result = supabase.table("medical_extractions")\
+            # Fetch extraction data with counsellor's school_id
+            ext_result = supabase.table("extractions")\
                 .select(
-                    "id, doctor_id, patient_id, consultation_type_id, "
+                    "id, counsellor_id, student_id, consultation_type_id, "
                     "transcript_text, original_extraction_json, edited_extraction_json, "
-                    "doctors(hospital_id)"
+                    "counsellors(school_id)"
                 )\
                 .eq("id", str(extraction_id))\
                 .limit(1)\
@@ -509,10 +509,10 @@ class EmbeddingService:
                 return None
 
             ext = ext_result.data[0]
-            # Get hospital_id from the joined doctors table
-            hospital_id = None
-            if ext.get("doctors") and ext["doctors"].get("hospital_id"):
-                hospital_id = UUID(ext["doctors"]["hospital_id"])
+            # Get school_id from the joined counsellors table
+            school_id = None
+            if ext.get("counsellors") and ext["counsellors"].get("school_id"):
+                school_id = UUID(ext["counsellors"]["school_id"])
 
             # Use edited data if available, otherwise original
             extraction_data = ext.get("edited_extraction_json") or ext.get("original_extraction_json") or {}
@@ -523,7 +523,7 @@ class EmbeddingService:
             content_hash = self._compute_content_hash(doc_content)
 
             # Get active model
-            model_config = await self.get_active_model(hospital_id)
+            model_config = await self.get_active_model(school_id)
 
             # Check if embedding exists and is unchanged
             if not force:
@@ -542,7 +542,7 @@ class EmbeddingService:
             embeddings, usage = await self.generate_embedding(
                 texts=[doc_content],
                 input_type="search_document",
-                hospital_id=hospital_id,
+                school_id=school_id,
                 use_cache=False  # Don't cache for storage operations
             )
 
@@ -558,9 +558,9 @@ class EmbeddingService:
                 "embedding": embedding,
                 "embedded_content": doc_content[:10000],  # Truncate for storage
                 "content_hash": content_hash,
-                "hospital_id": str(hospital_id) if hospital_id else None,
-                "doctor_id": ext.get("doctor_id"),
-                "patient_id": ext.get("patient_id"),
+                "school_id": str(school_id) if school_id else None,
+                "counsellor_id": ext.get("counsellor_id"),
+                "student_id": ext.get("student_id"),
                 "consultation_type_id": ext.get("consultation_type_id"),
                 "token_count": usage.get("total_tokens") or len(doc_content.split()),
             }
@@ -588,7 +588,7 @@ class EmbeddingService:
                 seg_embeddings, seg_usage = await self.generate_embedding(
                     texts=[segment_content],
                     input_type="search_document",
-                    hospital_id=hospital_id,
+                    school_id=school_id,
                     use_cache=False
                 )
 
@@ -605,9 +605,9 @@ class EmbeddingService:
                     "embedding": seg_embedding,
                     "embedded_content": segment_content[:5000],
                     "content_hash": seg_content_hash,
-                    "hospital_id": str(hospital_id) if hospital_id else None,
-                    "doctor_id": ext.get("doctor_id"),
-                    "patient_id": ext.get("patient_id"),
+                    "school_id": str(school_id) if school_id else None,
+                    "counsellor_id": ext.get("counsellor_id"),
+                    "student_id": ext.get("student_id"),
                     "token_count": seg_usage.get("total_tokens") or len(segment_content.split()),
                 }
 

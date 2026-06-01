@@ -238,7 +238,7 @@ OG_JSON_SCHEMA = {
                     "comment": {"type": "string", "description": "Additional comments or '-'"}
                 }
             },
-            "description": "Medication chart with GKNM hospital format"
+            "description": "Medication chart with GKNM school format"
         },
         "carePlanAndAdvice": {
             "type": "object",
@@ -270,7 +270,7 @@ OG_JSON_SCHEMA = {
                         "lifestyle": {"type": "string", "description": "Lifestyle instructions"},
                         "rchid": {"type": "string", "description": "RCHID instruction"}
                     },
-                    "description": "Patient instructions"
+                    "description": "Student instructions"
                 }
             },
             "description": "Follow up and instructions"
@@ -289,11 +289,11 @@ OG_JSON_SCHEMA = {
         "signature": {
             "type": "object",
             "properties": {
-                "doctor_name": {"type": "string", "description": "Doctor's name"},
+                "counsellor_name": {"type": "string", "description": "Doctor's name"},
                 "qualifications": {"type": "string", "description": "Qualifications"},
                 "date_time": {"type": "string", "description": "Date and time of signature"}
             },
-            "description": "Doctor signature information"
+            "description": "Counsellor signature information"
         }
     }
 }

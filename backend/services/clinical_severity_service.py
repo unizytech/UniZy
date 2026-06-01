@@ -61,8 +61,8 @@ class ClinicalInput:
         is_surgical: Whether treatment involves surgery
         is_chronic: Whether condition is chronic
         treatment_duration_days: Expected treatment duration in days
-        is_second_opinion: Whether doctor recommends consulting another specialist
-        is_alternate_procedure: Whether doctor suggests alternate treatment if first fails
+        is_second_opinion: Whether counsellor recommends consulting another specialist
+        is_alternate_procedure: Whether counsellor suggests alternate treatment if first fails
     """
     specialty: str
     diagnosis_text: str
@@ -490,7 +490,7 @@ def _detect_second_opinion_and_alternate(
     extraction_data: Dict[str, Any]
 ) -> Tuple[bool, bool]:
     """
-    Detect if doctor recommends second opinion or alternate treatment.
+    Detect if counsellor recommends second opinion or alternate treatment.
 
     Scans DIAGNOSIS, TREATMENT_PLAN, FOLLOW_UP, and EXAMINATION segments
     for keywords indicating:
@@ -653,7 +653,7 @@ def _parse_warnings_for_severity(warnings_data: Any) -> Tuple[List[str], bool]:
 
 def build_clinical_input_from_extraction(
     extraction_data: Dict[str, Any],
-    doctor_specialty: Optional[str] = None
+    counsellor_specialty: Optional[str] = None
 ) -> ClinicalInput:
     """
     Build ClinicalInput from extraction data.
@@ -671,7 +671,7 @@ def build_clinical_input_from_extraction(
 
     Args:
         extraction_data: Original extraction JSON from Gemini
-        doctor_specialty: Optional specialty override (from doctor profile)
+        counsellor_specialty: Optional specialty override (from counsellor profile)
 
     Returns:
         ClinicalInput populated from extraction data
@@ -785,8 +785,8 @@ def build_clinical_input_from_extraction(
         extraction_data
     )
 
-    # Use specialty from doctor profile or default
-    specialty = doctor_specialty or "general_medicine"
+    # Use specialty from counsellor profile or default
+    specialty = counsellor_specialty or "general_medicine"
 
     return ClinicalInput(
         specialty=specialty,
@@ -809,9 +809,9 @@ def build_clinical_input_from_extraction(
 async def calculate_and_save_severity(
     extraction_id: uuid.UUID,
     extraction_data: Dict[str, Any],
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[uuid.UUID] = None,
-    doctor_specialty: Optional[str] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
+    counsellor_specialty: Optional[str] = None,
     consultation_insights: Optional[Dict[str, Any]] = None,
     consultation_insights_id: Optional[uuid.UUID] = None
 ) -> Optional[uuid.UUID]:
@@ -822,11 +822,11 @@ async def calculate_and_save_severity(
     Uses map_insights_to_clinical_severity() for centralized scoring logic.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         extraction_data: Original extraction JSON (used to extract ICD codes and signals)
-        doctor_id: Optional doctor UUID
-        patient_id: Optional patient UUID
-        doctor_specialty: Optional specialty from doctor profile
+        counsellor_id: Optional counsellor UUID
+        student_id: Optional student UUID
+        counsellor_specialty: Optional specialty from counsellor profile
         consultation_insights: Optional pre-extracted consultation insights (if available)
 
     Returns:
@@ -839,7 +839,7 @@ async def calculate_and_save_severity(
         # Build clinical input from extraction (keyword-based signal extraction)
         clinical_input = build_clinical_input_from_extraction(
             extraction_data,
-            doctor_specialty
+            counsellor_specialty
         )
 
         # If pre-extracted consultation insights provided, use them
@@ -874,8 +874,8 @@ async def calculate_and_save_severity(
         # Note: Raw AI signals are stored in consultation_insights table (no input_data column)
         assessment_data = {
             "extraction_id": str(extraction_id),
-            "patient_id": str(patient_id) if patient_id else None,
-            "doctor_id": str(doctor_id) if doctor_id else None,
+            "student_id": str(student_id) if student_id else None,
+            "counsellor_id": str(counsellor_id) if counsellor_id else None,
             "consultation_insights_id": str(consultation_insights_id) if consultation_insights_id else None,
             "severity_level": result["severity_level"],
             "total_score": result["total_score"],

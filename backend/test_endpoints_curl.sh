@@ -83,10 +83,10 @@ fi
 # Test 3: Activated Templates
 # ============================================================================
 
-echo -e "\n${BLUE}[TEST 3] GET /api/v1/doctors/${TEST_DOCTOR_ID}/activated-templates${NC}"
+echo -e "\n${BLUE}[TEST 3] GET /api/v1/counsellors/${TEST_DOCTOR_ID}/activated-templates${NC}"
 
 response=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-  "${API_BASE}/doctors/${TEST_DOCTOR_ID}/activated-templates")
+  "${API_BASE}/counsellors/${TEST_DOCTOR_ID}/activated-templates")
 
 http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
 body=$(echo "$response" | sed '/HTTP_CODE/d')
@@ -126,7 +126,7 @@ response=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
   -H "Content-Type: application/json" \
   -d "{
     \"transcript\": \"${SAMPLE_TRANSCRIPT}\",
-    \"doctor_id\": \"${TEST_DOCTOR_ID}\",
+    \"counsellor_id\": \"${TEST_DOCTOR_ID}\",
     \"template_name\": \"${TEMPLATE_NAME}\",
     \"processing_mode\": \"default\",
     \"mode\": \"core\"
@@ -162,7 +162,7 @@ response_core=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
   -H "Content-Type: application/json" \
   -d "{
     \"transcript\": \"${SAMPLE_TRANSCRIPT}\",
-    \"doctor_id\": \"${TEST_DOCTOR_ID}\",
+    \"counsellor_id\": \"${TEST_DOCTOR_ID}\",
     \"template_name\": \"${TEMPLATE_NAME}\",
     \"processing_mode\": \"fast\",
     \"mode\": \"core\"
@@ -190,7 +190,7 @@ response_add=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
   -H "Content-Type: application/json" \
   -d "{
     \"transcript\": \"${SAMPLE_TRANSCRIPT}\",
-    \"doctor_id\": \"${TEST_DOCTOR_ID}\",
+    \"counsellor_id\": \"${TEST_DOCTOR_ID}\",
     \"template_name\": \"${TEMPLATE_NAME}\",
     \"processing_mode\": \"fast\",
     \"mode\": \"additional\"
@@ -223,11 +223,11 @@ response=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
   -X POST "${API_BASE}/option1/recording/start" \
   -H "Content-Type: application/json" \
   -d "{
-    \"doctor_id\": \"${TEST_DOCTOR_ID}\",
+    \"counsellor_id\": \"${TEST_DOCTOR_ID}\",
     \"template_name\": \"${TEMPLATE_NAME}\",
     \"processing_mode\": \"default\",
     \"extraction_mode\": \"core\",
-    \"patient_id\": \"TEST_PATIENT_001\",
+    \"student_id\": \"TEST_PATIENT_001\",
     \"transcription_engine\": \"gemini\",
     \"transcription_model\": \"gemini-2.5-flash\",
     \"chunk_duration_seconds\": 10

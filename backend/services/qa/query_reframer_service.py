@@ -5,7 +5,7 @@ Preprocesses user queries before classification to:
 1. Expand medical abbreviations (BP → blood pressure)
 2. Correct typos and misspellings (diabeties → diabetes)
 3. Normalize colloquial/layman terms (sugar → blood glucose)
-4. Clarify vague queries (show patients → show patients with consultation details)
+4. Clarify vague queries (show students → show students with consultation details)
 5. Normalize temporal expressions (last week → specific date context)
 6. Remove noise/filler words (Can you please show me → show)
 7. Add intent clarification hints for better classification
@@ -71,7 +71,7 @@ Common Medical Abbreviations to Expand:
 - USG → ultrasonography
 - MRI → magnetic resonance imaging
 - CT → computed tomography
-- Pt → patient
+- Pt → student
 - Tx → treatment
 - Fx → fracture
 - Sx → symptoms
@@ -194,7 +194,7 @@ ABBREVIATION_MAP = {
 
     # Other
     "pt": "patient",
-    "pts": "patients",
+    "pts": "students",
     "f/u": "follow up",
     "fu": "follow up",
     "c/o": "complaining of",
@@ -210,8 +210,8 @@ ABBREVIATION_MAP = {
 
 COLLOQUIAL_MAP = {
     "sugar": "blood glucose",
-    "sugar patient": "diabetic patient",
-    "sugar patients": "diabetic patients",
+    "sugar student": "diabetic student",
+    "sugar students": "diabetic students",
     "heart attack": "myocardial infarction",
     "stroke": "cerebrovascular accident",
     "water tablet": "diuretic",
@@ -330,11 +330,11 @@ class QueryReframerService:
         service = QueryReframerService()
 
         reframed = await service.reframe(
-            query="BP patients with diabeties last week"
+            query="BP students with diabeties last week"
         )
 
         print(reframed.reframed_query)
-        # "blood pressure patients with diabetes from the last 7 days"
+        # "blood pressure students with diabetes from the last 7 days"
 
         print(reframed.expansions)
         # [{"original": "BP", "expanded": "blood pressure", "category": "abbreviation"}]

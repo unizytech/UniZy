@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * Dashboard Screen - Hospital Management Dashboard
+ * Dashboard Screen - School Management Dashboard
  *
- * Main dashboard for tracking intervention opportunities and patient retention.
+ * Main dashboard for tracking intervention opportunities and student retention.
  * Three views:
  * 1. Command Center - Overview metrics and category breakdown
- * 2. Patient Info - Patient list with interventions
+ * 2. Student Info - Student list with interventions
  * 3. Tracking - Intervention status management
  *
  * Based on 6-category dashboard system (remapped from 7 DB categories):
  * - TREATMENT_COMPLIANCE: Treatment adherence (score-based)
- * - DROP_OFF_RISK: Patient retention risk (score-based)
+ * - DROP_OFF_RISK: Student retention risk (score-based)
  * - FOLLOWUP_DUE: Actionable follow-up needs (intervention-based)
  * - HEALTH_SERVICES: Rx + diagnostics + allied health (intervention-based)
  * - SURGERY_CANDIDATE: OPD to IPD conversion (intervention-based)
@@ -22,13 +22,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@lib/auth';
 import {
   getInterventionSummary,
-  getPatientsByCategory,
+  getStudentsByCategory,
   getOutcomeMetrics,
   updateInterventionStatus,
-  getHospitals,
-  getDoctors,
+  getSchools,
+  getCounsellors,
   getSpecializations,
-  getPatientLastVisitInfo,
+  getStudentLastVisitInfo,
   formatCurrency,
   formatPercentage,
   getPriorityColor,
@@ -36,16 +36,16 @@ import {
   getDaysOverdueText,
   CATEGORY_CONFIG,
   InterventionSummaryResponse,
-  PatientsListResponse,
+  StudentsListResponse,
   OutcomeMetricsResponse,
   CategoryStats,
   BreakdownStats,
-  PatientWithInterventions,
-  PatientMetricRow,
+  StudentWithInterventions,
+  StudentMetricRow,
   TimePeriod,
   InterventionCategory,
-  Hospital,
-  Doctor,
+  School,
+  Counsellor,
 } from '@lib/dashboardApi';
 
 // ============================================================================
@@ -78,7 +78,7 @@ const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
 // ============================================================================
 
 export default function DashboardScreen() {
-  const { getAccessToken, isHospitalAdmin, adminHospitalId } = useAuth();
+  const { getAccessToken, isSchoolAdmin, adminSchoolId } = useAuth();
   const accessToken = getAccessToken();
 
   // State
@@ -88,17 +88,17 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Filter options state
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [doctors, setDoctorsData] = useState<Doctor[]>([]);
+  const [hospitals, setSchools] = useState<School[]>([]);
+  const [counsellors, setCounsellorsData] = useState<Counsellor[]>([]);
   const [specializations, setSpecializations] = useState<string[]>([]);
-  const [hospitalsLoading, setHospitalsLoading] = useState(true);
+  const [hospitalsLoading, setSchoolsLoading] = useState(true);
 
-  // Breakdown view state (for department/doctor/patient table toggle)
+  // Breakdown view state (for department/counsellor/student table toggle)
   const [breakdownView, setBreakdownView] = useState<'department' | 'doctor' | 'patient'>('department');
 
   // Data state
   const [summary, setSummary] = useState<InterventionSummaryResponse | null>(null);
-  const [patients, setPatients] = useState<PatientsListResponse | null>(null);
+  const [students, setStudents] = useState<StudentsListResponse | null>(null);
   const [outcomes, setOutcomes] = useState<OutcomeMetricsResponse | null>(null);
 
   // Fetch data
@@ -133,8 +133,8 @@ export default function DashboardScreen() {
       setSummary(summaryData);
       setOutcomes(outcomesData);
 
-      // Always fetch patients (with or without category filter)
-      const patientsData = await getPatientsByCategory(
+      // Always fetch students (with or without category filter)
+      const patientsData = await getStudentsByCategory(
         filters.selectedCategory, // undefined = all categories
         {
           hospitalId: filters.hospitalId,
@@ -144,7 +144,7 @@ export default function DashboardScreen() {
         },
         accessToken
       );
-      setPatients(patientsData);
+      setStudents(patientsData);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -153,80 +153,80 @@ export default function DashboardScreen() {
     }
   }, [accessToken, filters]);
 
-  // Only fetch dashboard data after hospitals are loaded and a hospital is selected
+  // Only fetch dashboard data after schools are loaded and a school is selected
   useEffect(() => {
-    // Wait for hospitals to load and be selected before fetching dashboard
+    // Wait for schools to load and be selected before fetching dashboard
     if (!hospitalsLoading && filters.hospitalId) {
       fetchData();
     }
   }, [fetchData, hospitalsLoading, filters.hospitalId]);
 
-  // Fetch hospitals on mount and set default
+  // Fetch schools on mount and set default
   useEffect(() => {
-    async function loadHospitals() {
+    async function loadSchools() {
       if (!accessToken) return;
 
-      setHospitalsLoading(true);
+      setSchoolsLoading(true);
       try {
-        if (isHospitalAdmin && adminHospitalId) {
-          // Hospital admin: set their hospital directly, fetch only their hospital name
-          setFilters((prev) => ({ ...prev, hospitalId: adminHospitalId }));
-          const hospitalList = await getHospitals(accessToken);
-          const myHospital = hospitalList.find((h) => h.id === adminHospitalId);
-          if (myHospital) {
-            setHospitals([myHospital]);
+        if (isSchoolAdmin && adminSchoolId) {
+          // School admin: set their school directly, fetch only their school name
+          setFilters((prev) => ({ ...prev, hospitalId: adminSchoolId }));
+          const hospitalList = await getSchools(accessToken);
+          const mySchool = hospitalList.find((h) => h.id === adminSchoolId);
+          if (mySchool) {
+            setSchools([mySchool]);
           }
         } else {
-          // Super admin: load all hospitals, default to "Guru Hospital"
-          const hospitalList = await getHospitals(accessToken);
-          setHospitals(hospitalList);
+          // Super admin: load all schools, default to "Guru School"
+          const hospitalList = await getSchools(accessToken);
+          setSchools(hospitalList);
 
-          const guruHospital = hospitalList.find(
-            (h) => h.hospital_name.toLowerCase().includes('guru') ||
-                   h.hospital_code.toLowerCase().includes('guru')
+          const guruSchool = hospitalList.find(
+            (h) => h.school_name.toLowerCase().includes('guru') ||
+                   h.school_code.toLowerCase().includes('guru')
           );
 
-          if (guruHospital) {
-            setFilters((prev) => ({ ...prev, hospitalId: guruHospital.id }));
+          if (guruSchool) {
+            setFilters((prev) => ({ ...prev, hospitalId: guruSchool.id }));
           } else if (hospitalList.length > 0) {
             setFilters((prev) => ({ ...prev, hospitalId: hospitalList[0].id }));
           }
         }
       } catch (err) {
-        console.error('Error loading hospitals:', err);
+        console.error('Error loading schools:', err);
       } finally {
-        setHospitalsLoading(false);
+        setSchoolsLoading(false);
       }
     }
 
-    loadHospitals();
-  }, [accessToken, isHospitalAdmin, adminHospitalId]);
+    loadSchools();
+  }, [accessToken, isSchoolAdmin, adminSchoolId]);
 
-  // Fetch doctors and specializations when hospital changes
+  // Fetch counsellors and specializations when school changes
   useEffect(() => {
-    async function loadDoctorsAndSpecializations() {
+    async function loadCounsellorsAndSpecializations() {
       if (!accessToken || !filters.hospitalId) return;
 
       try {
         const [doctorList, specList] = await Promise.all([
-          getDoctors({ hospitalId: filters.hospitalId }, accessToken),
+          getCounsellors({ hospitalId: filters.hospitalId }, accessToken),
           getSpecializations(accessToken),
         ]);
 
-        setDoctorsData(doctorList);
+        setCounsellorsData(doctorList);
 
-        // Filter specializations to those used by doctors in this hospital
+        // Filter specializations to those used by counsellors in this school
         const hospitalSpecializations = new Set(
           doctorList.map((d) => d.specialization).filter(Boolean)
         );
         const filteredSpecs = specList.filter((s) => hospitalSpecializations.has(s));
         setSpecializations(filteredSpecs.length > 0 ? filteredSpecs : specList);
       } catch (err) {
-        console.error('Error loading doctors/specializations:', err);
+        console.error('Error loading counsellors/specializations:', err);
       }
     }
 
-    loadDoctorsAndSpecializations();
+    loadCounsellorsAndSpecializations();
   }, [accessToken, filters.hospitalId]);
 
   // Handle category click
@@ -234,7 +234,7 @@ export default function DashboardScreen() {
     // If empty string or invalid, clear category filter
     if (!category) {
       setFilters((prev) => ({ ...prev, selectedCategory: undefined }));
-      setPatients(null);
+      setStudents(null);
       return;
     }
 
@@ -243,7 +243,7 @@ export default function DashboardScreen() {
 
     if (accessToken) {
       try {
-        const patientsData = await getPatientsByCategory(
+        const patientsData = await getStudentsByCategory(
           category ? (category as InterventionCategory) : undefined,
           {
             hospitalId: filters.hospitalId,
@@ -253,9 +253,9 @@ export default function DashboardScreen() {
           },
           accessToken
         );
-        setPatients(patientsData);
+        setStudents(patientsData);
       } catch (err) {
-        console.error('Error fetching patients:', err);
+        console.error('Error fetching students:', err);
       }
     }
   };
@@ -295,12 +295,12 @@ export default function DashboardScreen() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {/* Hospital Selector */}
+            {/* School Selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">🏥</span>
-              {isHospitalAdmin ? (
+              {isSchoolAdmin ? (
                 <span className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 font-medium text-gray-900 min-w-48">
-                  {hospitals[0]?.hospital_name || 'Loading...'}
+                  {hospitals[0]?.school_name || 'Loading...'}
                 </span>
               ) : (
                 <select
@@ -321,7 +321,7 @@ export default function DashboardScreen() {
                   ) : (
                     hospitals.map((hospital) => (
                       <option key={hospital.id} value={hospital.id}>
-                        {hospital.hospital_name}
+                        {hospital.school_name}
                       </option>
                     ))
                   )}
@@ -347,7 +347,7 @@ export default function DashboardScreen() {
                 ))}
               </select>
             </div>
-            {/* Doctor Selector */}
+            {/* Counsellor Selector */}
             <div className="flex items-center gap-2">
               <select
                 value={filters.doctorId || ''}
@@ -358,11 +358,11 @@ export default function DashboardScreen() {
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-700"
               >
                 <option value="">All Counsellors</option>
-                {doctors
+                {counsellors
                   .filter((d) => !filters.departmentId || d.specialization === filters.departmentId)
                   .map((doctor) => (
                     <option key={doctor.id} value={doctor.id}>
-                      {doctor.doctor_name}
+                      {doctor.counsellor_name}
                     </option>
                   ))}
               </select>
@@ -448,8 +448,8 @@ export default function DashboardScreen() {
               />
             )}
             {activeView === 'patient-info' && (
-              <PatientInfoView
-                patients={patients}
+              <StudentInfoView
+                students={students}
                 selectedCategory={filters.selectedCategory}
                 onStatusUpdate={handleStatusUpdate}
                 onCategoryChange={(cat) =>
@@ -461,7 +461,7 @@ export default function DashboardScreen() {
               <TrackingView
                 summary={summary}
                 outcomes={outcomes}
-                patients={patients}
+                students={students}
                 onCategoryClick={handleCategoryClick}
                 filters={{
                   hospitalId: filters.hospitalId,
@@ -500,7 +500,7 @@ function CommandCenterView({
 }) {
   if (!summary) return null;
 
-  const totalVisited = summary.total_patients || 0;
+  const totalVisited = summary.total_students || 0;
   const atRisk = summary.patients_with_interventions || 0;
   const atRiskPercent = totalVisited > 0 ? ((atRisk / totalVisited) * 100).toFixed(1) : '0';
 
@@ -593,7 +593,7 @@ function CommandCenterView({
         </div>
 
         {breakdownView === 'patient' ? (
-          <ByPatientTable patients={summary.by_patient || []} accessToken={accessToken} />
+          <ByStudentTable students={summary.by_patient || []} accessToken={accessToken} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -776,7 +776,7 @@ function CategoryCard({
         <p className={`text-xs font-medium ${config.textColor} truncate`}>{config.label}</p>
         <div className="flex items-baseline gap-1 mt-1">
           <span className="text-2xl font-bold text-gray-900">
-            {category.patient_count}
+            {category.student_count}
           </span>
           <span className="text-xs text-gray-500">students</span>
         </div>
@@ -819,7 +819,7 @@ function CategoryCard({
       <p className={`text-xs font-medium ${config.textColor} truncate`}>{config.label}</p>
       <div className="flex items-baseline gap-1 mt-1">
         <span className="text-2xl font-bold text-gray-900">
-          {category.patient_count}
+          {category.student_count}
         </span>
         <span className="text-xs text-gray-500">students</span>
       </div>
@@ -836,40 +836,40 @@ function CategoryCard({
 }
 
 // ============================================================================
-// By Patient Table Component
+// By Student Table Component
 // ============================================================================
 
-function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[]; accessToken: string | null }) {
+function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[]; accessToken: string | null }) {
   const [sortField, setSortField] = useState<string>('dropoff_probability');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
   // Nudge Engine modal state
-  const [nudgePatientId, setNudgePatientId] = useState<string | null>(null);
+  const [nudgeStudentId, setNudgeStudentId] = useState<string | null>(null);
 
-  // Patient info modal state
-  const [selectedPatientForInfo, setSelectedPatientForInfo] = useState<string | null>(null);
-  const [patientInfoData, setPatientInfoData] = useState<{
+  // Student info modal state
+  const [selectedStudentForInfo, setSelectedStudentForInfo] = useState<string | null>(null);
+  const [patientInfoData, setStudentInfoData] = useState<{
     found: boolean;
     diagnosis: any;
-    doctor_name: string | null;
+    counsellor_name: string | null;
     visit_date: string | null;
     preferred_language: string | null;
   } | null>(null);
-  const [patientInfoLoading, setPatientInfoLoading] = useState(false);
+  const [patientInfoLoading, setStudentInfoLoading] = useState(false);
 
-  const handleShowPatientInfo = async (patientId: string) => {
-    setSelectedPatientForInfo(patientId);
-    setPatientInfoData(null);
-    setPatientInfoLoading(true);
+  const handleShowStudentInfo = async (patientId: string) => {
+    setSelectedStudentForInfo(patientId);
+    setStudentInfoData(null);
+    setStudentInfoLoading(true);
     try {
-      const data = await getPatientLastVisitInfo(patientId, accessToken);
-      setPatientInfoData(data);
+      const data = await getStudentLastVisitInfo(patientId, accessToken);
+      setStudentInfoData(data);
     } catch {
-      setPatientInfoData({ found: false, diagnosis: null, doctor_name: null, visit_date: null, preferred_language: null });
+      setStudentInfoData({ found: false, diagnosis: null, counsellor_name: null, visit_date: null, preferred_language: null });
     } finally {
-      setPatientInfoLoading(false);
+      setStudentInfoLoading(false);
     }
   };
 
@@ -882,7 +882,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
     }
   };
 
-  const sorted = [...patients].sort((a, b) => {
+  const sorted = [...students].sort((a, b) => {
     let aVal: any, bVal: any;
     switch (sortField) {
       case 'patient_name':
@@ -977,13 +977,13 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
               </tr>
             ) : (
               paginated.map((patient) => (
-                <tr key={patient.patient_id} className="hover:bg-gray-50">
+                <tr key={patient.student_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <div>
                         <p
                           className="text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                          onClick={() => setNudgePatientId(patient.patient_id)}
+                          onClick={() => setNudgeStudentId(patient.student_id)}
                           title="Open Nudge Engine"
                         >
                           {patient.patient_name}
@@ -993,9 +993,9 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
                         )}
                       </div>
                       <button
-                        onClick={() => handleShowPatientInfo(patient.patient_id)}
+                        onClick={() => handleShowStudentInfo(patient.student_id)}
                         className="ml-1 text-gray-400 hover:text-blue-500 transition-colors"
-                        title="View patient info"
+                        title="View student info"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1076,10 +1076,10 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
       )}
 
       {/* Nudge Engine Modal */}
-      {nudgePatientId && (
+      {nudgeStudentId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setNudgePatientId(null)}
+          onClick={() => setNudgeStudentId(null)}
         >
           <div
             className="bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4 overflow-hidden"
@@ -1089,7 +1089,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Nudge Engine</h3>
               <button
-                onClick={() => setNudgePatientId(null)}
+                onClick={() => setNudgeStudentId(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1098,7 +1098,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
               </button>
             </div>
             <iframe
-              src={`https://nudgeengine.up.railway.app/link/${nudgePatientId}`}
+              src={`https://nudgeengine.up.railway.app/link/${nudgeStudentId}`}
               className="w-full border-0"
               style={{ height: 'calc(80vh - 57px)' }}
               title="Nudge Engine"
@@ -1107,11 +1107,11 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
         </div>
       )}
 
-      {/* Patient Info Modal */}
-      {selectedPatientForInfo && (
+      {/* Student Info Modal */}
+      {selectedStudentForInfo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setSelectedPatientForInfo(null)}
+          onClick={() => setSelectedStudentForInfo(null)}
         >
           <div
             className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden"
@@ -1120,7 +1120,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Student Info</h3>
               <button
-                onClick={() => setSelectedPatientForInfo(null)}
+                onClick={() => setSelectedStudentForInfo(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1147,7 +1147,7 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Counsellor</p>
-                    <p className="mt-1 text-sm text-gray-900">{patientInfoData.doctor_name || 'N/A'}</p>
+                    <p className="mt-1 text-sm text-gray-900">{patientInfoData.counsellor_name || 'N/A'}</p>
                   </div>
                   {patientInfoData.preferred_language && (
                     <div>
@@ -1176,16 +1176,16 @@ function ByPatientTable({ patients, accessToken }: { patients: PatientMetricRow[
 }
 
 // ============================================================================
-// Patient Info View
+// Student Info View
 // ============================================================================
 
-function PatientInfoView({
-  patients,
+function StudentInfoView({
+  students,
   selectedCategory,
   onStatusUpdate,
   onCategoryChange,
 }: {
-  patients: PatientsListResponse | null;
+  students: StudentsListResponse | null;
   selectedCategory?: InterventionCategory;
   onStatusUpdate: (interventionId: string, newStatus: string) => void;
   onCategoryChange: (category: string) => void;
@@ -1195,16 +1195,16 @@ function PatientInfoView({
     : null;
 
   // Stats
-  const totalPatients = patients?.total_count || 0;
-  // Overdue = any patient with interventions > 0 days old
-  const overdueCount = patients?.patients?.filter(
+  const totalStudents = students?.total_count || 0;
+  // Overdue = any student with interventions > 0 days old
+  const overdueCount = students?.students?.filter(
     (p) => p.interventions.some((i) => i.days_since_generated > 0)
   ).length || 0;
-  // Critical = patients with interventions > 7 days old
-  const criticalCount = patients?.patients?.filter(
+  // Critical = students with interventions > 7 days old
+  const criticalCount = students?.students?.filter(
     (p) => p.interventions.some((i) => i.days_since_generated > 7)
   ).length || 0;
-  const pendingCount = patients?.patients?.reduce(
+  const pendingCount = students?.students?.reduce(
     (sum, p) => sum + p.interventions.length,
     0
   ) || 0;
@@ -1235,7 +1235,7 @@ function PatientInfoView({
       <div className="grid grid-cols-4 gap-4">
         <StatsCard
           label="Total Students"
-          value={totalPatients}
+          value={totalStudents}
           color="gray"
         />
         <StatsCard
@@ -1312,14 +1312,14 @@ function PatientInfoView({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {patients?.patients?.map((patient) => (
-              <PatientRow
-                key={patient.patient_id}
+            {students?.students?.map((patient) => (
+              <StudentRow
+                key={patient.student_id}
                 patient={patient}
                 onStatusUpdate={onStatusUpdate}
               />
             ))}
-            {(!patients?.patients || patients.patients.length === 0) && (
+            {(!students?.students || students.students.length === 0) && (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                   No students found for the selected filters.
@@ -1367,14 +1367,14 @@ function StatsCard({
 }
 
 // ============================================================================
-// Patient Row Component
+// Student Row Component
 // ============================================================================
 
-function PatientRow({
+function StudentRow({
   patient,
   onStatusUpdate,
 }: {
-  patient: PatientWithInterventions;
+  patient: StudentWithInterventions;
   onStatusUpdate: (interventionId: string, newStatus: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1409,10 +1409,10 @@ function PatientRow({
       <td className="px-3 py-3">
         <div>
           <p className="font-medium text-gray-900 text-xs">
-            {patient.mrn ? `MRN: ${patient.mrn}` : patient.patient_id?.slice(0, 8)}
+            {patient.mrn ? `MRN: ${patient.mrn}` : patient.student_id?.slice(0, 8)}
           </p>
-          {patient.doctor_name && (
-            <p className="text-xs text-gray-500">Dr. {patient.doctor_name}</p>
+          {patient.counsellor_name && (
+            <p className="text-xs text-gray-500">{patient.counsellor_name}</p>
           )}
         </div>
       </td>
@@ -1525,49 +1525,49 @@ function PatientRow({
 function TrackingView({
   summary,
   outcomes,
-  patients,
+  students,
   onCategoryClick,
   filters,
   accessToken,
 }: {
   summary: InterventionSummaryResponse | null;
   outcomes: OutcomeMetricsResponse | null;
-  patients: PatientsListResponse | null;
+  students: StudentsListResponse | null;
   onCategoryClick: (category: InterventionCategory) => void;
   filters: { hospitalId?: string; departmentId?: string; doctorId?: string; period: TimePeriod };
   accessToken: string | null;
 }) {
   const [viewMode, setViewMode] = useState<'intervention' | 'patient'>('intervention');
-  const [allPatients, setAllPatients] = useState<PatientsListResponse | null>(null);
+  const [allStudents, setAllStudents] = useState<StudentsListResponse | null>(null);
   const [loadingMatrix, setLoadingMatrix] = useState(false);
 
-  // Fetch ALL patients when switching to Patient Matrix view
+  // Fetch ALL students when switching to Student Matrix view
   useEffect(() => {
-    async function fetchAllPatients() {
+    async function fetchAllStudents() {
       if (viewMode !== 'patient' || !accessToken) return;
 
       setLoadingMatrix(true);
       try {
-        const data = await getPatientsByCategory(
-          undefined, // No category filter - get ALL patients
+        const data = await getStudentsByCategory(
+          undefined, // No category filter - get ALL students
           {
             hospitalId: filters.hospitalId,
             departmentId: filters.departmentId,
             doctorId: filters.doctorId,
             period: filters.period,
-            pageSize: 100, // Get more patients for the matrix
+            pageSize: 100, // Get more students for the matrix
           },
           accessToken
         );
-        setAllPatients(data);
+        setAllStudents(data);
       } catch (err) {
-        console.error('Failed to fetch all patients for matrix:', err);
+        console.error('Failed to fetch all students for matrix:', err);
       } finally {
         setLoadingMatrix(false);
       }
     }
 
-    fetchAllPatients();
+    fetchAllStudents();
   }, [viewMode, accessToken, filters.hospitalId, filters.departmentId, filters.doctorId, filters.period]);
 
   const totalInterventions = outcomes?.total_interventions || 0;
@@ -1581,7 +1581,7 @@ function TrackingView({
   const pendingPercent =
     totalInterventions > 0 ? ((pendingCount / totalInterventions) * 100).toFixed(0) : 0;
 
-  const totalPatients = summary?.patients_with_interventions || 0;
+  const totalStudents = summary?.patients_with_interventions || 0;
 
   return (
     <div className="space-y-6">
@@ -1595,7 +1595,7 @@ function TrackingView({
           </div>
           <p className="text-4xl font-bold mt-2">{totalInterventions}</p>
           <p className="text-gray-400 text-sm mt-1">
-            Across {totalPatients} students
+            Across {totalStudents} students
           </p>
         </div>
 
@@ -1685,7 +1685,7 @@ function TrackingView({
         </button>
       </div>
 
-      {/* Conditional View: Category Cards or Patient Matrix */}
+      {/* Conditional View: Category Cards or Student Matrix */}
       {viewMode === 'intervention' ? (
         <div className="grid grid-cols-5 gap-3">
           {summary?.by_category?.map((category) => (
@@ -1702,8 +1702,8 @@ function TrackingView({
           <div className="text-gray-500">Loading student matrix...</div>
         </div>
       ) : (
-        <PatientMatrixView
-          patients={allPatients}
+        <StudentMatrixView
+          students={allStudents}
           categories={summary?.by_category || []}
         />
       )}
@@ -1712,7 +1712,7 @@ function TrackingView({
 }
 
 // ============================================================================
-// Patient Matrix View Component
+// Student Matrix View Component
 // ============================================================================
 
 // Status symbol helper
@@ -1749,11 +1749,11 @@ function mapToDisplayCategory(dbCategory: string): InterventionCategory {
   }
 }
 
-function PatientMatrixView({
-  patients,
+function StudentMatrixView({
+  students,
   categories,
 }: {
-  patients: PatientsListResponse | null;
+  students: StudentsListResponse | null;
   categories: CategoryStats[];
 }) {
   // 6 dashboard categories for columns
@@ -1766,8 +1766,8 @@ function PatientMatrixView({
     'QUALITY_RISK',
   ];
 
-  // Build patient matrix data - group interventions by dashboard category for each patient
-  const patientData = patients?.patients?.map((patient) => {
+  // Build student matrix data - group interventions by dashboard category for each student
+  const patientData = students?.students?.map((patient) => {
     const interventionsByCategory: Record<string, { status: string; id: string } | null> = {};
 
     allCategories.forEach((cat) => {
@@ -1784,7 +1784,7 @@ function PatientMatrixView({
     };
   }) || [];
 
-  // Get patient initials
+  // Get student initials
   const getInitials = (mrn: string | null | undefined, patientId: string | null | undefined): string => {
     if (mrn) {
       return mrn.slice(0, 2).toUpperCase();
@@ -1852,19 +1852,19 @@ function PatientMatrixView({
               </tr>
             ) : (
               patientData.map((patient) => (
-                <tr key={patient.patient_id} className="hover:bg-gray-50">
-                  {/* Patient Info - Sticky */}
+                <tr key={patient.student_id} className="hover:bg-gray-50">
+                  {/* Student Info - Sticky */}
                   <td className="px-4 py-3 sticky left-0 bg-white z-10">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium text-xs">
-                        {getInitials(patient.mrn, patient.patient_id)}
+                        {getInitials(patient.mrn, patient.student_id)}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {patient.mrn ? `MRN: ${patient.mrn}` : patient.patient_id?.slice(0, 8)}
+                          {patient.mrn ? `MRN: ${patient.mrn}` : patient.student_id?.slice(0, 8)}
                         </p>
-                        {patient.doctor_name && (
-                          <p className="text-xs text-gray-500 truncate">Dr. {patient.doctor_name}</p>
+                        {patient.counsellor_name && (
+                          <p className="text-xs text-gray-500 truncate">{patient.counsellor_name}</p>
                         )}
                       </div>
                     </div>

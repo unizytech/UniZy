@@ -19,11 +19,11 @@ from models.qa_models import SearchResultItem, QAPriorContext
 
 logger = logging.getLogger(__name__)
 
-SYNTHESIS_SYSTEM_PROMPT = """You are a medical data analyst assistant helping doctors understand patterns in their patient data.
+SYNTHESIS_SYSTEM_PROMPT = """You are a medical data analyst assistant helping counsellors understand patterns in their student data.
 
-Given search results from medical extractions, synthesize a clear, concise narrative that:
+Given search results from extractions, synthesize a clear, concise narrative that:
 1. Directly answers the user's question
-2. Cites specific patient examples when relevant (use patient names or IDs)
+2. Cites specific student examples when relevant (use student names or IDs)
 3. Identifies patterns and trends
 4. Uses appropriate medical terminology
 5. Highlights important clinical insights
@@ -43,7 +43,7 @@ You MUST respond in valid JSON format with this structure:
 
 SYNTHESIS_USER_PROMPT = """User's question: "{query}"
 
-Search results (medical extractions with similarity scores):
+Search results (extractions with similarity scores):
 {results_context}
 
 Total matching records: {total_count}
@@ -59,7 +59,7 @@ class QASynthesisService:
         service = QASynthesisService()
 
         narrative = await service.synthesize(
-            query="What are common patterns in diabetic patients?",
+            query="What are common patterns in diabetic students?",
             results=[...search results...],
             total_count=50
         )
@@ -87,11 +87,11 @@ class QASynthesisService:
             parts = [f"Result {i+1} (similarity: {result.similarity_score:.2f}):"]
 
             if result.patient_name:
-                parts.append(f"  Patient: {result.patient_name}")
-            if result.patient_external_id:
-                parts.append(f"  UHID: {result.patient_external_id}")
-            if result.doctor_name:
-                parts.append(f"  Doctor: {result.doctor_name}")
+                parts.append(f"  Student: {result.patient_name}")
+            if result.student_external_id:
+                parts.append(f"  UHID: {result.student_external_id}")
+            if result.counsellor_name:
+                parts.append(f"  Counsellor: {result.counsellor_name}")
             if result.consultation_type_name:
                 parts.append(f"  Type: {result.consultation_type_name}")
             if result.created_at:
@@ -157,7 +157,7 @@ class QASynthesisService:
         query: str,
         results: List[SearchResultItem],
         total_count: int,
-        hospital_id: Optional[UUID] = None,
+        school_id: Optional[UUID] = None,
         prior_context: Optional[QAPriorContext] = None
     ) -> Dict[str, Any]:
         """
@@ -167,7 +167,7 @@ class QASynthesisService:
             query: Original user query
             results: Search results to synthesize
             total_count: Total matching records
-            hospital_id: Optional hospital context
+            school_id: Optional school context
             prior_context: Previous Q&A exchange for follow-up context
 
         Returns:
@@ -294,25 +294,25 @@ class QASynthesisService:
             f"Found {total_count} matching records for: \"{query}\"\n"
         ]
 
-        # Group by patient if available
+        # Group by student if available
         patients = {}
         for result in results[:10]:
-            patient_key = result.patient_name or result.patient_external_id or "Unknown"
-            if patient_key not in patients:
-                patients[patient_key] = []
-            patients[patient_key].append(result)
+            student_key = result.patient_name or result.student_external_id or "Unknown"
+            if student_key not in patients:
+                patients[student_key] = []
+            patients[student_key].append(result)
 
-        narrative_parts.append(f"Results span {len(patients)} patients:")
+        narrative_parts.append(f"Results span {len(patients)} students:")
 
-        for patient, patient_results in list(patients.items())[:5]:
-            result = patient_results[0]
+        for patient, student_results in list(patients.items())[:5]:
+            result = student_results[0]
             narrative_parts.append(
                 f"- {patient}: {result.consultation_type_name or 'Consultation'} "
                 f"({result.created_at[:10] if result.created_at else 'Unknown date'})"
             )
 
         if len(patients) > 5:
-            narrative_parts.append(f"... and {len(patients) - 5} more patients")
+            narrative_parts.append(f"... and {len(patients) - 5} more students")
 
         return "\n".join(narrative_parts)
 

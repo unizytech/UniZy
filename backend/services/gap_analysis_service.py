@@ -394,7 +394,7 @@ def compute_extraction_gaps(
     except (ValueError, TypeError):
         raise ValueError("Invalid extraction_id format")
 
-    result = supabase.table("medical_extractions").select(
+    result = supabase.table("extractions").select(
         "id, original_extraction_json, edited_extraction_json, "
         "recording_sessions(template_code)"
     ).eq("id", extraction_id).limit(1).execute()

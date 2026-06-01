@@ -90,10 +90,14 @@ const INTENSITY_LEVELS: Record<string, IntensityConfig> = {
   'very low': { level: 10, color: 'bg-red-600', bgColor: 'bg-red-100', textColor: 'text-red-800' },
   'very low (0-19%)': { level: 10, color: 'bg-red-600', bgColor: 'bg-red-100', textColor: 'text-red-800' },
 
-  // Turn-taking Balance
-  'doctor-dominated': { level: 80, color: 'bg-blue-500', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
+  // Turn-taking Balance (counselling 3-speaker model)
+  'counsellor-dominated': { level: 80, color: 'bg-blue-500', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
+  'student-dominated': { level: 80, color: 'bg-purple-500', bgColor: 'bg-purple-100', textColor: 'text-purple-700' },
+  'parent-dominated': { level: 80, color: 'bg-amber-500', bgColor: 'bg-amber-100', textColor: 'text-amber-700' },
   'balanced': { level: 50, color: 'bg-green-500', bgColor: 'bg-green-100', textColor: 'text-green-700' },
-  'patient-dominated': { level: 80, color: 'bg-purple-500', bgColor: 'bg-purple-100', textColor: 'text-purple-700' },
+  // Working alliance / rapport
+  'strong': { level: 85, color: 'bg-green-500', bgColor: 'bg-green-100', textColor: 'text-green-700' },
+  'weak': { level: 25, color: 'bg-red-500', bgColor: 'bg-red-100', textColor: 'text-red-700' },
 
   // Conversation Flow
   'natural': { level: 90, color: 'bg-green-500', bgColor: 'bg-green-100', textColor: 'text-green-700' },
@@ -118,7 +122,7 @@ const INTENSITY_LEVELS: Record<string, IntensityConfig> = {
   'fair': { level: 50, color: 'bg-yellow-500', bgColor: 'bg-yellow-100', textColor: 'text-yellow-700' },
   'poor': { level: 25, color: 'bg-red-500', bgColor: 'bg-red-100', textColor: 'text-red-700' },
 
-  // Patient Concerns Addressed levels
+  // Student Concerns Addressed levels
   'fully': { level: 95, color: 'bg-green-500', bgColor: 'bg-green-100', textColor: 'text-green-700' },
   'mostly': { level: 75, color: 'bg-green-400', bgColor: 'bg-green-100', textColor: 'text-green-700' },
   'partially': { level: 50, color: 'bg-yellow-500', bgColor: 'bg-yellow-100', textColor: 'text-yellow-700' },
@@ -127,7 +131,7 @@ const INTENSITY_LEVELS: Record<string, IntensityConfig> = {
   // Reassurance Effectiveness
   'none attempted': { level: 0, color: 'bg-gray-300', bgColor: 'bg-gray-100', textColor: 'text-gray-600' },
 
-  // Patient Anxiety Impact
+  // Student Anxiety Impact
   'significantly reduced': { level: 15, color: 'bg-green-500', bgColor: 'bg-green-100', textColor: 'text-green-700' },
   'somewhat reduced': { level: 35, color: 'bg-green-400', bgColor: 'bg-green-100', textColor: 'text-green-700' },
   'no effect': { level: 50, color: 'bg-gray-400', bgColor: 'bg-gray-100', textColor: 'text-gray-600' },
@@ -151,38 +155,33 @@ function getIntensityConfig(value: string): IntensityConfig {
 
 // Define the display order for each segment type - important metrics first, notes/rationale last
 const FIELD_ORDER: Record<string, string[]> = {
-  // Audio-based emotion segments
-  'AUDIO_PATIENT_ANXIETY': ['anxiety_trajectory', 'initial_anxiety_level', 'final_anxiety_level', 'rationale'],
-  'AUDIO_DOCTOR_STYLE': ['primary_style', 'voice_warmth', 'tone_consistency', 'rationale'],
-  'AUDIO_INTERACTION_DYNAMICS': ['turn_taking_balance', 'conversation_flow', 'mutual_engagement', 'rationale'],
-  'AUDIO_FINANCIAL_CONCERNS': ['severity', 'rationale'],
-  'AUDIO_COMPLIANCE_INDICATORS': ['likelihood', 'rationale'],
-  'AUDIO_OTHER_EMOTIONS': ['dominant_emotion', 'emotional_trajectory', 'rationale'],
-
-  // Text-based emotion segments (use 'notes' instead of 'rationale')
-  'TEXT_EMOTION_ANXIETY_PRE_CONSULTATION': ['level', 'indicators', 'timestamp_start', 'confidence', 'notes'],
-  'TEXT_EMOTION_ANXIETY_POST_CONSULTATION': ['level', 'change_from_pre', 'indicators', 'timestamp_end', 'confidence', 'notes'],
-  'TEXT_EMOTION_OTHER_EMOTIONS_DETECTED': ['dominant_emotion', 'emotions_detected', 'notes'],
-  'TEXT_EMOTION_FINANCIAL_CONCERNS': ['severity', 'concerns_present', 'specific_concerns', 'alternative_treatment_requested', 'confidence', 'notes'],
-  'TEXT_EMOTION_TREATMENT_COMPLIANCE_LIKELIHOOD': ['likelihood', 'positive_factors', 'negative_factors', 'key_barriers', 'recommendations', 'confidence', 'notes'],
-  'TEXT_EMOTION_DOCTOR_COMMUNICATION_STYLE': [
-    'primary_style', 'secondary_style', 'patient_anxiety_impact', 'clarity_rating',
-    'empathy_indicators', 'communication_strengths', 'areas_for_improvement', 'confidence', 'notes'
+  // Counselling unified emotion segments (3-speaker: counsellor / student / parent).
+  // STUDENT_ANXIETY is rendered by AnxietySummarySection (nested pre/post session).
+  'PARENT_ANXIETY': ['present', 'level', 'primary_concerns', 'indicators', 'rationale', 'confidence'],
+  'STUDENT_ENGAGEMENT': ['engagement_level', 'motivation', 'ownership', 'indicators', 'rationale', 'confidence'],
+  'COUNSELLOR_COMMUNICATION': [
+    'primary_style', 'empathy', 'clarity', 'voice_warmth', 'rapport_with_student',
+    'rapport_with_parent', 'impact_on_student', 'strengths', 'areas_for_improvement', 'rationale', 'confidence'
+  ],
+  'SESSION_INTERACTION_DYNAMICS': [
+    'turn_taking_balance', 'dominant_speaker', 'working_alliance', 'rapport',
+    'student_voice_heard', 'parent_present', 'rationale', 'confidence'
+  ],
+  'SESSION_OTHER_EMOTIONS': ['dominant_emotion', 'emotions_detected', 'mismatch', 'rationale', 'confidence'],
+  'SESSION_CONGRUENCE_SUMMARY': [
+    'overall_congruence', 'has_mismatches', 'key_mismatches', 'counsellor_recommendations',
+    'follow_up_priority', 'rationale', 'confidence'
   ],
 };
 
 // Fields that should show progress bars
 const PROGRESS_BAR_FIELDS = new Set([
-  // Audio segments
-  'anxiety_trajectory', 'initial_anxiety_level', 'final_anxiety_level',
-  'voice_warmth', 'tone_consistency', 'primary_style',
-  'turn_taking_balance', 'conversation_flow', 'mutual_engagement',
-  'emotional_trajectory',
-
-  // Text segments - anxiety and severity levels
-  'level', 'severity', 'likelihood',
-  'change_from_pre', 'patient_anxiety_impact', 'clarity_rating',
-  'confidence',
+  // Counselling level / rating style fields
+  'level', 'engagement_level', 'motivation', 'ownership',
+  'empathy', 'clarity', 'voice_warmth', 'primary_style',
+  'rapport_with_student', 'rapport_with_parent', 'rapport',
+  'turn_taking_balance', 'working_alliance', 'student_voice_heard',
+  'overall_congruence', 'follow_up_priority', 'confidence',
 ]);
 
 // Fields to exclude from default rendering (shown specially elsewhere)
@@ -691,8 +690,9 @@ function CongruenceBadge({ congruence, score }: { congruence: string; score?: nu
 
 // Anxiety Summary Component - extracts key info from nested objects
 function AnxietySummarySection({ segmentValue }: { segmentValue: Record<string, unknown> }) {
-  const preConsultation = segmentValue.pre_consultation as Record<string, unknown> | undefined;
-  const postConsultation = segmentValue.post_consultation as Record<string, unknown> | undefined;
+  // Counselling schema uses pre_session/post_session; fall back to legacy pre/post_consultation.
+  const preConsultation = (segmentValue.pre_session ?? segmentValue.pre_consultation) as Record<string, unknown> | undefined;
+  const postConsultation = (segmentValue.post_session ?? segmentValue.post_consultation) as Record<string, unknown> | undefined;
   const trajectory = segmentValue.trajectory as Record<string, unknown> | undefined;
 
   const preLevel = preConsultation?.level as string | undefined;
@@ -789,26 +789,17 @@ function UnifiedEmotionCard({ segment }: { segment: UnifiedEmotionSegment }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const sourceBadge = getSourceBadge(segment.source);
 
-  // Check if this is an anxiety segment with nested data
-  const isAnxietySegment = segment.segment_code === 'ANXIETY_POST_CONSULTATION' && (
-    segment.segment_value.pre_consultation !== undefined ||
-    segment.segment_value.post_consultation !== undefined ||
+  // Check if this is the student anxiety segment with nested pre/post-session data
+  const isAnxietySegment = segment.segment_code === 'STUDENT_ANXIETY' && (
+    segment.segment_value.pre_session !== undefined ||
+    segment.segment_value.post_session !== undefined ||
     segment.segment_value.trajectory !== undefined
   );
 
-  // Get ordered fields for display
+  // Get ordered fields for display. FIELD_ORDER is keyed directly by the unified
+  // segment code (counselling model); unknown codes fall back to default ordering.
   const getOrderedFields = (segmentCode: string, data: Record<string, unknown>) => {
-    // Map unified segment codes to their corresponding field order config
-    const codeToOrderKey: Record<string, string> = {
-      'ANXIETY_POST_CONSULTATION': 'TEXT_EMOTION_ANXIETY_POST_CONSULTATION',
-      'FINANCIAL_CONCERNS': 'TEXT_EMOTION_FINANCIAL_CONCERNS',
-      'OTHER_EMOTIONS_DETECTED': 'TEXT_EMOTION_OTHER_EMOTIONS_DETECTED',
-      'TREATMENT_COMPLIANCE_LIKELIHOOD': 'TEXT_EMOTION_TREATMENT_COMPLIANCE_LIKELIHOOD',
-      'DOCTOR_COMMUNICATION_STYLE': 'TEXT_EMOTION_DOCTOR_COMMUNICATION_STYLE',
-    };
-
-    const orderKey = codeToOrderKey[segmentCode] || segmentCode;
-    const order = FIELD_ORDER[orderKey] || [];
+    const order = FIELD_ORDER[segmentCode] || [];
     const orderedFields: Array<{ key: string; value: unknown }> = [];
     const remainingFields: Array<{ key: string; value: unknown }> = [];
 

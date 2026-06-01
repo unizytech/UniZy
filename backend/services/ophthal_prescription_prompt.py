@@ -24,10 +24,10 @@ from datetime import datetime
 # ============================================================================
 
 OPHTHAL_PRESCRIPTION_SYSTEM_PROMPT = """
-You are a specialized ophthalmology prescription extraction AI. Your role is to extract structured prescription data from voice transcripts of doctor-patient consultations.
+You are a specialized ophthalmology prescription extraction AI. Your role is to extract structured prescription data from voice transcripts of counsellor-student consultations.
 
 **YOUR ROLE:**
-Extract complete prescription information from voice transcripts and return them in a standardized JSON format suitable for generating patient prescription forms.
+Extract complete prescription information from voice transcripts and return them in a standardized JSON format suitable for generating student prescription forms.
 
 **CORE CAPABILITIES:**
 - Process multilingual medical conversations (English, Tamil, Hindi, Telugu, Malayalam, Kannada)
@@ -115,13 +115,13 @@ Extract complete prescription information from voice transcripts and return them
 
 ## CONTINUING MEDICATIONS
 
-When doctor says "continue [medication]" or mentions ongoing medications:
+When counsellor says "continue [medication]" or mentions ongoing medications:
 - Set `isContinuing: true`
 - Set duration to "Continue" or "Ongoing"
 - These are medications from previous prescriptions that should be maintained
 
 **Example:**
-Doctor: "Continue Latanoprost at night, Dorzox three times, and Brimonidine three times"
+Counsellor: "Continue Latanoprost at night, Dorzox three times, and Brimonidine three times"
 
 Output: 3 medications with `isContinuing: true`
 
@@ -186,7 +186,7 @@ Output: 3 medications with `isContinuing: true`
 ## OUTPUT FORMAT
 
 Generate a structured JSON with:
-1. Patient details (name, age, gender, MR number, NIN, address, visit ID, date)
+1. Student details (name, age, gender, MR number, NIN, address, visit ID, date)
 2. Array of prescription items, each containing:
    - Serial number
    - Medication name with type prefix (e.g., "Cap. Ogareds", "Refresh tears e/d")
@@ -198,7 +198,7 @@ Generate a structured JSON with:
    - Special instructions
    - Whether it's a continuing medication
 3. Additional notes/instructions
-4. Doctor details
+4. Counsellor details
 5. Follow-up information
 
 ---
@@ -233,12 +233,12 @@ Extract the prescription data from the voice transcript below and return structu
 ```json
 {{
   "patientDetails": {{
-    "name": "string - patient full name or empty string",
+    "name": "string - student full name or empty string",
     "age": "string - age in format 'X Y M D' (years, months, days) or simple format",
     "gender": "string - Male/Female/Other or empty string",
     "mrNumber": "string - medical record number or empty string",
     "nin": "string - national identification number or empty string",
-    "address": "string - patient address or empty string",
+    "address": "string - student address or empty string",
     "visitId": "string - visit/episode ID or empty string",
     "date": "string - consultation date"
   }},
@@ -266,10 +266,10 @@ Extract the prescription data from the voice transcript below and return structu
     }}
   ],
 
-  "additionalNotes": "string - any other instructions or notes from doctor",
+  "additionalNotes": "string - any other instructions or notes from counsellor",
 
   "doctorDetails": {{
-    "name": "string - doctor name or empty string",
+    "name": "string - counsellor name or empty string",
     "signature": "string - empty (for physical signature)",
     "stamp": "string - empty (for physical stamp)"
   }},
@@ -285,8 +285,8 @@ Extract the prescription data from the voice transcript below and return structu
 
 **EXTRACTION INSTRUCTIONS:**
 
-1. **Patient Details:**
-   - Extract all available patient information
+1. **Student Details:**
+   - Extract all available student information
    - Age format can be "59 Y 8 M 29 D" (years, months, days) or simple "59 years"
    - NIN = National Identification Number (if mentioned)
 
@@ -324,7 +324,7 @@ Extract the prescription data from the voice transcript below and return structu
    - If not mentioned: "As directed"
 
 7. **Continuing Medications:**
-   - When doctor says "continue [medication]..."
+   - When counsellor says "continue [medication]..."
    - Extract into BOTH prescriptionItems (with isContinuing: true) AND continuingMedications array
    - Continuing meds are usually anti-glaucoma drops
 
@@ -389,20 +389,20 @@ Begin extraction now.
 OPHTHAL_PRESCRIPTION_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Patient Details
+        # Student Details
         "patientDetails": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+                "name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
                 "age": types.Schema(type=types.Type.STRING, description="Age (e.g., '59 Y 8 M 29 D' or '59 years')"),
                 "gender": types.Schema(type=types.Type.STRING, description="Male/Female/Other or empty string"),
                 "mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
                 "nin": types.Schema(type=types.Type.STRING, description="National ID number or empty string"),
-                "address": types.Schema(type=types.Type.STRING, description="Patient address or empty string"),
+                "address": types.Schema(type=types.Type.STRING, description="Student address or empty string"),
                 "visitId": types.Schema(type=types.Type.STRING, description="Visit/episode ID or empty string"),
                 "date": types.Schema(type=types.Type.STRING, description="Consultation date"),
             },
-            description="Patient identification and demographics"
+            description="Student identification and demographics"
         ),
 
         # Prescription Items Array
@@ -445,18 +445,18 @@ OPHTHAL_PRESCRIPTION_SCHEMA = types.Schema(
         # Additional Notes
         "additionalNotes": types.Schema(
             type=types.Type.STRING,
-            description="Any other instructions or notes from doctor"
+            description="Any other instructions or notes from counsellor"
         ),
 
-        # Doctor Details
+        # Counsellor Details
         "doctorDetails": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "name": types.Schema(type=types.Type.STRING, description="Doctor name or empty string"),
+                "name": types.Schema(type=types.Type.STRING, description="Counsellor name or empty string"),
                 "signature": types.Schema(type=types.Type.STRING, description="Empty (for physical signature)"),
                 "stamp": types.Schema(type=types.Type.STRING, description="Empty (for physical stamp)"),
             },
-            description="Doctor information"
+            description="Counsellor information"
         ),
 
         # Follow-up

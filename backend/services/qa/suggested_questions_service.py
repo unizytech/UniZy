@@ -32,7 +32,7 @@ SUGGESTED_QUESTIONS = [
     # ============================================================================
     SuggestedQuestion(
         id="clinical_01",
-        question="What are the most common diagnoses across my patients?",
+        question="What are the most common diagnoses across my students?",
         category=QuestionCategory.CLINICAL,
         description="View distribution of diagnoses",
         expected_intent=QueryIntent.SEMANTIC,
@@ -40,9 +40,9 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="clinical_02",
-        question="Show patients with diabetes and hypertension",
+        question="Show students with diabetes and hypertension",
         category=QuestionCategory.CLINICAL,
-        description="Find patients with comorbidities",
+        description="Find students with comorbidities",
         expected_intent=QueryIntent.HYBRID,
         expected_segment_codes=["DIAGNOSIS", "PAST_MEDICAL_HISTORY"]
     ),
@@ -56,9 +56,9 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="clinical_04",
-        question="Find patients with abnormal vital signs",
+        question="Find students with abnormal vital signs",
         category=QuestionCategory.CLINICAL,
-        description="Identify patients needing attention",
+        description="Identify students needing attention",
         expected_intent=QueryIntent.HYBRID,
         expected_segment_codes=["VITAL_SIGNS"]
     ),
@@ -76,16 +76,16 @@ SUGGESTED_QUESTIONS = [
     # ============================================================================
     SuggestedQuestion(
         id="risk_01",
-        question="Which patients have high severity assessments?",
+        question="Which students have high severity assessments?",
         category=QuestionCategory.RISK,
-        description="Identify high-risk patients",
+        description="Identify high-risk students",
         expected_intent=QueryIntent.HYBRID,
     ),
     SuggestedQuestion(
         id="risk_02",
-        question="Show patients at risk of treatment non-compliance",
+        question="Show students at risk of treatment non-compliance",
         category=QuestionCategory.RISK,
-        description="Find compliance risk patients",
+        description="Find compliance risk students",
         expected_intent=QueryIntent.HYBRID,
     ),
     SuggestedQuestion(
@@ -97,16 +97,16 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="risk_04",
-        question="Patients with quality of care concerns",
+        question="Students with quality of care concerns",
         category=QuestionCategory.RISK,
         description="Review quality risk assessments",
         expected_intent=QueryIntent.HYBRID,
     ),
     SuggestedQuestion(
         id="risk_05",
-        question="Show patients with retention risk flags",
+        question="Show students with retention risk flags",
         category=QuestionCategory.RISK,
-        description="Identify patients at risk of leaving",
+        description="Identify students at risk of leaving",
         expected_intent=QueryIntent.HYBRID,
     ),
 
@@ -115,9 +115,9 @@ SUGGESTED_QUESTIONS = [
     # ============================================================================
     SuggestedQuestion(
         id="referral_01",
-        question="Which patients need allied health referrals?",
+        question="Which students need allied health referrals?",
         category=QuestionCategory.REFERRALS,
-        description="Find patients needing support services",
+        description="Find students needing support services",
         expected_intent=QueryIntent.HYBRID,
     ),
     SuggestedQuestion(
@@ -129,7 +129,7 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="referral_03",
-        question="Patients recommended for nutrition counseling",
+        question="Students recommended for nutrition counseling",
         category=QuestionCategory.REFERRALS,
         description="Find nutrition referral candidates",
         expected_intent=QueryIntent.HYBRID,
@@ -144,7 +144,7 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="referral_05",
-        question="Show patients needing mental health support",
+        question="Show students needing mental health support",
         category=QuestionCategory.REFERRALS,
         description="Identify mental health referral needs",
         expected_intent=QueryIntent.HYBRID,
@@ -176,7 +176,7 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="intervention_04",
-        question="Patients with surgical consultation recommendations",
+        question="Students with surgical consultation recommendations",
         category=QuestionCategory.INTERVENTIONS,
         description="Find OP-to-IP conversion candidates",
         expected_intent=QueryIntent.HYBRID,
@@ -194,7 +194,7 @@ SUGGESTED_QUESTIONS = [
     # ============================================================================
     SuggestedQuestion(
         id="triage_01",
-        question="Show patients with red flag symptoms",
+        question="Show students with red flag symptoms",
         category=QuestionCategory.TRIAGE,
         description="Identify urgent cases",
         expected_intent=QueryIntent.HYBRID,
@@ -209,9 +209,9 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="triage_03",
-        question="Patients with urgent follow-up needs",
+        question="Students with urgent follow-up needs",
         category=QuestionCategory.TRIAGE,
-        description="Find patients needing urgent attention",
+        description="Find students needing urgent attention",
         expected_intent=QueryIntent.HYBRID,
         expected_segment_codes=["FOLLOW_UP"]
     ),
@@ -224,14 +224,14 @@ SUGGESTED_QUESTIONS = [
     ),
     SuggestedQuestion(
         id="triage_05",
-        question="Patients with medication safety alerts",
+        question="Students with medication safety alerts",
         category=QuestionCategory.TRIAGE,
         description="Review medication safety concerns",
         expected_intent=QueryIntent.HYBRID,
     ),
 
     # ============================================================================
-    # Longitudinal/Temporal Questions (Patient History)
+    # Longitudinal/Temporal Questions (Student History)
     # ============================================================================
     SuggestedQuestion(
         id="clinical_06",
@@ -392,8 +392,8 @@ class SuggestedQuestionsService:
         Get questions filtered by user role.
 
         Admin users see all questions.
-        Doctors see clinical, risk, and referral questions.
-        Nurses see triage and clinical questions.
+        Counsellors see clinical, risk, and referral questions.
+        Assistants see triage and clinical questions.
         """
         questions = self.get_questions(category).questions
 

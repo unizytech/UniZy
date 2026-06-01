@@ -176,8 +176,8 @@ class FollowUp(BaseModel):
     interventions: List[str] = Field(default_factory=list)
 
 
-class PatientEducation(BaseModel):
-    """Patient education content."""
+class StudentEducation(BaseModel):
+    """Student education content."""
     key_messages: List[str] = Field(default_factory=list)
     self_monitoring: Optional[Dict[str, Any]] = None
 
@@ -294,7 +294,7 @@ class PHCTreatment(BaseModel):
 
 
 class DistrictTreatment(BaseModel):
-    """District hospital level treatment."""
+    """District school level treatment."""
     additional_capabilities: List[str] = Field(default_factory=list)
     surgical_indications: List[str] = Field(default_factory=list)
     referrals: List[Dict[str, str]] = Field(default_factory=list)
@@ -312,7 +312,7 @@ class TertiaryTreatment(BaseModel):
 class TreatmentByCareLevel(BaseModel):
     """Treatment organized by healthcare facility level."""
     phc_primary: Optional[PHCTreatment] = None
-    district_hospital: Optional[DistrictTreatment] = None
+    district_school: Optional[DistrictTreatment] = None
     tertiary_medical_college: Optional[TertiaryTreatment] = None
     tertiary: Optional[TertiaryTreatment] = None
 
@@ -426,8 +426,8 @@ class ClinicalCondition(BaseModel):
     # Follow-up
     follow_up: Optional[FollowUp] = None
 
-    # Patient education
-    patient_education: Optional[PatientEducation] = None
+    # Student education
+    student_education: Optional[StudentEducation] = None
 
     @field_validator('icd_codes')
     @classmethod

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from services.supabase_service import supabase, get_doctor_hospital_id_cached
+from services.supabase_service import supabase, get_counsellor_school_id_cached
 from services.billing_service import generate_bill, generate_merged_bill
 
 logger = logging.getLogger(__name__)
@@ -85,9 +85,9 @@ class BillUpdateRequest(BaseModel):
 
 class StandaloneBillCreateRequest(BaseModel):
     """Request model for creating a standalone bill (no extraction)"""
-    hospital_code: str = Field(..., description="Hospital code")
-    patient_id: Optional[str] = Field(None, description="Patient external ID (UHID)")
-    doctor_id: Optional[str] = Field(None, description="Doctor UUID")
+    school_code: str = Field(..., description="School code")
+    student_id: Optional[str] = Field(None, description="Student external ID (UHID)")
+    counsellor_id: Optional[str] = Field(None, description="Counsellor UUID")
     bill_type: str = Field("OP", description="Bill type: OP or IP")
     consultation_type_code: Optional[str] = Field(None, description="Consultation type code")
     visit_id: str = Field(..., description="EHR visit ID")
@@ -112,7 +112,7 @@ async def generate_bill_endpoint(
 
     **Auth:** Admin + Web + EHR
 
-    Reads the extraction data, resolves hospital/doctor/patient,
+    Reads the extraction data, resolves school/counsellor/student,
     and generates an itemized bill with line items.
 
     Returns the created bill with all line items.
@@ -137,12 +137,12 @@ async def generate_bill_endpoint(
         extraction = _get_extraction(extraction_id)
 
         # Resolve IDs
-        doctor_id = extraction.get("doctor_id")
-        patient_id = extraction.get("patient_id")
-        hospital_id = _resolve_hospital_id(doctor_id, extraction)
+        counsellor_id = extraction.get("counsellor_id")
+        student_id = extraction.get("student_id")
+        school_id = _resolve_school_id(counsellor_id, extraction)
 
-        if not hospital_id:
-            raise HTTPException(status_code=400, detail="Cannot determine hospital_id for this extraction")
+        if not school_id:
+            raise HTTPException(status_code=400, detail="Cannot determine school_id for this extraction")
 
         # Get consultation type code
         consultation_type_code = _get_consultation_type_code(extraction)
@@ -152,9 +152,9 @@ async def generate_bill_endpoint(
 
         bill = generate_bill(
             extraction_id=extraction_id,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
-            patient_id=patient_id,
+            school_id=school_id,
+            counsellor_id=counsellor_id,
+            student_id=student_id,
             extraction_data=extraction_data,
             consultation_type_code=consultation_type_code,
             is_merged=extraction.get("is_merged", False),
@@ -235,12 +235,12 @@ async def generate_merged_bill_endpoint(
                 pass
 
         # Resolve IDs
-        doctor_id = extraction.get("doctor_id")
-        patient_id = extraction.get("patient_id")
-        hospital_id = _resolve_hospital_id(doctor_id, extraction)
+        counsellor_id = extraction.get("counsellor_id")
+        student_id = extraction.get("student_id")
+        school_id = _resolve_school_id(counsellor_id, extraction)
 
-        if not hospital_id:
-            raise HTTPException(status_code=400, detail="Cannot determine hospital_id for this extraction")
+        if not school_id:
+            raise HTTPException(status_code=400, detail="Cannot determine school_id for this extraction")
 
         consultation_type_code = _get_consultation_type_code(extraction)
         extraction_data = extraction.get("original_extraction_json") or extraction.get("edited_extraction_json") or {}
@@ -248,9 +248,9 @@ async def generate_merged_bill_endpoint(
         bill = generate_merged_bill(
             extraction_id=extraction_id,
             source_extraction_ids=source_extraction_ids,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
-            patient_id=patient_id,
+            school_id=school_id,
+            counsellor_id=counsellor_id,
+            student_id=student_id,
             extraction_data=extraction_data,
             consultation_type_code=consultation_type_code,
             visit_id=body.visit_id if body else None,
@@ -310,21 +310,21 @@ async def regenerate_bill_endpoint(
 
         # Fetch extraction
         extraction = _get_extraction(extraction_id)
-        doctor_id = extraction.get("doctor_id")
-        patient_id = extraction.get("patient_id")
-        hospital_id = _resolve_hospital_id(doctor_id, extraction)
+        counsellor_id = extraction.get("counsellor_id")
+        student_id = extraction.get("student_id")
+        school_id = _resolve_school_id(counsellor_id, extraction)
 
-        if not hospital_id:
-            raise HTTPException(status_code=400, detail="Cannot determine hospital_id for this extraction")
+        if not school_id:
+            raise HTTPException(status_code=400, detail="Cannot determine school_id for this extraction")
 
         consultation_type_code = _get_consultation_type_code(extraction)
         extraction_data = extraction.get("original_extraction_json") or extraction.get("edited_extraction_json") or {}
 
         bill = generate_bill(
             extraction_id=extraction_id,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
-            patient_id=patient_id,
+            school_id=school_id,
+            counsellor_id=counsellor_id,
+            student_id=student_id,
             extraction_data=extraction_data,
             consultation_type_code=consultation_type_code,
             is_merged=extraction.get("is_merged", False),
@@ -364,34 +364,34 @@ async def create_standalone_bill(
     Creates a bill record with extraction_id = NULL and optional line items.
     """
     try:
-        # Resolve hospital_code to hospital_id
-        hospital_check = (
-            supabase.table("hospitals")
+        # Resolve school_code to school_id
+        school_check = (
+            supabase.table("schools")
             .select("id")
-            .eq("hospital_code", body.hospital_code)
+            .eq("school_code", body.school_code)
             .eq("is_active", True)
             .limit(1)
             .execute()
         )
-        if not hospital_check.data:
-            raise HTTPException(status_code=404, detail=f"Hospital not found or inactive: {body.hospital_code}")
+        if not school_check.data:
+            raise HTTPException(status_code=404, detail=f"School not found or inactive: {body.school_code}")
 
-        hospital_id = hospital_check.data[0]["id"]
+        school_id = school_check.data[0]["id"]
 
-        # Resolve patient UHID to internal UUID if provided
+        # Resolve student UHID to internal UUID if provided
         patient_uuid = None
-        if body.patient_id:
-            patient_query = (
-                supabase.table("patients")
+        if body.student_id:
+            student_query = (
+                supabase.table("students")
                 .select("id")
-                .eq("patient_id", body.patient_id)
-                .eq("hospital_id", hospital_id)
+                .eq("student_id", body.student_id)
+                .eq("school_id", school_id)
                 .limit(1)
                 .execute()
             )
-            if not patient_query.data:
-                raise HTTPException(status_code=404, detail=f"No patient found with UHID: {body.patient_id}")
-            patient_uuid = patient_query.data[0]["id"]
+            if not student_query.data:
+                raise HTTPException(status_code=404, detail=f"No student found with UHID: {body.student_id}")
+            patient_uuid = student_query.data[0]["id"]
 
         # Validate bill_type
         if body.bill_type not in ("OP", "IP"):
@@ -449,9 +449,9 @@ async def create_standalone_bill(
         # Create bill record
         bill_data = {
             "extraction_id": None,
-            "hospital_id": hospital_id,
-            "patient_id": patient_uuid,
-            "doctor_id": body.doctor_id,
+            "school_id": school_id,
+            "student_id": patient_uuid,
+            "counsellor_id": body.counsellor_id,
             "bill_type": body.bill_type,
             "bill_status": "draft",
             "consultation_type_code": body.consultation_type_code,
@@ -494,7 +494,7 @@ async def create_standalone_bill(
         )
         bill["line_items"] = items_result.data or []
 
-        logger.info(f"[Billing] Created standalone {body.bill_type} bill {bill_id} for hospital {body.hospital_code}: {len(line_item_rows)} items")
+        logger.info(f"[Billing] Created standalone {body.bill_type} bill {bill_id} for school {body.school_code}: {len(line_item_rows)} items")
 
         return {
             "success": True,
@@ -614,11 +614,11 @@ async def get_bills_by_visit(
         raise HTTPException(status_code=500, detail="Failed to fetch visit bills")
 
 
-@router.get("/patient/{patient_id}")
-async def get_bills_by_patient(
+@router.get("/student/{student_id}")
+async def get_bills_by_student(
     request: Request,
-    patient_id: str = Path(..., description="Patient external ID (UHID)"),
-    hospital_code: Optional[str] = Query(None, description="Hospital code to scope patient lookup"),
+    student_id: str = Path(..., description="Student external ID (UHID)"),
+    school_code: Optional[str] = Query(None, description="School code to scope student lookup"),
     visit_id: Optional[str] = Query(None, description="Filter by EHR visit ID"),
     visit_date: Optional[str] = Query(None, description="Filter by visit date (ISO format)"),
     billed_by: Optional[str] = Query(None, description="Filter by billed_by user"),
@@ -626,46 +626,46 @@ async def get_bills_by_patient(
     _auth=Depends(verify_billing_access),
 ) -> Dict[str, Any]:
     """
-    List all bills for a patient by UHID (external patient ID).
+    List all bills for a student by UHID (external student ID).
 
     **Auth:** Admin + Web + EHR
     """
     try:
-        # Resolve hospital_code to hospital_id if provided
-        hospital_id = None
-        if hospital_code:
-            hospital_result = (
-                supabase.table("hospitals")
+        # Resolve school_code to school_id if provided
+        school_id = None
+        if school_code:
+            school_result = (
+                supabase.table("schools")
                 .select("id")
-                .eq("hospital_code", hospital_code)
+                .eq("school_code", school_code)
                 .eq("is_active", True)
                 .limit(1)
                 .execute()
             )
-            if not hospital_result.data:
-                raise HTTPException(status_code=404, detail=f"Hospital not found or inactive: {hospital_code}")
-            hospital_id = hospital_result.data[0]["id"]
+            if not school_result.data:
+                raise HTTPException(status_code=404, detail=f"School not found or inactive: {school_code}")
+            school_id = school_result.data[0]["id"]
 
-        # Resolve UHID to internal patient UUID(s)
-        patient_query = (
-            supabase.table("patients")
+        # Resolve UHID to internal student UUID(s)
+        student_query = (
+            supabase.table("students")
             .select("id")
-            .eq("patient_id", patient_id)
+            .eq("student_id", student_id)
         )
-        if hospital_id:
-            patient_query = patient_query.eq("hospital_id", hospital_id)
+        if school_id:
+            student_query = student_query.eq("school_id", school_id)
 
-        patient_result = patient_query.execute()
+        student_result = student_query.execute()
 
-        if not patient_result.data:
-            raise HTTPException(status_code=404, detail=f"No patient found with UHID: {patient_id}")
+        if not student_result.data:
+            raise HTTPException(status_code=404, detail=f"No student found with UHID: {student_id}")
 
-        patient_uuids = [p["id"] for p in patient_result.data]
+        student_uuids = [p["id"] for p in student_result.data]
 
         query = (
             supabase.table("bills")
             .select("*")
-            .in_("patient_id", patient_uuids)
+            .in_("student_id", student_uuids)
             .order("created_at", desc=True)
         )
 
@@ -690,8 +690,8 @@ async def get_bills_by_patient(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[Billing] Failed to fetch bills for patient UHID {patient_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch patient bills")
+        logger.error(f"[Billing] Failed to fetch bills for student UHID {student_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch student bills")
 
 
 @router.get("/{bill_id}")
@@ -1130,8 +1130,8 @@ async def confirm_bill(
 def _get_extraction(extraction_id: str) -> Dict[str, Any]:
     """Fetch extraction record."""
     result = (
-        supabase.table("medical_extractions")
-        .select("id, doctor_id, patient_id, consultation_type_id, original_extraction_json, edited_extraction_json, is_merged, merge_metadata")
+        supabase.table("extractions")
+        .select("id, counsellor_id, student_id, consultation_type_id, original_extraction_json, edited_extraction_json, is_merged, merge_metadata")
         .eq("id", extraction_id)
         .limit(1)
         .execute()
@@ -1143,16 +1143,16 @@ def _get_extraction(extraction_id: str) -> Dict[str, Any]:
     return result.data[0]
 
 
-def _resolve_hospital_id(doctor_id: Optional[str], extraction: Dict[str, Any]) -> Optional[str]:
-    """Resolve hospital_id from doctor or extraction metadata."""
-    if doctor_id:
-        hospital_id = get_doctor_hospital_id_cached(uuid.UUID(doctor_id))
-        if hospital_id:
-            return hospital_id
+def _resolve_school_id(counsellor_id: Optional[str], extraction: Dict[str, Any]) -> Optional[str]:
+    """Resolve school_id from counsellor or extraction metadata."""
+    if counsellor_id:
+        school_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
+        if school_id:
+            return school_id
 
     # Fallback: check merge_metadata
     merge_metadata = extraction.get("merge_metadata") or {}
-    return merge_metadata.get("hospital_id")
+    return merge_metadata.get("school_id")
 
 
 def _get_consultation_type_code(extraction: Dict[str, Any]) -> Optional[str]:

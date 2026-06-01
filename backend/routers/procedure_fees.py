@@ -1,7 +1,7 @@
 """
 Procedure Fee Router - Procedure Fee Master CRUD
 
-REST API endpoints for managing procedure fee master data per hospital.
+REST API endpoints for managing procedure fee master data per school.
 Includes individual CRUD and CSV bulk upload.
 """
 
@@ -37,7 +37,7 @@ else:
     async def verify_procedure_fee_access(request: Request = None):
         return None
 
-router = APIRouter(prefix="/api/v1/hospitals", tags=["Procedure Fees"])
+router = APIRouter(prefix="/api/v1/schools", tags=["Procedure Fees"])
 
 
 # ============================================================================
@@ -67,16 +67,16 @@ class ProcedureFeeUpdateRequest(BaseModel):
 # Procedure Fee CRUD Endpoints
 # ============================================================================
 
-@router.get("/{hospital_id}/procedure-fees")
+@router.get("/{school_id}/procedure-fees")
 async def list_procedure_fees(
     request: Request,
-    hospital_id: str = Path(..., description="Hospital UUID"),
+    school_id: str = Path(..., description="School UUID"),
     category: Optional[str] = Query(None, description="Filter by category"),
     include_inactive: bool = Query(False, description="Include inactive fees"),
     _auth=Depends(verify_procedure_fee_access),
 ) -> Dict[str, Any]:
     """
-    List procedure fees for a hospital.
+    List procedure fees for a school.
 
     **Auth:** Admin + Web + EHR
     """
@@ -84,7 +84,7 @@ async def list_procedure_fees(
         query = (
             supabase.table("procedure_fee_master")
             .select("*")
-            .eq("hospital_id", hospital_id)
+            .eq("school_id", school_id)
             .order("procedure_name")
         )
 
@@ -106,10 +106,10 @@ async def list_procedure_fees(
         raise HTTPException(status_code=500, detail="Failed to list procedure fees")
 
 
-@router.post("/{hospital_id}/procedure-fees")
+@router.post("/{school_id}/procedure-fees")
 async def create_procedure_fee(
     request: Request,
-    hospital_id: str = Path(..., description="Hospital UUID"),
+    school_id: str = Path(..., description="School UUID"),
     fee_request: ProcedureFeeCreateRequest = ...,
     _auth=Depends(verify_procedure_fee_access),
 ) -> Dict[str, Any]:
@@ -123,7 +123,7 @@ async def create_procedure_fee(
         existing = (
             supabase.table("procedure_fee_master")
             .select("id")
-            .eq("hospital_id", hospital_id)
+            .eq("school_id", school_id)
             .eq("procedure_name", fee_request.procedure_name)
             .execute()
         )
@@ -131,11 +131,11 @@ async def create_procedure_fee(
         if existing.data:
             raise HTTPException(
                 status_code=409,
-                detail=f"Procedure '{fee_request.procedure_name}' already exists for this hospital"
+                detail=f"Procedure '{fee_request.procedure_name}' already exists for this school"
             )
 
         insert_data = {
-            "hospital_id": hospital_id,
+            "school_id": school_id,
             "procedure_name": fee_request.procedure_name,
             "cpt_code": fee_request.cpt_code,
             "icd_pcs_code": fee_request.icd_pcs_code,
@@ -161,10 +161,10 @@ async def create_procedure_fee(
         raise HTTPException(status_code=500, detail="Failed to create procedure fee")
 
 
-@router.put("/{hospital_id}/procedure-fees/{fee_id}")
+@router.put("/{school_id}/procedure-fees/{fee_id}")
 async def update_procedure_fee(
     request: Request,
-    hospital_id: str = Path(..., description="Hospital UUID"),
+    school_id: str = Path(..., description="School UUID"),
     fee_id: str = Path(..., description="Procedure fee UUID"),
     fee_request: ProcedureFeeUpdateRequest = ...,
     _auth=Depends(verify_procedure_fee_access),
@@ -180,7 +180,7 @@ async def update_procedure_fee(
             supabase.table("procedure_fee_master")
             .select("id")
             .eq("id", fee_id)
-            .eq("hospital_id", hospital_id)
+            .eq("school_id", school_id)
             .limit(1)
             .execute()
         )
@@ -196,7 +196,7 @@ async def update_procedure_fee(
             name_check = (
                 supabase.table("procedure_fee_master")
                 .select("id")
-                .eq("hospital_id", hospital_id)
+                .eq("school_id", school_id)
                 .eq("procedure_name", fee_request.procedure_name)
                 .neq("id", fee_id)
                 .execute()
@@ -238,10 +238,10 @@ async def update_procedure_fee(
         raise HTTPException(status_code=500, detail="Failed to update procedure fee")
 
 
-@router.delete("/{hospital_id}/procedure-fees/{fee_id}")
+@router.delete("/{school_id}/procedure-fees/{fee_id}")
 async def delete_procedure_fee(
     request: Request,
-    hospital_id: str = Path(..., description="Hospital UUID"),
+    school_id: str = Path(..., description="School UUID"),
     fee_id: str = Path(..., description="Procedure fee UUID"),
     _auth=Depends(verify_procedure_fee_access),
 ) -> Dict[str, Any]:
@@ -255,7 +255,7 @@ async def delete_procedure_fee(
             supabase.table("procedure_fee_master")
             .select("id, procedure_name, is_active")
             .eq("id", fee_id)
-            .eq("hospital_id", hospital_id)
+            .eq("school_id", school_id)
             .limit(1)
             .execute()
         )
@@ -282,10 +282,10 @@ async def delete_procedure_fee(
         raise HTTPException(status_code=500, detail="Failed to delete procedure fee")
 
 
-@router.post("/{hospital_id}/procedure-fees/upload")
+@router.post("/{school_id}/procedure-fees/upload")
 async def upload_procedure_fees(
     request: Request,
-    hospital_id: str = Path(..., description="Hospital UUID"),
+    school_id: str = Path(..., description="School UUID"),
     file: UploadFile = File(...),
     replace_existing: bool = Query(False, description="Replace all existing fees"),
     _auth=Depends(verify_procedure_fee_access),
@@ -332,7 +332,7 @@ async def upload_procedure_fees(
                     continue
 
                 procedures.append({
-                    "hospital_id": hospital_id,
+                    "school_id": school_id,
                     "procedure_name": name,
                     "cpt_code": row.get('cpt_code', '').strip() or None,
                     "icd_pcs_code": row.get('icd_pcs_code', '').strip() or None,
@@ -352,7 +352,7 @@ async def upload_procedure_fees(
             supabase.table("procedure_fee_master").update({
                 "is_active": False,
                 "updated_at": datetime.utcnow().isoformat(),
-            }).eq("hospital_id", hospital_id).execute()
+            }).eq("school_id", school_id).execute()
 
         # Deduplicate by procedure_name (last wins)
         seen = {}
@@ -369,7 +369,7 @@ async def upload_procedure_fees(
             try:
                 supabase.table("procedure_fee_master").upsert(
                     batch,
-                    on_conflict="hospital_id,procedure_name"
+                    on_conflict="school_id,procedure_name"
                 ).execute()
                 successful += len(batch)
             except Exception as e:
@@ -378,7 +378,7 @@ async def upload_procedure_fees(
                     try:
                         supabase.table("procedure_fee_master").upsert(
                             proc,
-                            on_conflict="hospital_id,procedure_name"
+                            on_conflict="school_id,procedure_name"
                         ).execute()
                         successful += 1
                     except Exception as inner_e:

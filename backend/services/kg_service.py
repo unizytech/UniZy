@@ -1,8 +1,8 @@
 """
-KG Hospital EHR Integration Service
+KG School EHR Integration Service
 
 Transforms CARDIO_INITIAL and CARDIO_REASSESS extraction output into
-KG Hospital Cardiology payload formats.
+KG School Cardiology payload formats.
 
 CARDIO_INITIAL segment mapping (15-section KG form):
 - VITALS -> vitals (temp, pulse, rr, bp, spo2, date_time) + nutritional_screening
@@ -22,7 +22,7 @@ CARDIO_INITIAL segment mapping (15-section KG form):
 CARDIO_REASSESS segment mapping (same as INITIAL minus ALLERGY, GENERAL_HISTORY):
 - VITALS -> vitals (temp, pulse, rr, bp, spo2, date_time) + nutritional_screening
 - CHIEF_COMPLAINTS -> present_complaints
-- CLINICAL_NOTES.has_patient_improved -> has_patient_improved
+- CLINICAL_NOTES.has_student_improved -> has_student_improved
 - HISTORY_OF_PRESENT_ILLNESS -> history_of_presenting_illness + drug_history
 - HISTORY -> family_history
 - GENERAL_EXAMINATION -> general_examination (face, eyes, neck, legs, others)
@@ -141,7 +141,7 @@ def _to_str(value: Any) -> str:
     Convert a numeric or string value to string, stripping units.
 
     Schema-drift guard: if a leaf slot receives an unexpected complex
-    type (dict or list — possible from doctor-edit iframes), return ""
+    type (dict or list — possible from counsellor-edit iframes), return ""
     rather than the Python repr. Keeps EHR payloads clean of junk like
     "{'value': '70', 'unit': 'kg'}".
     """
@@ -293,7 +293,7 @@ def _build_investigations_list(investigations: Any) -> List[Dict[str, str]]:
     """
     Build investigations_list with service_id and service_name from investigations.
 
-    Tolerates schema drift introduced by doctor edits:
+    Tolerates schema drift introduced by counsellor edits:
       - List form (canonical): [{name, _external_id}, ...]
       - Dict form sometimes sent by iframe edits:
         {done: [...], next_visit: [...], pending: [...], investigations: [...]}
@@ -367,7 +367,7 @@ def _format_diagnosis(diagnosis: Any) -> str:
     Supports two schemas:
       - List form (legacy AI output): [{name, code, type}, ...]
         → "Name (Code), Name2 (Code2)"
-      - Object form (doctor edit / new schema):
+      - Object form (counsellor edit / new schema):
         {primary_diagnosis: "...", interim_diagnosis: [...],
          secondary_diagnoses: [...], differential_diagnoses: [...]}
         → primary text first, then any named diagnoses, joined by newlines.
@@ -749,7 +749,7 @@ def _format_prescription(prescription_array: Any, follow_up_date: str = "") -> L
     """
     Format PRESCRIPTION array into KG 13-field prescription format.
 
-    Tolerates dict-form payloads from doctor-edit iframes by flattening
+    Tolerates dict-form payloads from counsellor-edit iframes by flattening
     list-typed values (e.g. {medications: [...], otc: [...]} → combined list).
     """
     if isinstance(prescription_array, dict):
@@ -1177,7 +1177,7 @@ def _format_prescription_kg(prescription_arr: Any, review_date: str = "") -> Lis
     duration_unit (Day/Week/Month), intake, route, intake_period, instructions.
     Formatter adds: frequency booleans, quantity, drug_id, next_review_date.
 
-    Tolerates schema drift: doctor-edit iframes occasionally send the field
+    Tolerates schema drift: counsellor-edit iframes occasionally send the field
     as a dict (e.g. {medications: [...]}), a string ("None"), or null.
     Anything that doesn't reduce to a list of drug-dicts → empty list.
     """
@@ -1227,16 +1227,16 @@ def _format_prescription_kg(prescription_arr: Any, review_date: str = "") -> Lis
 
 def format_for_kg(
     extraction_data: Dict[str, Any],
-    patient_id: str = "",
-    doctor_id: str = "",
+    student_id: str = "",
+    counsellor_id: str = "",
     extraction_id: str = "",
-    doctor_name: str = "",
+    counsellor_name: str = "",
     uhid: str = "",
     visit_id: str = "",
     role: str = "",
 ) -> Dict[str, Any]:
     """
-    Format CARDIO_INITIAL extraction data into KG Hospital Cardiology payload.
+    Format CARDIO_INITIAL extraction data into KG School Cardiology payload.
 
     Restructured segments now produce most KG fields directly. This formatter
     handles: metadata injection, key renames (camelCase → snake_case), flattening
@@ -1246,15 +1246,15 @@ def format_for_kg(
 
     Args:
         extraction_data: Dict with camelCase segment keys from assembled schema
-        patient_id: Patient UUID
-        doctor_id: Doctor UUID
+        student_id: Student UUID
+        counsellor_id: Counsellor UUID
         extraction_id: Extraction UUID
-        doctor_name: Doctor display name
-        uhid: Patient UHID (external ID)
+        counsellor_name: Counsellor display name
+        uhid: Student UHID (external ID)
         visit_id: Visit ID from recording metadata
 
     Returns:
-        Dict formatted for KG Hospital Cardiology Initial Assessment API
+        Dict formatted for KG School Cardiology Initial Assessment API
     """
     # Extract segments (camelCase keys from assembled schema)
     vitals = extraction_data.get("vitals", {}) or {}
@@ -1303,10 +1303,10 @@ def format_for_kg(
 
     payload: Dict[str, Any] = {
         # Metadata
-        "patient_id": patient_id,
+        "student_id": student_id,
         "uhid": uhid,
         "visit_id": visit_id,
-        "doctor_id": doctor_id,
+        "counsellor_id": counsellor_id,
         "extraction_id": extraction_id,
         "role": role,
         "form_type": "CARDIOLOGY_INITIAL_ASSESSMENT",
@@ -1376,8 +1376,8 @@ def format_for_kg(
         # 16. Consultants referral — flatten from TREATMENT_PLAN segment
         "consultants_referral": treatment.get("consultants_referral", "") or "",
 
-        # Doctor name + time
-        "doctor_name": doctor_name,
+        # Counsellor name + time
+        "counsellor_name": counsellor_name,
         "time": now.strftime("%H:%M"),
 
         # Review on
@@ -1462,16 +1462,16 @@ def _build_reassess_complaints(chief_complaints: Any) -> Dict[str, Dict[str, str
 
 def format_for_kg_reassess(
     extraction_data: Dict[str, Any],
-    patient_id: str = "",
-    doctor_id: str = "",
+    student_id: str = "",
+    counsellor_id: str = "",
     extraction_id: str = "",
-    doctor_name: str = "",
+    counsellor_name: str = "",
     uhid: str = "",
     visit_id: str = "",
     role: str = "",
 ) -> Dict[str, Any]:
     """
-    Format CARDIO_REASSESS extraction data into KG Hospital Cardiology
+    Format CARDIO_REASSESS extraction data into KG School Cardiology
     Re-Assessment payload.
 
     Reads the 10 segments linked to the CARDIO_REASSESS template:
@@ -1514,10 +1514,10 @@ def format_for_kg_reassess(
     review_date = treatment.get("review_on", "") or ""
 
     payload: Dict[str, Any] = {
-        "patient_id": patient_id,
+        "student_id": student_id,
         "uhid": uhid,
         "visit_id": visit_id,
-        "doctor_id": doctor_id,
+        "counsellor_id": counsellor_id,
         "extraction_id": extraction_id,
         "role": role,
         "form_type": "CARDIOLOGY_REASSESSMENT",
@@ -1571,7 +1571,7 @@ def format_for_kg_reassess(
         "advice": treatment.get("advice", "") or "",
         "consultants_referral": treatment.get("consultants_referral", "") or "",
 
-        "doctor_name": doctor_name,
+        "counsellor_name": counsellor_name,
         "time": now.strftime("%H:%M"),
         "review_on": review_date,
     }
@@ -1733,11 +1733,11 @@ async def send_to_kg(
     api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Send formatted payload to KG Hospital API endpoint.
+    Send formatted payload to KG School API endpoint.
 
     Args:
         payload: The formatted payload from format_for_kg()
-        api_url: KG Hospital API URL
+        api_url: KG School API URL
         api_key: Optional API key for authentication
 
     Returns:

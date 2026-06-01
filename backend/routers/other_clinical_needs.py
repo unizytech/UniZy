@@ -4,9 +4,9 @@ Other Clinical Needs API Router
 Provides endpoints to retrieve clinical needs assessments for extractions.
 
 Clinical needs identifies three types of downstream care requirements:
-- is_followup_diagnostics: Patient needs diagnostic tests before/at next visit
-- is_recurring_diagnostics: Patient needs periodic tests (chronic conditions)
-- is_rx_refill: Patient will need prescription refill
+- is_followup_diagnostics: Student needs diagnostic tests before/at next visit
+- is_recurring_diagnostics: Student needs periodic tests (chronic conditions)
+- is_rx_refill: Student will need prescription refill
 """
 
 import uuid
@@ -16,8 +16,8 @@ from typing import Dict, Any, Optional, List
 
 from services.supabase_service import (
     get_clinical_needs_by_extraction,
-    get_patient_clinical_needs_history,
-    get_patient_latest_clinical_needs,
+    get_student_clinical_needs_history,
+    get_student_latest_clinical_needs,
     get_clinical_needs_statistics
 )
 
@@ -35,8 +35,8 @@ class ClinicalNeedsResponse(BaseModel):
     """Response model for other clinical needs assessment."""
     id: str
     extraction_id: str
-    patient_id: Optional[str] = None
-    doctor_id: Optional[str] = None
+    student_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
 
     # Consolidated priority level
     priority_level: str  # NONE, LOW, MEDIUM, HIGH
@@ -93,7 +93,7 @@ async def get_needs_for_extraction(extraction_id: str):
     Get other clinical needs assessment for a specific extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         ClinicalNeedsResponse with complete needs data
@@ -117,8 +117,8 @@ async def get_needs_for_extraction(extraction_id: str):
     return ClinicalNeedsResponse(
         id=needs["id"],
         extraction_id=needs["extraction_id"],
-        patient_id=needs.get("patient_id"),
-        doctor_id=needs.get("doctor_id"),
+        student_id=needs.get("student_id"),
+        counsellor_id=needs.get("counsellor_id"),
         priority_level=needs.get("priority_level", "NONE"),
         is_followup_diagnostics=needs.get("is_followup_diagnostics", False),
         is_recurring_diagnostics=needs.get("is_recurring_diagnostics", False),
@@ -133,31 +133,31 @@ async def get_needs_for_extraction(extraction_id: str):
     )
 
 
-@router.get("/patient/{patient_id}/history")
-async def get_patient_needs_history_endpoint(
-    patient_id: str,
+@router.get("/student/{student_id}/history")
+async def get_student_needs_history_endpoint(
+    student_id: str,
     limit: int = Query(default=10, le=50, ge=1)
 ) -> List[NeedsHistoryItem]:
     """
-    Get clinical needs assessment history for a patient.
+    Get clinical needs assessment history for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum number of records (default 10, max 50)
 
     Returns:
         List of needs assessments, ordered by created_at descending
     """
     try:
-        uuid.UUID(patient_id)
+        uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    history = get_patient_clinical_needs_history(patient_id, limit)
+    history = get_student_clinical_needs_history(student_id, limit)
 
     result = []
     for item in history:
-        extraction_data = item.get("medical_extractions", {}) or {}
+        extraction_data = item.get("extractions", {}) or {}
         result.append(NeedsHistoryItem(
             id=item["id"],
             extraction_id=item["extraction_id"],
@@ -172,23 +172,23 @@ async def get_patient_needs_history_endpoint(
     return result
 
 
-@router.get("/patient/{patient_id}/latest", response_model=Optional[ClinicalNeedsResponse])
-async def get_patient_latest_needs(patient_id: str):
+@router.get("/student/{student_id}/latest", response_model=Optional[ClinicalNeedsResponse])
+async def get_student_latest_needs(student_id: str):
     """
-    Get the most recent clinical needs assessment for a patient.
+    Get the most recent clinical needs assessment for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
 
     Returns:
         Latest ClinicalNeedsResponse or null if none found
     """
     try:
-        uuid.UUID(patient_id)
+        uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    needs = get_patient_latest_clinical_needs(patient_id)
+    needs = get_student_latest_clinical_needs(student_id)
 
     if not needs:
         return None
@@ -196,8 +196,8 @@ async def get_patient_latest_needs(patient_id: str):
     return ClinicalNeedsResponse(
         id=needs["id"],
         extraction_id=needs["extraction_id"],
-        patient_id=needs.get("patient_id"),
-        doctor_id=needs.get("doctor_id"),
+        student_id=needs.get("student_id"),
+        counsellor_id=needs.get("counsellor_id"),
         priority_level=needs.get("priority_level", "NONE"),
         is_followup_diagnostics=needs.get("is_followup_diagnostics", False),
         is_recurring_diagnostics=needs.get("is_recurring_diagnostics", False),
@@ -214,26 +214,26 @@ async def get_patient_latest_needs(patient_id: str):
 
 @router.get("/statistics", response_model=NeedsStatistics)
 async def get_needs_statistics_endpoint(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = Query(default=30, le=365, ge=1)
 ):
     """
     Get aggregate clinical needs statistics.
 
     Args:
-        doctor_id: Optional filter by doctor UUID
+        counsellor_id: Optional filter by counsellor UUID
         days: Number of days to look back (default 30, max 365)
 
     Returns:
         Counts for each indicator type
     """
-    if doctor_id:
+    if counsellor_id:
         try:
-            uuid.UUID(doctor_id)
+            uuid.UUID(counsellor_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+            raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-    stats = get_clinical_needs_statistics(doctor_id, days)
+    stats = get_clinical_needs_statistics(counsellor_id, days)
 
     return NeedsStatistics(
         followup_diagnostics=stats.get("followup_diagnostics", 0),

@@ -1,7 +1,7 @@
 """
 Iframe edit-payload normalizer.
 
-The KG hospital edit iframe loads our extraction (which the AI emits in the
+The KG school edit iframe loads our extraction (which the AI emits in the
 "KG Cardio" prescription schema: dose / intake / intake_period / duration /
 duration_unit / instructions), renders it in the iframe's own form using
 M-N-E-N quantities (morning_qty / noon_qty / evening_qty / night_qty /
@@ -81,7 +81,7 @@ def _iframe_item_to_kg_cardio(item: Dict[str, Any]) -> Dict[str, Any]:
     if any(q != "0" for q in (m, n, e, nt)):
         out["dose"] = f"{m}-{n}-{e}-{nt}"
     else:
-        # Doctor cleared all quantities — preserve any pre-existing dose if iframe
+        # Counsellor cleared all quantities — preserve any pre-existing dose if iframe
         # left it in (rare), else empty.
         out["dose"] = str(item.get("dose", "") or "")
 

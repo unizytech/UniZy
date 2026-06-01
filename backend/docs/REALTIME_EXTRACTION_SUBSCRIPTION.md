@@ -223,9 +223,9 @@ When the extraction completes, you receive a row with this structure:
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "submission_id": "a1a916a8-44fb-417a-ad86-db893f7266db",
-  "hospital_id": "4fc2b7d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "hospital_code": "AOSTA001",
-  "doctor_id": "57d63d7d-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "school_id": "4fc2b7d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "school_code": "AOSTA001",
+  "counsellor_id": "57d63d7d-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "extraction_id": "eef04d06-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "response": {
     "status": "COMPLETED",
@@ -250,7 +250,7 @@ When the extraction completes, you receive a row with this structure:
 | Field | Description |
 |-------|-------------|
 | `submission_id` | Unique ID for this extraction (from chunk upload) |
-| `hospital_code` | Your hospital identifier |
+| `school_code` | Your hospital identifier |
 | `extraction_id` | UUID to fetch full extraction details if needed |
 | `response.status` | `COMPLETED` or `FAILED` |
 | `response.insights` | Extracted medical data (same as status API) |

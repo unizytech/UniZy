@@ -8,7 +8,7 @@
  * - Paginated list of extractions
  * - LLM token usage and cost summary per extraction
  * - Click to view full extraction details
- * - Filter by doctor and consultation type
+ * - Filter by counsellor and consultation type
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -44,9 +44,9 @@ interface ExtractionHistoryItem {
   consultation_type_id: string;
   consultation_type_name?: string;
   template_code?: string;
-  doctor_id?: string;
-  doctor_name?: string;
-  patient_id?: string;
+  counsellor_id?: string;
+  counsellor_name?: string;
+  student_id?: string;
   extraction_mode: string;
   segment_count: number;
   is_edited: boolean;
@@ -75,9 +75,9 @@ interface ExtractionDetails {
   consultation_type_id: string;
   consultation_type_name?: string;
   template_code?: string;
-  doctor_id?: string;
-  doctor_name?: string;
-  patient_id?: string;
+  counsellor_id?: string;
+  counsellor_name?: string;
+  student_id?: string;
   extraction_mode: string;
   segment_count: number;
   is_edited: boolean;
@@ -101,7 +101,7 @@ interface ExtractionDetails {
   llm_usage: LLMUsageItem[];
 }
 
-interface Doctor {
+interface Counsellor {
   id: string;
   full_name: string;
 }
@@ -122,9 +122,9 @@ export function ExtractionHistoryScreen() {
   const [hasMore, setHasMore] = useState(false);
 
   // Filters
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
   const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [selectedCounsellorId, setSelectedCounsellorId] = useState<string>('');
   const [selectedConsultationTypeId, setSelectedConsultationTypeId] = useState<string>('');
 
   // Detail view
@@ -139,17 +139,17 @@ export function ExtractionHistoryScreen() {
   // Load extractions when filters or page change
   useEffect(() => {
     loadExtractions();
-  }, [page, selectedDoctorId, selectedConsultationTypeId]);
+  }, [page, selectedCounsellorId, selectedConsultationTypeId]);
 
   const loadFilters = async () => {
     try {
       const accessToken = getAccessToken();
 
-      // Load doctors
-      const docRes = await authGet('/api/v1/doctors', accessToken);
+      // Load counsellors
+      const docRes = await authGet('/api/v1/counsellors', accessToken);
       if (docRes.ok) {
         const docData = await docRes.json();
-        setDoctors(docData.doctors || []);
+        setCounsellors(docData.counsellors || []);
       }
 
       // Load consultation types
@@ -173,8 +173,8 @@ export function ExtractionHistoryScreen() {
         page_size: pageSize.toString(),
       });
 
-      if (selectedDoctorId) {
-        params.append('doctor_id', selectedDoctorId);
+      if (selectedCounsellorId) {
+        params.append('counsellor_id', selectedCounsellorId);
       }
       if (selectedConsultationTypeId) {
         params.append('consultation_type_id', selectedConsultationTypeId);
@@ -196,7 +196,7 @@ export function ExtractionHistoryScreen() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, selectedDoctorId, selectedConsultationTypeId]); // getAccessToken is stable from useAuth
+  }, [page, pageSize, selectedCounsellorId, selectedConsultationTypeId]); // getAccessToken is stable from useAuth
 
   const loadExtractionDetails = async (extractionId: string) => {
     setLoadingDetails(true);
@@ -260,9 +260,9 @@ export function ExtractionHistoryScreen() {
         <div className="flex-1 min-w-[200px]">
           <label className="block text-sm text-slate-400 mb-1">Counsellor</label>
           <select
-            value={selectedDoctorId}
+            value={selectedCounsellorId}
             onChange={(e) => {
-              setSelectedDoctorId(e.target.value);
+              setSelectedCounsellorId(e.target.value);
               handleFilterChange();
             }}
             className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -347,7 +347,7 @@ export function ExtractionHistoryScreen() {
                     )}
                   </div>
                   <div className="text-sm text-slate-400">
-                    {ext.doctor_name || 'Unknown Counsellor'} • {formatDate(ext.created_at)}
+                    {ext.counsellor_name || 'Unknown Counsellor'} • {formatDate(ext.created_at)}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
                     {ext.extraction_mode} mode • {ext.segment_count} segments
@@ -465,7 +465,7 @@ export function ExtractionHistoryScreen() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-700/50 rounded-lg p-3">
             <div className="text-xs text-slate-500">Counsellor</div>
-            <div className="text-sm text-white">{ext.doctor_name || 'Unknown'}</div>
+            <div className="text-sm text-white">{ext.counsellor_name || 'Unknown'}</div>
           </div>
           <div className="bg-slate-700/50 rounded-lg p-3">
             <div className="text-xs text-slate-500">Created</div>

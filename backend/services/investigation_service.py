@@ -1,5 +1,5 @@
 """
-Investigation Service - Doctor Investigation List Management and Matching
+Investigation Service - Counsellor Investigation List Management and Matching
 
 This module handles:
 - CSV parsing and investigation list upload
@@ -9,13 +9,13 @@ This module handles:
 - Adaptive learning via segment definition updates
 
 Matching Priority (7 levels):
-1. Doctor's previous feedback (agreed/disagreed) → 95% confidence
-2. Doctor's personal list - exact match → 100% confidence
-3. Doctor's personal list - common name match → 98% confidence
-4. Hospital list - exact match → 90% confidence
-5. Hospital list - common name match → 88% confidence
-6. Doctor's personal list - fuzzy match → 85-95% confidence
-7. Hospital list - fuzzy match → 81-90% confidence
+1. Counsellor's previous feedback (agreed/disagreed) → 95% confidence
+2. Counsellor's personal list - exact match → 100% confidence
+3. Counsellor's personal list - common name match → 98% confidence
+4. School list - exact match → 90% confidence
+5. School list - common name match → 88% confidence
+6. Counsellor's personal list - fuzzy match → 85-95% confidence
+7. School list - fuzzy match → 81-90% confidence
 """
 
 import uuid
@@ -50,103 +50,103 @@ _hospital_investigations_cache: Dict[str, Dict[str, Any]] = {}
 _INVESTIGATION_CACHE_TTL_SECONDS = 31536000  # 1 year (effectively infinite - invalidated on list updates, cleared on server restart)
 
 
-def _get_doctor_inv_cache_key(doctor_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> str:
-    """Generate cache key for doctor investigation list."""
-    return f"doc_inv_{doctor_id}_{inv_type or 'all'}_{category or 'all'}"
+def _get_counsellor_inv_cache_key(counsellor_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> str:
+    """Generate cache key for counsellor investigation list."""
+    return f"doc_inv_{counsellor_id}_{inv_type or 'all'}_{category or 'all'}"
 
 
-def _get_hospital_inv_cache_key(hospital_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> str:
-    """Generate cache key for hospital investigation list."""
-    return f"hosp_inv_{hospital_id}_{inv_type or 'all'}_{category or 'all'}"
+def _get_school_inv_cache_key(school_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> str:
+    """Generate cache key for school investigation list."""
+    return f"hosp_inv_{school_id}_{inv_type or 'all'}_{category or 'all'}"
 
 
-def get_cached_doctor_investigations(doctor_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
-    """Get cached doctor investigation list if not expired."""
-    cache_key = _get_doctor_inv_cache_key(doctor_id, inv_type, category)
+def get_cached_counsellor_investigations(counsellor_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+    """Get cached counsellor investigation list if not expired."""
+    cache_key = _get_counsellor_inv_cache_key(counsellor_id, inv_type, category)
     if cache_key in _doctor_investigations_cache:
         entry = _doctor_investigations_cache[cache_key]
         if datetime.now() < entry["expires_at"]:
-            logger.info(f"[TIMING_INVESTIGATION_LIST] ♻️ Cache HIT for doctor {str(doctor_id)[:8]}... ({len(entry['data'])} investigations)")
+            logger.info(f"[TIMING_INVESTIGATION_LIST] ♻️ Cache HIT for counsellor {str(counsellor_id)[:8]}... ({len(entry['data'])} investigations)")
             return entry["data"]
         else:
             del _doctor_investigations_cache[cache_key]
     return None
 
 
-def get_cached_hospital_investigations(hospital_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
-    """Get cached hospital investigation list if not expired."""
-    cache_key = _get_hospital_inv_cache_key(hospital_id, inv_type, category)
+def get_cached_school_investigations(school_id: uuid.UUID, inv_type: Optional[str] = None, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+    """Get cached school investigation list if not expired."""
+    cache_key = _get_school_inv_cache_key(school_id, inv_type, category)
     if cache_key in _hospital_investigations_cache:
         entry = _hospital_investigations_cache[cache_key]
         if datetime.now() < entry["expires_at"]:
-            logger.info(f"[TIMING_INVESTIGATION_LIST] ♻️ Cache HIT for hospital {str(hospital_id)[:8]}... ({len(entry['data'])} investigations)")
+            logger.info(f"[TIMING_INVESTIGATION_LIST] ♻️ Cache HIT for school {str(school_id)[:8]}... ({len(entry['data'])} investigations)")
             return entry["data"]
         else:
             del _hospital_investigations_cache[cache_key]
     return None
 
 
-def set_cached_doctor_investigations(doctor_id: uuid.UUID, data: List[Dict[str, Any]], inv_type: Optional[str] = None, category: Optional[str] = None) -> None:
-    """Cache doctor investigation list with TTL."""
-    cache_key = _get_doctor_inv_cache_key(doctor_id, inv_type, category)
+def set_cached_counsellor_investigations(counsellor_id: uuid.UUID, data: List[Dict[str, Any]], inv_type: Optional[str] = None, category: Optional[str] = None) -> None:
+    """Cache counsellor investigation list with TTL."""
+    cache_key = _get_counsellor_inv_cache_key(counsellor_id, inv_type, category)
     _doctor_investigations_cache[cache_key] = {
         "data": data,
         "expires_at": datetime.now() + timedelta(seconds=_INVESTIGATION_CACHE_TTL_SECONDS),
         "cached_at": datetime.now()
     }
-    logger.debug(f"[INVESTIGATION_CACHE] 💾 Cached {len(data)} investigations for doctor {str(doctor_id)[:8]}... (TTL: ∞, invalidated on update)")
+    logger.debug(f"[INVESTIGATION_CACHE] 💾 Cached {len(data)} investigations for counsellor {str(counsellor_id)[:8]}... (TTL: ∞, invalidated on update)")
 
 
-def set_cached_hospital_investigations(hospital_id: uuid.UUID, data: List[Dict[str, Any]], inv_type: Optional[str] = None, category: Optional[str] = None) -> None:
-    """Cache hospital investigation list with TTL."""
-    cache_key = _get_hospital_inv_cache_key(hospital_id, inv_type, category)
+def set_cached_school_investigations(school_id: uuid.UUID, data: List[Dict[str, Any]], inv_type: Optional[str] = None, category: Optional[str] = None) -> None:
+    """Cache school investigation list with TTL."""
+    cache_key = _get_school_inv_cache_key(school_id, inv_type, category)
     _hospital_investigations_cache[cache_key] = {
         "data": data,
         "expires_at": datetime.now() + timedelta(seconds=_INVESTIGATION_CACHE_TTL_SECONDS),
         "cached_at": datetime.now()
     }
-    logger.debug(f"[INVESTIGATION_CACHE] 💾 Cached {len(data)} investigations for hospital {str(hospital_id)[:8]}... (TTL: ∞, invalidated on update)")
+    logger.debug(f"[INVESTIGATION_CACHE] 💾 Cached {len(data)} investigations for school {str(school_id)[:8]}... (TTL: ∞, invalidated on update)")
 
 
-def invalidate_doctor_investigation_cache(doctor_id: uuid.UUID) -> int:
-    """Invalidate cache for a specific doctor. Call this when investigations are updated."""
+def invalidate_counsellor_investigation_cache(counsellor_id: uuid.UUID) -> int:
+    """Invalidate cache for a specific counsellor. Call this when investigations are updated."""
     count = 0
-    keys_to_delete = [k for k in _doctor_investigations_cache if str(doctor_id) in k]
+    keys_to_delete = [k for k in _doctor_investigations_cache if str(counsellor_id) in k]
     for key in keys_to_delete:
         del _doctor_investigations_cache[key]
         count += 1
     if count > 0:
-        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated {count} cache entries for doctor {str(doctor_id)[:8]}...")
+        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated {count} cache entries for counsellor {str(counsellor_id)[:8]}...")
     return count
 
 
-def invalidate_hospital_investigation_cache(hospital_id: uuid.UUID) -> int:
-    """Invalidate cache for a specific hospital. Call this when investigations are updated."""
+def invalidate_school_investigation_cache(school_id: uuid.UUID) -> int:
+    """Invalidate cache for a specific school. Call this when investigations are updated."""
     count = 0
-    keys_to_delete = [k for k in _hospital_investigations_cache if str(hospital_id) in k]
+    keys_to_delete = [k for k in _hospital_investigations_cache if str(school_id) in k]
     for key in keys_to_delete:
         del _hospital_investigations_cache[key]
         count += 1
     if count > 0:
-        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated {count} cache entries for hospital {str(hospital_id)[:8]}...")
+        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated {count} cache entries for school {str(school_id)[:8]}...")
     return count
 
 
-def invalidate_all_doctor_investigation_caches() -> int:
-    """Invalidate ALL doctor investigation caches. Used for global cache refresh."""
+def invalidate_all_counsellor_investigation_caches() -> int:
+    """Invalidate ALL counsellor investigation caches. Used for global cache refresh."""
     count = len(_doctor_investigations_cache)
     _doctor_investigations_cache.clear()
     if count:
-        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated ALL doctor investigation caches ({count} entries)")
+        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated ALL counsellor investigation caches ({count} entries)")
     return count
 
 
-def invalidate_all_hospital_investigation_caches() -> int:
-    """Invalidate ALL hospital investigation caches. Used for global cache refresh."""
+def invalidate_all_school_investigation_caches() -> int:
+    """Invalidate ALL school investigation caches. Used for global cache refresh."""
     count = len(_hospital_investigations_cache)
     _hospital_investigations_cache.clear()
     if count:
-        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated ALL hospital investigation caches ({count} entries)")
+        logger.debug(f"[INVESTIGATION_CACHE] 🗑️ Invalidated ALL school investigation caches ({count} entries)")
     return count
 
 
@@ -340,7 +340,7 @@ def extract_investigation_aliases(investigation_name: str, existing_common_names
     """
     Extract short recognizable aliases from investigation names.
 
-    This helps Gemini recognize investigations when the hospital list has verbose names like:
+    This helps Gemini recognize investigations when the school list has verbose names like:
     "Complete Blood Count (Automated)" -> aliases: ["CBC", "HEMOGRAM", "FBC"]
 
     Args:
@@ -676,7 +676,7 @@ def parse_csv_investigation_list(csv_content: str) -> Tuple[List[Dict], List[Dic
 # ============================================================================
 
 def _upsert_investigation_records(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     investigations: List[Dict[str, Any]],
     errors: List[Dict[str, Any]],
     replace_existing: bool,
@@ -688,7 +688,7 @@ def _upsert_investigation_records(
     upload record update, cache invalidation, result formatting.
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         investigations: List of enriched investigation dicts (already passed through _enrich_investigation_record)
         errors: List of errors from parsing phase (will be extended with upsert errors)
         replace_existing: If True, deactivate existing investigations first
@@ -700,13 +700,13 @@ def _upsert_investigation_records(
     try:
         # Deactivate existing if requested
         if replace_existing and investigations:
-            supabase.table('doctor_investigations').update({
+            supabase.table('counsellor_investigations').update({
                 'is_active': False
-            }).eq('doctor_id', str(doctor_id)).execute()
+            }).eq('counsellor_id', str(counsellor_id)).execute()
 
-        # Prepare all investigations with doctor_id and is_active
+        # Prepare all investigations with counsellor_id and is_active
         for investigation in investigations:
-            investigation['doctor_id'] = str(doctor_id)
+            investigation['counsellor_id'] = str(counsellor_id)
             investigation['is_active'] = True
 
         # Deduplicate by normalized_name (last occurrence wins) —
@@ -727,9 +727,9 @@ def _upsert_investigation_records(
         for i in range(0, len(investigations), BATCH_SIZE):
             batch = investigations[i:i + BATCH_SIZE]
             try:
-                supabase.table('doctor_investigations').upsert(
+                supabase.table('counsellor_investigations').upsert(
                     batch,
-                    on_conflict='doctor_id,normalized_name'
+                    on_conflict='counsellor_id,normalized_name'
                 ).execute()
                 successful += len(batch)
             except Exception as e:
@@ -737,9 +737,9 @@ def _upsert_investigation_records(
                 logger.warning(f"[Investigation] Batch upsert failed, falling back to individual inserts: {e}")
                 for investigation in batch:
                     try:
-                        supabase.table('doctor_investigations').upsert(
+                        supabase.table('counsellor_investigations').upsert(
                             investigation,
-                            on_conflict='doctor_id,normalized_name'
+                            on_conflict='counsellor_id,normalized_name'
                         ).execute()
                         successful += 1
                     except Exception as inner_e:
@@ -760,12 +760,12 @@ def _upsert_investigation_records(
             'processed_at': datetime.utcnow().isoformat()
         }).eq('id', upload_id).execute()
 
-        logger.info(f"[Investigation] Uploaded {successful} investigations for doctor {doctor_id}")
+        logger.info(f"[Investigation] Uploaded {successful} investigations for counsellor {counsellor_id}")
 
         # Invalidate caches after successful upload
         from services.extraction_service import invalidate_list_cache
-        invalidate_list_cache(doctor_id)
-        invalidate_doctor_investigation_cache(doctor_id)
+        invalidate_list_cache(counsellor_id)
+        invalidate_counsellor_investigation_cache(counsellor_id)
 
         return {
             "upload_id": upload_id,
@@ -784,19 +784,19 @@ def _upsert_investigation_records(
                 'processed_at': datetime.utcnow().isoformat()
             }).eq('id', upload_id).execute()
 
-        logger.error(f"[Investigation] Upload failed for doctor {doctor_id}: {e}")
+        logger.error(f"[Investigation] Upload failed for counsellor {counsellor_id}: {e}")
         raise
 
 
 def upload_investigation_list(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     csv_content: str,
     filename: str,
     replace_existing: bool = False
 ) -> Dict[str, Any]:
-    """Upload and process a CSV investigation list for a doctor."""
+    """Upload and process a CSV investigation list for a counsellor."""
     upload_record = supabase.table('investigation_list_uploads').insert({
-        'doctor_id': str(doctor_id),
+        'counsellor_id': str(counsellor_id),
         'filename': filename,
         'file_size_bytes': len(csv_content.encode('utf-8')),
         'status': 'processing'
@@ -804,17 +804,17 @@ def upload_investigation_list(
     upload_id = upload_record.data[0]['id'] if upload_record.data else None
 
     investigations, errors = parse_csv_investigation_list(csv_content)
-    return _upsert_investigation_records(doctor_id, investigations, errors, replace_existing, upload_id)
+    return _upsert_investigation_records(counsellor_id, investigations, errors, replace_existing, upload_id)
 
 
 def upload_investigation_list_json(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     investigations: List[Dict[str, Any]],
     replace_existing: bool = False
 ) -> Dict[str, Any]:
-    """Upload a JSON list of investigations for a doctor."""
+    """Upload a JSON list of investigations for a counsellor."""
     upload_record = supabase.table('investigation_list_uploads').insert({
-        'doctor_id': str(doctor_id),
+        'counsellor_id': str(counsellor_id),
         'filename': 'json_upload',
         'file_size_bytes': 0,
         'status': 'processing'
@@ -829,24 +829,24 @@ def upload_investigation_list_json(
         except Exception as e:
             errors.append({"row": idx + 1, "error": str(e), "data": raw})
 
-    return _upsert_investigation_records(doctor_id, enriched, errors, replace_existing, upload_id)
+    return _upsert_investigation_records(counsellor_id, enriched, errors, replace_existing, upload_id)
 
 
-def upload_hospital_investigation_list(
-    hospital_id: uuid.UUID,
+def upload_school_investigation_list(
+    school_id: uuid.UUID,
     csv_content: str,
     filename: str,
     created_by: uuid.UUID,
     replace_existing: bool = False
 ) -> Dict[str, Any]:
     """
-    Upload and process a CSV investigation list for a hospital.
+    Upload and process a CSV investigation list for a school.
 
     Args:
-        hospital_id: Hospital ID
+        school_id: School ID
         csv_content: CSV string content
         filename: Original filename
-        created_by: Admin doctor ID who uploaded
+        created_by: Admin counsellor ID who uploaded
         replace_existing: If True, deactivate existing investigations first
 
     Returns:
@@ -854,7 +854,7 @@ def upload_hospital_investigation_list(
     """
     # Create upload record
     upload_record = supabase.table('investigation_list_uploads').insert({
-        'hospital_id': str(hospital_id),
+        'school_id': str(school_id),
         'filename': filename,
         'file_size_bytes': len(csv_content.encode('utf-8')),
         'status': 'processing'
@@ -868,18 +868,18 @@ def upload_hospital_investigation_list(
 
         # Deactivate existing if requested
         if replace_existing and investigations:
-            supabase.table('hospital_investigation_lists').update({
+            supabase.table('school_investigation_lists').update({
                 'is_active': False
-            }).eq('hospital_id', str(hospital_id)).execute()
+            }).eq('school_id', str(school_id)).execute()
 
         # Insert investigations in batches (reduces N round-trips to N/500)
         successful = 0
         failed = len(errors)
         BATCH_SIZE = 500
 
-        # Prepare all investigations with hospital_id, created_by, and is_active
+        # Prepare all investigations with school_id, created_by, and is_active
         for investigation in investigations:
-            investigation['hospital_id'] = str(hospital_id)
+            investigation['school_id'] = str(school_id)
             investigation['created_by'] = str(created_by)
             investigation['is_active'] = True
 
@@ -891,25 +891,25 @@ def upload_hospital_investigation_list(
             seen[investigation['normalized_name']] = investigation
         investigations = list(seen.values())
         if len(investigations) < pre_dedup_count:
-            logger.info(f"[Investigation] Deduped {pre_dedup_count} → {len(investigations)} hospital investigations ({pre_dedup_count - len(investigations)} duplicates removed)")
+            logger.info(f"[Investigation] Deduped {pre_dedup_count} → {len(investigations)} school investigations ({pre_dedup_count - len(investigations)} duplicates removed)")
 
         # Batch upsert
         for i in range(0, len(investigations), BATCH_SIZE):
             batch = investigations[i:i + BATCH_SIZE]
             try:
-                supabase.table('hospital_investigation_lists').upsert(
+                supabase.table('school_investigation_lists').upsert(
                     batch,
-                    on_conflict='hospital_id,normalized_name'
+                    on_conflict='school_id,normalized_name'
                 ).execute()
                 successful += len(batch)
             except Exception as e:
                 # If batch fails, fall back to individual inserts for this batch
-                logger.warning(f"[Investigation] Hospital batch upsert failed, falling back to individual inserts: {e}")
+                logger.warning(f"[Investigation] School batch upsert failed, falling back to individual inserts: {e}")
                 for investigation in batch:
                     try:
-                        supabase.table('hospital_investigation_lists').upsert(
+                        supabase.table('school_investigation_lists').upsert(
                             investigation,
-                            on_conflict='hospital_id,normalized_name'
+                            on_conflict='school_id,normalized_name'
                         ).execute()
                         successful += 1
                     except Exception as inner_e:
@@ -931,12 +931,12 @@ def upload_hospital_investigation_list(
                 'processed_at': datetime.utcnow().isoformat()
             }).eq('id', upload_id).execute()
 
-        logger.info(f"[Investigation] Uploaded {successful} hospital investigations for hospital {hospital_id}")
+        logger.info(f"[Investigation] Uploaded {successful} school investigations for school {school_id}")
 
         # Invalidate caches after successful upload
-        from services.extraction_service import invalidate_list_cache_by_hospital
-        invalidate_list_cache_by_hospital(hospital_id)
-        invalidate_hospital_investigation_cache(hospital_id)
+        from services.extraction_service import invalidate_list_cache_by_school
+        invalidate_list_cache_by_school(school_id)
+        invalidate_school_investigation_cache(school_id)
 
         return {
             "upload_id": upload_id,
@@ -956,16 +956,16 @@ def upload_hospital_investigation_list(
                 'processed_at': datetime.utcnow().isoformat()
             }).eq('id', upload_id).execute()
 
-        logger.error(f"[Investigation] Hospital upload failed: {e}")
+        logger.error(f"[Investigation] School upload failed: {e}")
         raise
 
 
 # ============================================================================
-# CRUD - Doctor Investigations
+# CRUD - Counsellor Investigations
 # ============================================================================
 
-def create_doctor_investigation(
-    doctor_id: uuid.UUID,
+def create_counsellor_investigation(
+    counsellor_id: uuid.UUID,
     investigation_name: str,
     investigation_type: str,
     common_names: Optional[List[str]] = None,
@@ -975,7 +975,7 @@ def create_doctor_investigation(
     cpt_code: Optional[str] = None,
     external_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Create a single investigation for a doctor."""
+    """Create a single investigation for a counsellor."""
     # Initialize common_names list
     if common_names is None:
         common_names = []
@@ -995,25 +995,25 @@ def create_doctor_investigation(
     normalized = normalize_investigation_name(investigation_name)
     tokens = generate_search_tokens(investigation_name, common_names)
 
-    # Enrich missing fields from hospital list
+    # Enrich missing fields from school list
     enrichable_fields_missing = (
         not external_id or not category or not normal_range
         or not loinc_code or not cpt_code
     )
     if enrichable_fields_missing:
         try:
-            from services.supabase_service import get_doctor_hospital_id_cached
-            hospital_id = get_doctor_hospital_id_cached(doctor_id)
-            if hospital_id:
-                hospital_match = supabase.table('hospital_investigation_lists')\
+            from services.supabase_service import get_counsellor_school_id_cached
+            school_id = get_counsellor_school_id_cached(counsellor_id)
+            if school_id:
+                school_match = supabase.table('school_investigation_lists')\
                     .select('external_id, investigation_type, category, normal_range, loinc_code, cpt_code, common_names')\
-                    .eq('hospital_id', hospital_id)\
+                    .eq('school_id', school_id)\
                     .eq('normalized_name', normalized)\
                     .eq('is_active', True)\
                     .limit(1)\
                     .execute()
-                if hospital_match.data:
-                    hi = hospital_match.data[0]
+                if school_match.data:
+                    hi = school_match.data[0]
                     if not external_id:
                         external_id = hi.get('external_id')
                     if not category:
@@ -1024,25 +1024,25 @@ def create_doctor_investigation(
                         loinc_code = hi.get('loinc_code')
                     if not cpt_code:
                         cpt_code = hi.get('cpt_code')
-                    # Use hospital investigation_type if current is generic 'other'
+                    # Use school investigation_type if current is generic 'other'
                     if investigation_type == 'other' and hi.get('investigation_type'):
                         investigation_type = hi['investigation_type']
                     # Merge common_names (don't replace)
-                    hospital_common = hi.get('common_names') or []
-                    if hospital_common:
+                    school_common = hi.get('common_names') or []
+                    if school_common:
                         existing_lower = {n.lower() for n in common_names}
-                        for name in hospital_common:
+                        for name in school_common:
                             if name.lower() not in existing_lower:
                                 common_names.append(name)
-                    logger.debug(f"[Investigation] Enriched '{investigation_name}' from hospital list: external_id={external_id}")
+                    logger.debug(f"[Investigation] Enriched '{investigation_name}' from school list: external_id={external_id}")
         except Exception as e:
-            logger.warning(f"[Investigation] Hospital enrichment failed for '{investigation_name}': {e}")
+            logger.warning(f"[Investigation] School enrichment failed for '{investigation_name}': {e}")
 
     # Regenerate tokens after potential common_names enrichment
     tokens = generate_search_tokens(investigation_name, common_names)
 
-    result = supabase.table('doctor_investigations').insert({
-        'doctor_id': str(doctor_id),
+    result = supabase.table('counsellor_investigations').insert({
+        'counsellor_id': str(counsellor_id),
         'investigation_name': investigation_name,
         'investigation_type': investigation_type,
         'common_names': common_names,
@@ -1055,16 +1055,16 @@ def create_doctor_investigation(
         'search_tokens': tokens
     }).execute()
 
-    # Invalidate caches for this doctor
+    # Invalidate caches for this counsellor
     from services.extraction_service import invalidate_list_cache
-    invalidate_list_cache(doctor_id)
-    invalidate_doctor_investigation_cache(doctor_id)
+    invalidate_list_cache(counsellor_id)
+    invalidate_counsellor_investigation_cache(counsellor_id)
 
     return result.data[0] if result.data else {}
 
 
-def update_doctor_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
-    """Update a doctor's investigation."""
+def update_counsellor_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
+    """Update a counsellor's investigation."""
     update_data = {k: v for k, v in kwargs.items() if v is not None}
 
     # Regenerate normalized name and tokens if investigation_name or common_names changed
@@ -1076,7 +1076,7 @@ def update_doctor_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict[s
         )
     elif 'common_names' in update_data:
         # Get current investigation_name
-        current = supabase.table('doctor_investigations').select('investigation_name').eq(
+        current = supabase.table('counsellor_investigations').select('investigation_name').eq(
             'id', str(investigation_id)
         ).single().execute()
         if current.data:
@@ -1085,117 +1085,117 @@ def update_doctor_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict[s
                 update_data['common_names']
             )
 
-    result = supabase.table('doctor_investigations').update(
+    result = supabase.table('counsellor_investigations').update(
         update_data
     ).eq('id', str(investigation_id)).execute()
 
-    # Invalidate caches for this doctor
-    if result.data and result.data[0].get('doctor_id'):
+    # Invalidate caches for this counsellor
+    if result.data and result.data[0].get('counsellor_id'):
         from services.extraction_service import invalidate_list_cache
-        doctor_uuid = uuid.UUID(result.data[0]['doctor_id'])
-        invalidate_list_cache(doctor_uuid)
-        invalidate_doctor_investigation_cache(doctor_uuid)
+        counsellor_uuid = uuid.UUID(result.data[0]['counsellor_id'])
+        invalidate_list_cache(counsellor_uuid)
+        invalidate_counsellor_investigation_cache(counsellor_uuid)
 
     return result.data[0] if result.data else {}
 
 
-def delete_doctor_investigation(investigation_id: uuid.UUID) -> bool:
-    """Soft delete a doctor's investigation."""
+def delete_counsellor_investigation(investigation_id: uuid.UUID) -> bool:
+    """Soft delete a counsellor's investigation."""
     try:
-        # Get doctor_id before deleting for cache invalidation
-        investigation = supabase.table('doctor_investigations').select('doctor_id').eq(
+        # Get counsellor_id before deleting for cache invalidation
+        investigation = supabase.table('counsellor_investigations').select('counsellor_id').eq(
             'id', str(investigation_id)
         ).single().execute()
-        doctor_id = investigation.data.get('doctor_id') if investigation.data else None
+        counsellor_id = investigation.data.get('counsellor_id') if investigation.data else None
 
-        supabase.table('doctor_investigations').update({
+        supabase.table('counsellor_investigations').update({
             'is_active': False
         }).eq('id', str(investigation_id)).execute()
 
-        # Invalidate caches for this doctor
-        if doctor_id:
+        # Invalidate caches for this counsellor
+        if counsellor_id:
             from services.extraction_service import invalidate_list_cache
-            doctor_uuid = uuid.UUID(doctor_id)
-            invalidate_list_cache(doctor_uuid)
-            invalidate_doctor_investigation_cache(doctor_uuid)
+            counsellor_uuid = uuid.UUID(counsellor_id)
+            invalidate_list_cache(counsellor_uuid)
+            invalidate_counsellor_investigation_cache(counsellor_uuid)
 
         return True
     except Exception:
         return False
 
 
-def has_investigation_lists(doctor_id: uuid.UUID) -> Dict[str, Any]:
+def has_investigation_lists(counsellor_id: uuid.UUID) -> Dict[str, Any]:
     """
-    Check if doctor or doctor's hospital has any investigation lists.
+    Check if counsellor or counsellor's school has any investigation lists.
     Uses COUNT query for efficiency - doesn't fetch actual data.
 
     Args:
-        doctor_id: Doctor ID to check
+        counsellor_id: Counsellor ID to check
 
     Returns:
-        Dict with keys: has_doctor_list, has_hospital_list, has_any_list, hospital_id
+        Dict with keys: has_doctor_list, has_hospital_list, has_any_list, school_id
     """
     try:
-        # Get doctor's hospital_id (cached - 10 min TTL)
-        from services.supabase_service import get_doctor_hospital_id_cached
-        hospital_id = get_doctor_hospital_id_cached(doctor_id)
+        # Get counsellor's school_id (cached - 10 min TTL)
+        from services.supabase_service import get_counsellor_school_id_cached
+        school_id = get_counsellor_school_id_cached(counsellor_id)
 
-        # Check doctor's list (count only, no data fetch)
-        doctor_result = supabase.table('doctor_investigations').select(
+        # Check counsellor's list (count only, no data fetch)
+        counsellor_result = supabase.table('counsellor_investigations').select(
             'id', count='exact', head=True
-        ).eq('doctor_id', str(doctor_id)).eq('is_active', True).limit(1).execute()
-        has_doctor_list = (doctor_result.count or 0) > 0
+        ).eq('counsellor_id', str(counsellor_id)).eq('is_active', True).limit(1).execute()
+        has_doctor_list = (counsellor_result.count or 0) > 0
 
-        # Check hospital's list
+        # Check school's list
         has_hospital_list = False
-        if hospital_id:
-            hospital_result = supabase.table('hospital_investigation_lists').select(
+        if school_id:
+            school_result = supabase.table('school_investigation_lists').select(
                 'id', count='exact', head=True
-            ).eq('hospital_id', str(hospital_id)).eq('is_active', True).limit(1).execute()
-            has_hospital_list = (hospital_result.count or 0) > 0
+            ).eq('school_id', str(school_id)).eq('is_active', True).limit(1).execute()
+            has_hospital_list = (school_result.count or 0) > 0
 
         result = {
             "has_doctor_list": has_doctor_list,
             "has_hospital_list": has_hospital_list,
             "has_any_list": has_doctor_list or has_hospital_list,
-            "hospital_id": hospital_id
+            "school_id": school_id
         }
 
-        logger.debug(f"[Investigation] has_investigation_lists for doctor {doctor_id}: {result}")
+        logger.debug(f"[Investigation] has_investigation_lists for counsellor {counsellor_id}: {result}")
         return result
 
     except Exception as e:
-        logger.error(f"[Investigation] Error checking investigation lists for doctor {doctor_id}: {e}")
+        logger.error(f"[Investigation] Error checking investigation lists for counsellor {counsellor_id}: {e}")
         # Return True by default to avoid skipping lists on error
         return {
             "has_doctor_list": True,
             "has_hospital_list": True,
             "has_any_list": True,
-            "hospital_id": None
+            "school_id": None
         }
 
 
-def list_doctor_investigations(
-    doctor_id: uuid.UUID,
+def list_counsellor_investigations(
+    counsellor_id: uuid.UUID,
     investigation_type: Optional[str] = None,
     category: Optional[str] = None,
     search: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    List all investigations for a doctor.
+    List all investigations for a counsellor.
 
     Uses in-memory cache (8-hour TTL) when no search filter is applied.
     Cache is invalidated when investigations are added/updated/deleted.
     """
     # Only use cache when no search filter (search results aren't cached)
     if not search:
-        cached = get_cached_doctor_investigations(doctor_id, investigation_type, category)
+        cached = get_cached_counsellor_investigations(counsellor_id, investigation_type, category)
         if cached is not None:
             return cached
 
     # Cache miss or search query - fetch from DB
-    query = supabase.table('doctor_investigations').select('*').eq(
-        'doctor_id', str(doctor_id)
+    query = supabase.table('counsellor_investigations').select('*').eq(
+        'counsellor_id', str(counsellor_id)
     ).eq('is_active', True)
 
     if investigation_type:
@@ -1218,23 +1218,23 @@ def list_doctor_investigations(
         ]
     else:
         # Cache the result (only when no search filter)
-        set_cached_doctor_investigations(doctor_id, investigations, investigation_type, category)
+        set_cached_counsellor_investigations(counsellor_id, investigations, investigation_type, category)
 
     return investigations
 
 
-def copy_hospital_investigation_to_doctor(
-    hospital_investigation_id: uuid.UUID,
-    doctor_id: uuid.UUID
+def copy_school_investigation_to_counsellor(
+    school_investigation_id: uuid.UUID,
+    counsellor_id: uuid.UUID
 ) -> Optional[Dict[str, Any]]:
-    """Copy a hospital investigation to doctor's personal list."""
+    """Copy a school investigation to counsellor's personal list."""
     try:
         # Use RPC if available
         result = supabase.rpc(
-            'copy_hospital_investigation_to_doctor_rpc',
+            'copy_school_investigation_to_counsellor_rpc',
             {
-                'p_hospital_investigation_id': str(hospital_investigation_id),
-                'p_doctor_id': str(doctor_id)
+                'p_school_investigation_id': str(school_investigation_id),
+                'p_counsellor_id': str(counsellor_id)
             }
         ).execute()
 
@@ -1246,16 +1246,16 @@ def copy_hospital_investigation_to_doctor(
         logger.warning(f"[Investigation] RPC copy failed, using fallback: {e}")
 
         # Fallback to manual copy
-        hospital_inv = supabase.table('hospital_investigation_lists').select(
+        school_inv = supabase.table('school_investigation_lists').select(
             '*'
-        ).eq('id', str(hospital_investigation_id)).single().execute()
+        ).eq('id', str(school_investigation_id)).single().execute()
 
-        if not hospital_inv.data:
+        if not school_inv.data:
             return None
 
-        hi = hospital_inv.data
-        return create_doctor_investigation(
-            doctor_id=doctor_id,
+        hi = school_inv.data
+        return create_counsellor_investigation(
+            counsellor_id=counsellor_id,
             investigation_name=hi['investigation_name'],
             investigation_type=hi['investigation_type'],
             common_names=hi['common_names'],
@@ -1268,11 +1268,11 @@ def copy_hospital_investigation_to_doctor(
 
 
 # ============================================================================
-# CRUD - Hospital Investigations
+# CRUD - School Investigations
 # ============================================================================
 
-def create_hospital_investigation(hospital_id: uuid.UUID, created_by: uuid.UUID, **kwargs) -> Dict[str, Any]:
-    """Create a single investigation for a hospital."""
+def create_school_investigation(school_id: uuid.UUID, created_by: uuid.UUID, **kwargs) -> Dict[str, Any]:
+    """Create a single investigation for a school."""
     investigation_name = kwargs.get('investigation_name', '')
     investigation_type = kwargs.get('investigation_type', '')
     common_names = list(kwargs.get('common_names', []))  # Make a copy to avoid mutating
@@ -1291,7 +1291,7 @@ def create_hospital_investigation(hospital_id: uuid.UUID, created_by: uuid.UUID,
     tokens = generate_search_tokens(investigation_name, common_names)
 
     data = {
-        'hospital_id': str(hospital_id),
+        'school_id': str(school_id),
         'created_by': str(created_by),
         'investigation_name': investigation_name,
         'investigation_type': investigation_type,
@@ -1304,35 +1304,35 @@ def create_hospital_investigation(hospital_id: uuid.UUID, created_by: uuid.UUID,
         'search_tokens': tokens
     }
 
-    result = supabase.table('hospital_investigation_lists').insert(data).execute()
+    result = supabase.table('school_investigation_lists').insert(data).execute()
 
-    # Invalidate caches (hospital-level change)
-    from services.extraction_service import invalidate_list_cache_by_hospital
-    invalidate_list_cache_by_hospital(hospital_id)
-    invalidate_hospital_investigation_cache(hospital_id)
+    # Invalidate caches (school-level change)
+    from services.extraction_service import invalidate_list_cache_by_school
+    invalidate_list_cache_by_school(school_id)
+    invalidate_school_investigation_cache(school_id)
 
     return result.data[0] if result.data else {}
 
 
-def list_hospital_investigations(
-    hospital_id: uuid.UUID,
+def list_school_investigations(
+    school_id: uuid.UUID,
     investigation_type: Optional[str] = None,
     category: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    List all investigations for a hospital.
+    List all investigations for a school.
 
     Uses in-memory cache (8-hour TTL) for faster repeated access.
-    Cache is invalidated when hospital investigations are added/updated/deleted.
+    Cache is invalidated when school investigations are added/updated/deleted.
     """
     # Check cache first
-    cached = get_cached_hospital_investigations(hospital_id, investigation_type, category)
+    cached = get_cached_school_investigations(school_id, investigation_type, category)
     if cached is not None:
         return cached
 
     # Cache miss - fetch from DB
-    query = supabase.table('hospital_investigation_lists').select('*').eq(
-        'hospital_id', str(hospital_id)
+    query = supabase.table('school_investigation_lists').select('*').eq(
+        'school_id', str(school_id)
     ).eq('is_active', True)
 
     if investigation_type:
@@ -1345,13 +1345,13 @@ def list_hospital_investigations(
     investigations = result.data or []
 
     # Cache the result
-    set_cached_hospital_investigations(hospital_id, investigations, investigation_type, category)
+    set_cached_school_investigations(school_id, investigations, investigation_type, category)
 
     return investigations
 
 
-def update_hospital_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
-    """Update a hospital investigation."""
+def update_school_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
+    """Update a school investigation."""
     update_data = {k: v for k, v in kwargs.items() if v is not None}
 
     # Regenerate normalized name and tokens if investigation_name or common_names changed
@@ -1363,7 +1363,7 @@ def update_hospital_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict
         )
     elif 'common_names' in update_data:
         # Get current investigation_name
-        current = supabase.table('hospital_investigation_lists').select('investigation_name').eq(
+        current = supabase.table('school_investigation_lists').select('investigation_name').eq(
             'id', str(investigation_id)
         ).single().execute()
         if current.data:
@@ -1372,39 +1372,39 @@ def update_hospital_investigation(investigation_id: uuid.UUID, **kwargs) -> Dict
                 update_data['common_names']
             )
 
-    result = supabase.table('hospital_investigation_lists').update(
+    result = supabase.table('school_investigation_lists').update(
         update_data
     ).eq('id', str(investigation_id)).execute()
 
-    # Invalidate caches (hospital-level change)
-    if result.data and result.data[0].get('hospital_id'):
-        from services.extraction_service import invalidate_list_cache_by_hospital
-        hospital_uuid = uuid.UUID(result.data[0]['hospital_id'])
-        invalidate_list_cache_by_hospital(hospital_uuid)
-        invalidate_hospital_investigation_cache(hospital_uuid)
+    # Invalidate caches (school-level change)
+    if result.data and result.data[0].get('school_id'):
+        from services.extraction_service import invalidate_list_cache_by_school
+        school_uuid = uuid.UUID(result.data[0]['school_id'])
+        invalidate_list_cache_by_school(school_uuid)
+        invalidate_school_investigation_cache(school_uuid)
 
     return result.data[0] if result.data else {}
 
 
-def delete_hospital_investigation(investigation_id: uuid.UUID) -> bool:
-    """Soft delete a hospital investigation."""
+def delete_school_investigation(investigation_id: uuid.UUID) -> bool:
+    """Soft delete a school investigation."""
     try:
-        # Get hospital_id before deleting for cache invalidation
-        investigation = supabase.table('hospital_investigation_lists').select('hospital_id').eq(
+        # Get school_id before deleting for cache invalidation
+        investigation = supabase.table('school_investigation_lists').select('school_id').eq(
             'id', str(investigation_id)
         ).single().execute()
-        hospital_id = investigation.data.get('hospital_id') if investigation.data else None
+        school_id = investigation.data.get('school_id') if investigation.data else None
 
-        supabase.table('hospital_investigation_lists').update({
+        supabase.table('school_investigation_lists').update({
             'is_active': False
         }).eq('id', str(investigation_id)).execute()
 
-        # Invalidate caches (hospital-level change)
-        if hospital_id:
-            from services.extraction_service import invalidate_list_cache_by_hospital
-            hospital_uuid = uuid.UUID(hospital_id)
-            invalidate_list_cache_by_hospital(hospital_uuid)
-            invalidate_hospital_investigation_cache(hospital_uuid)
+        # Invalidate caches (school-level change)
+        if school_id:
+            from services.extraction_service import invalidate_list_cache_by_school
+            school_uuid = uuid.UUID(school_id)
+            invalidate_list_cache_by_school(school_uuid)
+            invalidate_school_investigation_cache(school_uuid)
 
         return True
     except Exception:
@@ -1434,12 +1434,12 @@ def _calculate_fuzzy_score(s1: str, s2: str) -> float:
         return overlap / total if total > 0 else 0.0
 
 
-async def get_doctor_feedback_for_investigation(
-    doctor_id: uuid.UUID,
+async def get_counsellor_feedback_for_investigation(
+    counsellor_id: uuid.UUID,
     original_name: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Check if doctor has previous feedback for this investigation name.
+    Check if counsellor has previous feedback for this investigation name.
 
     Returns the most recent feedback record if found.
     """
@@ -1447,7 +1447,7 @@ async def get_doctor_feedback_for_investigation(
         result = supabase.rpc(
             'get_investigation_feedback_history_rpc',
             {
-                'p_doctor_id': str(doctor_id),
+                'p_counsellor_id': str(counsellor_id),
                 'p_original_name': original_name
             }
         ).execute()
@@ -1462,7 +1462,7 @@ async def get_doctor_feedback_for_investigation(
         # Fallback to direct query
         result = supabase.table('investigation_match_log').select(
             'matched_investigation_name, correct_investigation_name, feedback_status, match_confidence'
-        ).eq('doctor_id', str(doctor_id)).ilike(
+        ).eq('counsellor_id', str(counsellor_id)).ilike(
             'original_investigation_name', original_name
         ).not_.is_('feedback_status', 'null').order(
             'created_at', desc=True
@@ -1475,7 +1475,7 @@ async def get_doctor_feedback_for_investigation(
 
 async def match_investigation_name(
     extracted_name: str,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     investigation_type: Optional[str] = None,
     submission_id: str = "",
     threshold: float = MIN_FUZZY_THRESHOLD
@@ -1485,16 +1485,16 @@ async def match_investigation_name(
 
     Matching Priority (Exact/Common first in BOTH lists, then Fuzzy):
     1. Feedback history (agreed/disagreed) → 95% confidence
-    2. Doctor list - exact match → 100% confidence
-    3. Doctor list - common name match → 98% confidence
-    4. Hospital list - exact match → 90% confidence
-    5. Hospital list - common name match → 88% confidence
-    6. Doctor list - fuzzy match (90%+ only) → typo correction
-    7. Hospital list - fuzzy match (90%+ only) → typo correction
+    2. Counsellor list - exact match → 100% confidence
+    3. Counsellor list - common name match → 98% confidence
+    4. School list - exact match → 90% confidence
+    5. School list - common name match → 88% confidence
+    6. Counsellor list - fuzzy match (90%+ only) → typo correction
+    7. School list - fuzzy match (90%+ only) → typo correction
 
     Args:
         extracted_name: Name extracted from transcript
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         investigation_type: Filter by type (laboratory, imaging, other)
         submission_id: Submission ID for logging
         threshold: Minimum confidence threshold (default 0.90 for typo-only correction)
@@ -1508,9 +1508,9 @@ async def match_investigation_name(
     normalized_extracted = normalize_investigation_name(extracted_name)
     logger.info(f"[Investigation Match] Processing: '{extracted_name}' (normalized: '{normalized_extracted}')")
 
-    # Level 1: Check feedback history (highest priority - doctor's explicit preference)
+    # Level 1: Check feedback history (highest priority - counsellor's explicit preference)
     feedback_start = time_module.time()
-    feedback = await get_doctor_feedback_for_investigation(doctor_id, extracted_name)
+    feedback = await get_counsellor_feedback_for_investigation(counsellor_id, extracted_name)
     feedback_duration = time_module.time() - feedback_start
     if feedback:
         if feedback['feedback_status'] == 'agreed':
@@ -1528,7 +1528,7 @@ async def match_investigation_name(
         elif feedback['feedback_status'] == 'disagreed' and feedback['correct_investigation_name']:
             total_duration = time_module.time() - match_start
             logger.info(f"[TIMING_INVESTIGATION_MATCH] '{extracted_name}': feedback_lookup={feedback_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (FEEDBACK_CORRECTED)")
-            logger.info(f"[Investigation Match] ✓ FEEDBACK_CORRECTED: '{extracted_name}' → '{feedback['correct_investigation_name']}' (doctor correction)")
+            logger.info(f"[Investigation Match] ✓ FEEDBACK_CORRECTED: '{extracted_name}' → '{feedback['correct_investigation_name']}' (counsellor correction)")
             return {
                 "matched": True,
                 "original_name": extracted_name,
@@ -1538,14 +1538,14 @@ async def match_investigation_name(
                 "source": "feedback_history"
             }
 
-    # Get doctor's hospital_id for hospital list lookup (cached - 10 min TTL)
-    from services.supabase_service import get_doctor_hospital_id_cached
-    hospital_id = get_doctor_hospital_id_cached(doctor_id)
+    # Get counsellor's school_id for school list lookup (cached - 10 min TTL)
+    from services.supabase_service import get_counsellor_school_id_cached
+    school_id = get_counsellor_school_id_cached(counsellor_id)
 
     # Load both lists upfront
     list_load_start = time_module.time()
-    doctor_invs = list_doctor_investigations(doctor_id, investigation_type=investigation_type)
-    hospital_invs = list_hospital_investigations(uuid.UUID(hospital_id), investigation_type=investigation_type) if hospital_id else []
+    counsellor_invs = list_counsellor_investigations(counsellor_id, investigation_type=investigation_type)
+    school_invs = list_school_investigations(uuid.UUID(school_id), investigation_type=investigation_type) if school_id else []
     list_load_duration = time_module.time() - list_load_start
 
     # =========================================================================
@@ -1553,8 +1553,8 @@ async def match_investigation_name(
     # =========================================================================
     exact_match_start = time_module.time()
 
-    # Level 2: Exact match in doctor's list
-    for inv in doctor_invs:
+    # Level 2: Exact match in counsellor's list
+    for inv in counsellor_invs:
         if inv['normalized_name'] == normalized_extracted:
             exact_match_duration = time_module.time() - exact_match_start
             total_duration = time_module.time() - match_start
@@ -1574,8 +1574,8 @@ async def match_investigation_name(
                 "common_names": inv.get('common_names')
             }
 
-    # Level 3: Common name match in doctor's list
-    for inv in doctor_invs:
+    # Level 3: Common name match in counsellor's list
+    for inv in counsellor_invs:
         for common in (inv.get('common_names') or []):
             if normalize_investigation_name(common) == normalized_extracted:
                 exact_match_duration = time_module.time() - exact_match_start
@@ -1596,8 +1596,8 @@ async def match_investigation_name(
                     "common_names": inv.get('common_names')
                 }
 
-    # Level 4: Exact match in hospital list
-    for inv in hospital_invs:
+    # Level 4: Exact match in school list
+    for inv in school_invs:
         if inv['normalized_name'] == normalized_extracted:
             exact_match_duration = time_module.time() - exact_match_start
             total_duration = time_module.time() - match_start
@@ -1607,7 +1607,7 @@ async def match_investigation_name(
                 "matched": True,
                 "original_name": extracted_name,
                 "matched_name": inv['investigation_name'],
-                "matched_hospital_investigation_id": inv['id'],
+                "matched_school_investigation_id": inv['id'],
                 "confidence": 0.90,
                 "method": "exact",
                 "source": "hospital_list",
@@ -1617,8 +1617,8 @@ async def match_investigation_name(
                 "common_names": inv.get('common_names')
             }
 
-    # Level 5: Common name match in hospital list
-    for inv in hospital_invs:
+    # Level 5: Common name match in school list
+    for inv in school_invs:
         for common in (inv.get('common_names') or []):
             if normalize_investigation_name(common) == normalized_extracted:
                 exact_match_duration = time_module.time() - exact_match_start
@@ -1629,7 +1629,7 @@ async def match_investigation_name(
                     "matched": True,
                     "original_name": extracted_name,
                     "matched_name": inv['investigation_name'],
-                    "matched_hospital_investigation_id": inv['id'],
+                    "matched_school_investigation_id": inv['id'],
                     "confidence": 0.88,
                     "method": "common_name",
                     "source": "hospital_list",
@@ -1648,8 +1648,8 @@ async def match_investigation_name(
     prefix_match_start = time_module.time()
     logger.info(f"[Investigation Match] No exact/common_name match, trying prefix match (coverage: {PREFIX_MATCH_COVERAGE*100:.0f}%)...")
 
-    # Check if extracted name is a prefix of any investigation in doctor's list
-    for inv in doctor_invs:
+    # Check if extracted name is a prefix of any investigation in counsellor's list
+    for inv in counsellor_invs:
         inv_normalized = inv['normalized_name']
         # Check if extracted is a prefix of the investigation name
         if inv_normalized.startswith(normalized_extracted) and len(normalized_extracted) > 3:
@@ -1674,8 +1674,8 @@ async def match_investigation_name(
                     "common_names": inv.get('common_names')
                 }
 
-    # Check if extracted name is a prefix of any investigation in hospital's list
-    for inv in hospital_invs:
+    # Check if extracted name is a prefix of any investigation in school's list
+    for inv in school_invs:
         inv_normalized = inv['normalized_name']
         # Check if extracted is a prefix of the investigation name
         if inv_normalized.startswith(normalized_extracted) and len(normalized_extracted) > 3:
@@ -1683,14 +1683,14 @@ async def match_investigation_name(
             if coverage >= PREFIX_MATCH_COVERAGE:
                 prefix_match_duration = time_module.time() - prefix_match_start
                 total_duration = time_module.time() - match_start
-                confidence = 0.92  # Slightly lower for hospital list
+                confidence = 0.92  # Slightly lower for school list
                 logger.info(f"[TIMING_INVESTIGATION_MATCH] '{extracted_name}': list_load={list_load_duration*1000:.1f}ms, exact={exact_match_duration*1000:.1f}ms, prefix={prefix_match_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (PREFIX_HOSPITAL)")
                 logger.info(f"[Investigation Match] ✓ PREFIX_HOSPITAL: '{extracted_name}' → '{inv['investigation_name']}' (coverage: {coverage*100:.1f}%)")
                 return {
                     "matched": True,
                     "original_name": extracted_name,
                     "matched_name": inv['investigation_name'],
-                    "matched_hospital_investigation_id": inv['id'],
+                    "matched_school_investigation_id": inv['id'],
                     "confidence": confidence,
                     "method": "prefix",
                     "source": "hospital_list",
@@ -1708,79 +1708,79 @@ async def match_investigation_name(
     fuzzy_match_start = time_module.time()
     logger.info(f"[Investigation Match] No exact/common_name/prefix match found, trying fuzzy (threshold: {threshold*100:.0f}%)...")
 
-    # Level 6: Fuzzy match in doctor's list
-    best_doctor_match = None
-    best_doctor_score = 0
+    # Level 6: Fuzzy match in counsellor's list
+    best_counsellor_match = None
+    best_counsellor_score = 0
 
-    for inv in doctor_invs:
+    for inv in counsellor_invs:
         score = _calculate_fuzzy_score(normalized_extracted, inv['normalized_name'])
-        if score > best_doctor_score and score >= threshold:
-            best_doctor_score = score
-            best_doctor_match = inv
+        if score > best_counsellor_score and score >= threshold:
+            best_counsellor_score = score
+            best_counsellor_match = inv
 
         # Also check common names for fuzzy
         for common in (inv.get('common_names') or []):
             common_score = _calculate_fuzzy_score(normalized_extracted, normalize_investigation_name(common))
-            if common_score > best_doctor_score and common_score >= threshold:
-                best_doctor_score = common_score
-                best_doctor_match = inv
+            if common_score > best_counsellor_score and common_score >= threshold:
+                best_counsellor_score = common_score
+                best_counsellor_match = inv
 
-    # Level 7: Fuzzy match in hospital list
-    best_hospital_match = None
-    best_hospital_score = 0
+    # Level 7: Fuzzy match in school list
+    best_school_match = None
+    best_school_score = 0
 
-    for inv in hospital_invs:
+    for inv in school_invs:
         score = _calculate_fuzzy_score(normalized_extracted, inv['normalized_name'])
-        if score > best_hospital_score and score >= threshold:
-            best_hospital_score = score
-            best_hospital_match = inv
+        if score > best_school_score and score >= threshold:
+            best_school_score = score
+            best_school_match = inv
 
         # Also check common names for fuzzy
         for common in (inv.get('common_names') or []):
             common_score = _calculate_fuzzy_score(normalized_extracted, normalize_investigation_name(common))
-            if common_score > best_hospital_score and common_score >= threshold:
-                best_hospital_score = common_score
-                best_hospital_match = inv
+            if common_score > best_school_score and common_score >= threshold:
+                best_school_score = common_score
+                best_school_match = inv
 
-    # Return best fuzzy match (prefer doctor list if scores are equal)
-    if best_doctor_match and best_doctor_score >= best_hospital_score:
+    # Return best fuzzy match (prefer counsellor list if scores are equal)
+    if best_counsellor_match and best_counsellor_score >= best_school_score:
         fuzzy_match_duration = time_module.time() - fuzzy_match_start
         total_duration = time_module.time() - match_start
-        confidence = best_doctor_score * 0.95  # Scale to 85-95% range
+        confidence = best_counsellor_score * 0.95  # Scale to 85-95% range
         logger.info(f"[TIMING_INVESTIGATION_MATCH] '{extracted_name}': list_load={list_load_duration*1000:.1f}ms, exact_match={exact_match_duration*1000:.1f}ms, fuzzy_match={fuzzy_match_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (FUZZY_DOCTOR)")
-        logger.info(f"[Investigation Match] ✓ FUZZY_DOCTOR: '{extracted_name}' → '{best_doctor_match['investigation_name']}' (score: {best_doctor_score*100:.1f}%)")
+        logger.info(f"[Investigation Match] ✓ FUZZY_DOCTOR: '{extracted_name}' → '{best_counsellor_match['investigation_name']}' (score: {best_counsellor_score*100:.1f}%)")
         return {
             "matched": True,
             "original_name": extracted_name,
-            "matched_name": best_doctor_match['investigation_name'],
-            "matched_investigation_id": best_doctor_match['id'],
+            "matched_name": best_counsellor_match['investigation_name'],
+            "matched_investigation_id": best_counsellor_match['id'],
             "confidence": confidence,
             "method": "fuzzy",
             "source": "doctor_list",
-            "investigation_type": best_doctor_match.get('investigation_type'),
-            "category": best_doctor_match.get('category'),
-            "external_id": best_doctor_match.get('external_id'),
-            "common_names": best_doctor_match.get('common_names')
+            "investigation_type": best_counsellor_match.get('investigation_type'),
+            "category": best_counsellor_match.get('category'),
+            "external_id": best_counsellor_match.get('external_id'),
+            "common_names": best_counsellor_match.get('common_names')
         }
 
-    if best_hospital_match:
+    if best_school_match:
         fuzzy_match_duration = time_module.time() - fuzzy_match_start
         total_duration = time_module.time() - match_start
-        confidence = best_hospital_score * 0.90  # Scale to 81-90% range
+        confidence = best_school_score * 0.90  # Scale to 81-90% range
         logger.info(f"[TIMING_INVESTIGATION_MATCH] '{extracted_name}': list_load={list_load_duration*1000:.1f}ms, exact_match={exact_match_duration*1000:.1f}ms, fuzzy_match={fuzzy_match_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (FUZZY_HOSPITAL)")
-        logger.info(f"[Investigation Match] ✓ FUZZY_HOSPITAL: '{extracted_name}' → '{best_hospital_match['investigation_name']}' (score: {best_hospital_score*100:.1f}%)")
+        logger.info(f"[Investigation Match] ✓ FUZZY_HOSPITAL: '{extracted_name}' → '{best_school_match['investigation_name']}' (score: {best_school_score*100:.1f}%)")
         return {
             "matched": True,
             "original_name": extracted_name,
-            "matched_name": best_hospital_match['investigation_name'],
-            "matched_hospital_investigation_id": best_hospital_match['id'],
+            "matched_name": best_school_match['investigation_name'],
+            "matched_school_investigation_id": best_school_match['id'],
             "confidence": confidence,
             "method": "fuzzy",
             "source": "hospital_list",
-            "investigation_type": best_hospital_match.get('investigation_type'),
-            "category": best_hospital_match.get('category'),
-            "external_id": best_hospital_match.get('external_id'),
-            "common_names": best_hospital_match.get('common_names')
+            "investigation_type": best_school_match.get('investigation_type'),
+            "category": best_school_match.get('category'),
+            "external_id": best_school_match.get('external_id'),
+            "common_names": best_school_match.get('common_names')
         }
 
     # No match found - trust Gemini's extraction
@@ -1807,7 +1807,7 @@ async def match_investigation_name(
 
 async def postprocess_investigations_extraction(
     extraction_data: Dict[str, Any],
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     extraction_id: uuid.UUID,
     submission_id: str,
     template_id: Optional[uuid.UUID] = None,
@@ -1818,7 +1818,7 @@ async def postprocess_investigations_extraction(
 
     Args:
         extraction_data: Full extraction result
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         extraction_id: Extraction record ID
         submission_id: Submission ID for ground truth
         template_id: Template ID for adaptive learning
@@ -1920,7 +1920,7 @@ async def postprocess_investigations_extraction(
         # Match investigation
         match_result = await match_investigation_name(
             extracted_name=original_name,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             investigation_type=test.get('_inv_type'),
             submission_id=submission_id
         )
@@ -1947,22 +1947,22 @@ async def postprocess_investigations_extraction(
         if log_matches:
             try:
                 # Separate IDs for doctor_list vs hospital_list matches
-                matched_doctor_inv_id = None
-                matched_hospital_inv_id = None
+                matched_counsellor_inv_id = None
+                matched_school_inv_id = None
 
                 if match_result.get('source') == 'doctor_list':
-                    matched_doctor_inv_id = match_result.get('matched_investigation_id')
+                    matched_counsellor_inv_id = match_result.get('matched_investigation_id')
                 elif match_result.get('source') == 'hospital_list':
-                    matched_hospital_inv_id = match_result.get('matched_hospital_investigation_id')
+                    matched_school_inv_id = match_result.get('matched_school_investigation_id')
 
                 supabase.table('investigation_match_log').insert({
                     'extraction_id': str(extraction_id),
                     'submission_id': submission_id,
-                    'doctor_id': str(doctor_id),
+                    'counsellor_id': str(counsellor_id),
                     'original_investigation_name': original_name,
                     'investigation_type': test.get('_inv_type'),
-                    'matched_investigation_id': matched_doctor_inv_id,
-                    'matched_hospital_investigation_id': matched_hospital_inv_id,
+                    'matched_investigation_id': matched_counsellor_inv_id,
+                    'matched_school_investigation_id': matched_school_inv_id,
                     'matched_investigation_name': match_result['matched_name'],
                     'match_confidence': match_result['confidence'],
                     'match_method': match_result['method'],
@@ -1982,135 +1982,30 @@ async def postprocess_investigations_extraction(
 # NEO Template Investigation Post-Processing
 # ============================================================================
 
-async def postprocess_neo_investigation_extraction(
-    extraction_data: Dict[str, Any],
-    doctor_id: uuid.UUID,
-    extraction_id: uuid.UUID,
-    submission_id: str,
-    consultation_type_code: str,
-    log_matches: bool = True
-) -> Dict[str, Any]:
-    """
-    Post-process NEO template investigation fields against doctor's investigation list.
-
-    Handles NEO_ADMISSION procedures_investigationsTest field (comma-separated
-    investigation package names). For each name, uses match_investigation_name()
-    (7-level Supabase matching). If not matched, falls back to static
-    investigation_lookups.lookup_investigation_id().
-
-    Free-text investigation fields (procedures_investigations, medicalHistory_investigations,
-    otherInvestigations) are skipped — prompt injection is sufficient for those.
-
-    Args:
-        extraction_data: Full extraction result (will be modified in-place)
-        doctor_id: Doctor UUID
-        extraction_id: Extraction record UUID (for match logging)
-        submission_id: Submission/session ID (for match logging)
-        consultation_type_code: e.g. NEONATAL_ADMISSION
-        log_matches: Whether to log each match to investigation_match_log
-
-    Returns:
-        Updated extraction_data with matched investigation names and _external_id attached
-    """
-    import time as time_module
-
-    ct = (consultation_type_code or "").upper()
-    postprocess_start = time_module.time()
-    total_matched = 0
-    total_processed = 0
-
-    logger.info(f"[NEO Investigation Post-Process] Starting for {ct}, doctor={str(doctor_id)[:8]}...")
-
-    try:
-        # =====================================================================
-        # NEO_ADMISSION: procedures_investigationsTest (comma-separated names)
-        # This field contains investigation package names like "NICU Admission, Sepsis Screen"
-        # =====================================================================
-        inv_test_value = extraction_data.get("procedures_investigationsTest", "")
-        if inv_test_value and isinstance(inv_test_value, str) and inv_test_value.strip():
-            # Split comma-separated investigation names
-            inv_names = [n.strip() for n in inv_test_value.split(",") if n.strip()]
-
-            updated_names = []
-            resolved_ids = []
-
-            for inv_name in inv_names:
-                total_processed += 1
-
-                # Try 7-level Supabase matching first
-                match_result = await match_investigation_name(
-                    extracted_name=inv_name,
-                    doctor_id=doctor_id,
-                    investigation_type=None,
-                    submission_id=submission_id
-                )
-
-                if match_result["matched"]:
-                    total_matched += 1
-                    updated_names.append(match_result["matched_name"])
-                    ext_id = match_result.get("external_id")
-                    if ext_id:
-                        try:
-                            resolved_ids.append(int(ext_id))
-                        except (ValueError, TypeError):
-                            resolved_ids.append(ext_id)
-                    else:
-                        resolved_ids.append(None)
-                else:
-                    updated_names.append(inv_name)
-                    # Fallback: try static investigation_lookups
-                    try:
-                        from services.investigation_lookups import lookup_investigation_id
-                        static_id = lookup_investigation_id(inv_name)
-                        resolved_ids.append(static_id)
-                    except Exception:
-                        resolved_ids.append(None)
-
-                if log_matches:
-                    _log_neo_investigation_match(
-                        extraction_id, submission_id, doctor_id, inv_name, match_result
-                    )
-
-            # Update the extraction data
-            extraction_data["procedures_investigationsTest"] = ", ".join(updated_names)
-            extraction_data["_resolved_investigationsTest"] = resolved_ids
-
-    except Exception as e:
-        logger.warning(f"[NEO Investigation Post-Process] Error (non-fatal): {e}")
-
-    duration = time_module.time() - postprocess_start
-    logger.info(
-        f"[NEO Investigation Post-Process] Done for {ct}: "
-        f"{total_processed} processed, {total_matched} matched, {duration:.3f}s"
-    )
-
-    return extraction_data
-
-
 def _log_neo_investigation_match(
     extraction_id: uuid.UUID,
     submission_id: str,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     original_name: str,
     match_result: Dict[str, Any]
 ) -> None:
     """Log a NEO investigation match to the investigation_match_log table."""
     try:
-        matched_doctor_inv_id = None
-        matched_hospital_inv_id = None
+        matched_counsellor_inv_id = None
+        matched_school_inv_id = None
         if match_result.get("source") == "doctor_list":
-            matched_doctor_inv_id = match_result.get("matched_investigation_id")
+            matched_counsellor_inv_id = match_result.get("matched_investigation_id")
         elif match_result.get("source") == "hospital_list":
-            matched_hospital_inv_id = match_result.get("matched_hospital_investigation_id")
+            matched_school_inv_id = match_result.get("matched_school_investigation_id")
 
         supabase.table("investigation_match_log").insert({
             "extraction_id": str(extraction_id),
             "submission_id": submission_id,
-            "doctor_id": str(doctor_id),
+            "counsellor_id": str(counsellor_id),
             "original_investigation_name": original_name,
             "investigation_type": None,
-            "matched_investigation_id": matched_doctor_inv_id,
-            "matched_hospital_investigation_id": matched_hospital_inv_id,
+            "matched_investigation_id": matched_counsellor_inv_id,
+            "matched_school_investigation_id": matched_school_inv_id,
             "matched_investigation_name": match_result.get("matched_name", original_name),
             "match_confidence": match_result.get("confidence", 0),
             "match_method": match_result.get("method", "neo_postprocess"),
@@ -2133,7 +2028,7 @@ def submit_investigation_feedback(
     """
     Submit feedback for an investigation match.
 
-    If agreed + hospital source → Auto-copy to doctor's personal list.
+    If agreed + school source → Auto-copy to counsellor's personal list.
 
     Args:
         match_log_id: Match log record ID
@@ -2173,54 +2068,54 @@ def submit_investigation_feedback(
         update_data
     ).eq('id', str(match_log_id)).execute()
 
-    doctor_id = ml.get('doctor_id')
+    counsellor_id = ml.get('counsellor_id')
 
-    # Auto-copy to personal list if agreed with hospital match
+    # Auto-copy to personal list if agreed with school match
     if feedback_status == 'agreed' and ml.get('match_source') == 'hospital_list':
-        if ml.get('matched_hospital_investigation_id') and doctor_id:
+        if ml.get('matched_school_investigation_id') and counsellor_id:
             try:
-                copy_hospital_investigation_to_doctor(
-                    hospital_investigation_id=uuid.UUID(ml['matched_hospital_investigation_id']),
-                    doctor_id=uuid.UUID(doctor_id)
+                copy_school_investigation_to_counsellor(
+                    school_investigation_id=uuid.UUID(ml['matched_school_investigation_id']),
+                    counsellor_id=uuid.UUID(counsellor_id)
                 )
-                logger.debug(f"[Investigation] Auto-copied hospital investigation to doctor's list")
+                logger.debug(f"[Investigation] Auto-copied school investigation to counsellor's list")
             except Exception as e:
                 logger.warning(f"[Investigation] Auto-copy failed: {e}")
 
-    # Auto-add to personal list if agreed with no_match (doctor confirms original name is correct)
-    if feedback_status == 'agreed' and ml.get('match_method') == 'no_match' and doctor_id:
+    # Auto-add to personal list if agreed with no_match (counsellor confirms original name is correct)
+    if feedback_status == 'agreed' and ml.get('match_method') == 'no_match' and counsellor_id:
         original_name = ml.get('original_investigation_name', '')
         if original_name:
             try:
-                # Check if already exists in doctor's list
-                existing = supabase.table('doctor_investigations')\
+                # Check if already exists in counsellor's list
+                existing = supabase.table('counsellor_investigations')\
                     .select('id')\
-                    .eq('doctor_id', str(doctor_id))\
+                    .eq('counsellor_id', str(counsellor_id))\
                     .eq('normalized_name', normalize_investigation_name(original_name))\
                     .limit(1)\
                     .execute()
 
                 if not existing.data:
                     inv_type = ml.get('investigation_type') or classify_investigation_type(original_name)
-                    # Add original name to doctor's list
-                    create_doctor_investigation(
-                        doctor_id=uuid.UUID(doctor_id),
+                    # Add original name to counsellor's list
+                    create_counsellor_investigation(
+                        counsellor_id=uuid.UUID(counsellor_id),
                         investigation_name=original_name,
                         investigation_type=inv_type,
                         common_names=[],
                         category='Added from Feedback'
                     )
-                    logger.debug(f"[Investigation] Added '{original_name}' to doctor's list (from no_match feedback)")
+                    logger.debug(f"[Investigation] Added '{original_name}' to counsellor's list (from no_match feedback)")
             except Exception as e:
                 logger.warning(f"[Investigation] Auto-add from no_match failed: {e}")
 
     # Auto-add correction to personal list if disagreed with correction provided
-    if feedback_status == 'disagreed' and correct_investigation_name and doctor_id:
+    if feedback_status == 'disagreed' and correct_investigation_name and counsellor_id:
         try:
-            # Check if already exists in doctor's list
-            existing = supabase.table('doctor_investigations')\
+            # Check if already exists in counsellor's list
+            existing = supabase.table('counsellor_investigations')\
                 .select('id, common_names')\
-                .eq('doctor_id', str(doctor_id))\
+                .eq('counsellor_id', str(counsellor_id))\
                 .eq('normalized_name', normalize_investigation_name(correct_investigation_name))\
                 .limit(1)\
                 .execute()
@@ -2230,21 +2125,21 @@ def submit_investigation_feedback(
 
             if not existing.data:
                 # Create new investigation entry with original name as common_name
-                create_doctor_investigation(
-                    doctor_id=uuid.UUID(doctor_id),
+                create_counsellor_investigation(
+                    counsellor_id=uuid.UUID(counsellor_id),
                     investigation_name=correct_investigation_name,
                     investigation_type=inv_type,
                     common_names=[original_name] if original_name else [],
                     category='Corrections'
                 )
-                logger.debug(f"[Investigation] Added correction '{correct_investigation_name}' to doctor's list")
+                logger.debug(f"[Investigation] Added correction '{correct_investigation_name}' to counsellor's list")
             else:
                 # Add original name as common_name if not already present
                 existing_id = existing.data[0]['id']
                 current_names = existing.data[0].get('common_names') or []
                 if original_name and original_name.lower() not in [n.lower() for n in current_names]:
                     updated_names = current_names + [original_name]
-                    supabase.table('doctor_investigations')\
+                    supabase.table('counsellor_investigations')\
                         .update({'common_names': updated_names})\
                         .eq('id', existing_id)\
                         .execute()
@@ -2257,7 +2152,7 @@ def submit_investigation_feedback(
 
 
 def list_pending_investigation_feedback(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     limit: int = 100,
     offset: int = 0,
     include_exact_matches: bool = False
@@ -2265,10 +2160,10 @@ def list_pending_investigation_feedback(
     """
     Get match logs pending feedback for the dedicated review screen.
 
-    By default, only returns matches that NEED doctor action:
-    - 'fuzzy' matches: System guessed a correction - doctor should confirm/reject
-    - 'no_match' matches: New investigation not in any list - doctor should add/correct
-    - 'doctor_edit' matches: FYI only (doctor already corrected in UI)
+    By default, only returns matches that NEED counsellor action:
+    - 'fuzzy' matches: System guessed a correction - counsellor should confirm/reject
+    - 'no_match' matches: New investigation not in any list - counsellor should add/correct
+    - 'doctor_edit' matches: FYI only (counsellor already corrected in UI)
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
@@ -2276,7 +2171,7 @@ def list_pending_investigation_feedback(
     - 'feedback_agreed'/'feedback_corrected': Already reviewed
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         limit: Max records to return
         offset: Records to skip
         include_exact_matches: If True, also include exact and common_name matches
@@ -2287,7 +2182,7 @@ def list_pending_investigation_feedback(
     # Query all pending feedback
     result = supabase.table('investigation_match_log').select(
         '*'
-    ).eq('doctor_id', str(doctor_id)).is_(
+    ).eq('counsellor_id', str(counsellor_id)).is_(
         'feedback_status', 'null'
     ).order('created_at', desc=True).execute()
 
@@ -2295,9 +2190,9 @@ def list_pending_investigation_feedback(
 
     # Filter to only show matches that need review
     if not include_exact_matches:
-        # Show matches that need doctor action:
-        # - 'fuzzy': System guessed a correction - doctor should confirm/reject
-        # - 'no_match': New investigation not in any list - doctor should add/correct
+        # Show matches that need counsellor action:
+        # - 'fuzzy': System guessed a correction - counsellor should confirm/reject
+        # - 'no_match': New investigation not in any list - counsellor should add/correct
         # - 'doctor_edit': FYI only (already agreed implicitly)
         #
         # Exclude (already correct, no action needed):
@@ -2318,7 +2213,7 @@ def list_pending_investigation_feedback(
 
 
 def list_investigation_feedback_history(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     feedback_status: Optional[str] = None,
     investigation_type: Optional[str] = None,
     confidence_min: Optional[float] = None,
@@ -2332,17 +2227,17 @@ def list_investigation_feedback_history(
     """
     Get feedback history with filters for the review screen.
 
-    By default, only returns matches that NEED/NEEDED doctor action:
+    By default, only returns matches that NEED/NEEDED counsellor action:
     - 'fuzzy' matches: System guessed a correction
     - 'no_match' matches: New investigation not in any list
-    - 'doctor_edit' matches: Doctor corrected in UI
+    - 'doctor_edit' matches: Counsellor corrected in UI
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
     - 'common_name' matches: Gemini used a known alias
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         feedback_status: Filter by status ('agreed', 'disagreed', None for all)
         investigation_type: Filter by type ('laboratory', 'imaging', 'other')
         confidence_min: Minimum confidence
@@ -2358,7 +2253,7 @@ def list_investigation_feedback_history(
     """
     query = supabase.table('investigation_match_log').select(
         '*', count='exact'
-    ).eq('doctor_id', str(doctor_id))
+    ).eq('counsellor_id', str(counsellor_id))
 
     if feedback_status:
         query = query.eq('feedback_status', feedback_status)
@@ -2413,38 +2308,38 @@ def list_investigation_feedback_history(
 # ============================================================================
 
 def get_investigation_list_for_prompt(
-    doctor_id: uuid.UUID,
-    hospital_id: Optional[uuid.UUID] = None,
+    counsellor_id: uuid.UUID,
+    school_id: Optional[uuid.UUID] = None,
     max_investigations: int = 100
 ) -> str:
     """
     Generate investigation list formatted for prompt injection.
 
     Args:
-        doctor_id: Doctor ID
-        hospital_id: Hospital ID (optional, auto-detected if not provided)
+        counsellor_id: Counsellor ID
+        school_id: School ID (optional, auto-detected if not provided)
         max_investigations: Maximum investigations to include
 
     Returns:
         Formatted string for injection into user prompt
     """
-    # Get doctor's hospital if not provided (cached - 10 min TTL)
-    if not hospital_id:
-        from services.supabase_service import get_doctor_hospital_id_cached
-        cached_hospital_id = get_doctor_hospital_id_cached(doctor_id)
-        if cached_hospital_id:
-            hospital_id = uuid.UUID(cached_hospital_id)
+    # Get counsellor's school if not provided (cached - 10 min TTL)
+    if not school_id:
+        from services.supabase_service import get_counsellor_school_id_cached
+        cached_school_id = get_counsellor_school_id_cached(counsellor_id)
+        if cached_school_id:
+            school_id = uuid.UUID(cached_school_id)
 
     # Get investigations
-    doctor_invs = list_doctor_investigations(doctor_id)
-    hospital_invs = list_hospital_investigations(hospital_id) if hospital_id else []
+    counsellor_invs = list_counsellor_investigations(counsellor_id)
+    school_invs = list_school_investigations(school_id) if school_id else []
 
     # Combine and deduplicate
     all_invs = {}
-    for inv in doctor_invs:
+    for inv in counsellor_invs:
         all_invs[inv['normalized_name']] = inv
 
-    for inv in hospital_invs:
+    for inv in school_invs:
         if inv['normalized_name'] not in all_invs:
             all_invs[inv['normalized_name']] = inv
 
@@ -2465,7 +2360,7 @@ def get_investigation_list_for_prompt(
         by_type[inv_type].append(inv)
 
     # Format for prompt
-    lines = ["**DOCTOR'S INVESTIGATION LIST (Use these exact names when extracting investigations):**", ""]
+    lines = ["**COUNSELLOR'S INVESTIGATION LIST (Use these exact names when extracting investigations):**", ""]
 
     type_titles = {
         "laboratory": "Laboratory Tests:",
@@ -2528,7 +2423,7 @@ def _is_valid_investigation_edit(original: str, edited: str) -> Tuple[bool, floa
 
 async def process_investigation_edit_feedback(
     extraction_id: uuid.UUID,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     original_extraction: Dict[str, Any],
     edited_extraction: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -2536,10 +2431,10 @@ async def process_investigation_edit_feedback(
     Compare original vs edited extraction and log investigation name changes as feedback.
 
     Args:
-        extraction_id: Medical extraction UUID
-        doctor_id: Doctor UUID who made edits
+        extraction_id: extraction UUID
+        counsellor_id: Counsellor UUID who made edits
         original_extraction: AI-generated extraction JSON
-        edited_extraction: Doctor-edited extraction JSON
+        edited_extraction: Counsellor-edited extraction JSON
 
     Returns:
         Summary of processed investigation edits
@@ -2555,7 +2450,7 @@ async def process_investigation_edit_feedback(
 
     # Get submission_id from extraction for logging
     try:
-        ext_result = supabase.table("medical_extractions")\
+        ext_result = supabase.table("extractions")\
             .select("session_id")\
             .eq("id", str(extraction_id))\
             .limit(1)\
@@ -2672,7 +2567,7 @@ async def process_investigation_edit_feedback(
                 supabase.table('investigation_match_log').insert({
                     'extraction_id': str(extraction_id),
                     'submission_id': submission_id,
-                    'doctor_id': str(doctor_id),
+                    'counsellor_id': str(counsellor_id),
                     'original_investigation_name': orig_name,
                     'matched_investigation_name': best_match[0],
                     'match_confidence': best_similarity,
@@ -2687,55 +2582,55 @@ async def process_investigation_edit_feedback(
 
             # Auto-add to list
             try:
-                existing = supabase.table('doctor_investigations')\
+                existing = supabase.table('counsellor_investigations')\
                     .select('id')\
-                    .eq('doctor_id', str(doctor_id))\
+                    .eq('counsellor_id', str(counsellor_id))\
                     .eq('normalized_name', normalize_investigation_name(best_match[0]))\
                     .limit(1)\
                     .execute()
 
                 if not existing.data:
-                    # Check hospital list first for enriched data
-                    added_via_hospital = False
+                    # Check school list first for enriched data
+                    added_via_school = False
                     try:
-                        from services.supabase_service import get_doctor_hospital_id_cached
-                        hospital_id = get_doctor_hospital_id_cached(doctor_id)
-                        if hospital_id:
-                            hospital_match = supabase.table('hospital_investigation_lists')\
+                        from services.supabase_service import get_counsellor_school_id_cached
+                        school_id = get_counsellor_school_id_cached(counsellor_id)
+                        if school_id:
+                            school_match = supabase.table('school_investigation_lists')\
                                 .select('id')\
-                                .eq('hospital_id', str(hospital_id))\
+                                .eq('school_id', str(school_id))\
                                 .eq('normalized_name', normalize_investigation_name(best_match[0]))\
                                 .eq('is_active', True)\
                                 .limit(1).execute()
-                            if hospital_match.data:
-                                copy_result = copy_hospital_investigation_to_doctor(
-                                    hospital_investigation_id=uuid.UUID(hospital_match.data[0]['id']),
-                                    doctor_id=doctor_id
+                            if school_match.data:
+                                copy_result = copy_school_investigation_to_counsellor(
+                                    school_investigation_id=uuid.UUID(school_match.data[0]['id']),
+                                    counsellor_id=counsellor_id
                                 )
                                 if copy_result:
-                                    added_via_hospital = True
-                                    logger.debug(f"[InvestigationEditFeedback] Added '{best_match[0]}' from hospital list (enriched)")
-                                    # Add orig_name as common_name on the new doctor record
+                                    added_via_school = True
+                                    logger.debug(f"[InvestigationEditFeedback] Added '{best_match[0]}' from school list (enriched)")
+                                    # Add orig_name as common_name on the new counsellor record
                                     if orig_name.lower() != best_match[0].lower():
-                                        new_rec = supabase.table('doctor_investigations')\
+                                        new_rec = supabase.table('counsellor_investigations')\
                                             .select('id, common_names')\
-                                            .eq('doctor_id', str(doctor_id))\
+                                            .eq('counsellor_id', str(counsellor_id))\
                                             .eq('normalized_name', normalize_investigation_name(best_match[0]))\
                                             .limit(1).execute()
                                         if new_rec.data:
                                             names = new_rec.data[0].get('common_names') or []
                                             if orig_name.lower() not in [n.lower() for n in names]:
-                                                supabase.table('doctor_investigations')\
+                                                supabase.table('counsellor_investigations')\
                                                     .update({'common_names': names + [orig_name]})\
                                                     .eq('id', new_rec.data[0]['id']).execute()
                     except Exception as e:
-                        logger.warning(f"[InvestigationEditFeedback] Hospital list check failed: {e}")
+                        logger.warning(f"[InvestigationEditFeedback] School list check failed: {e}")
 
-                    if not added_via_hospital:
-                        # Fallback: add bare entry without hospital enrichment
+                    if not added_via_school:
+                        # Fallback: add bare entry without school enrichment
                         inv_type = classify_investigation_type(best_match[0])
-                        create_doctor_investigation(
-                            doctor_id=doctor_id,
+                        create_counsellor_investigation(
+                            counsellor_id=counsellor_id,
                             investigation_name=best_match[0],
                             investigation_type=inv_type,
                             common_names=[orig_name] if orig_name.lower() != best_match[0].lower() else []
@@ -2752,24 +2647,24 @@ async def process_investigation_edit_feedback(
 
 
 # ============================================================================
-# Backfill - Enrich doctor investigations from hospital list
+# Backfill - Enrich counsellor investigations from school list
 # ============================================================================
 
-def backfill_doctor_investigations_from_hospital(
-    doctor_id: uuid.UUID,
+def backfill_counsellor_investigations_from_school(
+    counsellor_id: uuid.UUID,
     dry_run: bool = True
 ) -> Dict[str, Any]:
     """
-    Backfill doctor investigation entries that have no external_id by matching
-    against the hospital investigation list and copying enrichment fields.
+    Backfill counsellor investigation entries that have no external_id by matching
+    against the school investigation list and copying enrichment fields.
 
     Fields updated: external_id, category, normal_range, loinc_code,
     cpt_code, investigation_type, common_names (merged).
     """
-    from services.supabase_service import get_doctor_hospital_id_cached
+    from services.supabase_service import get_counsellor_school_id_cached
 
     result = {
-        "doctor_id": str(doctor_id),
+        "counsellor_id": str(counsellor_id),
         "dry_run": dry_run,
         "total_doctor_investigations": 0,
         "missing_external_id": 0,
@@ -2780,44 +2675,44 @@ def backfill_doctor_investigations_from_hospital(
         "details": []
     }
 
-    hospital_id = get_doctor_hospital_id_cached(doctor_id)
-    if not hospital_id:
-        result["errors"].append("Doctor has no associated hospital")
+    school_id = get_counsellor_school_id_cached(counsellor_id)
+    if not school_id:
+        result["errors"].append("Counsellor has no associated school")
         return result
 
-    # Get doctor investigations missing external_id
-    doctor_invs = supabase.table('doctor_investigations')\
+    # Get counsellor investigations missing external_id
+    counsellor_invs = supabase.table('counsellor_investigations')\
         .select('id, investigation_name, normalized_name, common_names, external_id')\
-        .eq('doctor_id', str(doctor_id))\
+        .eq('counsellor_id', str(counsellor_id))\
         .eq('is_active', True)\
         .execute()
 
-    if not doctor_invs.data:
+    if not counsellor_invs.data:
         return result
 
-    result["total_doctor_investigations"] = len(doctor_invs.data)
-    missing = [inv for inv in doctor_invs.data if not inv.get('external_id')]
+    result["total_doctor_investigations"] = len(counsellor_invs.data)
+    missing = [inv for inv in counsellor_invs.data if not inv.get('external_id')]
     result["missing_external_id"] = len(missing)
 
     if not missing:
         return result
 
-    # Build hospital lookup by normalized_name
-    hospital_invs = supabase.table('hospital_investigation_lists')\
+    # Build school lookup by normalized_name
+    school_invs = supabase.table('school_investigation_lists')\
         .select('id, investigation_name, normalized_name, common_names, external_id, category, normal_range, loinc_code, cpt_code, investigation_type')\
-        .eq('hospital_id', str(hospital_id))\
+        .eq('school_id', str(school_id))\
         .eq('is_active', True)\
         .execute()
 
-    hospital_lookup = {}
-    for hi in (hospital_invs.data or []):
+    school_lookup = {}
+    for hi in (school_invs.data or []):
         norm = hi.get('normalized_name', '')
         if norm:
-            hospital_lookup[norm] = hi
+            school_lookup[norm] = hi
 
     for di in missing:
         norm_name = di.get('normalized_name', '')
-        hi = hospital_lookup.get(norm_name)
+        hi = school_lookup.get(norm_name)
 
         if not hi:
             result["skipped"] += 1
@@ -2826,11 +2721,11 @@ def backfill_doctor_investigations_from_hospital(
         result["matched"] += 1
 
         # Merge common_names
-        doctor_names = di.get('common_names') or []
-        hospital_names = hi.get('common_names') or []
-        existing_lower = {n.lower() for n in doctor_names}
-        merged_names = list(doctor_names)
-        for name in hospital_names:
+        counsellor_names = di.get('common_names') or []
+        school_names = hi.get('common_names') or []
+        existing_lower = {n.lower() for n in counsellor_names}
+        merged_names = list(counsellor_names)
+        for name in school_names:
             if name.lower() not in existing_lower:
                 merged_names.append(name)
                 existing_lower.add(name.lower())
@@ -2858,7 +2753,7 @@ def backfill_doctor_investigations_from_hospital(
             result["details"].append(detail)
         else:
             try:
-                supabase.table('doctor_investigations')\
+                supabase.table('counsellor_investigations')\
                     .update(update_data)\
                     .eq('id', di['id'])\
                     .execute()
@@ -2868,7 +2763,7 @@ def backfill_doctor_investigations_from_hospital(
                 result["errors"].append(f"Update failed for {di['investigation_name']}: {str(e)}")
                 result["details"].append({**detail, "status": "error", "error": str(e)})
 
-    logger.info(f"[InvestigationBackfill] doctor={doctor_id} dry_run={dry_run} "
+    logger.info(f"[InvestigationBackfill] counsellor={counsellor_id} dry_run={dry_run} "
                 f"total={result['total_doctor_investigations']} missing={result['missing_external_id']} "
                 f"matched={result['matched']} updated={result['updated']}")
     return result

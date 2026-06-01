@@ -27,10 +27,10 @@ Extract structured information from medical discharge summary transcriptions and
 6. ✅ Convert all dates to DD-MM-YYYY format
 7. ✅ If contradictory information exists, use the most recent or final mention
 8. ✅ Use concise medical terminology (e.g., "sleepless nights" → "Insomnia")
-9. ✅ Distinguish between subjective symptoms (patient-reported) and objective findings (examination-based)
+9. ✅ Distinguish between subjective symptoms (student-reported) and objective findings (examination-based)
 10. ✅ Translate all dialogue to English in Timestamped Transcription segment
 11. ✅ NO information duplication across segments - distribute information appropriately
-12. ❌ **HIPAA COMPLIANCE**: NEVER include any Protected Health Information (PHI) in the output. This includes: patient names, dates of birth, phone numbers, email addresses, physical addresses, Social Security numbers, medical record numbers (MRN/UHID), IP numbers, registration numbers, health plan numbers, account numbers, passwords, or any other unique identifying information. Use "the patient" instead of any patient names throughout all output.
+12. ❌ **HIPAA COMPLIANCE**: NEVER include any Protected Health Information (PHI) in the output. This includes: student names, dates of birth, phone numbers, email addresses, physical addresses, Social Security numbers, medical record numbers (MRN/UHID), IP numbers, registration numbers, health plan numbers, account numbers, passwords, or any other unique identifying information. Use "the student" instead of any student names throughout all output.
 
 ---
 
@@ -43,7 +43,7 @@ Extract structured information from medical discharge summary transcriptions and
 1. **Chief Complaints** → Ultra-brief symptom names only (e.g., "Chest pain, Shortness of breath")
 2. **History of Present Illness** → Details about symptom characteristics (onset, duration, progression) - do NOT repeat the complaint itself
 3. **Treatment Summary** → What was DONE, not what the problem WAS (e.g., "Managed with medications X, Y, Z")
-4. **Hospital Course** → Daily progression, not diagnosis repetition (e.g., "POD 1: Stable, pain improved")
+4. **School Course** → Daily progression, not diagnosis repetition (e.g., "POD 1: Stable, pain improved")
 5. **Discharge Condition** → Current state, not admission diagnosis (e.g., "Stable, pain-free, ambulatory")
 
 ### **COMMON REDUNDANCY PATTERNS TO AVOID:**
@@ -53,7 +53,7 @@ Extract structured information from medical discharge summary transcriptions and
 | Repeating diagnosis | State diagnosis once in Diagnosis, refer to it as "the condition" elsewhere |
 | Repeating chief complaint | State complaint once, expand details in HPI |
 | Repeating procedure name | State procedure once in Treatment Details, use "the procedure" elsewhere |
-| Repeating vital signs | Full vitals in Physical Exam, only changes in Hospital Course |
+| Repeating vital signs | Full vitals in Physical Exam, only changes in School Course |
 
 ---
 
@@ -61,7 +61,7 @@ Extract structured information from medical discharge summary transcriptions and
 
 The segments have 3 structural types:
 
-**Type 1: Simple Segments** (Patient Information, Medical Team, Report Metadata)
+**Type 1: Simple Segments** (Student Information, Medical Team, Report Metadata)
 - Direct field extraction, no sub-categorization required
 - Use "N/A" for missing single values, empty arrays [] for missing lists
 
@@ -95,9 +95,9 @@ The segments have 3 structural types:
 
 **4. Decision Tree:**
 ```
-WHAT the patient has? → Past Medical History / Diagnosis
+WHAT the student has? → Past Medical History / Diagnosis
 WHAT was DONE? → Treatment Details / Procedures
-HOW the patient FEELS? → Complaints / History of Present Illness
+HOW the student FEELS? → Complaints / History of Present Illness
 WHAT was OBSERVED? → Physical Examination / Investigations
 WHAT to DO NEXT? → Treatment Plan & Advice / Prescription / Follow-up
 ```
@@ -111,14 +111,14 @@ Medication in multiple contexts: "Had hypertension, was on Amlodipine but stoppe
 
 ## EXTRACTION GUIDELINES BY SEGMENT
 
-### 1. PATIENT INFORMATION
+### 1. STUDENT INFORMATION
 
 **Description:** Extract basic demographics and admission details exactly as stated.
 
 **HIPAA PHI EXCLUSION - Do NOT extract:**
-- Patient name (use "the patient" instead)
-- Patient address
-- Patient phone/contact number
+- Student name (use "the student" instead)
+- Student address
+- Student phone/contact number
 - Registration/MRN/IP numbers
 
 **Extraction Rules:**
@@ -128,7 +128,7 @@ Medication in multiple contexts: "Had hypertension, was on Amlodipine but stoppe
 - Use "N/A" for any field not mentioned
 
 **Example:**
-"Patient John Doe, 45 years old, admitted on January 15th" → `{"age": "45", "gender": "N/A", "admission_date": "15-01-2025"}`
+"Student John Doe, 45 years old, admitted on January 15th" → `{"age": "45", "gender": "N/A", "admission_date": "15-01-2025"}`
 Note: Name is NOT extracted.
 
 ---
@@ -154,7 +154,7 @@ Note: Name is NOT extracted.
 **Description:** Extract final and additional diagnoses with clinical reasoning.
 
 **Extraction Rules:**
-- **Primary Diagnosis**: Extract the definitive diagnosis from doctor's final assessment. Could be multiple conclusions. Preserve exact medical terminology.
+- **Primary Diagnosis**: Extract the definitive diagnosis from counsellor's final assessment. Could be multiple conclusions. Preserve exact medical terminology.
 - **Secondary Diagnoses**: ONLY include if explicitly stated as "secondary" or "additional" diagnosis, OR if totally different from primary diagnosis. Do not infer.
 - If multiple conditions, categorize by clinical priority
 - Use the most recent or emphasized mention if contradictory information exists
@@ -167,7 +167,7 @@ Secondary: "Hypothyroidism" (only if explicitly mentioned as secondary)
 
 ### 4. CHIEF COMPLAINTS
 
-**Description:** Ultra-brief symptom names describing patient's presentation. Include ALL symptoms (primary + associated) in priority order.
+**Description:** Ultra-brief symptom names describing student's presentation. Include ALL symptoms (primary + associated) in priority order.
 
 **Extraction Rules:**
 - ✅ Convert to medical terminology: "sleepless nights" → "Insomnia", "difficulty breathing" → "Dyspnea", "chest tightness" → "Chest pain"
@@ -199,7 +199,7 @@ Secondary: "Hypothyroidism" (only if explicitly mentioned as secondary)
 
 ### 6. HISTORY
 
-**Description:** Patient's medical background not related to present illness. Categorize into appropriate sub-segments.
+**Description:** Student's medical background not related to present illness. Categorize into appropriate sub-segments.
 
 **Sub-segment Categories:**
 1. **Past Medical History**: Previous medical conditions
@@ -225,11 +225,11 @@ Secondary: "Hypothyroidism" (only if explicitly mentioned as secondary)
 
 ### 7. PHYSICAL EXAMINATION
 
-**Description:** Objective clinical findings from doctor's examination. Distinguish from subjective symptoms.
+**Description:** Objective clinical findings from counsellor's examination. Distinguish from subjective symptoms.
 
 **Extraction Rules:**
-- ✅ **Subjective** (patient reports "stomach pain") → Goes to Complaints
-- ✅ **Objective** (doctor finds "abdominal tenderness on palpation") → Goes to Physical Examination
+- ✅ **Subjective** (student reports "stomach pain") → Goes to Complaints
+- ✅ **Objective** (counsellor finds "abdominal tenderness on palpation") → Goes to Physical Examination
 - ✅ Include complete vital signs with units: Temperature (°F/°C), Pulse Rate (/min), Respiratory Rate (/min), BP (mmHg), Height (cm), Weight (kg), BMI, SPO2 (%), CRT
 - ✅ System-based examination: CVS, RS, CNS, P/A (Per Abdomen), MSK, Other systems
 - ✅ Use standard abbreviations: CVS (cardiovascular), RS (respiratory), CNS (central nervous system)
@@ -244,7 +244,7 @@ CVS: "S1, S2 present, no murmurs" | RS: "Clear breath sounds bilaterally"
 
 ### 8. INVESTIGATIONS
 
-**Description:** Diagnostic test results ordered and observed by doctor.
+**Description:** Diagnostic test results ordered and observed by counsellor.
 
 **Sub-categories:**
 1. **Laboratory Tests**: Blood tests (Thyroid, LDL, HDL, glucose, CBC, LFT, etc.)
@@ -284,11 +284,11 @@ CVS: "S1, S2 present, no murmurs" | RS: "Clear breath sounds bilaterally"
 
 ### 9. TREATMENT SUMMARY
 
-**Description:** High-level summary of treatments administered and patient response.
+**Description:** High-level summary of treatments administered and student response.
 
 **Extraction Rules:**
 - ✅ **Treatment Summary**: What was DONE (procedures, medications, interventions) - NOT what the problem WAS
-- ✅ **Patient Response**: How patient responded (improvement, stable, deterioration)
+- ✅ **Student Response**: How student responded (improvement, stable, deterioration)
 - ✅ **Complications**: Any adverse events with their management
 - ✅ Include dates when procedures were performed
 - ✅ Summarize overall clinical course concisely
@@ -296,15 +296,15 @@ CVS: "S1, S2 present, no murmurs" | RS: "Clear breath sounds bilaterally"
 
 **Example - Surgical Treatment:**
 ```
-Treatment Summary: "Laparoscopic Whipple's procedure performed on 29.09.2025. Patient monitored in ICU post-operatively."
-Patient Response: "Patient extubated on POD 1. Recovery was uneventful. Discharged in good clinical condition."
+Treatment Summary: "Laparoscopic Whipple's procedure performed on 29.09.2025. Student monitored in ICU post-operatively."
+Student Response: "Student extubated on POD 1. Recovery was uneventful. Discharged in good clinical condition."
 Complications: []
 ```
 
 **Example - With Complications:**
 ```
 Treatment Summary: "Emergency appendectomy performed under general anesthesia."
-Patient Response: "Post-operative recovery progressing well after infection management."
+Student Response: "Post-operative recovery progressing well after infection management."
 Complications: "Wound infection on POD 3, resolved with antibiotics and wound care by POD 7"
 ```
 
@@ -317,7 +317,7 @@ Complications: "Wound infection on POD 3, resolved with antibiotics and wound ca
 **Sub-categories:**
 1. **Procedure Name**: Exact name of surgical/interventional procedure
 2. **Anesthesia Type**: GA, Spinal, Local, Regional
-3. **Patient Position**: Supine, Prone, Lateral, Lithotomy, Trendelenburg
+3. **Student Position**: Supine, Prone, Lateral, Lithotomy, Trendelenburg
 4. **Intraoperative Findings**: What was discovered during procedure
 5. **Operation Notes**: Step-by-step procedural narrative
 6. **Construction Details**: Reconstruction specifics
@@ -333,13 +333,13 @@ Procedure: "Laparoscopic RYGB" | Anesthesia: "GA" | Position: "Reverse Trendelen
 
 ---
 
-### 11. HOSPITAL COURSE
+### 11. SCHOOL COURSE
 
-**Description:** Chronological narrative of patient's hospital stay from admission to discharge.
+**Description:** Chronological narrative of student's school stay from admission to discharge.
 
 **Extraction Rules:**
-- ✅ Organize by post-operative days (POD) or hospital days
-- ✅ **Summary**: Overall hospital stay summary
+- ✅ Organize by post-operative days (POD) or school days
+- ✅ **Summary**: Overall school stay summary
 - ✅ **Daily Progress**: Array of daily notes with: day identifier, date (DD-MM-YYYY), clinical status, interventions, response, plan
 - ✅ Document significant events chronologically
 - ✅ Note changes in clinical status (improving, stable, deteriorating)
@@ -364,7 +364,7 @@ Procedure: "Laparoscopic RYGB" | Anesthesia: "GA" | Position: "Reverse Trendelen
 
 ### 12. DISCHARGE CONDITION
 
-**Description:** Patient's clinical status at time of discharge.
+**Description:** Student's clinical status at time of discharge.
 
 **Extraction Rules:**
 - ✅ **Condition at Discharge**: Overall clinical stability (stable, improving, with ongoing issues)
@@ -395,7 +395,7 @@ Vital Signs: "BP 130/85 mmHg, stable on current medications"
 
 ### 13. PRESCRIPTION
 
-**Description:** Discharge medication plan for patient to follow.
+**Description:** Discharge medication plan for student to follow.
 
 **Medication Object Structure:**
 Each medication must include: medication_name (with strength), dosage, frequency, duration, route, timing, instructions
@@ -438,7 +438,7 @@ Each medication must include: medication_name (with strength), dosage, frequency
 
 **Extraction Rules:**
 - ✅ Categorize all advice into appropriate sub-category
-- ✅ Make instructions patient-friendly and actionable
+- ✅ Make instructions student-friendly and actionable
 - ✅ Include specific timings and frequencies
 - ✅ Clearly state what to do AND what to avoid
 
@@ -462,7 +462,7 @@ Each medication must include: medication_name (with strength), dosage, frequency
 - ✅ Include specific timing (days, weeks, months)
 - ✅ Convert dates to DD-MM-YYYY format
 - ✅ Note where to follow up (clinic name, department)
-- ✅ Include doctor name for follow-up
+- ✅ Include counsellor name for follow-up
 - ✅ List documents or test results to bring
 - ✅ Mention conditions requiring earlier follow-up than scheduled
 
@@ -477,9 +477,9 @@ Review Duration: "in 2 weeks" | Location: "Cardiology OPD" | With Whom: "Dr. Smi
 
 **Extraction Rules:**
 - ✅ **When to Seek Care**: List specific warning signs requiring immediate attention (Fever with Chills, Vomiting, Severe Abdominal Pain, Difficulty breathing, Chest pain, Uncontrolled bleeding, etc.)
-- ✅ **Contact Numbers**: Include type (Emergency/Doctor/Hospital), name, number, available hours (24/7, business hours), alternative contact
+- ✅ **Contact Numbers**: Include type (Emergency/Counsellor/School), name, number, available hours (24/7, business hours), alternative contact
 - ✅ Provide multiple contact options
-- ✅ Give clear guidance on when to go to ER vs. call doctor
+- ✅ Give clear guidance on when to go to ER vs. call counsellor
 
 **Example Contact Object:**
 ```json
@@ -505,16 +505,16 @@ Review Duration: "in 2 weeks" | Location: "Cardiology OPD" | With Whom: "Dr. Smi
 - ✅ Include ALL significant dialogue and dictation from discharge summary
 - ✅ Maintain medical accuracy and terminology in translations
 - ✅ If no timestamps present, create logical progression: [00:00], [00:30], [01:00]...
-- ✅ Include doctor's dictation of all discharge summary components
+- ✅ Include counsellor's dictation of all discharge summary components
 - ✅ Preserve medical terms and abbreviations even when translating
 - ❌ Do NOT preserve original language - translate everything to English
 
 **Example:**
 ```json
 [
-  "[00:00] Doctor: The patient was admitted on 15th January with acute appendicitis",
-  "[00:30] Doctor: Emergency appendectomy was performed on the same day under general anesthesia",
-  "[01:00] Doctor: Post-operative recovery was uneventful, patient was monitored in the ward"
+  "[00:00] Counsellor: The student was admitted on 15th January with acute appendicitis",
+  "[00:30] Counsellor: Emergency appendectomy was performed on the same day under general anesthesia",
+  "[01:00] Counsellor: Post-operative recovery was uneventful, student was monitored in the ward"
 ]
 ```
 
@@ -527,12 +527,12 @@ Review Duration: "in 2 weeks" | Location: "Cardiology OPD" | With Whom: "Dr. Smi
 **Extraction Rules:**
 - ✅ Include preparer and verifier with full credentials
 - ✅ Convert report date to DD-MM-YYYY format
-- ✅ Include hospital name, address, contact information
+- ✅ Include school name, address, contact information
 - ✅ Note approving authority if mentioned
 - ✅ Use "N/A" for missing fields
 
 **Example:**
-Prepared By: "Dr. Jane Doe, MD" | Checked By: "Dr. John Smith, MD, DM" | Report Date: "15-01-2025" | Hospital: "City General Hospital"
+Prepared By: "Dr. Jane Doe, MD" | Checked By: "Dr. John Smith, MD, DM" | Report Date: "15-01-2025" | School: "City General School"
 
 ---
 
@@ -558,14 +558,14 @@ Before returning JSON, verify:
 
 ✅ If contradictory information exists (e.g., "Diabetes" vs "Diabetes Mellitus", multiple procedure/discharge dates), use the most recent or final mention or emphasized mention
 ✅ All required segments present
-✅ **NO patient names, phone numbers, addresses, dates of birth, MRN, or any patient-identifying information appears anywhere in the output**
+✅ **NO student names, phone numbers, addresses, dates of birth, MRN, or any student-identifying information appears anywhere in the output**
 ✅ Medications include: name, dosage, frequency, duration, route, timing, instructions
 ✅ OD = Once Daily (not "Own dosage")
 ✅ Birth history only for pediatric/developmental/psychiatric cases (use "N/A" for adult routine admissions)
 ✅ No information duplication across segments - each fact appears only once
 ✅ Medical team includes full qualifications (MD, DM, etc.)
 ✅ Treatment Details includes all procedural fields if surgery performed
-✅ Hospital Course includes daily progress if stay >3 days
+✅ School Course includes daily progress if stay >3 days
 ✅ Discharge Condition includes functional status and pending investigations
 ✅ Timestamped Transcription translated to English
 ✅ Report Metadata includes prepared_by and checked_by
@@ -605,7 +605,7 @@ DISCHARGE_SUMMARY_EXTRACTION_PROMPT_USER = """Extract structured information fro
   }},
 
   "diagnosis": {{
-    "primary_diagnosis": "string - final conclusion by doctor",
+    "primary_diagnosis": "string - final conclusion by counsellor",
     "secondary_diagnoses": "string - comma-separated additional conditions or N/A"
   }},
 
@@ -694,7 +694,7 @@ DISCHARGE_SUMMARY_EXTRACTION_PROMPT_USER = """Extract structured information fro
   }},
 
   "hospital_course": {{
-    "summary": "string - overall hospital stay summary",
+    "summary": "string - overall school stay summary",
     "daily_progress": "string - formatted daily progress notes with day/date/status/interventions (e.g., 'POD 1 (15-01-2025): Stable, pain controlled. POD 2 (16-01-2025): Ambulating, tolerating diet') or N/A",
     "complications": "string - comma-separated complications or N/A",
     "transfers": "string or N/A",
@@ -735,7 +735,7 @@ DISCHARGE_SUMMARY_EXTRACTION_PROMPT_USER = """Extract structured information fro
     "review_date": "DD-MM-YYYY or N/A",
     "review_duration": "string - in 2 weeks, etc.",
     "location": "string - clinic name, department",
-    "with_whom": "string - doctor name",
+    "with_whom": "string - counsellor name",
     "bring_documents": "string - comma-separated required documents or N/A",
     "conditions_for_earlier_review": "string - comma-separated conditions or N/A",
     "special_instructions": "string or N/A"
@@ -753,7 +753,7 @@ DISCHARGE_SUMMARY_EXTRACTION_PROMPT_USER = """Extract structured information fro
     "approved_by": "string or N/A",
     "report_date": "DD-MM-YYYY",
     "report_time": "string or N/A",
-    "hospital_name": "string",
+    "school_name": "string",
     "hospital_address": "string or N/A",
     "hospital_contact": "string or N/A"
   }}

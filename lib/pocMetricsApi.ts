@@ -77,12 +77,12 @@ export interface TimingsResponse {
 
 function buildParams(f: PocMetricsFilters): URLSearchParams {
   const p = new URLSearchParams({
-    hospital_id: f.hospitalId,
+    school_id: f.hospitalId,
     start_date: f.startDate,
     end_date: f.endDate,
   });
-  if (f.doctorId) p.append('doctor_id', f.doctorId);
-  if (f.nurseId) p.append('nurse_id', f.nurseId);
+  if (f.doctorId) p.append('counsellor_id', f.doctorId);
+  if (f.nurseId) p.append('assistant_id', f.nurseId);
   return p;
 }
 

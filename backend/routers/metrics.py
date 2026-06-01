@@ -1,9 +1,9 @@
 """
 Quality Metrics API Router
 
-Provides endpoints for hospital-scoped quality metrics:
+Provides endpoints for school-scoped quality metrics:
 - AI acceptance rate (% notes used unchanged)
-- Notes per doctor per day
+- Notes per counsellor per day
 - Pipeline timing (E2E with percentile breakdown)
 - Service uptime (hardcoded)
 - Accuracy metrics (WER, entity error rates)
@@ -30,11 +30,11 @@ router = APIRouter(
 )
 
 
-def resolve_hospital_id(client: ClientContext, query_hospital_id: Optional[str]) -> Optional[uuid.UUID]:
-    """Hospital admin's hospital_id takes precedence over query param."""
-    if client.hospital_id is not None:
-        return client.hospital_id
-    return uuid.UUID(query_hospital_id) if query_hospital_id else None
+def resolve_school_id(client: ClientContext, query_school_id: Optional[str]) -> Optional[uuid.UUID]:
+    """School admin's school_id takes precedence over query param."""
+    if client.school_id is not None:
+        return client.school_id
+    return uuid.UUID(query_school_id) if query_school_id else None
 
 
 # =============================================================================
@@ -43,28 +43,28 @@ def resolve_hospital_id(client: ClientContext, query_hospital_id: Optional[str])
 
 @router.get("/ai-acceptance")
 async def get_ai_acceptance(
-    hospital_id: Optional[str] = Query(None),
-    doctor_id: Optional[str] = Query(None),
+    school_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
-    group_by: str = Query("total", description="total, daily, doctor, doctor_daily"),
+    group_by: str = Query("total", description="total, daily, counsellor, counsellor_daily"),
     client: ClientContext = Depends(get_current_client),
 ):
     """
     Get AI note acceptance rate metrics.
 
     Returns percentage of AI-generated notes used unchanged vs edited,
-    with flexible grouping by total, daily, doctor, or doctor+daily.
+    with flexible grouping by total, daily, counsellor, or counsellor+daily.
     """
     try:
-        h_id = resolve_hospital_id(client, hospital_id)
+        h_id = resolve_school_id(client, school_id)
 
         result = retry_on_network_error(
             lambda: supabase.rpc(
                 "get_ai_acceptance_metrics",
                 {
-                    "p_hospital_id": str(h_id) if h_id else None,
-                    "p_doctor_id": doctor_id,
+                    "p_school_id": str(h_id) if h_id else None,
+                    "p_counsellor_id": counsellor_id,
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                     "p_group_by": group_by,
@@ -81,22 +81,22 @@ async def get_ai_acceptance(
 
 @router.get("/notes-per-day")
 async def get_notes_per_day(
-    hospital_id: Optional[str] = Query(None),
-    doctor_id: Optional[str] = Query(None),
+    school_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     client: ClientContext = Depends(get_current_client),
 ):
-    """Get notes per doctor per day."""
+    """Get notes per counsellor per day."""
     try:
-        h_id = resolve_hospital_id(client, hospital_id)
+        h_id = resolve_school_id(client, school_id)
 
         result = retry_on_network_error(
             lambda: supabase.rpc(
-                "get_notes_per_doctor_per_day",
+                "get_notes_per_counsellor_per_day",
                 {
-                    "p_hospital_id": str(h_id) if h_id else None,
-                    "p_doctor_id": doctor_id,
+                    "p_school_id": str(h_id) if h_id else None,
+                    "p_counsellor_id": counsellor_id,
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                 }
@@ -112,8 +112,8 @@ async def get_notes_per_day(
 
 @router.get("/pipeline-timing")
 async def get_pipeline_timing(
-    hospital_id: Optional[str] = Query(None),
-    doctor_id: Optional[str] = Query(None),
+    school_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     client: ClientContext = Depends(get_current_client),
@@ -124,14 +124,14 @@ async def get_pipeline_timing(
     Returns avg, p50, p95, p99 for stitching, transcription, extraction, and total.
     """
     try:
-        h_id = resolve_hospital_id(client, hospital_id)
+        h_id = resolve_school_id(client, school_id)
 
         result = retry_on_network_error(
             lambda: supabase.rpc(
                 "get_avg_pipeline_timing",
                 {
-                    "p_hospital_id": str(h_id) if h_id else None,
-                    "p_doctor_id": doctor_id,
+                    "p_school_id": str(h_id) if h_id else None,
+                    "p_counsellor_id": counsellor_id,
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                 }
@@ -162,8 +162,8 @@ async def get_uptime(
 
 @router.get("/summary")
 async def get_metrics_summary(
-    hospital_id: Optional[str] = Query(None),
-    doctor_id: Optional[str] = Query(None),
+    school_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None, description="Defaults to 30 days ago"),
     date_to: Optional[date] = Query(None, description="Defaults to today"),
     client: ClientContext = Depends(get_current_client),
@@ -175,7 +175,7 @@ async def get_metrics_summary(
     and accuracy metrics (if available).
     """
     try:
-        h_id = resolve_hospital_id(client, hospital_id)
+        h_id = resolve_school_id(client, school_id)
 
         # Default date range: last 30 days
         if not date_from:
@@ -184,8 +184,8 @@ async def get_metrics_summary(
             date_to = datetime.now(timezone.utc).date()
 
         rpc_params = {
-            "p_hospital_id": str(h_id) if h_id else None,
-            "p_doctor_id": doctor_id,
+            "p_school_id": str(h_id) if h_id else None,
+            "p_counsellor_id": counsellor_id,
             "p_date_from": date_from.isoformat(),
             "p_date_to": date_to.isoformat(),
         }
@@ -202,7 +202,7 @@ async def get_metrics_summary(
         # Notes today
         today_params = {**rpc_params, "p_date_from": datetime.now(timezone.utc).date().isoformat(), "p_date_to": datetime.now(timezone.utc).date().isoformat()}
         notes_today_result = retry_on_network_error(
-            lambda: supabase.rpc("get_notes_per_doctor_per_day", today_params).execute()
+            lambda: supabase.rpc("get_notes_per_counsellor_per_day", today_params).execute()
         )
 
         # Accuracy (Phase 3 - may return empty if no data yet)
@@ -244,23 +244,23 @@ async def get_metrics_summary(
 
 @router.get("/accuracy")
 async def get_accuracy(
-    hospital_id: Optional[str] = Query(None),
-    doctor_id: Optional[str] = Query(None),
+    school_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
-    group_by: str = Query("total", description="total, doctor, weekly, monthly"),
+    group_by: str = Query("total", description="total, counsellor, weekly, monthly"),
     client: ClientContext = Depends(get_current_client),
 ):
     """Get aggregated WER and entity error rates."""
     try:
-        h_id = resolve_hospital_id(client, hospital_id)
+        h_id = resolve_school_id(client, school_id)
 
         result = retry_on_network_error(
             lambda: supabase.rpc(
                 "get_accuracy_metrics",
                 {
-                    "p_hospital_id": str(h_id) if h_id else None,
-                    "p_doctor_id": doctor_id,
+                    "p_school_id": str(h_id) if h_id else None,
+                    "p_counsellor_id": counsellor_id,
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                     "p_group_by": group_by,
@@ -305,8 +305,8 @@ async def get_accuracy_for_extraction(
 
 @router.get("/accuracy/trends")
 async def get_accuracy_trends(
-    hospital_id: Optional[str] = Query(None),
-    doctor_id: Optional[str] = Query(None),
+    school_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     interval: str = Query("weekly", description="weekly or monthly"),
@@ -314,15 +314,15 @@ async def get_accuracy_trends(
 ):
     """Get time-series accuracy trends."""
     try:
-        h_id = resolve_hospital_id(client, hospital_id)
+        h_id = resolve_school_id(client, school_id)
         group_by = "weekly" if interval == "weekly" else "monthly"
 
         result = retry_on_network_error(
             lambda: supabase.rpc(
                 "get_accuracy_metrics",
                 {
-                    "p_hospital_id": str(h_id) if h_id else None,
-                    "p_doctor_id": doctor_id,
+                    "p_school_id": str(h_id) if h_id else None,
+                    "p_counsellor_id": counsellor_id,
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                     "p_group_by": group_by,

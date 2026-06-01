@@ -1,7 +1,7 @@
 """
 Retention Interventions Service
 
-Generates retention-related interventions to prevent patient dropoff.
+Generates retention-related interventions to prevent student dropoff.
 
 NEW 7-CATEGORY SYSTEM:
 - RETENTION_RISK: COMPETITOR_COUNTEROFFER, ACCESS_BARRIER_RESOLUTION, FINANCIAL_ASSISTANCE,
@@ -10,12 +10,12 @@ NEW 7-CATEGORY SYSTEM:
 - FOLLOWUP_DUE: FOLLOW_UP_REMINDER, URGENT_FOLLOWUP_NEEDED
 
 Assessment Sources:
-- Based on patient_dropoff_risk assessment
+- Based on student_dropoff_risk assessment
 - Based on emotional segment analysis (EMOTIONAL_SUPPORT)
 - Based on clinical_severity for priority adjustments
 
 10 Retention Intervention Types:
-1. COMPETITOR_COUNTEROFFER - Patient considering other providers
+1. COMPETITOR_COUNTEROFFER - Student considering other providers
 2. ACCESS_BARRIER_RESOLUTION - Logistics/access issues
 3. FINANCIAL_ASSISTANCE - Financial concerns with high dropoff risk (skipped if severity MILD/NONE)
 4. COMPLIANCE_SUPPORT - Low treatment adherence (HIGH priority if severity SEVERE/CRITICAL)
@@ -24,7 +24,7 @@ Assessment Sources:
 7. EMOTIONAL_SUPPORT - Anxiety elevated/worsened (HIGH priority if severity SEVERE/CRITICAL)
 8. URGENT_FOLLOWUP_NEEDED - Urgent follow-up required (CRITICAL if severity SEVERE/CRITICAL)
 9. PATIENT_EDUCATION_GAP - Understanding barrier for treatment plan
-10. SEVERITY_AWARENESS_GAP - Patient doesn't understand severity
+10. SEVERITY_AWARENESS_GAP - Student doesn't understand severity
 
 Author: Unizy Health
 Version: 2.0.0
@@ -149,28 +149,28 @@ RETENTION_INTERVENTIONS: Dict[str, RetentionInterventionDefinition] = {
         intervention_type="COMPETITOR_COUNTEROFFER",
         sub_type="retention",
         priority="CRITICAL",
-        reason_template="Patient mentioned considering other healthcare providers: {details}",
+        reason_template="Student mentioned considering other healthcare providers: {details}",
         action_template="Proactive outreach with value proposition and loyalty benefits"
     ),
     "ACCESS_BARRIER_RESOLUTION": RetentionInterventionDefinition(
         intervention_type="ACCESS_BARRIER_RESOLUTION",
         sub_type="retention",
         priority="HIGH",
-        reason_template="Patient faces {barrier_type} barriers to accessing care",
+        reason_template="Student faces {barrier_type} barriers to accessing care",
         action_template="Arrange alternative access solutions to remove barriers"
     ),
     "FINANCIAL_ASSISTANCE": RetentionInterventionDefinition(
         intervention_type="FINANCIAL_ASSISTANCE",
         sub_type="retention",
         priority="HIGH",
-        reason_template="Patient expressed financial concerns with {probability}% dropoff risk",
+        reason_template="Student expressed financial concerns with {probability}% dropoff risk",
         action_template="Connect with financial counselor to discuss payment options"
     ),
     "COMPLIANCE_SUPPORT": RetentionInterventionDefinition(
         intervention_type="COMPLIANCE_SUPPORT",
         sub_type="retention",
         priority="MEDIUM",
-        reason_template="Patient shows low treatment adherence likelihood with {med_count} medications",
+        reason_template="Student shows low treatment adherence likelihood with {med_count} medications",
         action_template="Enroll in medication adherence program with reminders"
     ),
     "FOLLOW_UP_REMINDER": RetentionInterventionDefinition(
@@ -184,15 +184,15 @@ RETENTION_INTERVENTIONS: Dict[str, RetentionInterventionDefinition] = {
         intervention_type="SATISFACTION_RECOVERY",
         sub_type="retention",
         priority="HIGH",
-        reason_template="Patient anxiety worsened with weak doctor rapport: {details}",
+        reason_template="Student anxiety worsened with weak counsellor rapport: {details}",
         action_template="Manager callback for service recovery within 24 hours"
     ),
     "EMOTIONAL_SUPPORT": RetentionInterventionDefinition(
         intervention_type="EMOTIONAL_SUPPORT",
         sub_type="emotional",
         priority="MEDIUM",
-        reason_template="Patient showed {emotion_state} requiring emotional support",
-        action_template="Connect with patient support team for emotional follow-up"
+        reason_template="Student showed {emotion_state} requiring emotional support",
+        action_template="Connect with student support team for emotional follow-up"
     ),
     # Moved from QUALITY category
     "URGENT_FOLLOWUP_NEEDED": RetentionInterventionDefinition(
@@ -206,15 +206,15 @@ RETENTION_INTERVENTIONS: Dict[str, RetentionInterventionDefinition] = {
         intervention_type="PATIENT_EDUCATION_GAP",
         sub_type="education",
         priority="LOW",
-        reason_template="Patient lacks understanding of {topic}",
-        action_template="Provide patient education materials"
+        reason_template="Student lacks understanding of {topic}",
+        action_template="Provide student education materials"
     ),
     # New: Severity awareness mismatch
     "SEVERITY_AWARENESS_GAP": RetentionInterventionDefinition(
         intervention_type="SEVERITY_AWARENESS_GAP",
         sub_type="education",
         priority="HIGH",
-        reason_template="Patient may not understand gravity of condition: {details}",
+        reason_template="Student may not understand gravity of condition: {details}",
         action_template="Schedule dedicated counseling session to explain condition severity and importance of treatment adherence"
     ),
 }
@@ -244,7 +244,7 @@ def generate_retention_interventions(
     Generate retention interventions based on dropoff risk and emotional analysis.
 
     Args:
-        dropoff_risk: Patient dropoff risk assessment record
+        dropoff_risk: Student dropoff risk assessment record
         emotional_segments: Emotional segment data (ANXIETY_POST_CONSULTATION, etc.)
         consultation_insights: Raw consultation insights (for competitor/access signals)
         consultation_insights_id: Optional FK to consultation_insights
@@ -293,7 +293,7 @@ def generate_retention_interventions(
         )
 
     # 4. Severity awareness gap intervention
-    # Triggers when clinical severity is HIGH but patient shows low emotional response
+    # Triggers when clinical severity is HIGH but student shows low emotional response
     severity_awareness = _generate_severity_awareness_intervention(
         dropoff_risk=dropoff_risk,
         severity_level=severity_level,
@@ -364,7 +364,7 @@ def _generate_dropoff_interventions(
             "trigger_reason": definition.reason_template.format(details=details),
             "action": definition.action_template,
             "consultation_insights_id": insights_id,
-            "linked_assessment_type": "patient_dropoff_risk",
+            "linked_assessment_type": "student_dropoff_risk",
             "linked_assessment_id": assessment_id,
             "rationale_sources": {
                 "competitor_risk_reasons": reasons,
@@ -435,7 +435,7 @@ def _generate_dropoff_interventions(
                 "trigger_reason": trigger_reason,
                 "action": definition.action_template,
                 "consultation_insights_id": insights_id,
-                "linked_assessment_type": "patient_dropoff_risk",
+                "linked_assessment_type": "student_dropoff_risk",
                 "linked_assessment_id": assessment_id,
                 "rationale_sources": {
                     "access_risk_reasons": reasons,
@@ -464,7 +464,7 @@ def _generate_dropoff_interventions(
             "trigger_reason": definition.reason_template.format(probability=dropoff_probability),
             "action": definition.action_template,
             "consultation_insights_id": insights_id,
-            "linked_assessment_type": "patient_dropoff_risk",
+            "linked_assessment_type": "student_dropoff_risk",
             "linked_assessment_id": assessment_id,
             "rationale_sources": {
                 "financial_risk_reasons": reasons,
@@ -498,7 +498,7 @@ def _generate_dropoff_interventions(
             "trigger_reason": definition.reason_template.format(med_count=med_count or "multiple"),
             "action": definition.action_template,
             "consultation_insights_id": insights_id,
-            "linked_assessment_type": "patient_dropoff_risk",
+            "linked_assessment_type": "student_dropoff_risk",
             "linked_assessment_id": assessment_id,
             "rationale_sources": {
                 "compliance_risk_reasons": reasons,
@@ -530,7 +530,7 @@ def _generate_dropoff_interventions(
                 "trigger_reason": definition.reason_template.format(risk_level=risk_level),
                 "action": definition.action_template,
                 "consultation_insights_id": insights_id,
-                "linked_assessment_type": "patient_dropoff_risk",
+                "linked_assessment_type": "student_dropoff_risk",
                 "linked_assessment_id": assessment_id,
                 "rationale_sources": {
                     "risk_level": risk_level,
@@ -559,7 +559,7 @@ def _generate_dropoff_interventions(
             elif "wait" in raw_reason or "time" in raw_reason:
                 details = "service timing concerns"
             elif "dissatisf" in raw_reason or "unhappy" in raw_reason or "complaint" in raw_reason:
-                details = "patient expressed dissatisfaction"
+                details = "student expressed dissatisfaction"
             else:
                 # Keep generic if we can't parse it
                 details = "service experience concerns"
@@ -573,7 +573,7 @@ def _generate_dropoff_interventions(
             "trigger_reason": definition.reason_template.format(details=details),
             "action": definition.action_template,
             "consultation_insights_id": insights_id,
-            "linked_assessment_type": "patient_dropoff_risk",
+            "linked_assessment_type": "student_dropoff_risk",
             "linked_assessment_id": assessment_id,
             "rationale_sources": {"dissatisfaction_risk_reasons": reasons}
         })
@@ -672,7 +672,7 @@ def _generate_emotional_support_intervention(
             "trigger_reason": definition.reason_template.format(emotion_state=emotion_state),
             "action": definition.action_template,
             "consultation_insights_id": insights_id,
-            "linked_assessment_type": "patient_dropoff_risk",
+            "linked_assessment_type": "student_dropoff_risk",
             "linked_assessment_id": dropoff_risk.get("id") if dropoff_risk else None,
             "rationale_sources": rationale
         }
@@ -687,13 +687,13 @@ def _generate_severity_awareness_intervention(
 ) -> Optional[Dict[str, Any]]:
     """
     Generate SEVERITY_AWARENESS_GAP intervention when there's a mismatch between
-    clinical severity and patient's emotional response.
+    clinical severity and student's emotional response.
 
     Trigger conditions:
     - Clinical severity is SEVERE or CRITICAL
-    - AND patient shows LOW anxiety (level 0-3) OR compliance likelihood is Low/Very Low/Moderate
+    - AND student shows LOW anxiety (level 0-3) OR compliance likelihood is Low/Very Low/Moderate
 
-    This indicates the patient may not understand the gravity of their condition,
+    This indicates the student may not understand the gravity of their condition,
     which is a significant retention and adherence risk.
 
     Args:
@@ -711,7 +711,7 @@ def _generate_severity_awareness_intervention(
     if not dropoff_risk:
         return None
 
-    # Get patient's emotional response indicators
+    # Get student's emotional response indicators
     anxiety_post_level = dropoff_risk.get("anxiety_post_level", 5)  # Default to moderate
     compliance_likelihood = dropoff_risk.get("compliance_likelihood", "Moderate")
 
@@ -720,7 +720,7 @@ def _generate_severity_awareness_intervention(
     low_anxiety = anxiety_post_level <= 3
     low_compliance_concern = compliance_likelihood in ("Low", "Very Low", "Moderate")
 
-    # Trigger if severity is HIGH but patient shows LOW anxiety OR poor compliance expectation
+    # Trigger if severity is HIGH but student shows LOW anxiety OR poor compliance expectation
     if not (low_anxiety or low_compliance_concern):
         return None
 
@@ -749,7 +749,7 @@ def _generate_severity_awareness_intervention(
         "trigger_reason": definition.reason_template.format(details=details),
         "action": definition.action_template,
         "consultation_insights_id": consultation_insights_id,
-        "linked_assessment_type": "patient_dropoff_risk",
+        "linked_assessment_type": "student_dropoff_risk",
         "linked_assessment_id": dropoff_risk.get("id"),
         "rationale_sources": {
             "clinical_severity": severity_level,
@@ -835,7 +835,7 @@ def _generate_followup_education_interventions(
 
     # 9. PATIENT_EDUCATION_GAP
     # Note: Uses is_incomplete_treatment as proxy for education gaps
-    # (incomplete treatment often indicates patient understanding issues)
+    # (incomplete treatment often indicates student understanding issues)
     if care_quality_risk.get("is_incomplete_treatment"):
         definition = RETENTION_INTERVENTIONS["PATIENT_EDUCATION_GAP"]
 

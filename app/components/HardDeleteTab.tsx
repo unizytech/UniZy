@@ -28,7 +28,7 @@ interface SoftDeletedEntity {
   type_name?: string;
   default_category?: string;
   consultation_type_id?: string;
-  doctor_id?: string;
+  counsellor_id?: string;
   description?: string;
   created_at?: string;
   updated_at?: string;
@@ -39,9 +39,9 @@ interface EntityRelationships {
   entity_id: string;
   relationships: {
     consultation_types?: Array<{ id: string; type_code: string; type_name: string }>;
-    templates?: Array<{ id: string; template_code: string; template_name: string; doctor_id?: string }>;
+    templates?: Array<{ id: string; template_code: string; template_name: string; counsellor_id?: string }>;
     segments?: Array<{ segment_id?: string; segment_code: string; category?: string; default_category?: string }>;
-    doctors?: Array<{ id: string; name: string; email: string; specialty?: string }>;
+    counsellors?: Array<{ id: string; name: string; email: string; specialty?: string }>;
   };
 }
 
@@ -61,7 +61,7 @@ function RelationshipDetails({
     (relationships.relationships.consultation_types?.length || 0) > 0 ||
     (relationships.relationships.templates?.length || 0) > 0 ||
     (relationships.relationships.segments?.length || 0) > 0 ||
-    (relationships.relationships.doctors?.length || 0) > 0;
+    (relationships.relationships.counsellors?.length || 0) > 0;
 
   if (!hasRelationships) {
     return <>{children}</>;
@@ -161,13 +161,13 @@ function RelationshipDetails({
                 </div>
               )}
 
-              {relationships.relationships.doctors && relationships.relationships.doctors.length > 0 && (
+              {relationships.relationships.counsellors && relationships.relationships.counsellors.length > 0 && (
                 <div>
                   <h6 className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
-                    Counsellors ({relationships.relationships.doctors.length})
+                    Counsellors ({relationships.relationships.counsellors.length})
                   </h6>
                   <ul className="space-y-1.5">
-                    {relationships.relationships.doctors.map((doc) => (
+                    {relationships.relationships.counsellors.map((doc) => (
                       <li key={doc.id} className="text-sm text-gray-700">
                         <span className="font-medium">{doc.name}</span>
                         <span className="text-gray-500 ml-1">({doc.email})</span>
@@ -470,8 +470,8 @@ export function HardDeleteTab() {
       count += c;
       details.push(`${c} segment${c > 1 ? 's' : ''}`);
     }
-    if (rel.relationships.doctors?.length) {
-      const c = rel.relationships.doctors.length;
+    if (rel.relationships.counsellors?.length) {
+      const c = rel.relationships.counsellors.length;
       count += c;
       details.push(`${c} counsellor${c > 1 ? 's' : ''}`);
     }

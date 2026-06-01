@@ -3,23 +3,23 @@
 /**
  * Providers Screen
  *
- * Wrapper with three sub-tabs: Doctors, Nurses, Hospitals.
+ * Wrapper with three sub-tabs: Counsellors, Assistants, Schools.
  */
 
 import { useState } from 'react';
-import DoctorManageScreen from './DoctorManageScreen';
-import NurseConfigScreen from './NurseConfigScreen';
-import HospitalManageScreen from './HospitalManageScreen';
+import CounsellorManageScreen from './CounsellorManageScreen';
+import AssistantConfigScreen from './AssistantConfigScreen';
+import SchoolManageScreen from './SchoolManageScreen';
 
-type ProviderTab = 'doctors' | 'nurses' | 'hospitals';
+type ProviderTab = 'counsellors' | 'assistants' | 'schools';
 
 export default function ProvidersScreen() {
-  const [activeTab, setActiveTab] = useState<ProviderTab>('doctors');
+  const [activeTab, setActiveTab] = useState<ProviderTab>('counsellors');
 
   const tabs: { key: ProviderTab; label: string }[] = [
-    { key: 'doctors', label: 'Counsellors' },
-    { key: 'nurses', label: 'Assistants' },
-    { key: 'hospitals', label: 'Schools' },
+    { key: 'counsellors', label: 'Counsellors' },
+    { key: 'assistants', label: 'Assistants' },
+    { key: 'schools', label: 'Schools' },
   ];
 
   return (
@@ -42,9 +42,9 @@ export default function ProvidersScreen() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'doctors' && <DoctorManageScreen />}
-      {activeTab === 'nurses' && <NurseConfigScreen />}
-      {activeTab === 'hospitals' && <HospitalManageScreen />}
+      {activeTab === 'counsellors' && <CounsellorManageScreen />}
+      {activeTab === 'assistants' && <AssistantConfigScreen />}
+      {activeTab === 'schools' && <SchoolManageScreen />}
     </div>
   );
 }

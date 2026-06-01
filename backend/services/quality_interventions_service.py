@@ -74,7 +74,7 @@ QUALITY_INTERVENTIONS: Dict[str, QualityInterventionDefinition] = {
         intervention_type="POLYPHARMACY_REVIEW",
         sub_type="medication_safety",
         priority="MEDIUM",
-        reason_template="Patient on {count} medications - polypharmacy risk",
+        reason_template="Student on {count} medications - polypharmacy risk",
         action_template="Schedule medication reconciliation review"
     ),
     "DOSAGE_VERIFICATION": QualityInterventionDefinition(

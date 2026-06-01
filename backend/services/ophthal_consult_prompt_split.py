@@ -4,8 +4,8 @@ Split OPHTHAL_FULL Schema for Gemini API Compatibility
 The flattened schema (130+ properties) may exceed Gemini's constraint limits.
 This module splits the extraction into TWO separate API calls:
 
-PART 1 (76 fields): PATIENT DATA & PRIMARY EXAMINATION
-- Patient demographics (7 fields, including doctorName)
+PART 1 (76 fields): STUDENT DATA & PRIMARY EXAMINATION
+- Student demographics (7 fields, including doctorName)
 - Extended history (4 fields - systemicIllness, familyHistory, allergies, pastGlassesPrescription)
 - Clinical history (3 fields)
 - Visual acuity and refraction (18 fields - bilateral with pinhole, nearAdd, nearVision)
@@ -34,20 +34,20 @@ The ophthal_consult_formatter.py service merges both results into the final nest
 from google.genai import types
 
 # ============================================================================
-# PART 1: PATIENT DATA & PRIMARY EXAMINATION (65 fields)
+# PART 1: STUDENT DATA & PRIMARY EXAMINATION (65 fields)
 # ============================================================================
 
 OPHTHAL_FULL_PART1_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # ========== SECTION 1: PATIENT DEMOGRAPHICS (7 fields) ==========
-        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+        # ========== SECTION 1: STUDENT DEMOGRAPHICS (7 fields) ==========
+        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
-        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years', '6 months') or empty string"),
+        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years', '6 months') or empty string"),
         "patientDemographics_gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
         "patientDemographics_consultationDate": types.Schema(type=types.Type.STRING, description="Date in YYYY-MM-DD format or empty string"),
         "patientDemographics_visitId": types.Schema(type=types.Type.STRING, description="Visit/appointment ID or empty string"),
-        "patientDemographics_doctorName": types.Schema(type=types.Type.STRING, description="Consulting doctor name or empty string"),
+        "patientDemographics_doctorName": types.Schema(type=types.Type.STRING, description="Consulting counsellor name or empty string"),
 
         # ========== SECTION 1A: EXTENDED HISTORY (4 fields - NEW) ==========
         "extendedHistory_systemicIllness": types.Schema(type=types.Type.STRING, description="Systemic diseases affecting eyes or empty string"),
@@ -63,7 +63,7 @@ OPHTHAL_FULL_PART1_SCHEMA = types.Schema(
         # ========== SECTION 5: VISUAL ACUITY AND REFRACTION (18 fields - bilateral with new fields) ==========
         "visualAcuityAndRefraction_rightEye_unaidedVision": types.Schema(type=types.Type.STRING, description="Right eye Snellen notation (e.g., 6/60, 20/20) or N/A"),
         "visualAcuityAndRefraction_rightEye_aidedVision": types.Schema(type=types.Type.STRING, description="Right eye vision with correction or N/A"),
-        "visualAcuityAndRefraction_rightEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Right eye vision with patient's own glasses or N/A"),
+        "visualAcuityAndRefraction_rightEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Right eye vision with student's own glasses or N/A"),
         "visualAcuityAndRefraction_rightEye_pinholeVision": types.Schema(type=types.Type.STRING, description="Right eye vision with pinhole or N/A"),
         "visualAcuityAndRefraction_rightEye_nearAdd": types.Schema(type=types.Type.STRING, description="Right eye near addition power for presbyopia or N/A"),
         "visualAcuityAndRefraction_rightEye_nearVision": types.Schema(type=types.Type.STRING, description="Right eye near vision (N notation) or N/A"),
@@ -72,7 +72,7 @@ OPHTHAL_FULL_PART1_SCHEMA = types.Schema(
         "visualAcuityAndRefraction_rightEye_refractionAxis": types.Schema(type=types.Type.NUMBER, description="Right eye axis in degrees (0-180)", nullable=True),
         "visualAcuityAndRefraction_leftEye_unaidedVision": types.Schema(type=types.Type.STRING, description="Left eye Snellen notation or N/A"),
         "visualAcuityAndRefraction_leftEye_aidedVision": types.Schema(type=types.Type.STRING, description="Left eye vision with correction or N/A"),
-        "visualAcuityAndRefraction_leftEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Left eye vision with patient's own glasses or N/A"),
+        "visualAcuityAndRefraction_leftEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Left eye vision with student's own glasses or N/A"),
         "visualAcuityAndRefraction_leftEye_pinholeVision": types.Schema(type=types.Type.STRING, description="Left eye vision with pinhole or N/A"),
         "visualAcuityAndRefraction_leftEye_nearAdd": types.Schema(type=types.Type.STRING, description="Left eye near addition power for presbyopia or N/A"),
         "visualAcuityAndRefraction_leftEye_nearVision": types.Schema(type=types.Type.STRING, description="Left eye near vision (N notation) or N/A"),

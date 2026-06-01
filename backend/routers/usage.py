@@ -2,7 +2,7 @@
 Usage Analytics Router
 
 Provides endpoints for aggregated LLM usage analytics:
-- Summary by API client, hospital, or doctor
+- Summary by API client, school, or counsellor
 - Total cost, recording hours, and token usage
 - Date range filtering
 - Model pricing management (view, update, refresh from web)
@@ -33,12 +33,12 @@ models_router = APIRouter(prefix="/api/v1/models", tags=["Model Pricing"])
 # ============================================================================
 
 class UsageSummaryItem(BaseModel):
-    """Individual usage summary item for a group (API client, hospital, or doctor)."""
+    """Individual usage summary item for a group (API client, school, or counsellor)."""
     group_id: UUID
     group_name: str
-    group_type: str  # client_type for api_client, "hospital" for hospital, specialization for doctor
-    hospital_id: Optional[UUID] = None
-    hospital_name: Optional[str] = None
+    group_type: str  # client_type for api_client, "hospital" for school, specialization for counsellor
+    school_id: Optional[UUID] = None
+    school_name: Optional[str] = None
     total_api_calls: int
     total_sessions: int
     total_cost_usd: float
@@ -66,8 +66,8 @@ class UsageTotals(BaseModel):
     total_input_tokens: int
     total_output_tokens: int
     total_recording_hours: float
-    unique_doctors: int
-    unique_hospitals: int
+    unique_counsellors: int
+    unique_schools: int
     unique_api_clients: int
 
 
@@ -85,31 +85,31 @@ class APIClientOption(BaseModel):
     id: UUID
     client_name: str
     client_type: str
-    hospital_id: Optional[UUID] = None
-    hospital_name: Optional[str] = None
+    school_id: Optional[UUID] = None
+    school_name: Optional[str] = None
 
 
-class HospitalOption(BaseModel):
-    """Hospital option for dropdown."""
+class SchoolOption(BaseModel):
+    """School option for dropdown."""
     id: UUID
-    hospital_name: str
-    hospital_code: Optional[str] = None
+    school_name: str
+    school_code: Optional[str] = None
 
 
-class DoctorOption(BaseModel):
-    """Doctor option for dropdown."""
+class CounsellorOption(BaseModel):
+    """Counsellor option for dropdown."""
     id: UUID
     full_name: str
     specialization: Optional[str] = None
-    hospital_id: Optional[UUID] = None
-    hospital_name: Optional[str] = None
+    school_id: Optional[UUID] = None
+    school_name: Optional[str] = None
 
 
 class FilterOptionsResponse(BaseModel):
     """Response with filter dropdown options."""
     api_clients: List[APIClientOption]
-    hospitals: List[HospitalOption]
-    doctors: List[DoctorOption]
+    schools: List[SchoolOption]
+    counsellors: List[CounsellorOption]
 
 
 # ============================================================================
@@ -118,25 +118,25 @@ class FilterOptionsResponse(BaseModel):
 
 @router.get("/summary", response_model=UsageSummaryResponse)
 async def get_usage_summary(
-    group_by: str = Query("doctor", description="Group by: api_client, hospital, doctor"),
+    group_by: str = Query("doctor", description="Group by: api_client, school, counsellor"),
     date_from: Optional[datetime] = Query(None, description="Start date (inclusive)"),
     date_to: Optional[datetime] = Query(None, description="End date (exclusive)"),
     api_client_id: Optional[UUID] = Query(None, description="Filter by API client"),
-    hospital_id: Optional[UUID] = Query(None, description="Filter by hospital"),
-    doctor_id: Optional[UUID] = Query(None, description="Filter by doctor"),
+    school_id: Optional[UUID] = Query(None, description="Filter by school"),
+    counsellor_id: Optional[UUID] = Query(None, description="Filter by counsellor"),
     limit: int = Query(100, ge=1, le=500, description="Max results"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     client: ClientContext = Depends(require_admin),
 ):
     """
-    Get aggregated usage summary by API client, hospital, or doctor.
+    Get aggregated usage summary by API client, school, or counsellor.
 
     **Admin only** - Provides comprehensive usage analytics for billing and monitoring.
 
     **Group by options:**
     - `api_client`: Aggregate by API client (EHR integrations, mobile apps, etc.)
-    - `hospital`: Aggregate by hospital
-    - `doctor`: Aggregate by individual doctor
+    - `hospital`: Aggregate by school
+    - `doctor`: Aggregate by individual counsellor
 
     **Returns:**
     - List of usage items with costs, recording hours, and token usage
@@ -145,7 +145,7 @@ async def get_usage_summary(
     if group_by not in ("api_client", "hospital", "doctor"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid group_by value. Must be: api_client, hospital, or doctor"
+            detail="Invalid group_by value. Must be: api_client, school, or counsellor"
         )
 
     try:
@@ -158,8 +158,8 @@ async def get_usage_summary(
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                     "p_api_client_id": str(api_client_id) if api_client_id else None,
-                    "p_hospital_id": str(hospital_id) if hospital_id else None,
-                    "p_doctor_id": str(doctor_id) if doctor_id else None,
+                    "p_school_id": str(school_id) if school_id else None,
+                    "p_counsellor_id": str(counsellor_id) if counsellor_id else None,
                     "p_limit": limit,
                     "p_offset": offset,
                 }
@@ -172,8 +172,8 @@ async def get_usage_summary(
                 group_id=UUID(row["group_id"]) if row.get("group_id") else None,
                 group_name=row.get("group_name") or "Unknown",
                 group_type=row.get("group_type") or "",
-                hospital_id=UUID(row["hospital_id"]) if row.get("hospital_id") else None,
-                hospital_name=row.get("hospital_name"),
+                school_id=UUID(row["school_id"]) if row.get("school_id") else None,
+                school_name=row.get("school_name"),
                 total_api_calls=int(row.get("total_api_calls") or 0),
                 total_sessions=int(row.get("total_sessions") or 0),
                 total_cost_usd=float(row.get("total_cost_usd") or 0),
@@ -197,8 +197,8 @@ async def get_usage_summary(
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                     "p_api_client_id": str(api_client_id) if api_client_id else None,
-                    "p_hospital_id": str(hospital_id) if hospital_id else None,
-                    "p_doctor_id": str(doctor_id) if doctor_id else None,
+                    "p_school_id": str(school_id) if school_id else None,
+                    "p_counsellor_id": str(counsellor_id) if counsellor_id else None,
                 }
             ).execute()
         )
@@ -212,8 +212,8 @@ async def get_usage_summary(
             total_input_tokens=int(totals_row.get("total_input_tokens") or 0),
             total_output_tokens=int(totals_row.get("total_output_tokens") or 0),
             total_recording_hours=float(totals_row.get("total_recording_hours") or 0),
-            unique_doctors=int(totals_row.get("unique_doctors") or 0),
-            unique_hospitals=int(totals_row.get("unique_hospitals") or 0),
+            unique_counsellors=int(totals_row.get("unique_counsellors") or 0),
+            unique_schools=int(totals_row.get("unique_schools") or 0),
             unique_api_clients=int(totals_row.get("unique_api_clients") or 0),
         )
 
@@ -237,13 +237,13 @@ async def get_filter_options(
     """
     Get dropdown options for filtering usage data.
 
-    **Admin only** - Returns lists of API clients, hospitals, and doctors for filter dropdowns.
+    **Admin only** - Returns lists of API clients, schools, and counsellors for filter dropdowns.
     """
     try:
         # Get API clients
         api_clients_result = retry_on_network_error(
             lambda: supabase.table("api_clients")
-            .select("id, client_name, client_type, hospital_id, hospitals(hospital_name)")
+            .select("id, client_name, client_type, school_id, schools(school_name)")
             .eq("is_active", True)
             .order("client_name")
             .execute()
@@ -255,49 +255,49 @@ async def get_filter_options(
                 id=UUID(row["id"]),
                 client_name=row["client_name"],
                 client_type=row["client_type"],
-                hospital_id=UUID(row["hospital_id"]) if row.get("hospital_id") else None,
-                hospital_name=row.get("hospitals", {}).get("hospital_name") if row.get("hospitals") else None,
+                school_id=UUID(row["school_id"]) if row.get("school_id") else None,
+                school_name=row.get("schools", {}).get("school_name") if row.get("schools") else None,
             ))
 
-        # Get hospitals
-        hospitals_result = retry_on_network_error(
-            lambda: supabase.table("hospitals")
-            .select("id, hospital_name, hospital_code")
-            .order("hospital_name")
+        # Get schools
+        schools_result = retry_on_network_error(
+            lambda: supabase.table("schools")
+            .select("id, school_name, school_code")
+            .order("school_name")
             .execute()
         )
 
         hospitals = []
-        for row in hospitals_result.data or []:
-            hospitals.append(HospitalOption(
+        for row in schools_result.data or []:
+            hospitals.append(SchoolOption(
                 id=UUID(row["id"]),
-                hospital_name=row["hospital_name"],
-                hospital_code=row.get("hospital_code"),
+                school_name=row["school_name"],
+                school_code=row.get("school_code"),
             ))
 
-        # Get doctors
-        doctors_result = retry_on_network_error(
-            lambda: supabase.table("doctors")
-            .select("id, full_name, specialization, hospital_id, hospitals(hospital_name)")
+        # Get counsellors
+        counsellors_result = retry_on_network_error(
+            lambda: supabase.table("counsellors")
+            .select("id, full_name, specialization, school_id, schools(school_name)")
             .order("full_name")
             .limit(500)
             .execute()
         )
 
         doctors = []
-        for row in doctors_result.data or []:
-            doctors.append(DoctorOption(
+        for row in counsellors_result.data or []:
+            doctors.append(CounsellorOption(
                 id=UUID(row["id"]),
                 full_name=row["full_name"],
                 specialization=row.get("specialization"),
-                hospital_id=UUID(row["hospital_id"]) if row.get("hospital_id") else None,
-                hospital_name=row.get("hospitals", {}).get("hospital_name") if row.get("hospitals") else None,
+                school_id=UUID(row["school_id"]) if row.get("school_id") else None,
+                school_name=row.get("schools", {}).get("school_name") if row.get("schools") else None,
             ))
 
         return FilterOptionsResponse(
             api_clients=api_clients,
-            hospitals=hospitals,
-            doctors=doctors,
+            schools=hospitals,
+            counsellors=doctors,
         )
 
     except Exception as e:
@@ -307,12 +307,12 @@ async def get_filter_options(
 
 @router.get("/export")
 async def export_usage_csv(
-    group_by: str = Query("doctor", description="Group by: api_client, hospital, doctor"),
+    group_by: str = Query("doctor", description="Group by: api_client, school, counsellor"),
     date_from: Optional[datetime] = Query(None, description="Start date (inclusive)"),
     date_to: Optional[datetime] = Query(None, description="End date (exclusive)"),
     api_client_id: Optional[UUID] = Query(None, description="Filter by API client"),
-    hospital_id: Optional[UUID] = Query(None, description="Filter by hospital"),
-    doctor_id: Optional[UUID] = Query(None, description="Filter by doctor"),
+    school_id: Optional[UUID] = Query(None, description="Filter by school"),
+    counsellor_id: Optional[UUID] = Query(None, description="Filter by counsellor"),
     client: ClientContext = Depends(require_admin),
 ):
     """
@@ -327,7 +327,7 @@ async def export_usage_csv(
     if group_by not in ("api_client", "hospital", "doctor"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid group_by value. Must be: api_client, hospital, or doctor"
+            detail="Invalid group_by value. Must be: api_client, school, or counsellor"
         )
 
     try:
@@ -340,8 +340,8 @@ async def export_usage_csv(
                     "p_date_from": date_from.isoformat() if date_from else None,
                     "p_date_to": date_to.isoformat() if date_to else None,
                     "p_api_client_id": str(api_client_id) if api_client_id else None,
-                    "p_hospital_id": str(hospital_id) if hospital_id else None,
-                    "p_doctor_id": str(doctor_id) if doctor_id else None,
+                    "p_school_id": str(school_id) if school_id else None,
+                    "p_counsellor_id": str(counsellor_id) if counsellor_id else None,
                     "p_limit": 10000,  # Large limit for export
                     "p_offset": 0,
                 }
@@ -367,7 +367,7 @@ async def export_usage_csv(
             writer.writerow([
                 row.get("group_name", "Unknown"),
                 row.get("group_type", ""),
-                row.get("hospital_name", ""),
+                row.get("school_name", ""),
                 row.get("total_api_calls", 0),
                 row.get("total_sessions", 0),
                 f"${row.get('total_cost_usd', 0):.2f}",

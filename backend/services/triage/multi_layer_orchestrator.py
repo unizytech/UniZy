@@ -4,14 +4,14 @@ Triage Multi-Layer Orchestrator
 Phase 4 of Triage Engine Multi-Layer system.
 Orchestrates all triage layers with intelligent conflict resolution:
 - Base MVP (always active)
-- Doctor Practice Style Layer (Phase 1)
-- Hospital/Peer Intelligence Layer (Phase 2)
+- Counsellor Practice Style Layer (Phase 1)
+- School/Peer Intelligence Layer (Phase 2)
 - RAG Guidelines Layer (Phase 3)
 
 Conflict Resolution Rules:
-1. Patient Safety First: Allergies, contraindications always override
-2. Evidence Over Opinion: RAG guidelines > doctor patterns when conflicting
-3. Doctor Preference for Ties: When confidence is equal, respect doctor preference
+1. Student Safety First: Allergies, contraindications always override
+2. Evidence Over Opinion: RAG guidelines > counsellor patterns when conflicting
+3. Counsellor Preference for Ties: When confidence is equal, respect counsellor preference
 4. Layer Weights: Use configured weights for final scoring
 """
 
@@ -52,7 +52,7 @@ class LayerResult:
     # Detailed match info for Gemini context
     match_details: List[Dict[str, Any]] = field(default_factory=list)
 
-    # Cached StructuredInsights from patient history mapping (avoids duplicate DB calls)
+    # Cached StructuredInsights from student history mapping (avoids duplicate DB calls)
     cached_insights: Any = None
 
     @property
@@ -85,9 +85,9 @@ class TriageMultiLayerOrchestrator:
         orchestrator = TriageMultiLayerOrchestrator()
         suggestions = await orchestrator.generate_suggestions(
             extraction=extraction_data,
-            patient_id=patient_uuid,
-            doctor_id=doctor_uuid,
-            hospital_id=hospital_uuid,
+            student_id=patient_uuid,
+            counsellor_id=counsellor_uuid,
+            school_id=school_uuid,
             supabase_client=supabase
         )
     """
@@ -112,18 +112,18 @@ class TriageMultiLayerOrchestrator:
 
     @property
     def practice_layer(self):
-        """Lazy load doctor practice layer."""
+        """Lazy load counsellor practice layer."""
         if self._practice_layer is None:
-            from .doctor_practice_layer import DoctorPracticeLayer
-            self._practice_layer = DoctorPracticeLayer()
+            from .counsellor_practice_layer import CounsellorPracticeLayer
+            self._practice_layer = CounsellorPracticeLayer()
         return self._practice_layer
 
     @property
-    def hospital_layer(self):
-        """Lazy load hospital intelligence layer."""
+    def school_layer(self):
+        """Lazy load school intelligence layer."""
         if self._hospital_layer is None:
-            from .hospital_intelligence_layer import HospitalIntelligenceLayer
-            self._hospital_layer = HospitalIntelligenceLayer()
+            from .school_intelligence_layer import SchoolIntelligenceLayer
+            self._hospital_layer = SchoolIntelligenceLayer()
         return self._hospital_layer
 
     @property
@@ -136,14 +136,14 @@ class TriageMultiLayerOrchestrator:
 
     async def get_enabled_layers(
         self,
-        doctor_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         supabase_client=None
     ) -> List[LayerConfig]:
         """
         Get list of enabled triage layers with their configuration.
 
         Args:
-            doctor_id: Optional doctor UUID for doctor-specific preferences
+            counsellor_id: Optional counsellor UUID for counsellor-specific preferences
             supabase_client: Supabase client for DB operations
 
         Returns:
@@ -159,7 +159,7 @@ class TriageMultiLayerOrchestrator:
         try:
             result = client.rpc(
                 'get_enabled_triage_layers',
-                {'p_doctor_id': doctor_id}
+                {'p_counsellor_id': counsellor_id}
             ).execute()
 
             layers = []
@@ -183,9 +183,9 @@ class TriageMultiLayerOrchestrator:
     async def generate_suggestions(
         self,
         extraction: Dict[str, Any],
-        patient_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
-        hospital_id: Optional[str] = None,
+        student_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
+        school_id: Optional[str] = None,
         consultation_type_code: Optional[str] = None,
         include_gemini_analysis: bool = True,
         log_suggestions: bool = True,
@@ -200,14 +200,14 @@ class TriageMultiLayerOrchestrator:
         2. RAG Clinical Conditions (Primary) - Semantic search (~500ms), may override trees
         3. Merge with override logic - RAG > Trees when high confidence
         4. Gemini Gap Analysis - Receives RAG context, fills gaps
-        5. Personalization Layers - Doctor practice, hospital intelligence
+        5. Personalization Layers - Counsellor practice, school intelligence
         6. Final conflict resolution and deduplication
 
         Args:
             extraction: Extraction record from database
-            patient_id: Optional patient UUID for historical context
-            doctor_id: Optional doctor UUID
-            hospital_id: Optional hospital UUID
+            student_id: Optional student UUID for historical context
+            counsellor_id: Optional counsellor UUID
+            school_id: Optional school UUID
             consultation_type_code: Optional consultation type code
             include_gemini_analysis: Whether to use Gemini AI for gap analysis
             log_suggestions: Whether to log suggestions to database
@@ -223,7 +223,7 @@ class TriageMultiLayerOrchestrator:
         client = supabase_client or self.supabase
 
         # Step 1: Get layer configuration
-        layer_configs = await self.get_enabled_layers(doctor_id, client)
+        layer_configs = await self.get_enabled_layers(counsellor_id, client)
         layer_map = {lc.layer_code: lc for lc in layer_configs}
 
         # Override with explicit enabled_layers if provided
@@ -239,8 +239,8 @@ class TriageMultiLayerOrchestrator:
         # =========================================================================
         tree_result = await self._run_fast_cache_layer(
             extraction=extraction,
-            patient_id=patient_id,
-            doctor_id=doctor_id,
+            student_id=student_id,
+            counsellor_id=counsellor_id,
             consultation_type_code=consultation_type_code,
             supabase_client=client
         )
@@ -309,8 +309,8 @@ class TriageMultiLayerOrchestrator:
                 # Pass cached insights from fast cache layer to avoid duplicate DB call
                 gemini_suggestions = await self.base_engine.generate_suggestions_v2(
                     extraction=extraction,
-                    patient_id=patient_id,
-                    doctor_id=doctor_id,
+                    student_id=student_id,
+                    counsellor_id=counsellor_id,
                     consultation_type_code=consultation_type_code,
                     include_gemini_analysis=True,
                     log_suggestions=False,
@@ -333,40 +333,40 @@ class TriageMultiLayerOrchestrator:
         # Step 5: PERSONALIZATION LAYERS
         # =========================================================================
 
-        # Step 5a: Apply Doctor Practice Layer
-        if "doctor_practice" in active_layers and doctor_id:
+        # Step 5a: Apply Counsellor Practice Layer
+        if "doctor_practice" in active_layers and counsellor_id:
             try:
                 practice_style = await self.practice_layer.get_practice_style(
-                    doctor_id, client
+                    counsellor_id, client
                 )
                 if practice_style and practice_style.has_sufficient_data:
                     suggestions = self.practice_layer.enhance_suggestions(
                         suggestions, practice_style
                     )
                     self._tag_enhanced_suggestions(suggestions, "doctor_practice")
-                    logger.info(f"[ORCHESTRATOR] Applied doctor practice layer")
+                    logger.info(f"[ORCHESTRATOR] Applied counsellor practice layer")
             except Exception as e:
-                logger.warning(f"[ORCHESTRATOR] Doctor practice layer failed: {e}")
+                logger.warning(f"[ORCHESTRATOR] Counsellor practice layer failed: {e}")
 
-        # Step 5b: Apply Hospital Intelligence Layer
-        if "hospital_intelligence" in active_layers and hospital_id:
+        # Step 5b: Apply School Intelligence Layer
+        if "hospital_intelligence" in active_layers and school_id:
             try:
                 specialty = suggestions.specialty or "general_medicine"
 
-                hospital_patterns = await self.hospital_layer.get_hospital_patterns(
-                    hospital_id, specialty, client
+                school_patterns = await self.school_layer.get_school_patterns(
+                    school_id, specialty, client
                 )
-                if hospital_patterns and hospital_patterns.has_sufficient_data:
-                    outlier_flags = self.hospital_layer.detect_outliers(
-                        suggestions, hospital_patterns
+                if school_patterns and school_patterns.has_sufficient_data:
+                    outlier_flags = self.school_layer.detect_outliers(
+                        suggestions, school_patterns
                     )
-                    suggestions = self.hospital_layer.enhance_with_peer_context(
-                        suggestions, hospital_patterns, outlier_flags
+                    suggestions = self.school_layer.enhance_with_peer_context(
+                        suggestions, school_patterns, outlier_flags
                     )
                     self._tag_enhanced_suggestions(suggestions, "hospital_intelligence")
-                    logger.info(f"[ORCHESTRATOR] Applied hospital intelligence layer")
+                    logger.info(f"[ORCHESTRATOR] Applied school intelligence layer")
             except Exception as e:
-                logger.warning(f"[ORCHESTRATOR] Hospital intelligence layer failed: {e}")
+                logger.warning(f"[ORCHESTRATOR] School intelligence layer failed: {e}")
 
         # =========================================================================
         # Step 6: CONFLICT RESOLUTION & DEDUPLICATION
@@ -391,7 +391,7 @@ class TriageMultiLayerOrchestrator:
             await self._log_suggestions_with_layers(
                 suggestions=suggestions,
                 extraction_id=extraction.get("id"),
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
                 supabase_client=client
             )
 
@@ -475,8 +475,8 @@ class TriageMultiLayerOrchestrator:
     async def _run_fast_cache_layer(
         self,
         extraction: Dict[str, Any],
-        patient_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
+        student_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         consultation_type_code: Optional[str] = None,
         supabase_client=None
     ) -> LayerResult:
@@ -490,8 +490,8 @@ class TriageMultiLayerOrchestrator:
 
         Args:
             extraction: Extraction record
-            patient_id: Optional patient UUID
-            doctor_id: Optional doctor UUID
+            student_id: Optional student UUID
+            counsellor_id: Optional counsellor UUID
             consultation_type_code: Optional consultation type
             supabase_client: Supabase client
 
@@ -502,12 +502,12 @@ class TriageMultiLayerOrchestrator:
         start_time = time.time()
 
         try:
-            # Get patient-enriched insights if patient_id is provided
-            if patient_id and supabase_client:
-                from .structured_insights import map_extraction_with_patient_history
-                insights = await map_extraction_with_patient_history(
+            # Get student-enriched insights if student_id is provided
+            if student_id and supabase_client:
+                from .structured_insights import map_extraction_with_student_history
+                insights = await map_extraction_with_student_history(
                     extraction=extraction,
-                    patient_id=patient_id,
+                    student_id=student_id,
                     supabase_client=supabase_client,
                     consultation_type_code=consultation_type_code
                 )
@@ -777,9 +777,9 @@ class TriageMultiLayerOrchestrator:
         Resolve conflicts between layer suggestions.
 
         Resolution Rules:
-        1. Patient Safety First: Red flags and allergy vetoes always win
+        1. Student Safety First: Red flags and allergy vetoes always win
         2. Evidence Over Opinion: RAG guidelines outweigh practice patterns
-        3. Doctor Preference for Ties: When equal, respect doctor preference
+        3. Counsellor Preference for Ties: When equal, respect counsellor preference
         4. Deduplication: Remove duplicate suggestions, keep highest priority
 
         Returns:
@@ -873,7 +873,7 @@ class TriageMultiLayerOrchestrator:
         self,
         suggestions: "TriageSuggestions",
         extraction_id: str,
-        doctor_id: Optional[str],
+        counsellor_id: Optional[str],
         supabase_client
     ):
         """Log suggestions with layer_sources metadata."""
@@ -893,7 +893,7 @@ class TriageMultiLayerOrchestrator:
 
                     records.append({
                         'extraction_id': extraction_id,
-                        'doctor_id': doctor_id,
+                        'counsellor_id': counsellor_id,
                         'suggestion_category': priority,
                         'suggestion_type': suggestion.category,
                         'suggestion_text': suggestion.suggestion,

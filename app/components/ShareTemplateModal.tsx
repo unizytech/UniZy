@@ -3,26 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import {
   shareTemplate,
-  shareTemplateWithHospital,
+  shareTemplateWithSchool,
   shareTemplateWithSpecialization,
   revokeTemplateAccess,
   getTemplateShares,
   handleApiError
 } from "@lib/summaryApi";
 import {
-  getAllDoctorsForSharing,
-  getHospitals,
+  getAllCounsellorsForSharing,
+  getSchools,
   getSpecializations,
-  DoctorListItem,
-  Hospital
-} from "@/services/doctorApi";
+  CounsellorListItem,
+  School
+} from "@/services/counsellorApi";
 import {
-  getAllNursesForSharing,
-  shareTemplateWithNurses,
-  getTemplateNurseShares,
-  revokeNurseTemplateAccess,
-  type NurseListItem
-} from "@/services/nurseApi";
+  getAllAssistantsForSharing,
+  shareTemplateWithAssistants,
+  getTemplateAssistantShares,
+  revokeAssistantTemplateAccess,
+  type AssistantListItem
+} from "@/services/assistantApi";
 import { useAuth } from '@lib/auth';
 
 interface ShareTemplateModalProps {
@@ -32,7 +32,7 @@ interface ShareTemplateModalProps {
   onShareComplete?: () => void;
 }
 
-type ShareTab = 'individual' | 'hospital' | 'specialization' | 'nurses';
+type ShareTab = 'individual' | 'hospital' | 'specialization' | 'assistants';
 
 export function ShareTemplateModal({
   template,
@@ -42,36 +42,36 @@ export function ShareTemplateModal({
 }: ShareTemplateModalProps) {
   const { getAccessToken } = useAuth();
   const [activeTab, setActiveTab] = useState<ShareTab>('individual');
-  const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);
-  const [selectedHospitals, setSelectedHospitals] = useState<string[]>([]);
+  const [selectedCounsellors, setSelectedCounsellors] = useState<string[]>([]);
+  const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
   // accessLevel removed — all shares are now 'use'
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [sharedDoctors, setSharedDoctors] = useState<any[]>([]);
+  const [sharedCounsellors, setSharedCounsellors] = useState<any[]>([]);
 
   // Owner selection for global templates
   const [selectedOwner, setSelectedOwner] = useState<string>('');
-  const isGlobalTemplate = !template?.doctor_id;
+  const isGlobalTemplate = !template?.counsellor_id;
 
   // Track initial state for comparison (to detect adds/removes)
-  const [initialHospitalIds, setInitialHospitalIds] = useState<string[]>([]);
+  const [initialSchoolIds, setInitialSchoolIds] = useState<string[]>([]);
   const [initialSpecializations, setInitialSpecializations] = useState<string[]>([]);
 
   // Data fetching states
-  const [doctors, setDoctors] = useState<DoctorListItem[]>([]);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [doctors, setCounsellors] = useState<CounsellorListItem[]>([]);
+  const [hospitals, setSchools] = useState<School[]>([]);
   const [specializations, setSpecializations] = useState<string[]>([]);
-  const [nurses, setNurses] = useState<NurseListItem[]>([]);
+  const [nurses, setAssistants] = useState<AssistantListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [nurseSearchQuery, setNurseSearchQuery] = useState('');
+  const [nurseSearchQuery, setAssistantSearchQuery] = useState('');
 
-  // Nurse selection state
-  const [selectedNurses, setSelectedNurses] = useState<string[]>([]);
-  const [sharedNurses, setSharedNurses] = useState<Array<{ nurse_id: string; is_active: boolean }>>([]);
-  const [initialNurseIds, setInitialNurseIds] = useState<string[]>([]);
+  // Assistant selection state
+  const [selectedAssistants, setSelectedAssistants] = useState<string[]>([]);
+  const [sharedAssistants, setSharedAssistants] = useState<Array<{ assistant_id: string; is_active: boolean }>>([]);
+  const [initialAssistantIds, setInitialAssistantIds] = useState<string[]>([]);
 
   // Fetch data on mount
   useEffect(() => {
@@ -85,38 +85,38 @@ export function ShareTemplateModal({
       setLoading(true);
       const token = getAccessToken();
       const [doctorsData, hospitalsData, specializationsData, sharesData, nursesData, nurseSharesData] = await Promise.all([
-        getAllDoctorsForSharing(token),
-        getHospitals(token),
+        getAllCounsellorsForSharing(token),
+        getSchools(token),
         getSpecializations(token),
         getTemplateShares(template.id, token),
-        getAllNursesForSharing(token),
-        getTemplateNurseShares(template.id, token)
+        getAllAssistantsForSharing(token),
+        getTemplateAssistantShares(template.id, token)
       ]);
 
-      setDoctors(doctorsData);
-      setHospitals(hospitalsData);
+      setCounsellors(doctorsData);
+      setSchools(hospitalsData);
       setSpecializations(specializationsData);
-      setNurses(nursesData);
+      setAssistants(nursesData);
 
-      // Set existing doctor shares
+      // Set existing counsellor shares
       if (sharesData.success) {
-        setSharedDoctors(sharesData.shares.doctors);
+        setSharedCounsellors(sharesData.shares.counsellors);
 
         // Pre-select existing shares
-        setSelectedDoctors(sharesData.shares.doctors.map(d => d.doctor_id));
-        setSelectedHospitals(sharesData.shares.hospital_ids);
+        setSelectedCounsellors(sharesData.shares.counsellors.map(d => d.counsellor_id));
+        setSelectedSchools(sharesData.shares.school_ids);
         setSelectedSpecializations(sharesData.shares.specializations);
 
         // Store initial state for comparison when saving
-        setInitialHospitalIds(sharesData.shares.hospital_ids);
+        setInitialSchoolIds(sharesData.shares.school_ids);
         setInitialSpecializations(sharesData.shares.specializations);
       }
 
-      // Set existing nurse shares
+      // Set existing assistant shares
       if (nurseSharesData && nurseSharesData.length > 0) {
-        setSharedNurses(nurseSharesData);
-        setSelectedNurses(nurseSharesData.map(s => s.nurse_id));
-        setInitialNurseIds(nurseSharesData.map(s => s.nurse_id));
+        setSharedAssistants(nurseSharesData);
+        setSelectedAssistants(nurseSharesData.map(s => s.assistant_id));
+        setInitialAssistantIds(nurseSharesData.map(s => s.assistant_id));
       }
     } catch (err) {
       setError('Failed to load data: ' + (err as Error).message);
@@ -133,8 +133,8 @@ export function ShareTemplateModal({
       setError(null);
       setSuccess(null);
 
-      // Validate owner selection for global templates (only for doctor tabs, not nurses)
-      if (isGlobalTemplate && !selectedOwner && activeTab !== 'nurses') {
+      // Validate owner selection for global templates (only for counsellor tabs, not assistants)
+      if (isGlobalTemplate && !selectedOwner && activeTab !== 'assistants') {
         setError('Please select a template owner before sharing. This will convert the global template to a counsellor-owned template.');
         setSharing(false);
         return;
@@ -147,29 +147,29 @@ export function ShareTemplateModal({
       // For global templates, pass the selectedOwner to assign ownership
       const newOwnerId = isGlobalTemplate ? selectedOwner : undefined;
 
-      // Determine who is sharing: existing owner for doctor templates, or selected owner for global templates
-      const sharingDoctorId = template.doctor_id || selectedOwner;
+      // Determine who is sharing: existing owner for counsellor templates, or selected owner for global templates
+      const sharingCounsellorId = template.counsellor_id || selectedOwner;
 
       // Each tab operates independently - only process the active tab's selections
       if (activeTab === 'individual') {
-        // DOCTORS TAB: Add/remove individual doctor shares
-        // Ignore hospitals and specializations state completely
-        const existingDoctorIds = sharedDoctors.map(d => d.doctor_id);
-        const doctorsToAdd = selectedDoctors.filter(id => !existingDoctorIds.includes(id));
-        const doctorsToRemove = existingDoctorIds.filter(id => !selectedDoctors.includes(id));
+        // COUNSELLORS TAB: Add/remove individual counsellor shares
+        // Ignore schools and specializations state completely
+        const existingCounsellorIds = sharedCounsellors.map(d => d.counsellor_id);
+        const doctorsToAdd = selectedCounsellors.filter(id => !existingCounsellorIds.includes(id));
+        const doctorsToRemove = existingCounsellorIds.filter(id => !selectedCounsellors.includes(id));
 
         // Add new shares (with ownership assignment for global templates)
         const token = getAccessToken();
         if (doctorsToAdd.length > 0) {
-          const result = await shareTemplate(sharingDoctorId, template.id, doctorsToAdd, newOwnerId, token);
+          const result = await shareTemplate(sharingCounsellorId, template.id, doctorsToAdd, newOwnerId, token);
           totalShared = result.shared_count;
           if (result.ownership_assigned) {
             ownershipAssigned = true;
           }
         } else if (newOwnerId) {
-          // Even if no doctors to add, we need to assign ownership
+          // Even if no counsellors to add, we need to assign ownership
           // Create a share for just the owner
-          const result = await shareTemplate(sharingDoctorId, template.id, [newOwnerId], newOwnerId, token);
+          const result = await shareTemplate(sharingCounsellorId, template.id, [newOwnerId], newOwnerId, token);
           if (result.ownership_assigned) {
             ownershipAssigned = true;
           }
@@ -178,7 +178,7 @@ export function ShareTemplateModal({
         // Remove unchecked shares
         if (doctorsToRemove.length > 0) {
           for (const doctorId of doctorsToRemove) {
-            await revokeTemplateAccess(sharingDoctorId, doctorId, template.id, token);
+            await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
             totalRemoved++;
           }
         }
@@ -197,19 +197,19 @@ export function ShareTemplateModal({
         }
 
       } else if (activeTab === 'hospital') {
-        // HOSPITAL TAB: Add/remove hospital shares
-        // Ignore doctors and specializations state completely
+        // SCHOOL TAB: Add/remove school shares
+        // Ignore counsellors and specializations state completely
         const token = getAccessToken();
 
-        // Determine which hospitals to add and which to remove
-        const hospitalsToAdd = selectedHospitals.filter(id => !initialHospitalIds.includes(id));
-        const hospitalsToRemove = initialHospitalIds.filter(id => !selectedHospitals.includes(id));
+        // Determine which schools to add and which to remove
+        const hospitalsToAdd = selectedSchools.filter(id => !initialSchoolIds.includes(id));
+        const hospitalsToRemove = initialSchoolIds.filter(id => !selectedSchools.includes(id));
 
-        // Add new hospital shares (pass owner on first share for global templates)
+        // Add new school shares (pass owner on first share for global templates)
         let ownerPassedOnce = false;
         for (const hospitalId of hospitalsToAdd) {
           const ownerForThisCall = (!ownerPassedOnce && newOwnerId) ? newOwnerId : undefined;
-          const result = await shareTemplateWithHospital(sharingDoctorId, template.id, hospitalId, ownerForThisCall, token);
+          const result = await shareTemplateWithSchool(sharingCounsellorId, template.id, hospitalId, ownerForThisCall, token);
           totalShared += result.shared_count;
           if (result.ownership_assigned) {
             ownershipAssigned = true;
@@ -217,24 +217,24 @@ export function ShareTemplateModal({
           }
         }
 
-        // If no hospitals to add but we need to assign ownership, do it via individual share
+        // If no schools to add but we need to assign ownership, do it via individual share
         if (hospitalsToAdd.length === 0 && newOwnerId) {
-          const result = await shareTemplate(sharingDoctorId, template.id, [newOwnerId], newOwnerId, token);
+          const result = await shareTemplate(sharingCounsellorId, template.id, [newOwnerId], newOwnerId, token);
           if (result.ownership_assigned) {
             ownershipAssigned = true;
           }
         }
 
-        // Remove unchecked hospital shares (revoke from ALL doctors in those hospitals)
+        // Remove unchecked school shares (revoke from ALL counsellors in those schools)
         for (const hospitalId of hospitalsToRemove) {
-          // Get all doctors in this hospital from the sharedDoctors list
-          const doctorsInHospital = sharedDoctors
-            .filter(d => d.hospital_id === hospitalId)
-            .map(d => d.doctor_id);
+          // Get all counsellors in this school from the sharedCounsellors list
+          const doctorsInSchool = sharedCounsellors
+            .filter(d => d.school_id === hospitalId)
+            .map(d => d.counsellor_id);
 
-          // Revoke access from each doctor
-          for (const doctorId of doctorsInHospital) {
-            await revokeTemplateAccess(sharingDoctorId, doctorId, template.id, token);
+          // Revoke access from each counsellor
+          for (const doctorId of doctorsInSchool) {
+            await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
             totalRemoved++;
           }
         }
@@ -254,7 +254,7 @@ export function ShareTemplateModal({
 
       } else if (activeTab === 'specialization') {
         // SPECIALIZATION TAB: Add/remove specialization shares
-        // Ignore doctors and hospitals state completely
+        // Ignore counsellors and schools state completely
         const token = getAccessToken();
 
         // Determine which specializations to add and which to remove
@@ -265,7 +265,7 @@ export function ShareTemplateModal({
         let ownerPassedOnce = false;
         for (const spec of specsToAdd) {
           const ownerForThisCall = (!ownerPassedOnce && newOwnerId) ? newOwnerId : undefined;
-          const result = await shareTemplateWithSpecialization(sharingDoctorId, template.id, spec, ownerForThisCall, token);
+          const result = await shareTemplateWithSpecialization(sharingCounsellorId, template.id, spec, ownerForThisCall, token);
           totalShared += result.shared_count;
           if (result.ownership_assigned) {
             ownershipAssigned = true;
@@ -275,22 +275,22 @@ export function ShareTemplateModal({
 
         // If no specializations to add but we need to assign ownership, do it via individual share
         if (specsToAdd.length === 0 && newOwnerId) {
-          const result = await shareTemplate(sharingDoctorId, template.id, [newOwnerId], newOwnerId, token);
+          const result = await shareTemplate(sharingCounsellorId, template.id, [newOwnerId], newOwnerId, token);
           if (result.ownership_assigned) {
             ownershipAssigned = true;
           }
         }
 
-        // Remove unchecked specialization shares (revoke from ALL doctors with those specializations)
+        // Remove unchecked specialization shares (revoke from ALL counsellors with those specializations)
         for (const spec of specsToRemove) {
-          // Get all doctors with this specialization from the sharedDoctors list
-          const doctorsWithSpec = sharedDoctors
+          // Get all counsellors with this specialization from the sharedCounsellors list
+          const doctorsWithSpec = sharedCounsellors
             .filter(d => d.specialization === spec)
-            .map(d => d.doctor_id);
+            .map(d => d.counsellor_id);
 
-          // Revoke access from each doctor
+          // Revoke access from each counsellor
           for (const doctorId of doctorsWithSpec) {
-            await revokeTemplateAccess(sharingDoctorId, doctorId, template.id, token);
+            await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
             totalRemoved++;
           }
         }
@@ -307,17 +307,17 @@ export function ShareTemplateModal({
         } else {
           setSuccess('No changes made');
         }
-      } else if (activeTab === 'nurses') {
-        // NURSES TAB: Add/remove nurse shares
-        // Ignore doctors, hospitals, and specializations state completely
+      } else if (activeTab === 'assistants') {
+        // ASSISTANTS TAB: Add/remove assistant shares
+        // Ignore counsellors, schools, and specializations state completely
 
-        // Determine which nurses to add and which to remove
-        const nursesToAdd = selectedNurses.filter(id => !initialNurseIds.includes(id));
-        const nursesToRemove = initialNurseIds.filter(id => !selectedNurses.includes(id));
+        // Determine which assistants to add and which to remove
+        const nursesToAdd = selectedAssistants.filter(id => !initialAssistantIds.includes(id));
+        const nursesToRemove = initialAssistantIds.filter(id => !selectedAssistants.includes(id));
 
-        // Add new nurse shares
+        // Add new assistant shares
         if (nursesToAdd.length > 0) {
-          const result = await shareTemplateWithNurses(
+          const result = await shareTemplateWithAssistants(
             template.id,
             template.template_code,
             nursesToAdd,
@@ -326,9 +326,9 @@ export function ShareTemplateModal({
           totalShared = result.shared_count;
         }
 
-        // Remove unchecked nurse shares
+        // Remove unchecked assistant shares
         for (const nurseId of nursesToRemove) {
-          await revokeNurseTemplateAccess(nurseId, template.id, getAccessToken());
+          await revokeAssistantTemplateAccess(nurseId, template.id, getAccessToken());
           totalRemoved++;
         }
 
@@ -359,18 +359,18 @@ export function ShareTemplateModal({
 
   const handleRevoke = async (doctorId: string) => {
     try {
-      // The sharing doctor is the template owner
-      const sharingDoctorId = template.doctor_id;
-      if (!sharingDoctorId) {
+      // The sharing counsellor is the template owner
+      const sharingCounsellorId = template.counsellor_id;
+      if (!sharingCounsellorId) {
         setError('Cannot revoke access from a global template. Please assign an owner first.');
         return;
       }
       const token = getAccessToken();
-      await revokeTemplateAccess(sharingDoctorId, doctorId, template.id, token);
+      await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
       setSuccess('Access revoked successfully');
-      // Remove from both sharedDoctors AND selectedDoctors to prevent re-adding on share
-      setSharedDoctors(sharedDoctors.filter(d => d.doctor_id !== doctorId));
-      setSelectedDoctors(prev => prev.filter(id => id !== doctorId));
+      // Remove from both sharedCounsellors AND selectedCounsellors to prevent re-adding on share
+      setSharedCounsellors(sharedCounsellors.filter(d => d.counsellor_id !== doctorId));
+      setSelectedCounsellors(prev => prev.filter(id => id !== doctorId));
     } catch (err) {
       setError(handleApiError(err));
     }
@@ -379,29 +379,29 @@ export function ShareTemplateModal({
   const handleClose = () => {
     setError(null);
     setSuccess(null);
-    setSelectedDoctors([]);
-    setSelectedHospitals([]);
+    setSelectedCounsellors([]);
+    setSelectedSchools([]);
     setSelectedSpecializations([]);
-    setSelectedNurses([]);
-    setInitialHospitalIds([]);
+    setSelectedAssistants([]);
+    setInitialSchoolIds([]);
     setInitialSpecializations([]);
-    setInitialNurseIds([]);
+    setInitialAssistantIds([]);
     setSearchQuery('');
-    setNurseSearchQuery('');
+    setAssistantSearchQuery('');
     setSelectedOwner('');
     onClose();
   };
 
-  const toggleDoctor = (doctorId: string) => {
-    setSelectedDoctors(prev =>
+  const toggleCounsellor = (doctorId: string) => {
+    setSelectedCounsellors(prev =>
       prev.includes(doctorId)
         ? prev.filter(id => id !== doctorId)
         : [...prev, doctorId]
     );
   };
 
-  const toggleHospital = (hospitalId: string) => {
-    setSelectedHospitals(prev =>
+  const toggleSchool = (hospitalId: string) => {
+    setSelectedSchools(prev =>
       prev.includes(hospitalId)
         ? prev.filter(id => id !== hospitalId)
         : [...prev, hospitalId]
@@ -416,8 +416,8 @@ export function ShareTemplateModal({
     );
   };
 
-  const toggleNurse = (nurseId: string) => {
-    setSelectedNurses(prev =>
+  const toggleAssistant = (nurseId: string) => {
+    setSelectedAssistants(prev =>
       prev.includes(nurseId)
         ? prev.filter(id => id !== nurseId)
         : [...prev, nurseId]
@@ -425,22 +425,22 @@ export function ShareTemplateModal({
   };
 
   // Select All / Deselect All helpers
-  const selectAllDoctors = () => {
-    setSelectedDoctors(filteredDoctors.map(d => d.id));
+  const selectAllCounsellors = () => {
+    setSelectedCounsellors(filteredCounsellors.map(d => d.id));
   };
 
-  const deselectAllDoctors = () => {
-    // Only deselect filtered doctors (so search + deselect works intuitively)
-    const filteredIds = filteredDoctors.map(d => d.id);
-    setSelectedDoctors(prev => prev.filter(id => !filteredIds.includes(id)));
+  const deselectAllCounsellors = () => {
+    // Only deselect filtered counsellors (so search + deselect works intuitively)
+    const filteredIds = filteredCounsellors.map(d => d.id);
+    setSelectedCounsellors(prev => prev.filter(id => !filteredIds.includes(id)));
   };
 
-  const selectAllHospitals = () => {
-    setSelectedHospitals(hospitals.map(h => h.id));
+  const selectAllSchools = () => {
+    setSelectedSchools(hospitals.map(h => h.id));
   };
 
-  const deselectAllHospitals = () => {
-    setSelectedHospitals([]);
+  const deselectAllSchools = () => {
+    setSelectedSchools([]);
   };
 
   const selectAllSpecializations = () => {
@@ -451,25 +451,25 @@ export function ShareTemplateModal({
     setSelectedSpecializations([]);
   };
 
-  const selectAllNurses = () => {
-    setSelectedNurses(filteredNurses.map(n => n.id));
+  const selectAllAssistants = () => {
+    setSelectedAssistants(filteredAssistants.map(n => n.id));
   };
 
-  const deselectAllNurses = () => {
-    // Only deselect filtered nurses (so search + deselect works intuitively)
-    const filteredIds = filteredNurses.map(n => n.id);
-    setSelectedNurses(prev => prev.filter(id => !filteredIds.includes(id)));
+  const deselectAllAssistants = () => {
+    // Only deselect filtered assistants (so search + deselect works intuitively)
+    const filteredIds = filteredAssistants.map(n => n.id);
+    setSelectedAssistants(prev => prev.filter(id => !filteredIds.includes(id)));
   };
 
-  // Filter doctors based on search query
-  const filteredDoctors = doctors.filter(doc =>
+  // Filter counsellors based on search query
+  const filteredCounsellors = doctors.filter(doc =>
     doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     doc.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (doc.specialization && doc.specialization.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Filter nurses based on search query
-  const filteredNurses = nurses.filter(nurse =>
+  // Filter assistants based on search query
+  const filteredAssistants = nurses.filter(nurse =>
     nurse.full_name.toLowerCase().includes(nurseSearchQuery.toLowerCase()) ||
     nurse.email.toLowerCase().includes(nurseSearchQuery.toLowerCase()) ||
     (nurse.qualification && nurse.qualification.toLowerCase().includes(nurseSearchQuery.toLowerCase()))
@@ -555,7 +555,7 @@ export function ShareTemplateModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Individual Counsellors ({selectedDoctors.length})
+                    Individual Counsellors ({selectedCounsellors.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('hospital')}
@@ -565,7 +565,7 @@ export function ShareTemplateModal({
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    By School ({selectedHospitals.length})
+                    By School ({selectedSchools.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('specialization')}
@@ -578,20 +578,20 @@ export function ShareTemplateModal({
                     By Specialization ({selectedSpecializations.length})
                   </button>
                   <button
-                    onClick={() => setActiveTab('nurses')}
+                    onClick={() => setActiveTab('assistants')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === 'nurses'
+                      activeTab === 'assistants'
                         ? 'border-teal-500 text-teal-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Assistants ({selectedNurses.length})
+                    Assistants ({selectedAssistants.length})
                   </button>
                 </nav>
               </div>
 
               {/* Owner Selection for Global Templates (not needed for Nurses tab) */}
-              {isGlobalTemplate && activeTab !== 'nurses' && (
+              {isGlobalTemplate && activeTab !== 'assistants' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -646,23 +646,23 @@ export function ShareTemplateModal({
                     </div>
 
                     {/* Select All / Deselect All */}
-                    {filteredDoctors.length > 0 && (
+                    {filteredCounsellors.length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
-                          {selectedDoctors.length} of {doctors.length} selected
-                          {searchQuery && ` (showing ${filteredDoctors.length})`}
+                          {selectedCounsellors.length} of {doctors.length} selected
+                          {searchQuery && ` (showing ${filteredCounsellors.length})`}
                         </span>
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={selectAllDoctors}
+                            onClick={selectAllCounsellors}
                             className="px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           >
                             Select All{searchQuery ? ' Visible' : ''}
                           </button>
                           <button
                             type="button"
-                            onClick={deselectAllDoctors}
+                            onClick={deselectAllCounsellors}
                             className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
                           >
                             Deselect All{searchQuery ? ' Visible' : ''}
@@ -671,23 +671,23 @@ export function ShareTemplateModal({
                       </div>
                     )}
 
-                    {/* Doctors List */}
+                    {/* Counsellors List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-                      {filteredDoctors.length === 0 ? (
+                      {filteredCounsellors.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
                           {searchQuery ? 'No counsellors found matching your search.' : 'No counsellors available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {filteredDoctors.map((doctor) => (
+                          {filteredCounsellors.map((doctor) => (
                             <label
                               key={doctor.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedDoctors.includes(doctor.id)}
-                                onChange={() => toggleDoctor(doctor.id)}
+                                checked={selectedCounsellors.includes(doctor.id)}
+                                onChange={() => toggleCounsellor(doctor.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
@@ -711,19 +711,19 @@ export function ShareTemplateModal({
                     {hospitals.length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
-                          {selectedHospitals.length} of {hospitals.length} selected
+                          {selectedSchools.length} of {hospitals.length} selected
                         </span>
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={selectAllHospitals}
+                            onClick={selectAllSchools}
                             className="px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           >
                             Select All
                           </button>
                           <button
                             type="button"
-                            onClick={deselectAllHospitals}
+                            onClick={deselectAllSchools}
                             className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
                           >
                             Deselect All
@@ -732,7 +732,7 @@ export function ShareTemplateModal({
                       </div>
                     )}
 
-                    {/* Hospitals List */}
+                    {/* Schools List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {hospitals.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">No schools available.</div>
@@ -745,12 +745,12 @@ export function ShareTemplateModal({
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedHospitals.includes(hospital.id)}
-                                onChange={() => toggleHospital(hospital.id)}
+                                checked={selectedSchools.includes(hospital.id)}
+                                onChange={() => toggleSchool(hospital.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{hospital.hospital_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{hospital.school_name}</div>
                                 <div className="text-xs text-gray-500">
                                   {hospital.city && hospital.state
                                     ? `${hospital.city}, ${hospital.state}`
@@ -826,37 +826,37 @@ export function ShareTemplateModal({
                   </div>
                 )}
 
-                {activeTab === 'nurses' && (
+                {activeTab === 'assistants' && (
                   <div className="space-y-4">
                     {/* Search Bar */}
                     <div>
                       <input
                         type="text"
                         value={nurseSearchQuery}
-                        onChange={(e) => setNurseSearchQuery(e.target.value)}
+                        onChange={(e) => setAssistantSearchQuery(e.target.value)}
                         placeholder="Search assistants by name, email, or qualification..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 bg-white"
                       />
                     </div>
 
                     {/* Select All / Deselect All */}
-                    {filteredNurses.length > 0 && (
+                    {filteredAssistants.length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
-                          {selectedNurses.length} of {nurses.length} selected
-                          {nurseSearchQuery && ` (showing ${filteredNurses.length})`}
+                          {selectedAssistants.length} of {nurses.length} selected
+                          {nurseSearchQuery && ` (showing ${filteredAssistants.length})`}
                         </span>
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={selectAllNurses}
+                            onClick={selectAllAssistants}
                             className="px-3 py-1 text-xs font-medium text-teal-600 hover:bg-teal-50 rounded transition-colors"
                           >
                             Select All{nurseSearchQuery ? ' Visible' : ''}
                           </button>
                           <button
                             type="button"
-                            onClick={deselectAllNurses}
+                            onClick={deselectAllAssistants}
                             className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
                           >
                             Deselect All{nurseSearchQuery ? ' Visible' : ''}
@@ -865,23 +865,23 @@ export function ShareTemplateModal({
                       </div>
                     )}
 
-                    {/* Nurses List */}
+                    {/* Assistants List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-                      {filteredNurses.length === 0 ? (
+                      {filteredAssistants.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
                           {nurseSearchQuery ? 'No assistants found matching your search.' : 'No assistants available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {filteredNurses.map((nurse) => (
+                          {filteredAssistants.map((nurse) => (
                             <label
                               key={nurse.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedNurses.includes(nurse.id)}
-                                onChange={() => toggleNurse(nurse.id)}
+                                checked={selectedAssistants.includes(nurse.id)}
+                                onChange={() => toggleAssistant(nurse.id)}
                                 className="w-4 h-4 text-teal-600 focus:ring-teal-500 rounded"
                               />
                               <div className="ml-3 flex-1">
@@ -892,7 +892,7 @@ export function ShareTemplateModal({
                                 </div>
                               </div>
                               {/* Show if already shared */}
-                              {sharedNurses.some(s => s.nurse_id === nurse.id) && (
+                              {sharedAssistants.some(s => s.assistant_id === nurse.id) && (
                                 <span className="text-xs text-teal-600 bg-teal-50 px-2 py-0.5 rounded">
                                   Shared
                                 </span>
@@ -914,27 +914,27 @@ export function ShareTemplateModal({
           )}
 
           {/* Currently Shared With */}
-          {sharedDoctors.length > 0 && (
+          {sharedCounsellors.length > 0 && (
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">
-                Currently Shared With ({sharedDoctors.length})
+                Currently Shared With ({sharedCounsellors.length})
               </h3>
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {sharedDoctors.map((sharing) => (
+                {sharedCounsellors.map((sharing) => (
                   <div
                     key={sharing.id}
                     className="flex items-center justify-between bg-gray-50 rounded-lg p-3"
                   >
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
-                        {sharing.doctor_name || 'Counsellor'}
+                        {sharing.counsellor_name || 'Counsellor'}
                       </p>
                       <p className="text-xs text-gray-500">
                         {sharing.is_active ? 'Shared' : 'Removed'}
                       </p>
                     </div>
                     <button
-                      onClick={() => handleRevoke(sharing.doctor_id)}
+                      onClick={() => handleRevoke(sharing.counsellor_id)}
                       className="text-red-600 hover:text-red-700 text-sm font-medium"
                     >
                       Revoke

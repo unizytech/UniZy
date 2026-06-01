@@ -41,7 +41,7 @@ class QuestionCategory(str, Enum):
 class QueryIntent(str, Enum):
     """Classified intent of a user query"""
     SEMANTIC = "semantic"   # Pattern detection, insights -> Narrative synthesis
-    HYBRID = "hybrid"       # Search with filters -> Patient table
+    HYBRID = "hybrid"       # Search with filters -> Student table
     SQL = "sql"             # Analytics, counts -> Charts/stats
 
 
@@ -54,7 +54,7 @@ class SearchLevel(str, Enum):
 class ResponseFormat(str, Enum):
     """Format for Q&A response"""
     NARRATIVE = "narrative"   # Natural language summary
-    TABLE = "table"           # Tabular patient/extraction data
+    TABLE = "table"           # Tabular student/extraction data
     CHART = "chart"           # Chart visualization data
     STAT_CARD = "stat_card"   # Single metric card
 
@@ -92,7 +92,7 @@ class EmbeddingModelsListResponse(BaseModel):
 
 
 class SetEmbeddingModelRequest(BaseModel):
-    """Request to set the active embedding model for a hospital"""
+    """Request to set the active embedding model for a school"""
     model_code: str = Field(..., description="The model_code to set as active")
 
 
@@ -181,7 +181,7 @@ class ClassifiedQuery(BaseModel):
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
     # Temporal/longitudinal query support
     temporal_references: Optional[List[TemporalReference]] = None
-    requires_patient_history: bool = False  # Query needs patient lookup
+    requires_patient_history: bool = False  # Query needs student lookup
     comparison_mode: bool = False  # Query compares visits
 
 
@@ -200,12 +200,12 @@ class QAPriorContext(BaseModel):
 class QAQueryRequest(BaseModel):
     """Request model for Q&A queries"""
     query: str = Field(..., min_length=3, max_length=2000, description="Natural language query")
-    # Hospital context (required for admin users without hospital in auth context)
-    hospital_id: Optional[UUID] = Field(default=None, description="Hospital ID for query scope")
-    hospital_code: Optional[str] = Field(default=None, max_length=50, description="Hospital code (alternative to hospital_id)")
+    # School context (required for admin users without school in auth context)
+    school_id: Optional[UUID] = Field(default=None, description="School ID for query scope")
+    school_code: Optional[str] = Field(default=None, max_length=50, description="School code (alternative to school_id)")
     # Optional filters
-    doctor_id: Optional[UUID] = None
-    patient_id: Optional[str] = Field(default=None, description="Patient external ID (UHID) or internal UUID")
+    counsellor_id: Optional[UUID] = None
+    student_id: Optional[str] = Field(default=None, description="Student external ID (UHID) or internal UUID")
     consultation_type_id: Optional[UUID] = None
     extraction_id: Optional[UUID] = None  # Reference specific extraction/visit
     date_from: Optional[datetime] = None
@@ -220,11 +220,11 @@ class QAQueryRequest(BaseModel):
 class SearchResultItem(BaseModel):
     """Individual search result"""
     extraction_id: UUID
-    patient_id: Optional[UUID] = None
+    student_id: Optional[UUID] = None
     patient_name: Optional[str] = None
-    patient_external_id: Optional[str] = None  # UHID
-    doctor_id: Optional[UUID] = None
-    doctor_name: Optional[str] = None
+    student_external_id: Optional[str] = None  # UHID
+    counsellor_id: Optional[UUID] = None
+    counsellor_name: Optional[str] = None
     consultation_type_name: Optional[str] = None
     created_at: datetime
     # Match info
@@ -297,14 +297,14 @@ class QAQueryResponse(BaseModel):
 # ============================================================================
 
 class QAEngineSettings(BaseModel):
-    """Q&A Engine settings for a hospital"""
-    hospital_id: UUID
+    """Q&A Engine settings for a school"""
+    school_id: UUID
     embedding_model_id: UUID
     embedding_model_code: Optional[str] = None
     embedding_model_name: Optional[str] = None
     is_enabled: bool = True
     allow_analytics_queries: bool = True
-    allow_cross_doctor_search: bool = False
+    allow_cross_counsellor_search: bool = False
     max_results_per_query: int = 20
     max_queries_per_day: int = 1000
 
@@ -314,7 +314,7 @@ class UpdateQASettingsRequest(BaseModel):
     embedding_model_id: Optional[UUID] = None
     is_enabled: Optional[bool] = None
     allow_analytics_queries: Optional[bool] = None
-    allow_cross_doctor_search: Optional[bool] = None
+    allow_cross_counsellor_search: Optional[bool] = None
     max_results_per_query: Optional[int] = None
     max_queries_per_day: Optional[int] = None
 
@@ -376,8 +376,8 @@ class ExportResponse(BaseModel):
 # ============================================================================
 
 class ReembeddingJobRequest(BaseModel):
-    """Request to trigger re-embedding for a hospital"""
-    hospital_id: UUID
+    """Request to trigger re-embedding for a school"""
+    school_id: UUID
     model_code: Optional[str] = None  # If provided, use this model instead of default
 
 

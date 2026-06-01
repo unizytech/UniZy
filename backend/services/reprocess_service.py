@@ -329,7 +329,7 @@ async def _reprocess_transcript_only(
     1. Schedules emotion extraction if audio available
     2. Calls perform_template_extraction which handles:
        - Extract insights with Gemini
-       - Save to medical_extractions
+       - Save to extractions
        - Schedule triage generation (if enabled)
        - Schedule consultation insights (if enabled)
        - Send webhook (if extraction_mode is 'full')
@@ -368,7 +368,7 @@ async def _reprocess_transcript_only(
                                 consultation_type_id=ct_uuid,
                                 template_id=template.get('id'),
                                 session_id=str(session_id),
-                                doctor_id=session.get('doctor_id'),
+                                counsellor_id=session.get('counsellor_id'),
                             )
                         )
                         logger.debug(f"[REPROCESS] Started combined emotion analysis in background")
@@ -405,20 +405,20 @@ async def _reprocess_transcript_only(
             extraction_mode = result.get('session_info', {}).get('extraction_mode')
             if extraction_mode == 'full':
                 # Check if realtime is enabled (skip webhook if so)
-                from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                from services.supabase_service import get_doctor_hospital_id_cached
-                _doctor_id = session.get('doctor_id')
-                _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-                if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                    logger.debug(f"[REPROCESS:WEBHOOK] Skipping webhook - realtime subscription enabled for hospital")
+                from services.realtime_publisher_service import is_realtime_enabled_for_school
+                from services.supabase_service import get_counsellor_school_id_cached
+                _doctor_id = session.get('counsellor_id')
+                _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+                if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                    logger.debug(f"[REPROCESS:WEBHOOK] Skipping webhook - realtime subscription enabled for school")
                 else:
                     # Inject preferred_language into session_info for webhook
                     _webhook_metadata = result.get('session_info', {})
-                    _rp_patient_id = session.get('patient_id')
+                    _rp_patient_id = session.get('student_id')
                     if _rp_patient_id and 'preferred_language' not in _webhook_metadata:
                         try:
                             from services.supabase_service import supabase as _sb
-                            _plr = _sb.table("patients").select("preferred_language").eq("id", _rp_patient_id).limit(1).execute()
+                            _plr = _sb.table("students").select("preferred_language").eq("id", _rp_patient_id).limit(1).execute()
                             if _plr.data:
                                 _webhook_metadata["preferred_language"] = _plr.data[0].get("preferred_language")
                         except Exception:
@@ -492,14 +492,14 @@ async def _reprocess_transcript_only(
         # Publish error to realtime_extraction_responses (for EHR Realtime subscribers)
         try:
             from services.realtime_publisher_service import publish_error_response_fire_and_forget
-            from services.supabase_service import get_doctor_hospital_id_cached
-            _doctor_id = session.get("doctor_id") if session else None
-            _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+            from services.supabase_service import get_counsellor_school_id_cached
+            _doctor_id = session.get("counsellor_id") if session else None
+            _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
             if _hospital_id and submission_id:
                 asyncio.create_task(publish_error_response_fire_and_forget(
                     submission_id=str(submission_id),
-                    hospital_id=_hospital_id,
-                    doctor_id=_doctor_id,
+                    school_id=_hospital_id,
+                    counsellor_id=_doctor_id,
                     error_message=sanitized,
                     error_code="REPROCESS_FAILED",
                     session_id=str(session_id),
@@ -511,7 +511,7 @@ async def _reprocess_transcript_only(
 async def _transcribe_segments_from_chunks(
     chunks: list,
     session_id: str,
-    doctor_id: Optional[str],
+    counsellor_id: Optional[str],
     transcription_model: str,
     mime_type: str,
 ) -> tuple:
@@ -610,7 +610,7 @@ async def _transcribe_segments_from_chunks(
                 model=transcription_model,
                 target_language="English",
                 session_id=session_id,
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
                 audio_duration_seconds=len(audio_bytes) / 16000,
             )
         )
@@ -793,16 +793,16 @@ async def _reprocess_full_pipeline(
 
             extract_start = time.time()
             extraction_model = session.get('extraction_model', 'gemini-2.0-flash')
-            doctor_id = session.get('doctor_id')
-            patient_id = session.get('patient_id')
+            counsellor_id = session.get('counsellor_id')
+            student_id = session.get('student_id')
 
             # Check list availability (same as normal pipeline)
             list_availability = {"has_medicine_list": False, "has_investigation_list": False}
-            if doctor_id:
+            if counsellor_id:
                 try:
                     from services.extraction_service import check_list_availability_parallel
-                    doctor_uuid = uuid.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id
-                    list_availability = await check_list_availability_parallel(doctor_uuid)
+                    counsellor_uuid = uuid.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id
+                    list_availability = await check_list_availability_parallel(counsellor_uuid)
                     logger.debug(
                         f"[REPROCESS:SKIP_TRANSCRIPTION] List availability: medicine={list_availability.get('has_medicine_list')}, "
                         f"investigation={list_availability.get('has_investigation_list')}"
@@ -820,8 +820,8 @@ async def _reprocess_full_pipeline(
                 response_schema=template_data['assembled_schema_json'],
                 model=extraction_model,
                 session_id=str(session_id),
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
                 has_medicine_list=list_availability.get("has_medicine_list", False),
                 has_investigation_list=list_availability.get("has_investigation_list", False),
                 audio_duration_seconds=estimated_duration,
@@ -844,10 +844,10 @@ async def _reprocess_full_pipeline(
             # ============================================================================
             # POST-PROCESSING: Medicine and Investigation matching (same as normal pipeline)
             # ============================================================================
-            doctor_uuid = uuid.UUID(doctor_id) if doctor_id and isinstance(doctor_id, str) else doctor_id
+            counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id and isinstance(counsellor_id, str) else counsellor_id
 
             # Medicine post-processing
-            if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
+            if counsellor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
                 try:
                     postprocess_start = time.time()
                     from services.medicine_service import postprocess_prescription_extraction
@@ -864,7 +864,7 @@ async def _reprocess_full_pipeline(
                     logger.debug(f"[REPROCESS:SKIP_TRANSCRIPTION] Running medicine post-processing")
                     insights = await postprocess_prescription_extraction(
                         extraction_data=insights,
-                        doctor_id=doctor_uuid,
+                        counsellor_id=counsellor_uuid,
                         extraction_id=extraction_id,
                         submission_id=str(submission_id),
                         diagnosis=diagnosis,
@@ -876,7 +876,7 @@ async def _reprocess_full_pipeline(
                     logger.warning(f"[REPROCESS:SKIP_TRANSCRIPTION] Medicine post-processing failed (non-fatal): {e}")
 
             # Investigation post-processing
-            if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
+            if counsellor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
                 try:
                     postprocess_start = time.time()
                     from services.investigation_service import postprocess_investigations_extraction
@@ -884,7 +884,7 @@ async def _reprocess_full_pipeline(
                     logger.debug(f"[REPROCESS:SKIP_TRANSCRIPTION] Running investigation post-processing")
                     insights = await postprocess_investigations_extraction(
                         extraction_data=insights,
-                        doctor_id=doctor_uuid,
+                        counsellor_id=counsellor_uuid,
                         extraction_id=extraction_id,
                         submission_id=str(submission_id),
                         template_id=None,
@@ -900,8 +900,8 @@ async def _reprocess_full_pipeline(
                 "id": str(extraction_id),
                 "session_id": str(session_id),
                 "consultation_type_id": session.get("consultation_type_id"),
-                "doctor_id": doctor_id,
-                "patient_id": patient_id,
+                "counsellor_id": counsellor_id,
+                "student_id": student_id,
                 "transcript_text": None,  # No transcript
                 "original_extraction_json": insights,
                 "model_used": extraction_model,
@@ -914,29 +914,29 @@ async def _reprocess_full_pipeline(
             }
 
             await asyncio.to_thread(
-                lambda: supabase.table("medical_extractions").insert(extraction_record).execute()
+                lambda: supabase.table("extractions").insert(extraction_record).execute()
             )
             logger.debug(f"[REPROCESS:SKIP_TRANSCRIPTION] Saved extraction {extraction_id}")
 
             # Publish to realtime table (fire-and-forget)
             try:
                 from services.realtime_publisher_service import publish_extraction_response_fire_and_forget
-                from services.supabase_service import get_doctor_hospital_id_cached
-                hospital_id_for_realtime = get_doctor_hospital_id_cached(uuid.UUID(doctor_id)) if doctor_id else None
-                if hospital_id_for_realtime and submission_id:
-                    # Look up UHID from patients table
+                from services.supabase_service import get_counsellor_school_id_cached
+                school_id_for_realtime = get_counsellor_school_id_cached(uuid.UUID(counsellor_id)) if counsellor_id else None
+                if school_id_for_realtime and submission_id:
+                    # Look up UHID from students table
                     _reprocess_uhid = ""
-                    if patient_id:
+                    if student_id:
                         try:
-                            _p_result = supabase.table("patients").select("patient_id").eq("id", patient_id).limit(1).execute()
+                            _p_result = supabase.table("students").select("student_id").eq("id", student_id).limit(1).execute()
                             if _p_result.data:
-                                _reprocess_uhid = _p_result.data[0].get("patient_id", "")
+                                _reprocess_uhid = _p_result.data[0].get("student_id", "")
                         except Exception:
                             pass
                     asyncio.create_task(publish_extraction_response_fire_and_forget(
                         submission_id=str(submission_id),
-                        hospital_id=hospital_id_for_realtime,
-                        doctor_id=doctor_id,
+                        school_id=school_id_for_realtime,
+                        counsellor_id=counsellor_id,
                         extraction_id=str(extraction_id),
                         insights=insights,
                         recording_metadata=session.get("recording_metadata_json") if session else None,
@@ -946,40 +946,12 @@ async def _reprocess_full_pipeline(
                 logger.warning(f"[REPROCESS:SKIP_TRANSCRIPTION] Failed to schedule realtime publish: {e}")
 
             # ============================================================================
-            # SCHEDULE BACKGROUND TASKS: Audio-only emotion + Triage (if enabled)
-            # Note: Consultation insights requires transcript, so it's skipped
+            # SCHEDULE BACKGROUND TASKS: Triage (if enabled)
+            # Note: Consultation insights requires transcript, so it's skipped.
+            # Audio-only emotion extraction has been removed (combined path only), so
+            # skip_transcription reprocessing produces no emotion analysis.
             # ============================================================================
             consultation_type_id = session.get("consultation_type_id")
-            template_id_for_audio = None
-
-            # Get template_id for audio emotion prompts
-            if template_code and doctor_id:
-                from services.supabase_service import get_active_template_by_code_cached
-                template = get_active_template_by_code_cached(uuid.UUID(doctor_id), template_code)
-                if template:
-                    template_id_for_audio = str(template.get("id"))
-
-            # Schedule AUDIO-ONLY emotion extraction (if emotion analysis is enabled)
-            if consultation_type_id and template_id_for_audio:
-                try:
-                    from services.background_tasks import schedule_audio_only_emotion_extraction
-                    from services.supabase_service import is_emotion_analysis_enabled
-
-                    if is_emotion_analysis_enabled(uuid.UUID(consultation_type_id)):
-                        logger.debug(f"[REPROCESS:SKIP_TRANSCRIPTION] Scheduling audio-only emotion extraction")
-                        await schedule_audio_only_emotion_extraction(
-                            audio_content=audio_bytes,
-                            audio_mime_type=mime_type,
-                            extraction_id=extraction_id,
-                            consultation_type_id=uuid.UUID(consultation_type_id),
-                            template_id=template_id_for_audio,
-                            session_id=str(session_id),
-                            doctor_id=doctor_id,
-                        )
-                    else:
-                        logger.debug(f"[REPROCESS:SKIP_TRANSCRIPTION] Emotion analysis disabled for this consultation type")
-                except Exception as e:
-                    logger.warning(f"[REPROCESS:SKIP_TRANSCRIPTION] Failed to schedule audio emotion (non-fatal): {e}")
 
             # Schedule TRIAGE generation (works without transcript - uses extraction JSON + RPC)
             if consultation_type_id:
@@ -993,8 +965,8 @@ async def _reprocess_full_pipeline(
                             extraction_id=extraction_id,
                             transcript=None,  # No transcript in skip_transcription mode
                             extraction_data={"original_extraction_json": insights},
-                            doctor_id=doctor_id,
-                            patient_id=patient_id,
+                            counsellor_id=counsellor_id,
+                            student_id=student_id,
                             consultation_type_code=template_code,
                             include_gemini=False,  # Rule-based only for speed
                             enable_consultation_insights=False,  # Requires transcript
@@ -1011,16 +983,16 @@ async def _reprocess_full_pipeline(
             extraction_mode = session.get("extraction_mode", "full")
             if extraction_mode == 'full':
                 try:
-                    from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                    from services.supabase_service import get_doctor_hospital_id_cached
+                    from services.realtime_publisher_service import is_realtime_enabled_for_school
+                    from services.supabase_service import get_counsellor_school_id_cached
                     from datetime import datetime
 
-                    # Lookup patient preferred_language
+                    # Lookup student preferred_language
                     _reprocess_preferred_lang = None
-                    if patient_id:
+                    if student_id:
                         try:
                             from services.supabase_service import supabase as _sb
-                            _plr = _sb.table("patients").select("preferred_language").eq("id", patient_id).limit(1).execute()
+                            _plr = _sb.table("students").select("preferred_language").eq("id", student_id).limit(1).execute()
                             if _plr.data:
                                 _reprocess_preferred_lang = _plr.data[0].get("preferred_language")
                         except Exception:
@@ -1031,8 +1003,8 @@ async def _reprocess_full_pipeline(
                         "submission_id": str(submission_id),
                         "extraction_id": str(extraction_id),
                         "session_id": str(session_id),
-                        "doctor_id": doctor_id,
-                        "patient_id": patient_id,
+                        "counsellor_id": counsellor_id,
+                        "student_id": student_id,
                         "template_code": template_code,
                         "mode": extraction_mode,
                         "segment_count": len(insights) if isinstance(insights, dict) else 0,
@@ -1041,8 +1013,8 @@ async def _reprocess_full_pipeline(
                         "preferred_language": _reprocess_preferred_lang,
                     }
 
-                    _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(doctor_id)) if doctor_id else None
-                    if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
+                    _hospital_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id)) if counsellor_id else None
+                    if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
                         logger.debug(f"[REPROCESS:SKIP_TRANSCRIPTION:WEBHOOK] Skipping webhook - realtime enabled")
                     else:
                         await send_insights_webhook(
@@ -1086,7 +1058,7 @@ async def _reprocess_full_pipeline(
         transcription_start = time.time()
 
         transcription_model = session.get('transcription_model', 'gemini-2.5-flash')
-        doctor_id_for_transcribe = session.get('doctor_id')
+        counsellor_id_for_transcribe = session.get('counsellor_id')
 
         # Fire-and-forget language detection in parallel with transcription. Uses
         # the first ~2 chunks when available (small, valid WebM) or falls back
@@ -1100,13 +1072,13 @@ async def _reprocess_full_pipeline(
             else:
                 _preview_bytes = audio_bytes
             if _preview_bytes:
-                _patient_id_for_lang = session.get("patient_id")
+                _patient_id_for_lang = session.get("student_id")
 
                 async def _detect_language_bg_reprocess(
                     audio=_preview_bytes,
                     mime=mime_type,
                     sid=str(session_id),
-                    did=doctor_id_for_transcribe,
+                    did=counsellor_id_for_transcribe,
                     pid=_patient_id_for_lang,
                 ):
                     try:
@@ -1115,12 +1087,12 @@ async def _reprocess_full_pipeline(
                             audio_content=audio,
                             mime_type=mime,
                             session_id=sid,
-                            doctor_id=did,
+                            counsellor_id=did,
                         )
                         if lang and pid:
-                            from services.supabase_service import update_patient_preferred_language
+                            from services.supabase_service import update_student_preferred_language
                             await asyncio.to_thread(
-                                update_patient_preferred_language, pid, lang
+                                update_student_preferred_language, pid, lang
                             )
                     except Exception as e:
                         logger.warning(f"[REPROCESS:LANG_DETECT] Background detection failed: {e}")
@@ -1155,7 +1127,7 @@ async def _reprocess_full_pipeline(
             transcript, detected_language = await _transcribe_segments_from_chunks(
                 chunks=raw_chunks,
                 session_id=str(session_id),
-                doctor_id=doctor_id_for_transcribe,
+                counsellor_id=counsellor_id_for_transcribe,
                 transcription_model=transcription_model,
                 mime_type=mime_type,
             )
@@ -1167,7 +1139,7 @@ async def _reprocess_full_pipeline(
                 mime_type=mime_type,
                 model=transcription_model,
                 session_id=str(session_id),
-                doctor_id=doctor_id_for_transcribe,
+                counsellor_id=counsellor_id_for_transcribe,
                 audio_duration_seconds=audio_duration,
             )
 
@@ -1227,7 +1199,7 @@ async def _reprocess_full_pipeline(
         # Language detection is now handled by the separate detect_language_from_audio
         # fire-and-forget task scheduled before transcription (above). transcribe_audio
         # no longer emits [DETECTED_LANG:...] tags, so detected_language from it is None.
-        patient_id = session.get('patient_id')
+        student_id = session.get('student_id')
 
         # Fire-and-forget: persist transcript to processing_jobs.transcript so it survives
         # extraction failures. get_session_transcript() reads this column first.
@@ -1276,7 +1248,7 @@ async def _reprocess_full_pipeline(
                             consultation_type_id=ct_uuid,
                             template_id=template.get('id'),
                             session_id=str(session_id),
-                            doctor_id=session.get('doctor_id'),
+                            counsellor_id=session.get('counsellor_id'),
                         )
                     )
                     logger.debug(f"[REPROCESS] Started combined emotion analysis in background")
@@ -1315,20 +1287,20 @@ async def _reprocess_full_pipeline(
             extraction_mode = result.get('session_info', {}).get('extraction_mode')
             if extraction_mode == 'full':
                 # Check if realtime is enabled (skip webhook if so)
-                from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                from services.supabase_service import get_doctor_hospital_id_cached
-                _doctor_id = session.get('doctor_id')
-                _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-                if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                    logger.debug(f"[REPROCESS:WEBHOOK] Skipping webhook - realtime subscription enabled for hospital")
+                from services.realtime_publisher_service import is_realtime_enabled_for_school
+                from services.supabase_service import get_counsellor_school_id_cached
+                _doctor_id = session.get('counsellor_id')
+                _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+                if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                    logger.debug(f"[REPROCESS:WEBHOOK] Skipping webhook - realtime subscription enabled for school")
                 else:
                     # Inject preferred_language into session_info for webhook
                     _webhook_metadata = result.get('session_info', {})
-                    _rp_patient_id = session.get('patient_id')
+                    _rp_patient_id = session.get('student_id')
                     if _rp_patient_id and 'preferred_language' not in _webhook_metadata:
                         try:
                             from services.supabase_service import supabase as _sb
-                            _plr = _sb.table("patients").select("preferred_language").eq("id", _rp_patient_id).limit(1).execute()
+                            _plr = _sb.table("students").select("preferred_language").eq("id", _rp_patient_id).limit(1).execute()
                             if _plr.data:
                                 _webhook_metadata["preferred_language"] = _plr.data[0].get("preferred_language")
                         except Exception:
@@ -1406,14 +1378,14 @@ async def _reprocess_full_pipeline(
         # Publish error to realtime_extraction_responses (for EHR Realtime subscribers)
         try:
             from services.realtime_publisher_service import publish_error_response_fire_and_forget
-            from services.supabase_service import get_doctor_hospital_id_cached
-            _doctor_id = session.get("doctor_id") if session else None
-            _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+            from services.supabase_service import get_counsellor_school_id_cached
+            _doctor_id = session.get("counsellor_id") if session else None
+            _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
             if _hospital_id and submission_id:
                 asyncio.create_task(publish_error_response_fire_and_forget(
                     submission_id=str(submission_id),
-                    hospital_id=_hospital_id,
-                    doctor_id=_doctor_id,
+                    school_id=_hospital_id,
+                    counsellor_id=_doctor_id,
                     error_message=sanitized,
                     error_code="REPROCESS_FAILED",
                     session_id=str(session_id),

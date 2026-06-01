@@ -1,7 +1,7 @@
 """
 Edit classifier for POC metrics.
 
-Classifies edits between an extraction's original AI output and the doctor's
+Classifies edits between an extraction's original AI output and the counsellor's
 edited version into:
   - magnitude: "major" | "minor"
   - additive: whether a list-type segment gained new entries
@@ -265,7 +265,7 @@ def count_date_errors(original: Dict[str, Any], edited: Dict[str, Any]) -> int:
     if not isinstance(original, dict) or not isinstance(edited, dict):
         return 0
     # Artifact guard: skip paths whose top-level segment exists in `original`
-    # but is missing from `edited` (doctor didn't touch that segment).
+    # but is missing from `edited` (counsellor didn't touch that segment).
     artifact_top_keys = set(original.keys()) - set(edited.keys())
     count = 0
     for path in DATE_FIELD_PATHS:
@@ -313,7 +313,7 @@ def classify_extraction_edits(
     major = minor = additive = 0
     for seg in segment_codes:
         # Artifact guard: the EHR edit flow drops untouched segments. If the
-        # AI output had the key but the edit doesn't, the doctor didn't touch
+        # AI output had the key but the edit doesn't, the counsellor didn't touch
         # it — not a real edit. (A truly deleted segment would be present in
         # edit as [] or null, which still flows through classify_edit.)
         if seg in original and seg not in edited:

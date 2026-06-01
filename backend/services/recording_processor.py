@@ -380,7 +380,7 @@ class RecordingProcessor:
 
             # Fire-and-forget language detection on the first ~2 chunks (~20s).
             # Runs in parallel with stitching + transcription; result sets
-            # self._detected_language and persists to patients.preferred_language
+            # self._detected_language and persists to students.preferred_language
             # by the time the webhook metadata is built. Zero latency impact.
             try:
                 preview_chunks = chunks[: min(2, len(chunks))]
@@ -388,8 +388,8 @@ class RecordingProcessor:
                     base64.b64decode(c.get("audio_data", "")) for c in preview_chunks
                 )
                 if preview_bytes:
-                    _patient_id_for_lang = session.get("patient_id")
-                    _doctor_id_for_lang = session.get("doctor_id")
+                    _patient_id_for_lang = session.get("student_id")
+                    _doctor_id_for_lang = session.get("counsellor_id")
                     _sid_for_lang = str(session_id)
 
                     async def _detect_language_bg(
@@ -405,14 +405,14 @@ class RecordingProcessor:
                                 audio_content=audio,
                                 mime_type=mime,
                                 session_id=sid,
-                                doctor_id=did,
+                                counsellor_id=did,
                             )
                             if lang:
                                 self._detected_language = lang
                                 if pid:
-                                    from services.supabase_service import update_patient_preferred_language
+                                    from services.supabase_service import update_student_preferred_language
                                     await asyncio.to_thread(
-                                        update_patient_preferred_language, pid, lang
+                                        update_student_preferred_language, pid, lang
                                     )
                         except Exception as e:
                             logger.warning(f"[LANG_DETECT] Background detection failed: {e}")
@@ -445,19 +445,19 @@ class RecordingProcessor:
             )
 
             # ============================================================================
-            # CHECK: Hospital Config (uses infinite TTL cache)
-            # Derive hospital_id from doctor_id since recording_sessions doesn't store it
+            # CHECK: School Config (uses infinite TTL cache)
+            # Derive school_id from counsellor_id since recording_sessions doesn't store it
             # ============================================================================
-            from services.supabase_service import get_hospital_settings_cached, get_doctor_hospital_id_cached
-            doctor_id_str = session.get("doctor_id")
-            hospital_id = get_doctor_hospital_id_cached(doctor_id_str) if doctor_id_str else None
-            hospital_config = get_hospital_settings_cached(str(hospital_id)) if hospital_id else {}
-            logger.debug(f"[PROCESSOR] Hospital config: doctor={doctor_id_str[:8] if doctor_id_str else 'N/A'}... -> hospital={str(hospital_id)[:8] if hospital_id else 'N/A'}... enable_audio_validation={hospital_config.get('enable_audio_validation', True)}")
-            use_ffmpeg = hospital_config.get("use_ffmpeg_stitching", False)
+            from services.supabase_service import get_school_settings_cached, get_counsellor_school_id_cached
+            counsellor_id_str = session.get("counsellor_id")
+            school_id = get_counsellor_school_id_cached(counsellor_id_str) if counsellor_id_str else None
+            school_config = get_school_settings_cached(str(school_id)) if school_id else {}
+            logger.debug(f"[PROCESSOR] School config: counsellor={counsellor_id_str[:8] if counsellor_id_str else 'N/A'}... -> school={str(school_id)[:8] if school_id else 'N/A'}... enable_audio_validation={school_config.get('enable_audio_validation', True)}")
+            use_ffmpeg = school_config.get("use_ffmpeg_stitching", False)
 
             stitch_start = time.time()
             if use_ffmpeg:
-                logger.debug(f"[PROCESSOR] Using FFmpeg stitching for hospital {hospital_id}")
+                logger.debug(f"[PROCESSOR] Using FFmpeg stitching for school {school_id}")
                 stitched_audio_b64, mime_type = stitch_audio_chunks_ffmpeg(chunks)
             else:
                 stitched_audio_b64, mime_type = stitch_audio_chunks(chunks)
@@ -476,12 +476,12 @@ class RecordingProcessor:
 
             # ============================================================================
             # SILENCE REMOVAL: Strip silent segments to reduce transcription time & cost
-            # Controlled by hospital config. Default: enabled with -57 dBFS threshold.
+            # Controlled by school config. Default: enabled with -57 dBFS threshold.
             # Skipped entirely for segment pipeline — segments use raw chunks that
             # lack proper audio container headers (ffmpeg can't decode them), and
             # emotion analysis needs original audio (silence is emotional data).
             # ============================================================================
-            enable_silence_removal = hospital_config.get("enable_silence_removal", True)
+            enable_silence_removal = school_config.get("enable_silence_removal", True)
             original_audio_b64 = stitched_audio_b64  # Keep reference for dual quality comparison
             silence_stats = {}
 
@@ -510,9 +510,9 @@ class RecordingProcessor:
                     }
 
             if enable_silence_removal:
-                silence_thresh = hospital_config.get("silence_thresh_dbfs", -60)
-                min_silence_len = hospital_config.get("min_silence_len_ms", 5000)
-                silence_padding = hospital_config.get("silence_padding_ms", 200)
+                silence_thresh = school_config.get("silence_thresh_dbfs", -60)
+                min_silence_len = school_config.get("min_silence_len_ms", 5000)
+                silence_padding = school_config.get("silence_padding_ms", 200)
 
                 silence_start = time.time()
                 stitched_audio_b64, mime_type, silence_stats = await asyncio.to_thread(
@@ -592,7 +592,7 @@ class RecordingProcessor:
             # PRE-TRANSCRIPTION VALIDATION: Block tiny/empty audio files
             # This catches corrupted recordings BEFORE wasting Gemini API costs
             # 2KB minimum - even 1 second of low-quality audio is ~4KB
-            # This would have caught the 332-byte empty MP3 headers from Ganga hospital
+            # This would have caught the 332-byte empty MP3 headers from Ganga school
             # ============================================================================
             MIN_AUDIO_SIZE_BYTES = 2000  # 2KB minimum
 
@@ -726,16 +726,16 @@ class RecordingProcessor:
                     raise ValueError(f"Template {template_code} not found or missing assembled data for direct audio extraction")
 
                 extract_start = time.time()
-                doctor_id = session.get("doctor_id")
-                patient_id = session.get("patient_id")
+                counsellor_id = session.get("counsellor_id")
+                student_id = session.get("student_id")
 
                 # Check list availability (same as normal pipeline)
                 list_availability = {"has_medicine_list": False, "has_investigation_list": False}
-                if doctor_id:
+                if counsellor_id:
                     try:
                         from services.extraction_service import check_list_availability_parallel
-                        doctor_uuid = uuid.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id
-                        list_availability = await check_list_availability_parallel(doctor_uuid)
+                        counsellor_uuid = uuid.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id
+                        list_availability = await check_list_availability_parallel(counsellor_uuid)
                         logger.debug(
                             f"[SKIP_TRANSCRIPTION] List availability: medicine={list_availability.get('has_medicine_list')}, "
                             f"investigation={list_availability.get('has_investigation_list')}"
@@ -750,8 +750,8 @@ class RecordingProcessor:
                     response_schema=template_data['assembled_schema_json'],
                     model=extraction_model,
                     session_id=str(session_id),
-                    doctor_id=doctor_id,
-                    patient_id=patient_id,
+                    counsellor_id=counsellor_id,
+                    student_id=student_id,
                     has_medicine_list=list_availability.get("has_medicine_list", False),
                     has_investigation_list=list_availability.get("has_investigation_list", False),
                     audio_duration_seconds=estimated_duration,
@@ -774,10 +774,10 @@ class RecordingProcessor:
                 # ============================================================================
                 # POST-PROCESSING: Medicine and Investigation matching (same as normal pipeline)
                 # ============================================================================
-                doctor_uuid = uuid.UUID(doctor_id) if doctor_id and isinstance(doctor_id, str) else doctor_id
+                counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id and isinstance(counsellor_id, str) else counsellor_id
 
                 # Medicine post-processing
-                if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
+                if counsellor_uuid and isinstance(insights, dict) and list_availability.get("has_medicine_list"):
                     try:
                         postprocess_start = time.time()
                         from services.medicine_service import postprocess_prescription_extraction
@@ -794,7 +794,7 @@ class RecordingProcessor:
                         logger.debug(f"[SKIP_TRANSCRIPTION] Running medicine post-processing")
                         insights = await postprocess_prescription_extraction(
                             extraction_data=insights,
-                            doctor_id=doctor_uuid,
+                            counsellor_id=counsellor_uuid,
                             extraction_id=extraction_id,
                             submission_id=str(self.submission_id) if self.submission_id else str(session_id),
                             diagnosis=diagnosis,
@@ -806,7 +806,7 @@ class RecordingProcessor:
                         logger.warning(f"[SKIP_TRANSCRIPTION] Medicine post-processing failed (non-fatal): {e}")
 
                 # Investigation post-processing
-                if doctor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
+                if counsellor_uuid and isinstance(insights, dict) and list_availability.get("has_investigation_list"):
                     try:
                         postprocess_start = time.time()
                         from services.investigation_service import postprocess_investigations_extraction
@@ -814,7 +814,7 @@ class RecordingProcessor:
                         logger.debug(f"[SKIP_TRANSCRIPTION] Running investigation post-processing")
                         insights = await postprocess_investigations_extraction(
                             extraction_data=insights,
-                            doctor_id=doctor_uuid,
+                            counsellor_id=counsellor_uuid,
                             extraction_id=extraction_id,
                             submission_id=str(self.submission_id) if self.submission_id else str(session_id),
                             template_id=None,
@@ -837,8 +837,8 @@ class RecordingProcessor:
                     "id": str(extraction_id),
                     "session_id": str(session_id),
                     "consultation_type_id": session.get("consultation_type_id"),
-                    "doctor_id": doctor_id,
-                    "patient_id": patient_id,
+                    "counsellor_id": counsellor_id,
+                    "student_id": student_id,
                     "transcript_text": None,  # No transcript in skip_transcription mode
                     "original_extraction_json": insights,
                     "model_used": extraction_model,  # Use existing column name
@@ -853,7 +853,7 @@ class RecordingProcessor:
 
                 try:
                     await asyncio.to_thread(
-                        lambda: supabase.table("medical_extractions").insert(extraction_record).execute()
+                        lambda: supabase.table("extractions").insert(extraction_record).execute()
                     )
                 except Exception as insert_err:
                     # FK constraint violation: processing_job may not exist yet
@@ -870,7 +870,7 @@ class RecordingProcessor:
                             submission_id=self.submission_id,
                         )
                         await asyncio.to_thread(
-                            lambda: supabase.table("medical_extractions").insert(extraction_record).execute()
+                            lambda: supabase.table("extractions").insert(extraction_record).execute()
                         )
                     else:
                         raise
@@ -881,36 +881,10 @@ class RecordingProcessor:
                 # Note: Consultation insights requires transcript, so it's skipped
                 # ============================================================================
                 consultation_type_id = session.get("consultation_type_id")
-                template_id_for_audio = None
 
-                # Get template_id for audio emotion prompts
-                if template_code and doctor_id:
-                    from services.supabase_service import get_active_template_by_code_cached
-                    template = get_active_template_by_code_cached(uuid.UUID(doctor_id), template_code)
-                    if template:
-                        template_id_for_audio = str(template.get("id"))
-
-                # Schedule AUDIO-ONLY emotion extraction (if emotion analysis is enabled)
-                if consultation_type_id and template_id_for_audio:
-                    try:
-                        from services.background_tasks import schedule_audio_only_emotion_extraction
-                        from services.supabase_service import is_emotion_analysis_enabled
-
-                        if is_emotion_analysis_enabled(uuid.UUID(consultation_type_id)):
-                            logger.debug(f"[SKIP_TRANSCRIPTION] Scheduling audio-only emotion extraction")
-                            await schedule_audio_only_emotion_extraction(
-                                audio_content=audio_bytes,
-                                audio_mime_type=mime_type,
-                                extraction_id=extraction_id,
-                                consultation_type_id=uuid.UUID(consultation_type_id),
-                                template_id=template_id_for_audio,
-                                session_id=str(session_id),
-                                doctor_id=doctor_id,
-                            )
-                        else:
-                            logger.debug(f"[SKIP_TRANSCRIPTION] Emotion analysis disabled for this consultation type")
-                    except Exception as e:
-                        logger.warning(f"[SKIP_TRANSCRIPTION] Failed to schedule audio emotion (non-fatal): {e}")
+                # Audio-only emotion extraction has been removed — the combined (text+audio)
+                # path is the only emotion path, so skip_transcription mode produces no
+                # emotion analysis.
 
                 # Schedule TRIAGE generation (works without transcript - uses extraction JSON + RPC)
                 if consultation_type_id:
@@ -924,8 +898,8 @@ class RecordingProcessor:
                                 extraction_id=extraction_id,
                                 transcript=None,  # No transcript in skip_transcription mode
                                 extraction_data={"original_extraction_json": insights},
-                                doctor_id=doctor_id,
-                                patient_id=patient_id,
+                                counsellor_id=counsellor_id,
+                                student_id=student_id,
                                 consultation_type_code=template_code,
                                 include_gemini=False,  # Rule-based only for speed
                                 enable_consultation_insights=False,  # Requires transcript
@@ -943,16 +917,16 @@ class RecordingProcessor:
                 if extraction_mode == 'full':
                     try:
                         from services.webhook_service import send_insights_webhook
-                        from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                        from services.supabase_service import get_doctor_hospital_id_cached
+                        from services.realtime_publisher_service import is_realtime_enabled_for_school
+                        from services.supabase_service import get_counsellor_school_id_cached
 
                         standardized_metadata = {
                             "correlation_id": session.get('correlation_id'),
                             "submission_id": str(self.submission_id) if self.submission_id else None,
                             "extraction_id": str(extraction_id),
                             "session_id": str(self._session_id) if self._session_id else None,
-                            "doctor_id": doctor_id,
-                            "patient_id": patient_id,
+                            "counsellor_id": counsellor_id,
+                            "student_id": student_id,
                             "template_code": template_code,
                             "mode": extraction_mode,
                             "segment_count": len(insights) if isinstance(insights, dict) else 0,
@@ -962,8 +936,8 @@ class RecordingProcessor:
                             "preferred_language": getattr(self, '_detected_language', None),
                         }
 
-                        _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(doctor_id)) if doctor_id else None
-                        if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
+                        _hospital_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id)) if counsellor_id else None
+                        if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
                             logger.debug(f"[SKIP_TRANSCRIPTION:WEBHOOK] Skipping webhook - realtime enabled")
                         else:
                             await send_insights_webhook(
@@ -1001,15 +975,15 @@ class RecordingProcessor:
                 # Decode base64 audio to bytes
                 audio_bytes = stitched_audio_bytes  # Already decoded during validation
 
-                # Get doctor_id for LLM usage tracking
-                doctor_id = session.get("doctor_id")
-                patient_id = session.get("patient_id")
+                # Get counsellor_id for LLM usage tracking
+                counsellor_id = session.get("counsellor_id")
+                student_id = session.get("student_id")
 
                 # Get template_id for background emotion prompts
                 template_id_for_audio = None
-                if template_code and doctor_id:
+                if template_code and counsellor_id:
                     from services.supabase_service import get_active_template_by_code_cached
-                    template = get_active_template_by_code_cached(uuid.UUID(doctor_id), template_code)
+                    template = get_active_template_by_code_cached(uuid.UUID(counsellor_id), template_code)
                     if template:
                         template_id_for_audio = str(template.get("id"))
                         logger.debug(f"[TRANSCRIPTION] Found template_id={template_id_for_audio} for template_code={template_code} (cached)")
@@ -1079,7 +1053,7 @@ class RecordingProcessor:
                             model=transcription_model,
                             target_language="English",
                             session_id=str(session_id),
-                            doctor_id=doctor_id,
+                            counsellor_id=counsellor_id,
                             audio_duration_seconds=len(final_audio_bytes) / 16000,
                         )
                         _store_segment_transcript(
@@ -1142,7 +1116,7 @@ class RecordingProcessor:
                             model=transcription_model,
                             target_language="English",
                             session_id=str(session_id),
-                            doctor_id=doctor_id,
+                            counsellor_id=counsellor_id,
                             audio_duration_seconds=estimated_duration,
                         )
                     )
@@ -1296,7 +1270,7 @@ class RecordingProcessor:
                                                 consultation_type_id=consultation_type_uuid,
                                                 template_id=template_id_for_emotion,
                                                 session_id=str(self._session_id),
-                                                doctor_id=session.get('doctor_id'),
+                                                counsellor_id=session.get('counsellor_id'),
                                             )
                                         )
                                         logger.debug(
@@ -1344,16 +1318,16 @@ class RecordingProcessor:
                     # This runs AFTER transcription (cost accepted) but BEFORE extraction
                     # Saves extraction cost (~$0.01-0.05) on clearly unusable audio
                     # NOTE: Only applies to main recording flow, NOT reprocess or /extract API
-                    # hospital_config already loaded at stitching stage (from doctor_id -> hospital_id)
+                    # school_config already loaded at stitching stage (from counsellor_id -> school_id)
                     # ============================================================================
-                    enable_audio_validation = hospital_config.get("enable_audio_validation", True)
+                    enable_audio_validation = school_config.get("enable_audio_validation", True)
 
                     # Store config for later use in exception handler
-                    self._hospital_config = hospital_config
+                    self._hospital_config = school_config
 
                     if enable_audio_validation:
-                        max_silence_ratio = hospital_config.get("max_silence_ratio", 0.90)
-                        min_transcript_length = hospital_config.get("min_transcript_length", 20)
+                        max_silence_ratio = school_config.get("max_silence_ratio", 0.90)
+                        min_transcript_length = school_config.get("min_transcript_length", 20)
 
                         # Validation 1: Check transcript length
                         transcript_length = len(transcript.strip()) if transcript else 0
@@ -1415,7 +1389,7 @@ class RecordingProcessor:
                                     f"Please check microphone and try again."
                                 )
 
-                        # Validation 2: Individual audio metric checks (configurable per hospital)
+                        # Validation 2: Individual audio metric checks (configurable per school)
                         # Use PROCESSED audio metrics when silence removal was active,
                         # since that's what gets sent to Gemini for transcription
                         if self._audio_quality:
@@ -1446,7 +1420,7 @@ class RecordingProcessor:
                             else:
                                 # 2a: SNR check (background noise)
                                 snr_db = metrics.get("snr_db", 0)
-                                min_snr = hospital_config.get("min_snr_db", 10.0)
+                                min_snr = school_config.get("min_snr_db", 10.0)
                                 if snr_db < min_snr:
                                     raise ValueError(
                                         f"Audio blocked: High background noise detected. "
@@ -1456,7 +1430,7 @@ class RecordingProcessor:
 
                                 # 2b: RMS volume check (too quiet)
                                 rms_db = metrics.get("rms_db", -60)
-                                min_rms = hospital_config.get("min_rms_db", -57.0)
+                                min_rms = school_config.get("min_rms_db", -57.0)
                                 if rms_db < min_rms:
                                     raise ValueError(
                                         f"Audio blocked: Volume is too low. "
@@ -1467,7 +1441,7 @@ class RecordingProcessor:
                                 # 2c: Speech detection check
                                 # Skip if RMS is below -60 dB — speech threshold (~-30.5 dB) is unreliable at low volume
                                 speech_ratio = metrics.get("speech_ratio", 0)
-                                min_speech = hospital_config.get("min_speech_ratio", 0.0)
+                                min_speech = school_config.get("min_speech_ratio", 0.0)
                                 if rms_db < -60.0:
                                     logger.debug(
                                         f"[VALIDATION] Speech ratio check skipped — low volume ({rms_db:.1f} dB < -60 dB) "
@@ -1502,7 +1476,7 @@ class RecordingProcessor:
                                     f"silence={silence_ratio:.2f} (max:{max_silence_ratio})"
                                 )
                     else:
-                        logger.info(f"[AUDIO_VALIDATION] Skipped — disabled for hospital {hospital_id}")
+                        logger.info(f"[AUDIO_VALIDATION] Skipped — disabled for school {school_id}")
 
                     # ============================================================================
                     # EXTRACTION: Run extraction with pre-generated extraction_id
@@ -1548,7 +1522,7 @@ class RecordingProcessor:
 
             # Update job status to COMPLETED
             # Include transcript and insights in progress_json for Supabase Realtime subscribers
-            # (Data is ALSO saved to medical_extractions table via perform_template_extraction)
+            # (Data is ALSO saved to extractions table via perform_template_extraction)
             await asyncio.to_thread(
                 update_job_progress,
                 self.submission_id,
@@ -1621,7 +1595,7 @@ class RecordingProcessor:
             })
 
             # Step 7: Database save already handled by perform_template_extraction()
-            # (includes medical_extractions, extraction_segments, and emotion scheduling)
+            # (includes extractions, extraction_segments, and emotion scheduling)
 
             # Step 8: Complete (audio_quality pre-fetched before extraction in self._audio_quality)
             # Debug logging for SSE complete event
@@ -1729,15 +1703,15 @@ class RecordingProcessor:
             # Publish error to realtime_extraction_responses (for EHR Realtime subscribers)
             try:
                 from services.realtime_publisher_service import publish_error_response_fire_and_forget
-                from services.supabase_service import get_doctor_hospital_id_cached
+                from services.supabase_service import get_counsellor_school_id_cached
                 _session = getattr(self, '_session', None) or {}
-                _doctor_id = _session.get("doctor_id")
-                _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+                _doctor_id = _session.get("counsellor_id")
+                _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
                 if _hospital_id and self.submission_id:
                     asyncio.create_task(publish_error_response_fire_and_forget(
                         submission_id=str(self.submission_id),
-                        hospital_id=_hospital_id,
-                        doctor_id=_doctor_id,
+                        school_id=_hospital_id,
+                        counsellor_id=_doctor_id,
                         error_message=error_message,
                         error_code="VALIDATION_FAILED" if is_validation_failure else "PROCESSING_FAILED",
                         session_id=session_id_str,
@@ -1765,11 +1739,11 @@ class RecordingProcessor:
 
         This method implements a 2-tier fallback strategy:
         1. Try cached dynamic prompts (fast path - parallel generation)
-        2. Use template-based extraction with doctor configuration
+        2. Use template-based extraction with counsellor configuration
 
         Both tiers use perform_template_extraction() for the complete workflow:
         - Update session.consultation_type_id
-        - Save to medical_extractions table
+        - Save to extractions table
         - Schedule triage/consultation insights (if enabled)
         - Send webhook (if extraction_mode is 'full')
 
@@ -1787,7 +1761,7 @@ class RecordingProcessor:
         Returns:
             Tuple of (insights_dict, extraction_id):
             - insights_dict: Extracted insights as a dict (or None for TRANSCRIPT_ONLY mode)
-            - extraction_id: UUID of the created medical_extractions record (or None for TRANSCRIPT_ONLY mode)
+            - extraction_id: UUID of the created extractions record (or None for TRANSCRIPT_ONLY mode)
 
         Raises:
             ValueError: If extraction fails
@@ -1888,8 +1862,8 @@ class RecordingProcessor:
                         "submission_id": str(self.submission_id) if self.submission_id else None,
                         "extraction_id": result['extraction_id'],
                         "session_id": str(self._session_id) if self._session_id else None,
-                        "doctor_id": session_info.get('doctor_id'),
-                        "patient_id": session_info.get('patient_id'),
+                        "counsellor_id": session_info.get('counsellor_id'),
+                        "student_id": session_info.get('student_id'),
                         "template_code": session_info.get('template_code'),
                         "mode": extraction_mode,
                         "segment_count": len(filtered_insights) if isinstance(filtered_insights, dict) else 0,
@@ -1900,12 +1874,12 @@ class RecordingProcessor:
                     }
 
                     # Check if realtime is enabled (skip webhook if so)
-                    from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                    from services.supabase_service import get_doctor_hospital_id_cached
-                    _doctor_id = session_info.get('doctor_id')
-                    _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-                    if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                        logger.debug(f"[WEBHOOK] Skipping webhook - realtime subscription enabled for hospital")
+                    from services.realtime_publisher_service import is_realtime_enabled_for_school
+                    from services.supabase_service import get_counsellor_school_id_cached
+                    _doctor_id = session_info.get('counsellor_id')
+                    _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+                    if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                        logger.debug(f"[WEBHOOK] Skipping webhook - realtime subscription enabled for school")
                     else:
                         # Send webhook with standardized metadata
                         webhook_success = await send_insights_webhook(
@@ -1997,8 +1971,8 @@ class RecordingProcessor:
                         "submission_id": str(self.submission_id) if self.submission_id else None,
                         "extraction_id": result['extraction_id'],
                         "session_id": str(self._session_id) if self._session_id else None,
-                        "doctor_id": session_info.get('doctor_id'),
-                        "patient_id": session_info.get('patient_id'),
+                        "counsellor_id": session_info.get('counsellor_id'),
+                        "student_id": session_info.get('student_id'),
                         "template_code": session_info.get('template_code'),
                         "mode": extraction_mode,
                         "segment_count": len(insights_data) if isinstance(insights_data, dict) else 0,
@@ -2009,12 +1983,12 @@ class RecordingProcessor:
                     }
 
                     # Check if realtime is enabled (skip webhook if so)
-                    from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                    from services.supabase_service import get_doctor_hospital_id_cached
-                    _doctor_id = session_info.get('doctor_id')
-                    _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-                    if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                        logger.debug(f"[WEBHOOK] Skipping webhook - realtime subscription enabled for hospital")
+                    from services.realtime_publisher_service import is_realtime_enabled_for_school
+                    from services.supabase_service import get_counsellor_school_id_cached
+                    _doctor_id = session_info.get('counsellor_id')
+                    _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+                    if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                        logger.debug(f"[WEBHOOK] Skipping webhook - realtime subscription enabled for school")
                     else:
                         # Send webhook with standardized metadata
                         webhook_success = await send_insights_webhook(
@@ -2079,12 +2053,12 @@ class RecordingProcessor:
 
             if extraction_mode == 'full':
                 # Check if realtime is enabled (skip webhook if so)
-                from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-                from services.supabase_service import get_doctor_hospital_id_cached
-                _doctor_id = result['session_info'].get('doctor_id')
-                _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-                if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                    logger.info(f"[WEBHOOK] ⏭️ Skipping webhook - realtime subscription enabled for hospital")
+                from services.realtime_publisher_service import is_realtime_enabled_for_school
+                from services.supabase_service import get_counsellor_school_id_cached
+                _doctor_id = result['session_info'].get('counsellor_id')
+                _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+                if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                    logger.info(f"[WEBHOOK] ⏭️ Skipping webhook - realtime subscription enabled for school")
                 else:
                     logger.info(f"[WEBHOOK] ✅ Extraction mode is 'full', preparing to send webhook")
 
@@ -2130,8 +2104,8 @@ class RecordingProcessor:
         try:
             # Check if session has dynamic extraction configuration
             consultation_type_id = session.get("consultation_type_id")
-            doctor_id = session.get("doctor_id")
-            patient_id = session.get("patient_id")  # For patient history context injection
+            counsellor_id = session.get("counsellor_id")
+            student_id = session.get("student_id")  # For student history context injection
             template_code = session.get("template_code")  # Use template_code for DB lookups
             # FIX: Use "or" to handle None values (session may have extraction_mode=None)
             extraction_mode = session.get("extraction_mode") or "core"
@@ -2152,10 +2126,10 @@ class RecordingProcessor:
             artifacts = await asyncio.to_thread(
                 generate_extraction_artifacts_without_transcript,
                 consultation_type_id=uuid.UUID(consultation_type_id),
-                doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
                 template_code=template_code,
                 mode=extraction_mode,
-                patient_id=patient_id  # For patient history context injection
+                student_id=student_id  # For student history context injection
             )
 
             # Validate artifacts is a dict (defensive check)

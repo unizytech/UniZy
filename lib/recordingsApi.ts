@@ -19,8 +19,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhos
 export interface RecordingInfo {
   session_id: string;
   correlation_id: string | null;
-  patient_id: string | null;
-  patient_identifier: string | null;
+  student_id: string | null;
+  student_identifier: string | null;
   patient_name: string | null;
   consultation_datetime: string;
   completed_at: string | null;
@@ -50,8 +50,8 @@ export interface RecordingsListResponse {
 }
 
 export interface ListRecordingsParams {
-  patient_id?: string;
-  patient_identifier?: string;
+  student_id?: string;
+  student_identifier?: string;
   status?: string;
   date_from?: string;  // ISO date string
   date_to?: string;    // ISO date string
@@ -101,22 +101,22 @@ export function handleApiError(error: any): string {
 }
 
 /**
- * List recordings for a doctor
+ * List recordings for a counsellor
  *
- * @param doctorId - UUID of the doctor
+ * @param doctorId - UUID of the counsellor
  * @param params - Optional filter parameters
  * @param auth - Authentication options
  * @returns List of recordings with metadata
  */
-export async function listDoctorRecordings(
+export async function listCounsellorRecordings(
   doctorId: string,
   params?: ListRecordingsParams,
   auth?: string | AuthOptions | null
 ): Promise<RecordingsListResponse> {
   // Build query string
   const queryParams = new URLSearchParams();
-  if (params?.patient_id) queryParams.set('patient_id', params.patient_id);
-  if (params?.patient_identifier) queryParams.set('patient_identifier', params.patient_identifier);
+  if (params?.student_id) queryParams.set('student_id', params.student_id);
+  if (params?.student_identifier) queryParams.set('student_identifier', params.student_identifier);
   if (params?.status) queryParams.set('status', params.status);
   if (params?.date_from) queryParams.set('date_from', params.date_from);
   if (params?.date_to) queryParams.set('date_to', params.date_to);
@@ -124,7 +124,7 @@ export async function listDoctorRecordings(
   if (params?.offset) queryParams.set('offset', params.offset.toString());
 
   const queryString = queryParams.toString();
-  const url = `/api/v1/recordings/doctor/${encodeURIComponent(doctorId)}${queryString ? `?${queryString}` : ''}`;
+  const url = `/api/v1/recordings/counsellor/${encodeURIComponent(doctorId)}${queryString ? `?${queryString}` : ''}`;
 
   const response = await authGet(url, auth ?? null);
 
@@ -137,16 +137,16 @@ export async function listDoctorRecordings(
 }
 
 /**
- * List recordings for a nurse
+ * List recordings for an assistant
  */
-export async function listNurseRecordings(
+export async function listAssistantRecordings(
   nurseId: string,
   params?: ListRecordingsParams,
   auth?: string | AuthOptions | null
 ): Promise<RecordingsListResponse> {
   const queryParams = new URLSearchParams();
-  if (params?.patient_id) queryParams.set('patient_id', params.patient_id);
-  if (params?.patient_identifier) queryParams.set('patient_identifier', params.patient_identifier);
+  if (params?.student_id) queryParams.set('student_id', params.student_id);
+  if (params?.student_identifier) queryParams.set('student_identifier', params.student_identifier);
   if (params?.status) queryParams.set('status', params.status);
   if (params?.date_from) queryParams.set('date_from', params.date_from);
   if (params?.date_to) queryParams.set('date_to', params.date_to);
@@ -154,13 +154,13 @@ export async function listNurseRecordings(
   if (params?.offset) queryParams.set('offset', params.offset.toString());
 
   const queryString = queryParams.toString();
-  const url = `/api/v1/recordings/nurse/${encodeURIComponent(nurseId)}${queryString ? `?${queryString}` : ''}`;
+  const url = `/api/v1/recordings/assistant/${encodeURIComponent(nurseId)}${queryString ? `?${queryString}` : ''}`;
 
   const response = await authGet(url, auth ?? null);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || `Failed to fetch nurse recordings: ${response.statusText}`);
+    throw new Error(error.detail || `Failed to fetch assistant recordings: ${response.statusText}`);
   }
 
   return response.json();

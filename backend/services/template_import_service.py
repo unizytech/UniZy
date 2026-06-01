@@ -152,7 +152,7 @@ def list_source_templates() -> List[Dict[str, Any]]:
     try:
         templates_res = (
             src.table("templates")
-            .select("id, template_code, template_name, description, is_active, consultation_type_id, hospital_id, doctor_id")
+            .select("id, template_code, template_name, description, is_active, consultation_type_id, school_id, counsellor_id")
             .order("template_name")
             .execute()
         )
@@ -185,8 +185,8 @@ def list_source_templates() -> List[Dict[str, Any]]:
             "is_active": r.get("is_active"),
             "type_code": t["type_code"] if t else None,
             "type_name": t["type_name"] if t else None,
-            "hospital_scoped": bool(r.get("hospital_id")),
-            "doctor_scoped": bool(r.get("doctor_id")),
+            "hospital_scoped": bool(r.get("school_id")),
+            "doctor_scoped": bool(r.get("counsellor_id")),
         })
     return out
 
@@ -202,7 +202,7 @@ def import_template_from_source(source_template_code: str) -> Dict[str, Any]:
 
     Order (all source reads first, then target writes):
       0. Read source graph
-      1. Pre-flight on target (template_code collision, hospital_code remap feasible)
+      1. Pre-flight on target (template_code collision, school_code remap feasible)
       2. Resolve or create consultation_type
       3. Resolve or create system prompt chain (config + components + junction)
       4. Resolve or create segment_definitions referenced by template + ct_segments
@@ -275,32 +275,32 @@ def import_template_from_source(source_template_code: str) -> Dict[str, Any]:
                 comps_res = src.table("system_prompt_components").select("*").in_("id", comp_ids).execute()
                 src_sys_components = comps_res.data or []
 
-    # Source hospital (for remap)
-    src_hospital_code: Optional[str] = None
-    if src_template.get("hospital_id"):
-        src_hospital = _fetch_one(src, "hospitals", id=src_template["hospital_id"])
-        if src_hospital and src_hospital.get("hospital_code"):
-            src_hospital_code = src_hospital["hospital_code"]
+    # Source school (for remap)
+    src_school_code: Optional[str] = None
+    if src_template.get("school_id"):
+        src_school = _fetch_one(src, "schools", id=src_template["school_id"])
+        if src_school and src_school.get("school_code"):
+            src_school_code = src_school["school_code"]
 
     # ------------------------------------------------------------------ 1: pre-flight
     existing = tgt.table("templates").select("id, template_code").eq("template_code", source_template_code).limit(1).execute()
     if existing.data:
         raise HTTPException(status_code=409, detail=f"Template '{source_template_code}' already exists on target")
 
-    target_hospital_id: Optional[str] = None
-    if src_template.get("hospital_id"):
-        if not src_hospital_code:
+    target_school_id: Optional[str] = None
+    if src_template.get("school_id"):
+        if not src_school_code:
             raise HTTPException(
                 status_code=400,
-                detail="Source template's hospital has no hospital_code; cannot remap to target",
+                detail="Source template's school has no school_code; cannot remap to target",
             )
-        tgt_hosp = _fetch_one(tgt, "hospitals", hospital_code=src_hospital_code)
+        tgt_hosp = _fetch_one(tgt, "schools", school_code=src_school_code)
         if not tgt_hosp:
             raise HTTPException(
                 status_code=400,
-                detail=f"No hospital with code '{src_hospital_code}' exists on target",
+                detail=f"No school with code '{src_school_code}' exists on target",
             )
-        target_hospital_id = tgt_hosp["id"]
+        target_school_id = tgt_hosp["id"]
         counters["hospital_remapped"] = True
 
     # ------------------------------------------------------------------ 2: consultation_type
@@ -417,7 +417,7 @@ def import_template_from_source(source_template_code: str) -> Dict[str, Any]:
             tgt.table("segment_definitions")
             .select("*")
             .eq("segment_code", src_seg["segment_code"])
-            .is_("doctor_id", "null")
+            .is_("counsellor_id", "null")
             .execute()
         ).data or []
 
@@ -433,7 +433,7 @@ def import_template_from_source(source_template_code: str) -> Dict[str, Any]:
         # already has other variants of this segment_code with different content.
         payload = _prep_insert(
             src_seg,
-            drop=({"id", "doctor_id", "approved_by_admin_id"} | _TIMESTAMP_COLS),
+            drop=({"id", "counsellor_id", "approved_by_admin_id"} | _TIMESTAMP_COLS),
         )
         ins = tgt.table("segment_definitions").insert(payload).execute()
         segment_id_map[src_seg["id"]] = ins.data[0]["id"]
@@ -475,11 +475,11 @@ def import_template_from_source(source_template_code: str) -> Dict[str, Any]:
     # ------------------------------------------------------------------ 6: template + template_segments
     template_payload = _prep_insert(
         src_template,
-        drop=({"id", "doctor_id", "hospital_id", "consultation_type_id"} | _TIMESTAMP_COLS | _TEMPLATE_ASSEMBLED_COLS),
+        drop=({"id", "counsellor_id", "school_id", "consultation_type_id"} | _TIMESTAMP_COLS | _TEMPLATE_ASSEMBLED_COLS),
     )
     template_payload["consultation_type_id"] = target_consultation_type_id
-    template_payload["hospital_id"] = target_hospital_id
-    template_payload["doctor_id"] = None
+    template_payload["school_id"] = target_school_id
+    template_payload["counsellor_id"] = None
     template_payload["is_default"] = False  # never auto-default on target
 
     ins = tgt.table("templates").insert(template_payload).execute()

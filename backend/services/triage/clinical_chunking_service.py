@@ -11,7 +11,7 @@ Chunk Types:
 - differential: DDx with distinguishing features
 - investigation: Labs, imaging by tier
 - treatment_primary: PHC-level management
-- treatment_district: District hospital options
+- treatment_district: District school options
 - treatment_tertiary: Tertiary/referral options
 - comorbidity_pathway: Per-comorbidity drug preferences
 - drug_formulary: Dosing, contraindications, monitoring
@@ -51,7 +51,7 @@ class ChunkType(str, Enum):
     DRUG_FORMULARY = "drug_formulary"
     EMERGENCY_PROTOCOL = "emergency_protocol"
     FOLLOW_UP = "follow_up"
-    PATIENT_EDUCATION = "patient_education"
+    PATIENT_EDUCATION = "student_education"
     STEP_PROTOCOL = "step_protocol"
     DECISION_NODE = "decision_node"
 
@@ -160,9 +160,9 @@ class ClinicalChunkingService:
         if condition.follow_up:
             chunks.extend(self._extract_follow_up(condition))
 
-        # Patient education
-        if condition.patient_education:
-            chunks.extend(self._extract_patient_education(condition))
+        # Student education
+        if condition.student_education:
+            chunks.extend(self._extract_student_education(condition))
 
         logger.info(f"[CHUNKING] Extracted {len(chunks)} chunks from condition {condition.condition_id}")
         return chunks
@@ -528,11 +528,11 @@ class ClinicalChunkingService:
                 source_section="treatment_by_care_level.phc_primary",
             ))
 
-        # District hospital treatment
-        if treatment.district_hospital:
-            dist = treatment.district_hospital
+        # District school treatment
+        if treatment.district_school:
+            dist = treatment.district_school
             content = {"condition_name": condition.name, "care_level": "district"}
-            text_parts = [f"District hospital treatment for {condition.name}:"]
+            text_parts = [f"District school treatment for {condition.name}:"]
 
             if dist.additional_capabilities:
                 content["additional_capabilities"] = dist.additional_capabilities
@@ -550,7 +550,7 @@ class ClinicalChunkingService:
                 content_json=content,
                 content_text="\n".join(text_parts),
                 care_levels=["district"],
-                source_section="treatment_by_care_level.district_hospital",
+                source_section="treatment_by_care_level.district_school",
             ))
 
         # Tertiary treatment
@@ -588,7 +588,7 @@ class ClinicalChunkingService:
         if "secondary_hospital" in tiers:
             secondary = tiers["secondary_hospital"]
             content = {"condition_name": condition.name, "care_level": "secondary"}
-            text_parts = [f"Secondary hospital treatment for {condition.name}:"]
+            text_parts = [f"Secondary school treatment for {condition.name}:"]
 
             for category in ["conservative", "medical", "surgical"]:
                 if category in secondary:
@@ -608,7 +608,7 @@ class ClinicalChunkingService:
         if "tertiary_hospital" in tiers:
             tertiary = tiers["tertiary_hospital"]
             content = {"condition_name": condition.name, "care_level": "tertiary"}
-            text_parts = [f"Tertiary hospital treatment for {condition.name}:"]
+            text_parts = [f"Tertiary school treatment for {condition.name}:"]
 
             if "additional_options" in tertiary:
                 content["additional_options"] = tertiary["additional_options"]
@@ -930,13 +930,13 @@ class ClinicalChunkingService:
 
         return chunks
 
-    def _extract_patient_education(self, condition: ClinicalCondition) -> List[ClinicalChunk]:
-        """Extract patient education chunk."""
+    def _extract_student_education(self, condition: ClinicalCondition) -> List[ClinicalChunk]:
+        """Extract student education chunk."""
         chunks = []
-        edu = condition.patient_education
+        edu = condition.student_education
 
         content = {"condition_name": condition.name}
-        text_parts = [f"Patient education for {condition.name}:"]
+        text_parts = [f"Student education for {condition.name}:"]
 
         if edu.key_messages:
             content["key_messages"] = edu.key_messages
@@ -954,7 +954,7 @@ class ClinicalChunkingService:
             chunk_index=0,
             content_json=content,
             content_text="\n".join(text_parts),
-            source_section="patient_education",
+            source_section="student_education",
         ))
 
         return chunks

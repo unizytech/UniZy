@@ -4,7 +4,7 @@ Aosta EHR Integration Service
 Provides functions to format extraction insights for Aosta API
 and send data to Aosta's backend endpoint.
 
-Now uses hospital_ehr table for configuration instead of environment variables.
+Now uses school_ehr table for configuration instead of environment variables.
 """
 
 import logging
@@ -187,7 +187,7 @@ def _build_aosta_medicines(prescription: Any) -> List[Dict[str, Any]]:
     return medicines
 
 
-def _build_aosta_investigations(investigations: Any, hospital_code: str) -> List[Dict[str, Any]]:
+def _build_aosta_investigations(investigations: Any, school_code: str) -> List[Dict[str, Any]]:
     """Build the Aosta-shape Investigations array from extraction's investigations field."""
     formatted: List[Dict[str, Any]] = []
     if not isinstance(investigations, list):
@@ -212,7 +212,7 @@ def _build_aosta_investigations(investigations: Any, hospital_code: str) -> List
             "Test_Name": test_name,
             "Test_id": external_id or "null",
             "Test_type": (inv.get("_investigation_type") if isinstance(inv, dict) else None) or "Laboratory",
-            "hospital_id": hospital_code or "",
+            "school_id": school_code or "",
         })
     return formatted
 
@@ -348,9 +348,9 @@ def _join_labeled(data: Dict[str, Any], pairs: List[Tuple[str, str]]) -> str:
 
 def format_for_aosta(
     extraction_insights: Dict[str, Any],
-    patient_id: str,
-    doctor_id: str,
-    hospital_code: str,
+    student_id: str,
+    counsellor_id: str,
+    school_code: str,
     ip_id: Optional[str] = None,
     op_id: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -361,9 +361,9 @@ def format_for_aosta(
 
     Args:
         extraction_insights: The extraction insights dict (from original_extraction_json or edited_extraction_json)
-        patient_id: Patient ID from patients.patient_id (VARCHAR) - maps to RegNumber
-        doctor_id: Doctor UUID as string - maps to PractitionerId
-        hospital_code: Hospital code from hospitals.hospital_code - maps to HospitalId
+        student_id: Student ID from students.student_id (VARCHAR) - maps to RegNumber
+        counsellor_id: Counsellor UUID as string - maps to PractitionerId
+        school_code: School code from schools.school_code - maps to HospitalId
         ip_id: Inpatient visit ID from recording_metadata - maps to Ipid
         op_id: Outpatient visit ID from recording_metadata - maps to Opid
 
@@ -372,11 +372,11 @@ def format_for_aosta(
     """
     payload = {
         # Metadata fields
-        "RegNumber": patient_id or "",
+        "RegNumber": student_id or "",
         "Ipid": ip_id or "0",
         "Opid": op_id or "0",
-        "PractitionerId": doctor_id or "",
-        "HospitalId": hospital_code or "",
+        "PractitionerId": counsellor_id or "",
+        "HospitalId": school_code or "",
     }
 
     # Flatten history object - extract each history field
@@ -448,7 +448,7 @@ def format_for_aosta(
     payload["TreatmentPlan"] = _stringify_treatment_plan(extraction_insights.get("treatmentPlan", ""))
 
     payload["Medicines"] = _build_aosta_medicines(extraction_insights.get("prescription", []))
-    payload["Investigations"] = _build_aosta_investigations(extraction_insights.get("investigations", []), hospital_code)
+    payload["Investigations"] = _build_aosta_investigations(extraction_insights.get("investigations", []), school_code)
     payload["DoctorInstruction"] = _build_followup_text(extraction_insights.get("followUp", {}))
 
     logger.info(f"[AOSTA] Formatted payload with {len(payload)} fields")
@@ -457,9 +457,9 @@ def format_for_aosta(
 
 def format_for_gem_case_sheet(
     extraction_insights: Dict[str, Any],
-    patient_id: str,
-    doctor_id: str,
-    hospital_code: str,
+    student_id: str,
+    counsellor_id: str,
+    school_code: str,
     template_id: str,
     template_name: str,
     ip_id: Optional[str] = None,
@@ -471,13 +471,13 @@ def format_for_gem_case_sheet(
     Template_id/Template_Name from recording_metadata. No Allergies/DoctorInstruction.
     """
     payload: Dict[str, Any] = {
-        "RegNumber": patient_id or "",
+        "RegNumber": student_id or "",
         "Ipid": ip_id or "0",
         "Opid": op_id or "0",
-        "PractitionerId": doctor_id or "",
+        "PractitionerId": counsellor_id or "",
         "Template_id": str(template_id) if template_id is not None else "",
         "Template_Name": template_name or "",
-        "HospitalId": hospital_code or "",
+        "HospitalId": school_code or "",
     }
 
     history = extraction_insights.get("history", {}) or {}
@@ -514,7 +514,7 @@ def format_for_gem_case_sheet(
     payload["Examination"] = _stringify_examination(extraction_insights)
 
     payload["Medicines"] = _build_aosta_medicines(extraction_insights.get("prescription", []))
-    payload["Investigations"] = _build_aosta_investigations(extraction_insights.get("investigations", []), hospital_code)
+    payload["Investigations"] = _build_aosta_investigations(extraction_insights.get("investigations", []), school_code)
 
     logger.info(f"[GEM_CASE_SHEET] Formatted payload with {len(payload)} fields (template={template_name})")
     return payload
@@ -522,9 +522,9 @@ def format_for_gem_case_sheet(
 
 def format_for_gcc_review(
     extraction_insights: Dict[str, Any],
-    patient_id: str,
-    doctor_id: str,
-    hospital_code: str,
+    student_id: str,
+    counsellor_id: str,
+    school_code: str,
     template_id: str,
     template_name: str,
     ip_id: Optional[str] = None,
@@ -536,13 +536,13 @@ def format_for_gcc_review(
     Medicines, and Investigations.
     """
     payload: Dict[str, Any] = {
-        "RegNumber": patient_id or "",
+        "RegNumber": student_id or "",
         "Ipid": ip_id or "0",
         "Opid": op_id or "0",
-        "PractitionerId": doctor_id or "",
+        "PractitionerId": counsellor_id or "",
         "Template_id": str(template_id) if template_id is not None else "",
         "Template_Name": template_name or "",
-        "HospitalId": hospital_code or "",
+        "HospitalId": school_code or "",
     }
 
     followup_parts = [
@@ -552,7 +552,7 @@ def format_for_gcc_review(
     payload["FollowupCaseSheet"] = ". ".join(p for p in followup_parts if p)
 
     payload["Medicines"] = _build_aosta_medicines(extraction_insights.get("prescription", []))
-    payload["Investigations"] = _build_aosta_investigations(extraction_insights.get("investigations", []), hospital_code)
+    payload["Investigations"] = _build_aosta_investigations(extraction_insights.get("investigations", []), school_code)
 
     logger.info(f"[GCC_REVIEW] Formatted payload with {len(payload)} fields (template={template_name})")
     return payload
@@ -560,9 +560,9 @@ def format_for_gcc_review(
 
 def format_for_aosta_gem_breast_centre(
     extraction_insights: Dict[str, Any],
-    patient_id: str,
-    doctor_id: str,
-    hospital_code: str,
+    student_id: str,
+    counsellor_id: str,
+    school_code: str,
     template_id: str,
     template_name: str,
     ip_id: Optional[str] = None,
@@ -577,7 +577,7 @@ def format_for_aosta_gem_breast_centre(
     from the granular pieces. DiagnosisNotes has no source — emitted empty.
     Requires Template_id/Template_Name from recording_metadata.
     """
-    patient_history = extraction_insights.get("patientHistory") or {}
+    student_history = extraction_insights.get("patientHistory") or {}
     menstrual_history = extraction_insights.get("menstrualHistory") or {}
     obstetric_history = extraction_insights.get("obstetricHistory") or {}
     breast_history = extraction_insights.get("breastHistory") or {}
@@ -621,27 +621,27 @@ def format_for_aosta_gem_breast_centre(
         return v.strip() if isinstance(v, str) else str(v).strip()
 
     payload: Dict[str, Any] = {
-        "RegNumber": patient_id or "",
+        "RegNumber": student_id or "",
         "Ipid": ip_id or "0",
         "Opid": op_id or "0",
-        "PractitionerId": doctor_id or "",
+        "PractitionerId": counsellor_id or "",
         "Template_id": str(template_id) if template_id is not None else "",
         "Template_Name": template_name or "",
-        "HospitalId": hospital_code or "",
+        "HospitalId": school_code or "",
 
         "DiagnosisNotes": "",
         "ChiefComplaints": chief_complaints_str,
-        "PastHistory": _s(patient_history, "past_history"),
+        "PastHistory": _s(student_history, "past_history"),
         "PriorImaging": prior_imaging_str,
         "ImagingDate": imaging_date,
         "Modality": modality,
         "Findings": findings,
         "BreastBiopsiesHistory": _s(breast_history, "breast_biopsies_history"),
         "BreastSurgeryHistory": _s(breast_history, "breast_surgery_history"),
-        "SurgeryMedicalIllnessHistory": _s(patient_history, "surgical_medical_illness_history"),
-        "PersonalHistory": _join_labeled(patient_history, [("smoking", "Smoking"), ("alcohol", "Alcohol")]),
-        "Smoking": _s(patient_history, "smoking"),
-        "Alcohol": _s(patient_history, "alcohol"),
+        "SurgeryMedicalIllnessHistory": _s(student_history, "surgical_medical_illness_history"),
+        "PersonalHistory": _join_labeled(student_history, [("smoking", "Smoking"), ("alcohol", "Alcohol")]),
+        "Smoking": _s(student_history, "smoking"),
+        "Alcohol": _s(student_history, "alcohol"),
         "MenstrualHistory": _join_labeled(menstrual_history, [
             ("age_at_menarche", "Menarche"),
             ("age_at_menopause", "Menopause"),
@@ -666,9 +666,9 @@ def format_for_aosta_gem_breast_centre(
         "NumberOfChildren": _s(obstetric_history, "number_of_children"),
         "TotalMonthsOfBreastFeeding": _s(obstetric_history, "total_months_of_breastfeeding"),
         "FamilyHistoryOfCancer": _s(obstetric_history, "family_history_of_cancer"),
-        "AllergyHistory": _s(patient_history, "allergy_history"),
+        "AllergyHistory": _s(student_history, "allergy_history"),
         "Medicines": _stringify_prescription(extraction_insights.get("prescription", [])),
-        "Following": _s(patient_history, "following"),
+        "Following": _s(student_history, "following"),
         "Examination": _s(examination_breast, "examination"),
         "Diagnosis": diagnosis_str,
         "Imaging": _s(imaging, "imaging"),
@@ -694,7 +694,7 @@ async def send_to_aosta(
 
     Args:
         payload: The formatted payload from format_for_aosta()
-        api_url: Required - the hospital's configured Aosta URL
+        api_url: Required - the school's configured Aosta URL
         api_key: Optional - if not provided, sends without Authorization header
 
     Returns:
@@ -753,12 +753,12 @@ async def send_to_aosta(
         }
 
 
-async def get_hospital_ehr_config(hospital_id: str, ehr_type: str) -> Optional[Dict[str, Any]]:
+async def get_school_ehr_config(school_id: str, ehr_type: str) -> Optional[Dict[str, Any]]:
     """
-    Get EHR configuration for a hospital.
+    Get EHR configuration for a school.
 
     Args:
-        hospital_id: Hospital UUID as string
+        school_id: School UUID as string
         ehr_type: EHR integration type (e.g., 'aosta', 'raster', 'epic')
 
     Returns:
@@ -768,9 +768,9 @@ async def get_hospital_ehr_config(hospital_id: str, ehr_type: str) -> Optional[D
 
     try:
         result = (
-            supabase.table("hospital_ehr")
+            supabase.table("school_ehr")
             .select("api_url, api_key, is_enabled")
-            .eq("hospital_id", hospital_id)
+            .eq("school_id", school_id)
             .eq("ehr_integration_type", ehr_type.lower())
             .eq("is_enabled", True)
             .limit(1)
@@ -779,76 +779,76 @@ async def get_hospital_ehr_config(hospital_id: str, ehr_type: str) -> Optional[D
 
         if result.data and len(result.data) > 0:
             config = result.data[0]
-            logger.info(f"[EHR] Found {ehr_type} config for hospital {hospital_id}: url={bool(config.get('api_url'))}")
+            logger.info(f"[EHR] Found {ehr_type} config for school {school_id}: url={bool(config.get('api_url'))}")
             return {
                 "api_url": config.get("api_url"),
                 "api_key": config.get("api_key"),
                 "is_enabled": config.get("is_enabled", True)
             }
 
-        logger.debug(f"[EHR] No {ehr_type} config found for hospital {hospital_id}")
+        logger.debug(f"[EHR] No {ehr_type} config found for school {school_id}")
         return None
 
     except Exception as e:
-        logger.warning(f"[EHR] Failed to get {ehr_type} config for hospital {hospital_id}: {e}")
+        logger.warning(f"[EHR] Failed to get {ehr_type} config for school {school_id}: {e}")
         return None
 
 
-def get_hospital_code(hospital_id: str) -> Optional[str]:
+def get_school_code(school_id: str) -> Optional[str]:
     """
-    Get hospital_code from hospital_id.
+    Get school_code from school_id.
 
     Args:
-        hospital_id: Hospital UUID as string
+        school_id: School UUID as string
 
     Returns:
-        Hospital code string or None if not found
+        School code string or None if not found
     """
     from services.supabase_service import supabase
 
     try:
         response = (
-            supabase.table("hospitals")
-            .select("hospital_code")
-            .eq("id", hospital_id)
+            supabase.table("schools")
+            .select("school_code")
+            .eq("id", school_id)
             .limit(1)
             .execute()
         )
 
         if response.data and len(response.data) > 0:
-            return response.data[0].get("hospital_code")
+            return response.data[0].get("school_code")
         return None
 
     except Exception as e:
-        logger.error(f"[AOSTA] Failed to get hospital_code for {hospital_id}: {e}")
+        logger.error(f"[AOSTA] Failed to get school_code for {school_id}: {e}")
         return None
 
 
-def get_patient_external_id(patient_uuid: str) -> Optional[str]:
+def get_student_external_id(patient_uuid: str) -> Optional[str]:
     """
-    Get patient_id (external VARCHAR ID) from patient UUID.
+    Get student_id (external VARCHAR ID) from student UUID.
 
     Args:
-        patient_uuid: Patient table UUID as string
+        patient_uuid: Student table UUID as string
 
     Returns:
-        Patient ID string (e.g., "PAT001") or None if not found
+        Student ID string (e.g., "PAT001") or None if not found
     """
     from services.supabase_service import supabase
 
     try:
         response = (
-            supabase.table("patients")
-            .select("patient_id")
+            supabase.table("students")
+            .select("student_id")
             .eq("id", patient_uuid)
             .limit(1)
             .execute()
         )
 
         if response.data and len(response.data) > 0:
-            return response.data[0].get("patient_id")
+            return response.data[0].get("student_id")
         return None
 
     except Exception as e:
-        logger.error(f"[AOSTA] Failed to get patient_id for {patient_uuid}: {e}")
+        logger.error(f"[AOSTA] Failed to get student_id for {patient_uuid}: {e}")
         return None

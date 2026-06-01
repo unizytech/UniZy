@@ -1,7 +1,7 @@
 """
-Doctor ID UUID Normalization Utilities
+Counsellor ID UUID Normalization Utilities
 
-Provides functions to convert string doctor IDs to valid UUIDs for database operations.
+Provides functions to convert string counsellor IDs to valid UUIDs for database operations.
 Supports multiple strategies:
 1. Valid UUID strings → Parse and return UUID
 2. Invalid strings → Generate deterministic UUID using namespace
@@ -12,49 +12,49 @@ import uuid
 from typing import Optional
 
 
-# Namespace UUID for deterministic doctor ID generation
-# Using DNS namespace as a base for doctor-related UUIDs
-DOCTOR_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, 'ai-live-recorder.doctor-ids')
+# Namespace UUID for deterministic counsellor ID generation
+# Using DNS namespace as a base for counsellor-related UUIDs
+DOCTOR_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, 'ai-live-recorder.counsellor-ids')
 
 
-def normalize_doctor_id(doctor_id: Optional[str]) -> uuid.UUID:
+def normalize_counsellor_id(counsellor_id: Optional[str]) -> uuid.UUID:
     """
-    Convert a string doctor_id to a valid UUID.
+    Convert a string counsellor_id to a valid UUID.
 
     Strategies:
-    1. If doctor_id is None → Generate random anonymous UUID
-    2. If doctor_id is valid UUID string → Parse and return UUID object
-    3. If doctor_id is invalid UUID → Generate deterministic UUID from string
+    1. If counsellor_id is None → Generate random anonymous UUID
+    2. If counsellor_id is valid UUID string → Parse and return UUID object
+    3. If counsellor_id is invalid UUID → Generate deterministic UUID from string
 
     Args:
-        doctor_id: Doctor identifier (string or None)
+        counsellor_id: Counsellor identifier (string or None)
 
     Returns:
         uuid.UUID: Valid UUID object
 
     Examples:
-        >>> normalize_doctor_id(None)
+        >>> normalize_counsellor_id(None)
         UUID('random-uuid-here')
 
-        >>> normalize_doctor_id('550e8400-e29b-41d4-a716-446655440000')
+        >>> normalize_counsellor_id('550e8400-e29b-41d4-a716-446655440000')
         UUID('550e8400-e29b-41d4-a716-446655440000')
 
-        >>> normalize_doctor_id('test-doctor-123')
-        UUID('deterministic-uuid-for-test-doctor-123')
+        >>> normalize_counsellor_id('test-counsellor-123')
+        UUID('deterministic-uuid-for-test-counsellor-123')
     """
     # Case 1: None → Generate random anonymous UUID
-    if doctor_id is None:
+    if counsellor_id is None:
         return uuid.uuid4()
 
     # Case 2: Valid UUID string → Parse and return
     try:
-        return uuid.UUID(doctor_id)
+        return uuid.UUID(counsellor_id)
     except (ValueError, AttributeError):
         pass
 
     # Case 3: Invalid UUID string → Generate deterministic UUID
     # Using uuid5 ensures same string always generates same UUID
-    return uuid.uuid5(DOCTOR_NAMESPACE, doctor_id)
+    return uuid.uuid5(DOCTOR_NAMESPACE, counsellor_id)
 
 
 def is_valid_uuid(value: str) -> bool:
@@ -81,38 +81,38 @@ def is_valid_uuid(value: str) -> bool:
         return False
 
 
-def doctor_id_to_string(doctor_uuid: uuid.UUID) -> str:
+def counsellor_id_to_string(counsellor_uuid: uuid.UUID) -> str:
     """
     Convert UUID back to string representation.
 
     Args:
-        doctor_uuid: UUID object
+        counsellor_uuid: UUID object
 
     Returns:
         str: UUID as string
 
     Examples:
-        >>> doctor_id_to_string(UUID('550e8400-e29b-41d4-a716-446655440000'))
+        >>> counsellor_id_to_string(UUID('550e8400-e29b-41d4-a716-446655440000'))
         '550e8400-e29b-41d4-a716-446655440000'
     """
-    return str(doctor_uuid)
+    return str(counsellor_uuid)
 
 
-def generate_anonymous_doctor_id() -> uuid.UUID:
+def generate_anonymous_counsellor_id() -> uuid.UUID:
     """
-    Generate a random UUID for anonymous doctors.
+    Generate a random UUID for anonymous counsellors.
 
     Returns:
         uuid.UUID: Random UUID
 
     Examples:
-        >>> generate_anonymous_doctor_id()
+        >>> generate_anonymous_counsellor_id()
         UUID('random-uuid-here')
     """
     return uuid.uuid4()
 
 
-def generate_deterministic_doctor_id(identifier: str) -> uuid.UUID:
+def generate_deterministic_counsellor_id(identifier: str) -> uuid.UUID:
     """
     Generate a deterministic UUID from a string identifier.
     Same identifier always produces the same UUID.
@@ -124,10 +124,10 @@ def generate_deterministic_doctor_id(identifier: str) -> uuid.UUID:
         uuid.UUID: Deterministic UUID
 
     Examples:
-        >>> generate_deterministic_doctor_id('user@example.com')
+        >>> generate_deterministic_counsellor_id('user@example.com')
         UUID('deterministic-uuid-for-user@example.com')
 
-        >>> generate_deterministic_doctor_id('user@example.com')
+        >>> generate_deterministic_counsellor_id('user@example.com')
         UUID('same-deterministic-uuid')  # Always same result
     """
     return uuid.uuid5(DOCTOR_NAMESPACE, identifier)
@@ -158,7 +158,7 @@ def ensure_uuid(value: Optional[str | uuid.UUID]) -> uuid.UUID:
         return value
 
     if isinstance(value, str):
-        return normalize_doctor_id(value)
+        return normalize_counsellor_id(value)
 
     # None or other types
-    return normalize_doctor_id(None)
+    return normalize_counsellor_id(None)

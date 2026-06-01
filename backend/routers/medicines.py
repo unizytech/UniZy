@@ -1,10 +1,10 @@
 """
-Medicines Router - API for Doctor Medicine List Management
+Medicines Router - API for Counsellor Medicine List Management
 
 Endpoints for:
-- Doctor medicine list CRUD
+- Counsellor medicine list CRUD
 - CSV upload
-- Hospital medicine list management
+- School medicine list management
 - Medicine matching test
 - Feedback submission and review
 """
@@ -18,52 +18,52 @@ from pydantic import BaseModel, Field
 
 from models.auth_models import ClientContext
 from dependencies.auth import require_admin
-from services.auth_service import get_doctor_hospital_id
+from services.auth_service import get_counsellor_school_id
 
 # Conditional EHR auth imports
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
-    from dependencies.auth import EHRDoctorAccessChecker, get_current_client
+    from dependencies.auth import EHRCounsellorAccessChecker, get_current_client
 
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: Optional[str] = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
-    async def verify_hospital_access(request: Request, hospital_id: Optional[str] = None):  # type: ignore[misc]
-        """Verify client has access to hospital data. Allows admin, web_app, and EHR (with hospital scoping)."""
+    async def verify_school_access(request: Request, school_id: Optional[str] = None):  # type: ignore[misc]
+        """Verify client has access to school data. Allows admin, web_app, and EHR (with school scoping)."""
         client = get_current_client(request)
-        if hospital_id and client.client_type == "ehr":
-            hospital_uuid = uuid.UUID(hospital_id)
-            if not client.can_access_hospital(hospital_uuid):
+        if school_id and client.client_type == "ehr":
+            school_uuid = uuid.UUID(school_id)
+            if not client.can_access_school(school_uuid):
                 raise HTTPException(
                     status_code=403,
                     detail="Access denied"
                 )
         return client
 else:
-    async def verify_doctor_access(request: Request = None, doctor_id: Optional[str] = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request = None, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
-    async def verify_hospital_access(request: Request = None, hospital_id: Optional[str] = None):  # type: ignore[misc]
+    async def verify_school_access(request: Request = None, school_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
 from services.medicine_service import (
-    # Doctor medicines
-    create_doctor_medicine,
-    update_doctor_medicine,
-    delete_doctor_medicine,
-    list_doctor_medicines,
-    copy_hospital_medicine_to_doctor,
+    # Counsellor medicines
+    create_counsellor_medicine,
+    update_counsellor_medicine,
+    delete_counsellor_medicine,
+    list_counsellor_medicines,
+    copy_school_medicine_to_counsellor,
     upload_medicine_list,
     upload_medicine_list_json,
-    # Hospital medicines
-    create_hospital_medicine,
-    list_hospital_medicines,
-    upload_hospital_medicine_list,
+    # School medicines
+    create_school_medicine,
+    list_school_medicines,
+    upload_school_medicine_list,
     # Matching
     match_medicine_name,
     get_medicine_list_for_prompt,
@@ -72,7 +72,7 @@ from services.medicine_service import (
     list_pending_feedback,
     list_feedback_history,
     # Backfill
-    backfill_doctor_medicines_from_hospital,
+    backfill_counsellor_medicines_from_school,
 )
 
 # Configure logging
@@ -139,28 +139,28 @@ class MedicineBulkUpload(BaseModel):
     medicines: List[MedicineBulkItem]
 
 
-class HospitalMedicineCreate(MedicineCreate):
+class SchoolMedicineCreate(MedicineCreate):
     pass
 
 
 # ============================================================================
-# Doctor Medicine Endpoints
+# Counsellor Medicine Endpoints
 # ============================================================================
 
-@router.get("/{doctor_id}")
-async def get_doctor_medicines(
+@router.get("/{counsellor_id}")
+async def get_counsellor_medicines(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     category: Optional[str] = None,
     search: Optional[str] = None,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    List all medicines for a doctor.
+    List all medicines for a counsellor.
     """
     try:
-        medicines = list_doctor_medicines(
-            doctor_id=uuid.UUID(doctor_id),
+        medicines = list_counsellor_medicines(
+            counsellor_id=uuid.UUID(counsellor_id),
             category=category,
             search=search
         )
@@ -169,46 +169,46 @@ async def get_doctor_medicines(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.get("/{doctor_id}/combined")
+@router.get("/{counsellor_id}/combined")
 async def get_combined_medicines(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     category: Optional[str] = None,
     search: Optional[str] = None,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    List combined medicines for a doctor (doctor list + hospital list, deduplicated).
+    List combined medicines for a counsellor (counsellor list + school list, deduplicated).
 
-    Doctor medicines take priority over hospital medicines when duplicates exist.
+    Counsellor medicines take priority over school medicines when duplicates exist.
     Deduplication is based on normalized_name.
     """
     try:
-        doctor_uuid = uuid.UUID(doctor_id)
+        counsellor_uuid = uuid.UUID(counsellor_id)
 
-        # Get doctor's own medicines
-        doctor_medicines = list_doctor_medicines(
-            doctor_id=doctor_uuid,
+        # Get counsellor's own medicines
+        counsellor_medicines = list_counsellor_medicines(
+            counsellor_id=counsellor_uuid,
             category=category,
             search=search
         )
 
-        # Get doctor's hospital_id and fetch hospital medicines
-        hospital_id = await get_doctor_hospital_id(doctor_uuid)
-        if hospital_id:
-            hospital_medicines = list_hospital_medicines(
-                hospital_id=hospital_id,
+        # Get counsellor's school_id and fetch school medicines
+        school_id = await get_counsellor_school_id(counsellor_uuid)
+        if school_id:
+            hospital_medicines = list_school_medicines(
+                school_id=school_id,
                 category=category
             )
         else:
             hospital_medicines = []
 
-        # Deduplicate: doctor medicines take priority
-        seen_names = {m["normalized_name"] for m in doctor_medicines}
-        combined = list(doctor_medicines)
+        # Deduplicate: counsellor medicines take priority
+        seen_names = {m["normalized_name"] for m in counsellor_medicines}
+        combined = list(counsellor_medicines)
         for med in hospital_medicines:
             if med["normalized_name"] not in seen_names:
-                # Filter by search if provided (hospital list doesn't support search natively)
+                # Filter by search if provided (school list doesn't support search natively)
                 if search and search.lower() not in med.get("medicine_name", "").lower():
                     continue
                 seen_names.add(med["normalized_name"])
@@ -217,26 +217,26 @@ async def get_combined_medicines(
         return {
             "medicines": combined,
             "count": len(combined),
-            "doctor_count": len(doctor_medicines),
+            "counsellor_count": len(counsellor_medicines),
             "hospital_count": len(hospital_medicines),
         }
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/{doctor_id}")
-async def add_doctor_medicine(
+@router.post("/{counsellor_id}")
+async def add_counsellor_medicine(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     data: MedicineCreate,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Add a single medicine to doctor's list.
+    Add a single medicine to counsellor's list.
     """
     try:
-        medicine = create_doctor_medicine(
-            doctor_id=uuid.UUID(doctor_id),
+        medicine = create_counsellor_medicine(
+            counsellor_id=uuid.UUID(counsellor_id),
             medicine_name=data.medicine_name,
             common_names=data.common_names,
             category=data.category,
@@ -254,19 +254,19 @@ async def add_doctor_medicine(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.put("/{doctor_id}/{medicine_id}")
+@router.put("/{counsellor_id}/{medicine_id}")
 async def update_medicine(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     medicine_id: str,
     data: MedicineUpdate,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Update a medicine in doctor's list.
+    Update a medicine in counsellor's list.
     """
     try:
-        medicine = update_doctor_medicine(
+        medicine = update_counsellor_medicine(
             medicine_id=uuid.UUID(medicine_id),
             medicine_name=data.medicine_name,
             common_names=data.common_names,
@@ -285,18 +285,18 @@ async def update_medicine(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.delete("/{doctor_id}/{medicine_id}")
+@router.delete("/{counsellor_id}/{medicine_id}")
 async def remove_medicine(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     medicine_id: str,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Soft delete a medicine from doctor's list.
+    Soft delete a medicine from counsellor's list.
     """
     try:
-        success = delete_doctor_medicine(uuid.UUID(medicine_id))
+        success = delete_counsellor_medicine(uuid.UUID(medicine_id))
         if not success:
             raise HTTPException(status_code=400, detail="Failed to delete medicine")
         return {"message": "Medicine deleted"}
@@ -304,13 +304,13 @@ async def remove_medicine(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/{doctor_id}/upload")
+@router.post("/{counsellor_id}/upload")
 async def upload_csv(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     file: UploadFile = File(...),
     replace_existing: bool = Query(default=False),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Upload CSV file with medicines.
@@ -323,7 +323,7 @@ async def upload_csv(
         csv_content = content.decode('utf-8')
 
         result = upload_medicine_list(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             csv_content=csv_content,
             filename=file.filename or "upload.csv",
             replace_existing=replace_existing
@@ -344,13 +344,13 @@ async def upload_csv(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.post("/{doctor_id}/upload-json")
+@router.post("/{counsellor_id}/upload-json")
 async def upload_json(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     data: MedicineBulkUpload,
     replace_existing: bool = Query(default=False),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Upload medicines via JSON body.
@@ -383,7 +383,7 @@ async def upload_json(
             })
 
         result = upload_medicine_list_json(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             medicines=medicines,
             replace_existing=replace_existing
         )
@@ -400,20 +400,20 @@ async def upload_json(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.post("/{doctor_id}/copy-from-hospital/{hospital_medicine_id}")
-async def copy_from_hospital(
+@router.post("/{counsellor_id}/copy-from-school/{school_medicine_id}")
+async def copy_from_school(
     request: Request,
-    doctor_id: str,
-    hospital_medicine_id: str,
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str,
+    school_medicine_id: str,
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Copy a hospital medicine to doctor's personal list.
+    Copy a school medicine to counsellor's personal list.
     """
     try:
-        result = copy_hospital_medicine_to_doctor(
-            hospital_medicine_id=uuid.UUID(hospital_medicine_id),
-            doctor_id=uuid.UUID(doctor_id)
+        result = copy_school_medicine_to_counsellor(
+            school_medicine_id=uuid.UUID(school_medicine_id),
+            counsellor_id=uuid.UUID(counsellor_id)
         )
         if not result:
             raise HTTPException(status_code=400, detail="Failed to copy medicine")
@@ -422,12 +422,12 @@ async def copy_from_hospital(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/{doctor_id}/test-match")
+@router.post("/{counsellor_id}/test-match")
 async def test_match(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     data: MatchTestRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Test medicine matching without saving.
@@ -437,7 +437,7 @@ async def test_match(
     try:
         result = await match_medicine_name(
             extracted_name=data.medicine_name,
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             diagnosis=data.diagnosis or ""
         )
         return {
@@ -452,12 +452,12 @@ async def test_match(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.get("/{doctor_id}/prompt-injection")
+@router.get("/{counsellor_id}/prompt-injection")
 async def get_prompt_injection(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     max_medicines: int = Query(default=3500),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Get medicine list formatted for prompt injection.
@@ -466,11 +466,11 @@ async def get_prompt_injection(
     """
     try:
         prompt_text = get_medicine_list_for_prompt(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             max_medicines=max_medicines
         )
         return {
-            "doctor_id": doctor_id,
+            "counsellor_id": counsellor_id,
             "prompt_text": prompt_text,
             "character_count": len(prompt_text)
         }
@@ -479,22 +479,22 @@ async def get_prompt_injection(
 
 
 # ============================================================================
-# Hospital Medicine Endpoints
+# School Medicine Endpoints
 # ============================================================================
 
-@router.get("/hospital/{hospital_id}")
-async def get_hospital_medicines(
+@router.get("/school/{school_id}")
+async def get_school_medicines(
     request: Request,
-    hospital_id: str,
+    school_id: str,
     category: Optional[str] = None,
-    _auth = Depends(verify_hospital_access)
+    _auth = Depends(verify_school_access)
 ):
     """
-    List all medicines for a hospital.
+    List all medicines for a school.
     """
     try:
-        medicines = list_hospital_medicines(
-            hospital_id=uuid.UUID(hospital_id),
+        medicines = list_school_medicines(
+            school_id=uuid.UUID(school_id),
             category=category
         )
         return {"medicines": medicines, "count": len(medicines)}
@@ -502,19 +502,19 @@ async def get_hospital_medicines(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/hospital/{hospital_id}")
-async def add_hospital_medicine(
-    hospital_id: str,
-    data: HospitalMedicineCreate,
-    created_by: str = Query(..., description="Admin doctor ID"),
+@router.post("/school/{school_id}")
+async def add_school_medicine(
+    school_id: str,
+    data: SchoolMedicineCreate,
+    created_by: str = Query(..., description="Admin counsellor ID"),
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Add a single medicine to hospital's list.
+    Add a single medicine to school's list.
     """
     try:
-        medicine = create_hospital_medicine(
-            hospital_id=uuid.UUID(hospital_id),
+        medicine = create_school_medicine(
+            school_id=uuid.UUID(school_id),
             created_by=uuid.UUID(created_by),
             medicine_name=data.medicine_name,
             common_names=data.common_names,
@@ -525,31 +525,31 @@ async def add_hospital_medicine(
             formulary_name=data.formulary_name,
             medicine_type=data.medicine_type
         )
-        return {"message": "Hospital medicine added", "medicine": medicine}
+        return {"message": "School medicine added", "medicine": medicine}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Failed to add hospital medicine: {e}")
+        logger.error(f"Failed to add school medicine: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.post("/hospital/{hospital_id}/upload")
-async def upload_hospital_csv(
-    hospital_id: str,
+@router.post("/school/{school_id}/upload")
+async def upload_school_csv(
+    school_id: str,
     file: UploadFile = File(...),
-    created_by: str = Query(..., description="Admin doctor ID"),
+    created_by: str = Query(..., description="Admin counsellor ID"),
     replace_existing: bool = Query(default=False),
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Upload CSV file with hospital medicines.
+    Upload CSV file with school medicines.
     """
     try:
         content = await file.read()
         csv_content = content.decode('utf-8')
 
-        result = upload_hospital_medicine_list(
-            hospital_id=uuid.UUID(hospital_id),
+        result = upload_school_medicine_list(
+            school_id=uuid.UUID(school_id),
             csv_content=csv_content,
             filename=file.filename or "upload.csv",
             created_by=uuid.UUID(created_by),
@@ -561,19 +561,19 @@ async def upload_hospital_csv(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Hospital upload failed: {e}")
+        logger.error(f"School upload failed: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.put("/hospital/{hospital_id}/{medicine_id}")
-async def update_hospital_medicine(
-    hospital_id: str,
+@router.put("/school/{school_id}/{medicine_id}")
+async def update_school_medicine(
+    school_id: str,
     medicine_id: str,
     data: MedicineUpdate,
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Update a hospital medicine.
+    Update a school medicine.
     """
     from services.medicine_service import supabase, normalize_medicine_name, generate_search_tokens
 
@@ -588,45 +588,45 @@ async def update_hospital_medicine(
                 update_data.get('common_names')
             )
 
-        result = supabase.table('hospital_medicine_lists').update(
+        result = supabase.table('school_medicine_lists').update(
             update_data
-        ).eq('id', medicine_id).eq('hospital_id', hospital_id).execute()
+        ).eq('id', medicine_id).eq('school_id', school_id).execute()
 
         if not result.data:
-            raise HTTPException(status_code=404, detail="Hospital medicine not found")
+            raise HTTPException(status_code=404, detail="School medicine not found")
 
-        return {"message": "Hospital medicine updated", "medicine": result.data[0]}
+        return {"message": "School medicine updated", "medicine": result.data[0]}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Failed to update hospital medicine: {e}")
+        logger.error(f"Failed to update school medicine: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.delete("/hospital/{hospital_id}/{medicine_id}")
-async def delete_hospital_medicine(
-    hospital_id: str,
+@router.delete("/school/{school_id}/{medicine_id}")
+async def delete_school_medicine(
+    school_id: str,
     medicine_id: str,
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Soft delete a hospital medicine (sets is_active=False).
+    Soft delete a school medicine (sets is_active=False).
     """
     from services.medicine_service import supabase
 
     try:
-        result = supabase.table('hospital_medicine_lists').update({
+        result = supabase.table('school_medicine_lists').update({
             'is_active': False
-        }).eq('id', medicine_id).eq('hospital_id', hospital_id).execute()
+        }).eq('id', medicine_id).eq('school_id', school_id).execute()
 
         if not result.data:
-            raise HTTPException(status_code=404, detail="Hospital medicine not found")
+            raise HTTPException(status_code=404, detail="School medicine not found")
 
-        return {"message": "Hospital medicine deleted"}
+        return {"message": "School medicine deleted"}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Failed to delete hospital medicine: {e}")
+        logger.error(f"Failed to delete school medicine: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
@@ -634,22 +634,22 @@ async def delete_hospital_medicine(
 # Feedback Endpoints
 # ============================================================================
 
-@router.get("/feedback/{doctor_id}/pending")
+@router.get("/feedback/{counsellor_id}/pending")
 async def get_pending_feedback(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     limit: int = Query(default=100),
     offset: int = Query(default=0),
     include_exact_matches: bool = Query(default=False, description="Include exact and common_name matches (default: only fuzzy and doctor_edit)"),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Get matches pending feedback for a doctor.
+    Get matches pending feedback for a counsellor.
 
-    By default, only returns matches that NEED doctor action:
+    By default, only returns matches that NEED counsellor action:
     - 'fuzzy' matches: System guessed a correction → Agree/Disagree
     - 'no_match' matches: New medicine not in any list → Add to list or Correct
-    - 'doctor_edit_*' matches: FYI only (doctor already corrected in UI)
+    - 'doctor_edit_*' matches: FYI only (counsellor already corrected in UI)
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
@@ -659,7 +659,7 @@ async def get_pending_feedback(
     """
     try:
         records = list_pending_feedback(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             limit=limit,
             offset=offset,
             include_exact_matches=include_exact_matches
@@ -675,10 +675,10 @@ async def get_pending_feedback(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.get("/feedback/{doctor_id}/history")
+@router.get("/feedback/{counsellor_id}/history")
 async def get_feedback_history(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     feedback_status: Optional[str] = None,
     confidence_min: Optional[float] = None,
     confidence_max: Optional[float] = None,
@@ -687,15 +687,15 @@ async def get_feedback_history(
     limit: int = Query(default=100),
     offset: int = Query(default=0),
     include_exact_matches: bool = Query(default=False, description="Include exact and common_name matches (default: only fuzzy, no_match, doctor_edit)"),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Get feedback history with filters for the review screen.
 
-    By default, only returns matches that NEED/NEEDED doctor action:
+    By default, only returns matches that NEED/NEEDED counsellor action:
     - 'fuzzy' matches: System guessed a correction
     - 'no_match' matches: New medicine not in any list
-    - 'doctor_edit_*' matches: Doctor corrected in UI
+    - 'doctor_edit_*' matches: Counsellor corrected in UI
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
@@ -705,7 +705,7 @@ async def get_feedback_history(
     """
     try:
         result = list_feedback_history(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             feedback_status=feedback_status,
             confidence_min=confidence_min,
             confidence_max=confidence_max,
@@ -725,13 +725,13 @@ async def submit_feedback(
     request: Request,
     match_log_id: str,
     data: FeedbackSubmit,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Submit feedback for a medicine match.
 
-    If agreed with hospital match, auto-copies to doctor's personal list.
+    If agreed with school match, auto-copies to counsellor's personal list.
     """
     try:
         correct_id = uuid.UUID(data.correct_medicine_id) if data.correct_medicine_id else None
@@ -754,8 +754,8 @@ async def submit_feedback(
 async def bulk_agree_feedback(
     request: Request,
     match_log_ids: List[str],
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Bulk agree with multiple matches.
@@ -782,14 +782,14 @@ async def bulk_agree_feedback(
 # Backfill - Enrich common_names with abbreviations
 # ============================================================================
 
-@router.post("/{doctor_id}/backfill-abbreviations")
+@router.post("/{counsellor_id}/backfill-abbreviations")
 async def backfill_abbreviations(
-    doctor_id: str,
+    counsellor_id: str,
     dry_run: bool = Query(True, description="If true, only report what would be updated without making changes"),
     _admin = Depends(require_admin)
 ):
     """
-    Backfill existing doctor medicines with enriched common_names from
+    Backfill existing counsellor medicines with enriched common_names from
     the expanded abbreviation dictionary. Admin only.
 
     Use dry_run=true first to preview changes, then dry_run=false to apply.
@@ -797,41 +797,41 @@ async def backfill_abbreviations(
     try:
         from services.medicine_service import backfill_medicine_abbreviations
         result = backfill_medicine_abbreviations(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             dry_run=dry_run
         )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
-        logger.error(f"Abbreviation backfill failed for doctor {doctor_id}: {e}")
+        logger.error(f"Abbreviation backfill failed for counsellor {counsellor_id}: {e}")
         raise HTTPException(status_code=500, detail="Backfill failed")
 
 
 # ============================================================================
-# Backfill - Enrich doctor medicines from hospital list
+# Backfill - Enrich counsellor medicines from school list
 # ============================================================================
 
-@router.post("/{doctor_id}/backfill-from-hospital")
-async def backfill_medicines_from_hospital(
-    doctor_id: str,
+@router.post("/{counsellor_id}/backfill-from-school")
+async def backfill_medicines_from_school(
+    counsellor_id: str,
     dry_run: bool = Query(True, description="If true, only report what would be updated without making changes"),
     _admin = Depends(require_admin)
 ):
     """
-    Backfill doctor medicine entries that have no external_id by matching
-    against the hospital medicine list. Admin only.
+    Backfill counsellor medicine entries that have no external_id by matching
+    against the school medicine list. Admin only.
 
     Use dry_run=true first to preview changes, then dry_run=false to apply.
     """
     try:
-        result = backfill_doctor_medicines_from_hospital(
-            doctor_id=uuid.UUID(doctor_id),
+        result = backfill_counsellor_medicines_from_school(
+            counsellor_id=uuid.UUID(counsellor_id),
             dry_run=dry_run
         )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
-        logger.error(f"Medicine backfill failed for doctor {doctor_id}: {e}")
+        logger.error(f"Medicine backfill failed for counsellor {counsellor_id}: {e}")
         raise HTTPException(status_code=500, detail="Backfill failed")

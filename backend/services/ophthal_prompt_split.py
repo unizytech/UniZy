@@ -5,8 +5,8 @@ The flattened schema (71 properties) may exceed Gemini's constraint limits,
 especially with the deeply nested fundusExamination section (26 fields).
 This module splits the extraction into TWO separate API calls:
 
-PART 1 (33 fields): PATIENT DATA & ANTERIOR EXAMINATION
-- Patient demographics (5 fields)
+PART 1 (33 fields): STUDENT DATA & ANTERIOR EXAMINATION
+- Student demographics (5 fields)
 - Clinical history (7 fields)
 - Visual acuity (4 fields - bilateral)
 - Refraction (6 fields - bilateral, 3 levels)
@@ -27,17 +27,17 @@ The ophthal_formatter.py service merges both results into the final nested struc
 from google.genai import types
 
 # ============================================================================
-# PART 1: PATIENT DATA & ANTERIOR EXAMINATION (33 fields)
+# PART 1: STUDENT DATA & ANTERIOR EXAMINATION (33 fields)
 # ============================================================================
 
 OPHTHAL_PART1_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # ========== SECTION 1: PATIENT DEMOGRAPHICS (5 fields) ==========
+        # ========== SECTION 1: STUDENT DEMOGRAPHICS (5 fields) ==========
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
         "patientDemographics_date": types.Schema(type=types.Type.STRING, description="Consultation date in YYYY-MM-DD or DD-MM-YYYY format or empty string"),
-        "patientDemographics_patientName": types.Schema(type=types.Type.STRING, description="Full patient name or empty string"),
-        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years') or empty string"),
+        "patientDemographics_patientName": types.Schema(type=types.Type.STRING, description="Full student name or empty string"),
+        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years') or empty string"),
         "patientDemographics_gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
 
         # ========== SECTION 2: CLINICAL HISTORY (7 fields) ==========

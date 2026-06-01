@@ -28,19 +28,19 @@ logger = logging.getLogger(__name__)
 # Auth imports
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
-    from dependencies.auth import EHRDoctorAccessChecker, EHRSubmissionAccessChecker, EHRCorrelationAccessChecker, get_current_client
-    from services.auth_service import validate_ehr_correlation_access, validate_ehr_doctor_access
+    from dependencies.auth import EHRCounsellorAccessChecker, EHRSubmissionAccessChecker, EHRCorrelationAccessChecker, get_current_client
+    from services.auth_service import validate_ehr_correlation_access, validate_ehr_counsellor_access
     from models.auth_models import ClientContext
 
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
     _correlation_checker = EHRCorrelationAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: Optional[str] = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
     async def verify_submission_access(request: Request, submission_id: Optional[str] = None):  # type: ignore[misc]
         """Verify EHR client has access to submission data."""
@@ -67,22 +67,22 @@ if AUTH_ENABLED:
                     detail="Access denied"
                 )
 
-    async def validate_doctor_from_body(http_request: Request, doctor_id: str):  # type: ignore[misc]
+    async def validate_counsellor_from_body(http_request: Request, counsellor_id: str):  # type: ignore[misc]
         """
-        Validate doctor_id access after body is parsed.
-        Use this for endpoints where doctor_id is in request body.
+        Validate counsellor_id access after body is parsed.
+        Use this for endpoints where counsellor_id is in request body.
         Raises HTTPException 403 if access denied.
         """
         client = get_current_client(http_request)
         if client.client_type == "ehr":
-            doctor_uuid = uuid.UUID(doctor_id)
-            if not await validate_ehr_doctor_access(client, doctor_uuid):
+            counsellor_uuid = uuid.UUID(counsellor_id)
+            if not await validate_ehr_counsellor_access(client, counsellor_uuid):
                 raise HTTPException(
                     status_code=403,
                     detail="Access denied"
                 )
 else:
-    async def verify_doctor_access(request: Request = None, doctor_id: Optional[str] = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request = None, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
     async def verify_submission_access(request: Request = None, submission_id: Optional[str] = None):  # type: ignore[misc]
@@ -94,7 +94,7 @@ else:
     async def validate_correlation_from_body(http_request: Request = None, correlation_id: str = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
-    async def validate_doctor_from_body(http_request: Request = None, doctor_id: str = None):  # type: ignore[misc]
+    async def validate_counsellor_from_body(http_request: Request = None, counsellor_id: str = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
 from services.supabase_service import (
@@ -129,11 +129,11 @@ from services.audio_validation_service import (
 
 class StartRecordingRequest(BaseModel):
     """Request to start a new recording session"""
-    doctor_id: str = Field(..., description="Doctor UUID")
-    patient_id: str = Field(..., description="Patient identifier")
+    counsellor_id: str = Field(..., description="Counsellor UUID")
+    student_id: str = Field(..., description="Student identifier")
     template_code: Optional[str] = Field(
         default=None,
-        description="Template code for database lookups (unique identifier) or 'TRANSCRIPT_ONLY'. If omitted, resolves from doctor/hospital default, then falls back to OP_CORE."
+        description="Template code for database lookups (unique identifier) or 'TRANSCRIPT_ONLY'. If omitted, resolves from counsellor/school default, then falls back to OP_CORE."
     )
     template_name: Optional[str] = Field(
         None,
@@ -153,13 +153,13 @@ class StartRecordingRequest(BaseModel):
         le=60,
         description="Duration of each audio chunk in seconds (0 = file upload)"
     )
-    nurse_id: Optional[str] = Field(
+    assistant_id: Optional[str] = Field(
         None,
-        description="Optional nurse UUID if recording is initiated by a nurse"
+        description="Optional assistant UUID if recording is initiated by an assistant"
     )
     recording_metadata: Optional[Dict[str, Any]] = Field(
         None,
-        description="Additional metadata (patient info, doctor info, custom fields) that flows through to /status response"
+        description="Additional metadata (student info, counsellor info, custom fields) that flows through to /status response"
     )
     correlation_id: Optional[str] = Field(
         None,
@@ -167,7 +167,7 @@ class StartRecordingRequest(BaseModel):
     )
     is_continuation: bool = Field(
         default=False,
-        description="Whether this recording continues a prior consultation for the same patient in the same visit. "
+        description="Whether this recording continues a prior consultation for the same student in the same visit. "
                     "When true, the system finds prior extractions within the time window and uses continuation mode "
                     "(restricted context injection). When false (default), prior context is used normally."
     )
@@ -225,12 +225,12 @@ class ProcessingStatusResponse(BaseModel):
 
 class CreateLiveSessionRequest(BaseModel):
     """Request to create a live recording session (WebSocket/RecordTab)"""
-    doctor_id: str = Field(..., description="Doctor UUID")
-    patient_id: str = Field(..., description="Patient identifier")
+    counsellor_id: str = Field(..., description="Counsellor UUID")
+    student_id: str = Field(..., description="Student identifier")
     template_code: str = Field(..., description="Template code for database lookups (unique identifier)")
     template_name: Optional[str] = Field(None, description="Template display name (optional)")
     processing_mode: str = Field(default="default", description="Processing mode: 'fast', 'default', 'thorough'")
-    nurse_id: Optional[str] = Field(None, description="Optional nurse UUID if session is initiated by a nurse")
+    assistant_id: Optional[str] = Field(None, description="Optional assistant UUID if session is initiated by an assistant")
     correlation_id: Optional[str] = Field(None, description="Pre-generated correlation_id (for audio chunk upload during recording)")
 
 
@@ -251,9 +251,9 @@ class LiveChunkRequest(BaseModel):
     audio_data: str = Field(..., description="Base64-encoded PCM audio data")
     mime_type: str = Field(default="audio/pcm;rate=16000", description="Audio MIME type (default: PCM 16kHz)")
     # Optional context - sent with first chunk (index=0) for parallel prompt generation
-    doctor_id: Optional[str] = Field(default=None, description="Doctor UUID (for parallel prompt generation)")
+    counsellor_id: Optional[str] = Field(default=None, description="Counsellor UUID (for parallel prompt generation)")
     template_code: Optional[str] = Field(default=None, description="Template code (for parallel prompt generation)")
-    patient_id: Optional[str] = Field(default=None, description="Patient ID (for patient context injection)")
+    student_id: Optional[str] = Field(default=None, description="Student ID (for student context injection)")
 
 
 class LiveChunkResponse(BaseModel):
@@ -276,9 +276,9 @@ _LIVE_PROMPT_CACHE_TTL = 300  # 5 minutes TTL
 
 async def _generate_and_cache_live_prompts(
     correlation_id: str,
-    doctor_id: str,
+    counsellor_id: str,
     template_code: str,
-    patient_id: Optional[str],
+    student_id: Optional[str],
 ):
     """
     Generate prompts in background and cache by correlation_id.
@@ -290,7 +290,7 @@ async def _generate_and_cache_live_prompts(
     - User prompt template (with {transcript} and {patient_context} placeholders)
     - Medicine/investigation list availability
 
-    NOTE: Patient context is NOT cached here - it will be fetched fresh at extraction time
+    NOTE: Student context is NOT cached here - it will be fetched fresh at extraction time
     to ensure we always have the most recent prescriptions, summaries, etc.
     """
     try:
@@ -301,10 +301,10 @@ async def _generate_and_cache_live_prompts(
         from services.extraction_service import check_list_availability_parallel
         from services.segment_registry import generate_extraction_artifacts_without_transcript
 
-        doctor_uuid = uuid.UUID(doctor_id)
+        counsellor_uuid = uuid.UUID(counsellor_id)
 
         # Get template info (cached)
-        template = get_active_template_by_code_cached(doctor_uuid, template_code)
+        template = get_active_template_by_code_cached(counsellor_uuid, template_code)
         if not template:
             logger.warning(f"[LIVE_PROMPT] Template not found: {template_code}")
             return
@@ -318,18 +318,18 @@ async def _generate_and_cache_live_prompts(
             return
 
         # Check list availability (parallel, cached)
-        list_availability = await check_list_availability_parallel(doctor_uuid)
+        list_availability = await check_list_availability_parallel(counsellor_uuid)
 
-        # Generate artifacts WITHOUT transcript and WITHOUT patient context
+        # Generate artifacts WITHOUT transcript and WITHOUT student context
         # - Transcript will be injected at extraction time
-        # - Patient context will be fetched FRESH at extraction time (to get latest prescriptions/summaries)
-        # Pass patient_id=None to skip patient context injection during caching
+        # - Student context will be fetched FRESH at extraction time (to get latest prescriptions/summaries)
+        # Pass student_id=None to skip student context injection during caching
         artifacts = generate_extraction_artifacts_without_transcript(
             consultation_type_id=consultation_type_uuid,
-            doctor_id=doctor_uuid,  # Pass UUID, not string
+            counsellor_id=counsellor_uuid,  # Pass UUID, not string
             template_code=template_code,
             mode="full",
-            patient_id=None,  # ⚡ Skip patient context - will inject fresh at extraction time
+            student_id=None,  # ⚡ Skip student context - will inject fresh at extraction time
             has_medicine_list=list_availability.get("has_medicine_list", True),
             has_investigation_list=list_availability.get("has_investigation_list", True),
         )
@@ -339,13 +339,13 @@ async def _generate_and_cache_live_prompts(
             return
 
         # Cache by correlation_id
-        # Store resolved patient_id for fresh context injection at extraction time
+        # Store resolved student_id for fresh context injection at extraction time
         _live_prompt_cache[correlation_id] = {
             "artifacts": artifacts,
             "template_id": template_id,
             "consultation_type_id": consultation_type_id_str,  # Store as string for JSON compatibility
             "list_availability": list_availability,
-            "patient_id": patient_id,  # ⚡ Store for fresh context injection at extraction time
+            "student_id": student_id,  # ⚡ Store for fresh context injection at extraction time
             "generated_at": time_module.time(),
         }
 
@@ -411,11 +411,11 @@ router = APIRouter(
 
 async def _validate_session_background(
     session_id: str,
-    doctor_id: str,
+    counsellor_id: str,
     template_code: Optional[str],
     processing_mode: str,
     extraction_mode: Optional[str],
-    nurse_id: Optional[str],
+    assistant_id: Optional[str],
     is_continuation: bool = False,
 ):
     """
@@ -440,7 +440,7 @@ async def _validate_session_background(
             get_active_template_by_code_cached,
         )
 
-        doctor_uuid = uuid.UUID(doctor_id)
+        counsellor_uuid = uuid.UUID(counsellor_id)
         update_data: Dict[str, Any] = {}
 
         # 1. Resolve processing mode -> models
@@ -463,14 +463,14 @@ async def _validate_session_background(
             try:
                 all_templates = get_templates(
                     consultation_type_id=None,
-                    doctor_id=doctor_uuid,
+                    counsellor_id=counsellor_uuid,
                     filter_type='doctor'
                 )
                 active_templates = [t for t in all_templates if t.get('is_active', False)]
 
                 if not active_templates:
                     raise ValueError(
-                        "Doctor must have at least one active template before starting a recording session."
+                        "Counsellor must have at least one active template before starting a recording session."
                     )
 
                 # Check if requested template exists
@@ -483,25 +483,25 @@ async def _validate_session_background(
                 if not matched_template:
                     fallback_source = "active_list"
 
-                    # NURSE FALLBACK (when nurse_id present)
-                    if nurse_id:
-                        from services.nurse_templates_service import get_nurse_default_template
-                        nurse_default = get_nurse_default_template(uuid.UUID(nurse_id), doctor_uuid)
+                    # ASSISTANT FALLBACK (when assistant_id present)
+                    if assistant_id:
+                        from services.assistant_templates_service import get_assistant_default_template
+                        nurse_default = get_assistant_default_template(uuid.UUID(assistant_id), counsellor_uuid)
                         if nurse_default:
-                            nurse_code = nurse_default["template_code"]
+                            assistant_code = nurse_default["template_code"]
                             for t in active_templates:
-                                if t.get("template_code") == nurse_code:
+                                if t.get("template_code") == assistant_code:
                                     matched_template = t
                                     fallback_source = "nurse_default"
                                     break
                             if not matched_template:
-                                template_code_to_use = nurse_code
+                                template_code_to_use = assistant_code
                                 fallback_source = "nurse_default"
 
-                    # DOCTOR FALLBACK (existing, runs if nurse didn't resolve)
+                    # COUNSELLOR FALLBACK (existing, runs if assistant didn't resolve)
                     if not matched_template and fallback_source != "nurse_default":
-                        from services.doctor_templates_service import get_doctor_default_template
-                        default_template_info = get_doctor_default_template(doctor_uuid)
+                        from services.counsellor_templates_service import get_counsellor_default_template
+                        default_template_info = get_counsellor_default_template(counsellor_uuid)
 
                         if default_template_info:
                             default_code = default_template_info["template_code"]
@@ -542,7 +542,7 @@ async def _validate_session_background(
 
             # 3. Build session context from template
             try:
-                active_template_record = get_active_template_by_code_cached(doctor_uuid, template_code_to_use)
+                active_template_record = get_active_template_by_code_cached(counsellor_uuid, template_code_to_use)
                 if active_template_record:
                     consultation_type_id = active_template_record.get('consultation_type_id')
                     if not template_name_to_use:
@@ -565,41 +565,41 @@ async def _validate_session_background(
             except Exception as e:
                 logger.warning(f"[VALIDATE_BG] Template context lookup failed: {e}")
 
-            # 4. Nurse validation (non-blocking - just log warning if fails)
-            if nurse_id and session_context.get("template_id"):
+            # 4. Assistant validation (non-blocking - just log warning if fails)
+            if assistant_id and session_context.get("template_id"):
                 try:
-                    from services.nurse_templates_service import validate_nurse_template_access
-                    from services.nurse_service import get_nurse
+                    from services.assistant_templates_service import validate_assistant_template_access
+                    from services.assistant_service import get_assistant
 
-                    nurse = get_nurse(nurse_id)
+                    nurse = get_assistant(assistant_id)
                     if not nurse:
-                        logger.warning(f"[VALIDATE_BG] Nurse '{nurse_id}' not found")
+                        logger.warning(f"[VALIDATE_BG] Assistant '{assistant_id}' not found")
                     else:
                         template_id = session_context["template_id"]
-                        if not validate_nurse_template_access(nurse_id, template_id):
+                        if not validate_assistant_template_access(assistant_id, template_id):
                             logger.warning(
-                                f"[VALIDATE_BG] Nurse {nurse_id} lacks access to template '{template_code_to_use}'"
+                                f"[VALIDATE_BG] Assistant {assistant_id} lacks access to template '{template_code_to_use}'"
                             )
                 except Exception as e:
-                    logger.warning(f"[VALIDATE_BG] Nurse validation failed: {e}")
+                    logger.warning(f"[VALIDATE_BG] Assistant validation failed: {e}")
 
         # 5. Continuation detection (resolve parent extraction IDs)
         if is_continuation:
             try:
                 from services.visit_detection_service import detect_continuation_extractions
-                # Get patient_id from session
+                # Get student_id from session
                 session_row = supabase.table("recording_sessions")\
-                    .select("patient_id")\
+                    .select("student_id")\
                     .eq("id", session_id)\
                     .limit(1)\
                     .execute()
-                patient_uuid_str = session_row.data[0]["patient_id"] if session_row.data else None
+                student_uuid_str = session_row.data[0]["student_id"] if session_row.data else None
 
-                if patient_uuid_str:
+                if student_uuid_str:
                     detection = detect_continuation_extractions(
-                        patient_id=patient_uuid_str,
-                        doctor_id=doctor_id,
-                        nurse_id=nurse_id,
+                        student_id=student_uuid_str,
+                        counsellor_id=counsellor_id,
+                        assistant_id=assistant_id,
                     )
                     if detection and detection["parent_extraction_ids"]:
                         session_context["is_continuation"] = True
@@ -613,7 +613,7 @@ async def _validate_session_background(
                         session_context["is_continuation"] = False
                         session_context["parent_extraction_ids"] = []
                         logger.warning(
-                            f"[VALIDATE_BG] is_continuation=True but no prior extractions found for patient {patient_uuid_str}"
+                            f"[VALIDATE_BG] is_continuation=True but no prior extractions found for student {student_uuid_str}"
                         )
                 else:
                     session_context["is_continuation"] = False
@@ -669,7 +669,7 @@ async def _validate_session_background(
 async def start_recording(
     http_request: Request,
     request: StartRecordingRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Start a new live recording session with template-based extraction.
@@ -685,8 +685,8 @@ async def start_recording(
     5. Receive submission_id and subscribe to Supabase Realtime for progress updates
 
     **Parameters:**
-    - doctor_id: Doctor's UUID
-    - patient_id: Patient identifier
+    - counsellor_id: Counsellor's UUID
+    - student_id: Student identifier
     - template_code: Template code for database lookups (unique identifier) or 'TRANSCRIPT_ONLY'
     - template_name: Template display name (optional)
     - processing_mode: 'fast', 'default', 'thorough', 'ultra', 'ultra_fast' (default: 'default')
@@ -694,8 +694,8 @@ async def start_recording(
     """
     logger.info(
         f"[START_RECORDING] Request: template_code={request.template_code}, "
-        f"template_name={request.template_name}, doctor={request.doctor_id}, "
-        f"patient={request.patient_id}, mode={request.processing_mode}, "
+        f"template_name={request.template_name}, counsellor={request.counsellor_id}, "
+        f"student={request.student_id}, mode={request.processing_mode}, "
         f"extraction_mode={request.extraction_mode}, "
         f"recording_metadata={request.recording_metadata}"
     )
@@ -709,8 +709,8 @@ async def start_recording(
                 detail=f"Processing mode '{request.processing_mode}' is currently unavailable. Use 'fast', 'default', or 'thorough'."
             )
 
-        # 1. Auth: Validate EHR client has access to this doctor (security - keep sync)
-        await validate_doctor_from_body(http_request, request.doctor_id)
+        # 1. Auth: Validate EHR client has access to this counsellor (security - keep sync)
+        await validate_counsellor_from_body(http_request, request.counsellor_id)
 
         # 2. Generate/validate correlation_id (no DB)
         if request.correlation_id:
@@ -726,40 +726,40 @@ async def start_recording(
         # 3. Resolve template_code if not provided
         resolved_template_code = request.template_code
         if not resolved_template_code:
-            doctor_uuid = uuid.UUID(request.doctor_id)
+            counsellor_uuid = uuid.UUID(request.counsellor_id)
 
-            # Nurse fallback first (when nurse_id present)
-            if request.nurse_id:
-                from services.nurse_templates_service import get_nurse_default_template
-                nurse_uuid = uuid.UUID(request.nurse_id)
+            # Assistant fallback first (when assistant_id present)
+            if request.assistant_id:
+                from services.assistant_templates_service import get_assistant_default_template
+                assistant_uuid = uuid.UUID(request.assistant_id)
                 nurse_default = await asyncio.to_thread(
-                    get_nurse_default_template, nurse_uuid, doctor_uuid
+                    get_assistant_default_template, assistant_uuid, counsellor_uuid
                 )
                 if nurse_default:
                     resolved_template_code = nurse_default["template_code"]
-                    logger.info(f"[START_RECORDING] Resolved via nurse fallback: {resolved_template_code}")
+                    logger.info(f"[START_RECORDING] Resolved via assistant fallback: {resolved_template_code}")
 
-            # Doctor fallback (runs if nurse didn't resolve)
+            # Counsellor fallback (runs if assistant didn't resolve)
             if not resolved_template_code:
-                from services.doctor_templates_service import get_doctor_default_template
-                default_template = await asyncio.to_thread(get_doctor_default_template, doctor_uuid)
+                from services.counsellor_templates_service import get_counsellor_default_template
+                default_template = await asyncio.to_thread(get_counsellor_default_template, counsellor_uuid)
                 if default_template:
                     resolved_template_code = default_template["template_code"]
-                    logger.info(f"[START_RECORDING] No template_code provided, using doctor/hospital default: {resolved_template_code}")
+                    logger.info(f"[START_RECORDING] No template_code provided, using counsellor/school default: {resolved_template_code}")
 
             if not resolved_template_code:
-                # Fallback: check doctor's active templates
+                # Fallback: check counsellor's active templates
                 from services.supabase_service import get_templates
                 active_templates = await asyncio.to_thread(
-                    get_templates, consultation_type_id=None, doctor_id=doctor_uuid, filter_type='doctor'
+                    get_templates, consultation_type_id=None, counsellor_id=counsellor_uuid, filter_type='doctor'
                 )
                 active_templates = [t for t in active_templates if t.get('is_active', False)]
 
-                # Prefer OP_CORE if doctor has it active
+                # Prefer OP_CORE if counsellor has it active
                 op_core = next((t for t in active_templates if t.get("template_code") == "OP_CORE"), None)
                 if op_core:
                     resolved_template_code = "OP_CORE"
-                    logger.info(f"[START_RECORDING] No default found, using doctor's active OP_CORE template")
+                    logger.info(f"[START_RECORDING] No default found, using counsellor's active OP_CORE template")
                 elif active_templates:
                     resolved_template_code = active_templates[0].get("template_code", "OP_CORE")
                     logger.info(f"[START_RECORDING] No default found, using first active template: {resolved_template_code}")
@@ -780,18 +780,18 @@ async def start_recording(
             if client_ctx.client_type != "admin":
                 api_client_id = str(client_ctx.client_id)
 
-        # 6. Create minimal session (patient lookup + 1 insert = ~100-200ms)
+        # 6. Create minimal session (student lookup + 1 insert = ~100-200ms)
         session = await asyncio.to_thread(
             create_minimal_recording_session,
             correlation_id=correlation_id,
-            doctor_id=request.doctor_id,
-            patient_id=request.patient_id,
+            counsellor_id=request.counsellor_id,
+            student_id=request.student_id,
             template_code=resolved_template_code,
             processing_mode=request.processing_mode,
             extraction_mode=extraction_mode,
             chunk_duration_seconds=request.chunk_duration_seconds,
             template_name=request.template_name,
-            nurse_id=request.nurse_id,
+            assistant_id=request.assistant_id,
             recording_metadata_json=request.recording_metadata,
             api_client_id=api_client_id,
         )
@@ -800,26 +800,26 @@ async def start_recording(
         try:
             asyncio.create_task(_validate_session_background(
                 session_id=session["id"],
-                doctor_id=request.doctor_id,
+                counsellor_id=request.counsellor_id,
                 template_code=resolved_template_code,
                 processing_mode=request.processing_mode,
                 extraction_mode=extraction_mode,
-                nurse_id=request.nurse_id,
+                assistant_id=request.assistant_id,
                 is_continuation=request.is_continuation,
             ))
         except Exception as e:
             logger.warning(f"[START_RECORDING] Failed to schedule background validation: {e}")
 
-        # 8. Fire-and-forget: Auto-link doctor to patient's doctor_ids
+        # 8. Fire-and-forget: Auto-link counsellor to student's counsellor_ids
         try:
-            from services.supabase_service import link_doctor_to_patient
+            from services.supabase_service import link_counsellor_to_student
             asyncio.create_task(asyncio.to_thread(
-                link_doctor_to_patient,
-                patient_uuid=session["patient_id"],
-                doctor_id=request.doctor_id,
+                link_counsellor_to_student,
+                patient_uuid=session["student_id"],
+                counsellor_id=request.counsellor_id,
             ))
         except Exception as e:
-            logger.warning(f"[START_RECORDING] Failed to schedule doctor-patient link: {e}")
+            logger.warning(f"[START_RECORDING] Failed to schedule counsellor-student link: {e}")
 
         # 9. HIPAA Audit: log recording session creation
         client_ctx = getattr(http_request.state, "client", None)
@@ -829,8 +829,8 @@ async def start_recording(
                     client_context=client_ctx, request=http_request, response_status=200,
                     response_time_ms=0, resource_type="recording", action="create",
                     resource_id=session["id"],
-                    doctor_id=uuid.UUID(request.doctor_id) if request.doctor_id else None,
-                    patient_id=request.patient_id,
+                    counsellor_id=uuid.UUID(request.counsellor_id) if request.counsellor_id else None,
+                    student_id=request.student_id,
                 ))
             except Exception:
                 pass
@@ -855,7 +855,7 @@ async def start_recording(
 async def upload_chunk(
     http_request: Request,
     request: UploadChunkRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Upload an audio chunk for a recording session.
@@ -887,7 +887,7 @@ async def upload_chunk(
     - submission_id: Only present when all chunks received and processing starts
     """
     try:
-        # Validate EHR client has access to this correlation_id (hospital-scoped)
+        # Validate EHR client has access to this correlation_id (school-scoped)
         await validate_correlation_from_body(http_request, request.correlation_id)
 
         # Get session by correlation ID
@@ -1210,8 +1210,8 @@ async def _transcribe_segment(
             f"({len(audio_bytes)} bytes, chunks {start_chunk}-{end_chunk})"
         )
 
-        # Get doctor_id for usage tracking
-        doctor_id = session_data.get("doctor_id") if session_data else None
+        # Get counsellor_id for usage tracking
+        counsellor_id = session_data.get("counsellor_id") if session_data else None
 
         # Transcribe
         transcript, detected_language = await transcribe_audio(
@@ -1219,7 +1219,7 @@ async def _transcribe_segment(
             mime_type=mime_type,
             target_language="English",
             session_id=session_id,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             audio_duration_seconds=len(audio_bytes) / 16000,
         )
 
@@ -1246,7 +1246,7 @@ async def _transcribe_segment(
 async def cancel_recording(
     http_request: Request,
     request: CancelRecordingRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Cancel an active recording session.
@@ -1259,7 +1259,7 @@ async def cancel_recording(
     **Note:** This cannot cancel a job that is already COMPLETED or ERROR.
     """
     try:
-        # Validate EHR client has access to this correlation_id (hospital-scoped)
+        # Validate EHR client has access to this correlation_id (school-scoped)
         await validate_correlation_from_body(http_request, request.correlation_id)
 
         correlation_uuid = uuid.UUID(request.correlation_id)
@@ -1317,7 +1317,7 @@ async def get_processing_status(
             message=job.get("progress_message", "Processing..."),
         )
 
-        # Include results if completed (fetch from medical_extractions table)
+        # Include results if completed (fetch from extractions table)
         if job["status"] == "COMPLETED":
             extraction = await asyncio.to_thread(get_extraction_by_submission_id, submission_uuid)
 
@@ -1585,10 +1585,10 @@ async def _handle_chunk_timeout(
         # Build metadata for webhook
         metadata = {
             "correlation_id": session.get("correlation_id"),
-            "doctor_id": session.get("doctor_id"),
-            "patient_id": session.get("patient_id"),
+            "counsellor_id": session.get("counsellor_id"),
+            "student_id": session.get("student_id"),
             "template_code": session.get("template_code"),
-            "hospital_id": session.get("hospital_id"),
+            "school_id": session.get("school_id"),
         }
 
         # Send error webhook
@@ -1801,17 +1801,17 @@ async def _run_background_processing(
         # Publish error to realtime_extraction_responses (for EHR Realtime subscribers)
         try:
             from services.realtime_publisher_service import publish_error_response_fire_and_forget
-            from services.supabase_service import get_doctor_hospital_id_cached
+            from services.supabase_service import get_counsellor_school_id_cached
             import uuid as uuid_mod
             _session = locals().get('session')
             _sess_data = _session if isinstance(_session, dict) else {}
-            _doctor_id = _sess_data.get("doctor_id")
-            _hospital_id = get_doctor_hospital_id_cached(uuid_mod.UUID(_doctor_id)) if _doctor_id else None
+            _doctor_id = _sess_data.get("counsellor_id")
+            _hospital_id = get_counsellor_school_id_cached(uuid_mod.UUID(_doctor_id)) if _doctor_id else None
             if _hospital_id and submission_id_str:
                 asyncio.create_task(publish_error_response_fire_and_forget(
                     submission_id=submission_id_str,
-                    hospital_id=_hospital_id,
-                    doctor_id=_doctor_id,
+                    school_id=_hospital_id,
+                    counsellor_id=_doctor_id,
                     error_message=f"Background processing failed: {str(e)}",
                     error_code="BACKGROUND_PROCESSING_FAILED",
                     session_id=str(_session_id) if _session_id else None,
@@ -1875,7 +1875,7 @@ async def _trigger_background_processing(
 async def create_live_session(
     http_request: Request,
     request: CreateLiveSessionRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Create a recording session for WebSocket/live recordings (RecordTab).
@@ -1891,7 +1891,7 @@ async def create_live_session(
     4. All workflows now use unified extraction path
 
     Args:
-        request: CreateLiveSessionRequest with doctor_id, patient_id, template_code, template_name, processing_mode
+        request: CreateLiveSessionRequest with counsellor_id, student_id, template_code, template_name, processing_mode
 
     Returns:
         CreateLiveSessionResponse with correlation_id and session_id
@@ -1905,18 +1905,18 @@ async def create_live_session(
                 detail=f"Processing mode '{request.processing_mode}' is currently unavailable. Use 'fast', 'default', or 'thorough'."
             )
 
-        # Validate EHR client has access to this doctor (hospital-scoped)
-        await validate_doctor_from_body(http_request, request.doctor_id)
+        # Validate EHR client has access to this counsellor (school-scoped)
+        await validate_counsellor_from_body(http_request, request.counsellor_id)
 
-        logger.info(f"[LIVE_SESSION] Creating live session for doctor: {request.doctor_id}, template_code: {request.template_code}")
+        logger.info(f"[LIVE_SESSION] Creating live session for counsellor: {request.counsellor_id}, template_code: {request.template_code}")
 
-        # Validate doctor_id is a valid UUID
+        # Validate counsellor_id is a valid UUID
         try:
-            doctor_uuid = uuid.UUID(request.doctor_id)
+            counsellor_uuid = uuid.UUID(request.counsellor_id)
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid doctor ID format"
+                detail="Invalid counsellor ID format"
             )
 
         # Use frontend-provided correlation_id or generate new
@@ -1947,11 +1947,11 @@ async def create_live_session(
         # ⭐ OPTIMIZATION: Look up consultation_type_id from template for parallel prompt generation (cached)
         consultation_type_id_for_session = None
         template_name_to_use = request.template_name  # Display name (optional)
-        active_template_record = None  # Initialize for nurse validation
+        active_template_record = None  # Initialize for assistant validation
         try:
             from services.supabase_service import get_active_template_by_code_cached
 
-            active_template_record = get_active_template_by_code_cached(doctor_uuid, request.template_code)
+            active_template_record = get_active_template_by_code_cached(counsellor_uuid, request.template_code)
             if active_template_record:
                 consultation_type_id_for_session = active_template_record.get('consultation_type_id')
                 # Get template_name if not provided in request
@@ -1972,29 +1972,29 @@ async def create_live_session(
                 f"(will fallback to lookup during extraction)"
             )
 
-        # Validate nurse template access if nurse_id is provided
-        nurse_id_to_use = request.nurse_id
-        if nurse_id_to_use:
-            from services.nurse_templates_service import validate_nurse_template_access
-            from services.nurse_service import get_nurse
+        # Validate assistant template access if assistant_id is provided
+        assistant_id_to_use = request.assistant_id
+        if assistant_id_to_use:
+            from services.assistant_templates_service import validate_assistant_template_access
+            from services.assistant_service import get_assistant
 
-            # Verify nurse exists
-            nurse = get_nurse(nurse_id_to_use)
+            # Verify assistant exists
+            nurse = get_assistant(assistant_id_to_use)
             if not nurse:
                 raise HTTPException(
                     status_code=404,
-                    detail="Nurse not found"
+                    detail="Assistant not found"
                 )
 
             # Validate template access if we have the template ID
             if active_template_record and active_template_record.get('id'):
                 template_id_for_validation = active_template_record['id']
-                if not validate_nurse_template_access(nurse_id_to_use, template_id_for_validation):
+                if not validate_assistant_template_access(assistant_id_to_use, template_id_for_validation):
                     raise HTTPException(
                         status_code=403,
-                        detail="Nurse does not have access to this template"
+                        detail="Assistant does not have access to this template"
                     )
-                logger.debug(f"[LIVE_SESSION] Nurse {nurse_id_to_use} has access to template {request.template_code}")
+                logger.debug(f"[LIVE_SESSION] Assistant {assistant_id_to_use} has access to template {request.template_code}")
 
         # ⭐ Build session_context_json with template_id for emotion analysis
         # This is needed for schedule_live_audio_emotion to find the template
@@ -2012,8 +2012,8 @@ async def create_live_session(
         # Note: No audio chunks, no extraction_mode (will use /extract endpoint)
         session = create_recording_session(
             correlation_id=correlation_uuid,
-            doctor_id=str(doctor_uuid),
-            patient_id=request.patient_id,
+            counsellor_id=str(counsellor_uuid),
+            student_id=request.student_id,
             template_code=request.template_code,  # Unique identifier for lookups
             template_name=template_name_to_use,  # Display name
             processing_mode=request.processing_mode,
@@ -2022,7 +2022,7 @@ async def create_live_session(
             extraction_model="gemini-2.5-flash",  # Default extraction model
             chunk_duration_seconds=0,  # No chunking for live recordings
             consultation_type_id=consultation_type_id_for_session,  # ⭐ For parallel prompt generation optimization
-            nurse_id=nurse_id_to_use,  # Track nurse who initiated recording
+            assistant_id=assistant_id_to_use,  # Track assistant who initiated recording
             session_context_json=session_context,  # ⭐ Contains template_id for emotion analysis
         )
 
@@ -2031,20 +2031,20 @@ async def create_live_session(
 
         logger.info(f"[LIVE_SESSION] ✓ Live session created: {session_id}, correlation_id: {correlation_id}")
 
-        # Fire-and-forget: Auto-link doctor to patient's doctor_ids
+        # Fire-and-forget: Auto-link counsellor to student's counsellor_ids
         try:
-            from services.supabase_service import link_doctor_to_patient
+            from services.supabase_service import link_counsellor_to_student
             asyncio.create_task(asyncio.to_thread(
-                link_doctor_to_patient,
-                patient_uuid=session["patient_id"],
-                doctor_id=str(doctor_uuid),
+                link_counsellor_to_student,
+                patient_uuid=session["student_id"],
+                counsellor_id=str(counsellor_uuid),
             ))
         except Exception as e:
-            logger.warning(f"[LIVE_SESSION] Failed to schedule doctor-patient link: {e}")
+            logger.warning(f"[LIVE_SESSION] Failed to schedule counsellor-student link: {e}")
 
         # ⭐ Create processing_job using correlation_id as submission_id
         # This unifies RecordTab with VHRScreen workflow - both now have processing_jobs
-        # and medical_extractions can link to processing_jobs.submission_id
+        # and extractions can link to processing_jobs.submission_id
         from services.supabase_service import create_processing_job
 
         processing_job = create_processing_job(
@@ -2074,7 +2074,7 @@ async def create_live_session(
 async def upload_live_chunk(
     http_request: Request,
     request: LiveChunkRequest,
-    _auth = Depends(verify_doctor_access),
+    _auth = Depends(verify_counsellor_access),
 ):
     """
     Upload audio chunk during live Gemini streaming (parallel to transcription).
@@ -2096,9 +2096,9 @@ async def upload_live_chunk(
     try:
         from services.chunk_memory_store import store_chunk
 
-        # Validate EHR client has access to doctor (when doctor_id provided on first chunk)
-        if request.doctor_id:
-            await validate_doctor_from_body(http_request, request.doctor_id)
+        # Validate EHR client has access to counsellor (when counsellor_id provided on first chunk)
+        if request.counsellor_id:
+            await validate_counsellor_from_body(http_request, request.counsellor_id)
 
         # === CORRELATION_ID HANDLING ===
         # First chunk (index=0): Backend generates, MUST NOT be provided by frontend
@@ -2143,28 +2143,28 @@ async def upload_live_chunk(
 
         # PARALLEL PROMPT GENERATION: If first chunk with context, start pre-generating prompts
         # This saves ~1.2-1.8s by generating prompts while recording continues
-        if request.chunk_index == 0 and request.doctor_id and request.template_code:
+        if request.chunk_index == 0 and request.counsellor_id and request.template_code:
             logger.debug(f"[LIVE_CHUNK] First chunk with context - starting parallel prompt generation")
 
-            # Resolve patient_id (display ID like "Lak123") to patient UUID
-            # This is needed for medicine/investigation list injection (not patient context)
-            resolved_patient_uuid = None
-            if request.patient_id:
-                from routers.patient_history import resolve_patient_id
-                from services.supabase_service import get_doctor_hospital_id_cached
-                _hospital_id = get_doctor_hospital_id_cached(request.doctor_id) if request.doctor_id else None
-                resolved_patient_uuid = resolve_patient_id(request.patient_id, hospital_id=_hospital_id)
-                if resolved_patient_uuid:
-                    logger.debug(f"[LIVE_CHUNK] Resolved patient_id '{request.patient_id}' -> UUID {str(resolved_patient_uuid)[:8]}...")
+            # Resolve student_id (display ID like "Lak123") to student UUID
+            # This is needed for medicine/investigation list injection (not student context)
+            resolved_student_uuid = None
+            if request.student_id:
+                from routers.student_history import resolve_student_id
+                from services.supabase_service import get_counsellor_school_id_cached
+                _hospital_id = get_counsellor_school_id_cached(request.counsellor_id) if request.counsellor_id else None
+                resolved_student_uuid = resolve_student_id(request.student_id, school_id=_hospital_id)
+                if resolved_student_uuid:
+                    logger.debug(f"[LIVE_CHUNK] Resolved student_id '{request.student_id}' -> UUID {str(resolved_student_uuid)[:8]}...")
                 else:
-                    logger.warning(f"[LIVE_CHUNK] Could not resolve patient_id '{request.patient_id}' to UUID")
+                    logger.warning(f"[LIVE_CHUNK] Could not resolve student_id '{request.student_id}' to UUID")
 
             asyncio.create_task(
                 _generate_and_cache_live_prompts(
                     correlation_id=correlation_id,
-                    doctor_id=request.doctor_id,
+                    counsellor_id=request.counsellor_id,
                     template_code=request.template_code,
-                    patient_id=str(resolved_patient_uuid) if resolved_patient_uuid else None,
+                    student_id=str(resolved_student_uuid) if resolved_student_uuid else None,
                 )
             )
 

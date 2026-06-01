@@ -38,8 +38,8 @@ Extract structured ophthalmology discharge summary data from voice transcripts a
 
 **CRITICAL INSTRUCTION - Eye Laterality for Different Audiences:**
 
-### Patient-Facing Segments (Use Plain Language)
-In the following segments, ALWAYS use plain language terms for better patient understanding:
+### Student-Facing Segments (Use Plain Language)
+In the following segments, ALWAYS use plain language terms for better student understanding:
 - **Diagnosis** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Medications/Prescriptions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Discharge Advice/Follow-up Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
@@ -47,7 +47,7 @@ In the following segments, ALWAYS use plain language terms for better patient un
 - **Special Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Emergency Symptoms** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 
-**Examples for Patient-Facing Text:**
+**Examples for Student-Facing Text:**
 ✅ CORRECT: "Apply Moxifloxacin 0.5% eye drops to Left Eye four times daily"
 ❌ WRONG: "Apply Moxifloxacin 0.5% eye drops to OS four times daily"
 
@@ -72,9 +72,9 @@ In clinical examination and measurement segments, use BOTH medical abbreviations
 
 **VALIDATION CHECKLIST:**
 Before finalizing output, verify:
-✅ All patient-facing text (diagnosis, medications, advice, instructions) uses "Left Eye"/"Right Eye" only
+✅ All student-facing text (diagnosis, medications, advice, instructions) uses "Left Eye"/"Right Eye" only
 ✅ All medical documentation sections use "OD (Right Eye)"/"OS (Left Eye)" format
-✅ No abbreviations (OS, OD, OU) appear alone in patient instructions or discharge medications
+✅ No abbreviations (OS, OD, OU) appear alone in student instructions or discharge medications
 ✅ Consistency maintained throughout the document
 
 ---
@@ -114,10 +114,10 @@ Before finalizing output, verify:
 
 ## FIELD EXTRACTION GUIDELINES
 
-### 1. PATIENT DEMOGRAPHICS
+### 1. STUDENT DEMOGRAPHICS
 
 **name:**
-- Full patient name
+- Full student name
 - Format: String
 - Extract complete name as stated
 
@@ -129,7 +129,7 @@ Before finalizing output, verify:
 **mrNumber:**
 - Medical Record Number
 - Format: String (alphanumeric)
-- Keywords: "MR number", "MRNO", "medical record", "patient ID"
+- Keywords: "MR number", "MRNO", "medical record", "student ID"
 
 **date:**
 - Discharge summary date
@@ -137,7 +137,7 @@ Before finalizing output, verify:
 - Keywords: "discharge date", "summary date", "today"
 
 **age:**
-- Patient age
+- Student age
 - Format: String (e.g., "45", "67 years")
 - Keywords: "age", "years old"
 
@@ -150,9 +150,9 @@ Before finalizing output, verify:
 ### 2. ADMISSION & PROCEDURE DATES
 
 **dateOfAdmission:**
-- Hospital admission date
+- School admission date
 - Format: "DD-MM-YYYY"
-- Keywords: "admitted on", "admission date", "came to hospital on"
+- Keywords: "admitted on", "admission date", "came to school on"
 
 **dateOfProcedure:**
 - Surgical/procedure date
@@ -165,7 +165,7 @@ Before finalizing output, verify:
 ### 3. MEDICAL TEAM
 
 **doctorsAttended:**
-- Array of doctor objects with name and registration number
+- Array of counsellor objects with name and registration number
 - Format:
 ```json
 [
@@ -175,7 +175,7 @@ Before finalizing output, verify:
   }
 ]
 ```
-- Keywords: "operated by", "consultant", "surgeon", "doctor name"
+- Keywords: "operated by", "consultant", "surgeon", "counsellor name"
 
 ---
 
@@ -210,7 +210,7 @@ Before finalizing output, verify:
 ### 5. CONDITION ON ADMISSION
 
 **conditionOnAdmission:**
-- Patient's general condition at admission
+- Student's general condition at admission
 - Format: String
 - Common values:
   - "General condition good/fair/poor"
@@ -258,7 +258,7 @@ Before finalizing output, verify:
 ### 7. CONDITION ON DISCHARGE
 
 **conditionOnDischarge:**
-- Patient's condition at discharge
+- Student's condition at discharge
 - Format: String
 - Common values:
   - "Good"
@@ -402,7 +402,7 @@ Before finalizing output, verify:
   - "Nausea/vomiting with eye pain"
 
 **hospitalContactDetails:**
-- Hospital contact information
+- School contact information
 - Format: Object
 ```json
 {
@@ -418,16 +418,16 @@ Before finalizing output, verify:
 ### 11. PROVIDER INFORMATION
 
 **signature:**
-- Discharging doctor's signature/name
+- Discharging counsellor's signature/name
 - Format: String
 
 **registrationNumber:**
-- Doctor's registration number
+- Counsellor's registration number
 - Format: String
 - Keywords: "Reg. No.", "registration number", "medical council number"
 
 **seal:**
-- Hospital/doctor seal mentioned
+- School/counsellor seal mentioned
 - Format: "Present" | "Not mentioned" | ""
 
 ---
@@ -461,7 +461,7 @@ Before finalizing output, verify:
 
 ## VALIDATION CHECKS
 
-✅ **Patient Demographics:**
+✅ **Student Demographics:**
 - Name not empty if mentioned
 - MR number extracted if mentioned
 - Dates in DD-MM-YYYY format
@@ -577,9 +577,9 @@ Extract ophthalmology discharge summary data from the voice transcript below.
 - Post-operative instructions and follow-up date
 
 **EYE LATERALITY RULES:**
-- Patient-facing text (diagnosis, medications, advice): Use "Right Eye" / "Left Eye" ONLY
+- Student-facing text (diagnosis, medications, advice): Use "Right Eye" / "Left Eye" ONLY
 - Medical documentation (procedure): Use "OD (Right Eye)" / "OS (Left Eye)" format
-- NEVER use OD/OS abbreviations alone in patient instructions or discharge advice
+- NEVER use OD/OS abbreviations alone in student instructions or discharge advice
 
 **DIAGNOSIS RULES:**
 - ALWAYS specify which eye: rightEye, leftEye, or bothEyes
@@ -620,25 +620,25 @@ Return ONLY the JSON object. No markdown, no explanations.
 OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics
+        # Section 1: Student Demographics
         "patientDemographics": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+                "name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
                 "visitId": types.Schema(type=types.Type.STRING, description="Visit/episode ID or empty string"),
                 "mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
                 "date": types.Schema(type=types.Type.STRING, description="Discharge summary date in DD-MM-YYYY format or empty string"),
-                "age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years') or empty string"),
+                "age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years') or empty string"),
                 "gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string")
             },
-            description="Patient identification and demographics"
+            description="Student identification and demographics"
         ),
 
         # Section 2: Admission & Procedure Dates
         "admissionDetails": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "dateOfAdmission": types.Schema(type=types.Type.STRING, description="Hospital admission date in DD-MM-YYYY format"),
+                "dateOfAdmission": types.Schema(type=types.Type.STRING, description="School admission date in DD-MM-YYYY format"),
                 "dateOfProcedure": types.Schema(type=types.Type.STRING, description="Surgical/procedure date in DD-MM-YYYY format")
             },
             description="Admission and procedure dates"
@@ -653,12 +653,12 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
                     items=types.Schema(
                         type=types.Type.OBJECT,
                         properties={
-                            "name": types.Schema(type=types.Type.STRING, description="Doctor name with credentials"),
+                            "name": types.Schema(type=types.Type.STRING, description="Counsellor name with credentials"),
                             "registrationNumber": types.Schema(type=types.Type.STRING, description="Medical registration number or empty string")
                         },
-                        description="Doctor information"
+                        description="Counsellor information"
                     ),
-                    description="Array of doctors who attended the patient (empty array if none)"
+                    description="Array of counsellors who attended the student (empty array if none)"
                 )
             },
             description="Medical team information"
@@ -682,7 +682,7 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
                 "conditionOnAdmission": types.Schema(type=types.Type.STRING, description="General condition at admission (e.g., fair, good, stable) or N/A"),
                 "nutritionalStatus": types.Schema(type=types.Type.STRING, description="Normal, Well-nourished, Malnourished, or N/A")
             },
-            description="Patient condition on admission"
+            description="Student condition on admission"
         ),
 
         # Section 6: Treatment Given
@@ -705,7 +705,7 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
             properties={
                 "conditionOnDischarge": types.Schema(type=types.Type.STRING, description="Condition at discharge (Good, Stable, Satisfactory, Comfortable) or N/A")
             },
-            description="Patient condition on discharge"
+            description="Student condition on discharge"
         ),
 
         # Section 8: Discharge Medication
@@ -756,12 +756,12 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
                 "hospitalContactDetails": types.Schema(
                     type=types.Type.OBJECT,
                     properties={
-                        "telephoneNumber": types.Schema(type=types.Type.STRING, description="Hospital telephone number or empty string"),
+                        "telephoneNumber": types.Schema(type=types.Type.STRING, description="School telephone number or empty string"),
                         "contactPersonName": types.Schema(type=types.Type.STRING, description="Contact person name or empty string"),
                         "mobileNumber": types.Schema(type=types.Type.STRING, description="Mobile contact number or empty string"),
                         "emergencyNumber": types.Schema(type=types.Type.STRING, description="Emergency contact number or empty string")
                     },
-                    description="Hospital contact information"
+                    description="School contact information"
                 )
             },
             description="Emergency contact information and warning symptoms"
@@ -771,11 +771,11 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
         "providerInformation": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "signature": types.Schema(type=types.Type.STRING, description="Doctor signature/name or empty string"),
+                "signature": types.Schema(type=types.Type.STRING, description="Counsellor signature/name or empty string"),
                 "registrationNumber": types.Schema(type=types.Type.STRING, description="Medical registration number or empty string"),
                 "seal": types.Schema(type=types.Type.STRING, description="Present, Not mentioned, or empty string")
             },
-            description="Provider/discharging doctor information"
+            description="Provider/discharging counsellor information"
         )
     },
     required=[
@@ -797,28 +797,28 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA = types.Schema(
 OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA_FLAT = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics (flattened)
-        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+        # Section 1: Student Demographics (flattened)
+        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
         "patientDemographics_visitId": types.Schema(type=types.Type.STRING, description="Visit/episode ID or empty string"),
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
         "patientDemographics_date": types.Schema(type=types.Type.STRING, description="Discharge summary date in DD-MM-YYYY format or empty string"),
-        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years') or empty string"),
+        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years') or empty string"),
         "patientDemographics_gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
 
         # Section 2: Admission Details (flattened)
-        "admissionDetails_dateOfAdmission": types.Schema(type=types.Type.STRING, description="Hospital admission date in DD-MM-YYYY format"),
+        "admissionDetails_dateOfAdmission": types.Schema(type=types.Type.STRING, description="School admission date in DD-MM-YYYY format"),
         "admissionDetails_dateOfProcedure": types.Schema(type=types.Type.STRING, description="Surgical/procedure date in DD-MM-YYYY format"),
 
         # Section 3: Medical Team (flattened array of objects → parallel arrays)
         "medicalTeam_doctorNames": types.Schema(
             type=types.Type.ARRAY,
-            items=types.Schema(type=types.Type.STRING, description="Doctor name with credentials"),
-            description="Array of doctor names who attended the patient (empty array if none)"
+            items=types.Schema(type=types.Type.STRING, description="Counsellor name with credentials"),
+            description="Array of counsellor names who attended the student (empty array if none)"
         ),
         "medicalTeam_doctorRegistrationNumbers": types.Schema(
             type=types.Type.ARRAY,
             items=types.Schema(type=types.Type.STRING, description="Medical registration number or empty string"),
-            description="Array of doctor registration numbers (parallel to doctorNames, empty array if none)"
+            description="Array of counsellor registration numbers (parallel to doctorNames, empty array if none)"
         ),
 
         # Section 4: Diagnosis (flattened)
@@ -899,13 +899,13 @@ OPHTHAL_DISCHARGE_PARAMETERS_SCHEMA_FLAT = types.Schema(
             items=types.Schema(type=types.Type.STRING, description="Warning symptom"),
             description="Array of emergency warning symptoms (e.g., Decrease in vision, Pain, Redness, empty array if none)"
         ),
-        "emergencyContact_hospitalContactDetails_telephoneNumber": types.Schema(type=types.Type.STRING, description="Hospital telephone number or empty string"),
+        "emergencyContact_hospitalContactDetails_telephoneNumber": types.Schema(type=types.Type.STRING, description="School telephone number or empty string"),
         "emergencyContact_hospitalContactDetails_contactPersonName": types.Schema(type=types.Type.STRING, description="Contact person name or empty string"),
         "emergencyContact_hospitalContactDetails_mobileNumber": types.Schema(type=types.Type.STRING, description="Mobile contact number or empty string"),
         "emergencyContact_hospitalContactDetails_emergencyNumber": types.Schema(type=types.Type.STRING, description="Emergency contact number or empty string"),
 
         # Section 11: Provider Information (flattened)
-        "providerInformation_signature": types.Schema(type=types.Type.STRING, description="Doctor signature/name or empty string"),
+        "providerInformation_signature": types.Schema(type=types.Type.STRING, description="Counsellor signature/name or empty string"),
         "providerInformation_registrationNumber": types.Schema(type=types.Type.STRING, description="Medical registration number or empty string"),
         "providerInformation_seal": types.Schema(type=types.Type.STRING, description="Present, Not mentioned, or empty string")
     },

@@ -2,15 +2,15 @@
 Visit Detection Service
 
 Detects whether a new recording is a continuation of an existing visit
-by finding prior extractions from the same patient using boundary-based detection.
+by finding prior extractions from the same student using boundary-based detection.
 
 Detection logic (boundary-based, no time window):
-1. Fetch recent extractions for patient (capped at max_lookback rows)
+1. Fetch recent extractions for student (capped at max_lookback rows)
 2. Filter by matching criteria:
-   a. Same doctor
-   b. Nurse→Doctor: prior session had nurse linked to current doctor
-   c. Doctor→Nurse: current session has nurse, prior was linked doctor
-   d. Linked doctor: prior doctor is linked via doctor_doctor_patients
+   a. Same counsellor
+   b. Assistant→Counsellor: prior session had assistant linked to current counsellor
+   c. Counsellor→Assistant: current session has assistant, prior was linked counsellor
+   d. Linked counsellor: prior counsellor is linked via counsellor_counsellor_students
 3. Find boundary: most recent matched extraction with is_continuation=false
 4. All matched extractions from boundary onwards → parent chain
 """
@@ -22,22 +22,22 @@ logger = logging.getLogger(__name__)
 
 
 def detect_continuation_extractions(
-    patient_id: str,
-    doctor_id: str,
-    nurse_id: Optional[str] = None,
+    student_id: str,
+    counsellor_id: str,
+    assistant_id: Optional[str] = None,
     max_lookback: int = 50,
 ) -> Optional[Dict[str, Any]]:
     """
-    Find prior extractions from the same visit for this patient.
+    Find prior extractions from the same visit for this student.
 
     Uses boundary-based detection: finds the most recent extraction with
     is_continuation=false as the visit boundary, then includes all matched
     extractions from that boundary onwards.
 
     Args:
-        patient_id: Patient UUID string
-        doctor_id: Doctor UUID string
-        nurse_id: Optional nurse UUID string (if current session is nurse-initiated)
+        student_id: Student UUID string
+        counsellor_id: Counsellor UUID string
+        assistant_id: Optional assistant UUID string (if current session is assistant-initiated)
         max_lookback: Max rows to scan (default: 50, no time filter)
 
     Returns:
@@ -51,9 +51,9 @@ def detect_continuation_extractions(
 
     try:
         # 1. Fetch recent extractions (no time filter, capped at max_lookback)
-        result = supabase.table("medical_extractions")\
-            .select("id, doctor_id, created_at, is_continuation, parent_extraction_ids, recording_sessions(nurse_id, doctor_id)")\
-            .eq("patient_id", patient_id)\
+        result = supabase.table("extractions")\
+            .select("id, counsellor_id, created_at, is_continuation, parent_extraction_ids, recording_sessions(assistant_id, counsellor_id)")\
+            .eq("student_id", student_id)\
             .order("created_at", desc=True)\
             .limit(max_lookback)\
             .execute()
@@ -61,68 +61,68 @@ def detect_continuation_extractions(
         all_extractions = result.data or []
 
         if not all_extractions:
-            logger.debug(f"[VISIT_DETECT] No recent extractions for patient {patient_id}")
+            logger.debug(f"[VISIT_DETECT] No recent extractions for student {student_id}")
             return None
 
-        # 2. Get linked doctor IDs for cross-doctor matching
-        linked_doctor_ids = _get_linked_doctor_ids(doctor_id, patient_id=patient_id)
+        # 2. Get linked counsellor IDs for cross-counsellor matching
+        linked_counsellor_ids = _get_linked_counsellor_ids(counsellor_id, student_id=student_id)
 
-        # 3. Pre-parse session info and batch-fetch nurse-doctor links (avoids N+1 queries)
+        # 3. Pre-parse session info and batch-fetch assistant-counsellor links (avoids N+1 queries)
         parsed_extractions = []
-        nurse_ids_to_check = set()
-        doctor_ids_to_check = set()
+        assistant_ids_to_check = set()
+        counsellor_ids_to_check = set()
 
         for ext in all_extractions:
-            ext_doctor_id = ext.get("doctor_id")
+            ext_counsellor_id = ext.get("counsellor_id")
             rs = ext.get("recording_sessions")
-            session_nurse_id = None
+            session_assistant_id = None
             if rs:
                 if isinstance(rs, dict):
-                    session_nurse_id = rs.get("nurse_id")
+                    session_assistant_id = rs.get("assistant_id")
                 elif isinstance(rs, list) and rs:
-                    session_nurse_id = rs[0].get("nurse_id")
+                    session_assistant_id = rs[0].get("assistant_id")
 
-            parsed_extractions.append((ext, ext_doctor_id, session_nurse_id))
+            parsed_extractions.append((ext, ext_counsellor_id, session_assistant_id))
 
-            # Collect IDs needed for Rule 2 (prior nurse → current doctor)
-            if session_nurse_id and not nurse_id:
-                nurse_ids_to_check.add(session_nurse_id)
-                doctor_ids_to_check.add(doctor_id)
-            # Collect IDs needed for Rule 3 (current nurse → prior doctor)
-            if nurse_id and not session_nurse_id and ext_doctor_id:
-                nurse_ids_to_check.add(nurse_id)
-                doctor_ids_to_check.add(ext_doctor_id)
+            # Collect IDs needed for Rule 2 (prior assistant → current counsellor)
+            if session_assistant_id and not assistant_id:
+                assistant_ids_to_check.add(session_assistant_id)
+                counsellor_ids_to_check.add(counsellor_id)
+            # Collect IDs needed for Rule 3 (current assistant → prior counsellor)
+            if assistant_id and not session_assistant_id and ext_counsellor_id:
+                assistant_ids_to_check.add(assistant_id)
+                counsellor_ids_to_check.add(ext_counsellor_id)
 
-        # Single batch query for all nurse-doctor links (replaces N individual queries)
-        nurse_doctor_links = set()
-        if nurse_ids_to_check:
-            nurse_doctor_links = _batch_get_nurse_doctor_links(
-                list(nurse_ids_to_check), list(doctor_ids_to_check)
+        # Single batch query for all assistant-counsellor links (replaces N individual queries)
+        assistant_counsellor_links = set()
+        if assistant_ids_to_check:
+            assistant_counsellor_links = _batch_get_assistant_counsellor_links(
+                list(assistant_ids_to_check), list(counsellor_ids_to_check)
             )
 
         # 4. Filter by matching criteria (4 rules) — all in-memory, zero DB calls
         matched = []
         detection_reason = None
 
-        for ext, ext_doctor_id, session_nurse_id in parsed_extractions:
+        for ext, ext_counsellor_id, session_assistant_id in parsed_extractions:
             reason = None
 
-            # Rule 1: Same doctor
-            if ext_doctor_id == doctor_id:
+            # Rule 1: Same counsellor
+            if ext_counsellor_id == counsellor_id:
                 reason = "same_doctor"
 
-            # Rule 2: Nurse→Doctor (prior was by a nurse linked to current doctor)
-            elif session_nurse_id and not nurse_id:
-                if (session_nurse_id, doctor_id) in nurse_doctor_links:
+            # Rule 2: Assistant→Counsellor (prior was by an assistant linked to current counsellor)
+            elif session_assistant_id and not assistant_id:
+                if (session_assistant_id, counsellor_id) in assistant_counsellor_links:
                     reason = "nurse_to_doctor"
 
-            # Rule 3: Doctor→Nurse (current session has nurse, prior was by linked doctor)
-            elif nurse_id and not session_nurse_id:
-                if ext_doctor_id and (nurse_id, ext_doctor_id) in nurse_doctor_links:
+            # Rule 3: Counsellor→Assistant (current session has assistant, prior was by linked counsellor)
+            elif assistant_id and not session_assistant_id:
+                if ext_counsellor_id and (assistant_id, ext_counsellor_id) in assistant_counsellor_links:
                     reason = "doctor_to_nurse"
 
-            # Rule 4: Linked doctor (via doctor_doctor_patients)
-            elif ext_doctor_id and ext_doctor_id in linked_doctor_ids:
+            # Rule 4: Linked counsellor (via counsellor_counsellor_students)
+            elif ext_counsellor_id and ext_counsellor_id in linked_counsellor_ids:
                 reason = "linked_doctor"
 
             if reason:
@@ -131,7 +131,7 @@ def detect_continuation_extractions(
                     detection_reason = reason
 
         if not matched:
-            logger.debug(f"[VISIT_DETECT] No matching extractions for patient {patient_id}, doctor {doctor_id[:8]}...")
+            logger.debug(f"[VISIT_DETECT] No matching extractions for student {student_id}, counsellor {counsellor_id[:8]}...")
             return None
 
         # 4. Find boundary: most recent matched extraction with is_continuation=false
@@ -163,8 +163,8 @@ def detect_continuation_extractions(
         parent_ids_list = list(parent_ids)
 
         logger.info(
-            f"[VISIT_DETECT] Found {len(parent_ids_list)} parent extraction(s) for patient {patient_id}, "
-            f"doctor {doctor_id[:8]}..., reason={detection_reason}, boundary={boundary_created_at}"
+            f"[VISIT_DETECT] Found {len(parent_ids_list)} parent extraction(s) for student {student_id}, "
+            f"counsellor {counsellor_id[:8]}..., reason={detection_reason}, boundary={boundary_created_at}"
         )
 
         return {
@@ -177,62 +177,62 @@ def detect_continuation_extractions(
         return None
 
 
-def _get_linked_doctor_ids(doctor_id: str, patient_id: Optional[str] = None) -> List[str]:
+def _get_linked_counsellor_ids(counsellor_id: str, student_id: Optional[str] = None) -> List[str]:
     """
-    Get all doctors linked to this doctor via doctor_doctor_patients.
+    Get all counsellors linked to this counsellor via counsellor_counsellor_students.
 
     Single DB query with filtering pushed to PostgREST:
-    - patient_ids IS NULL rows → share ALL patients (always match)
-    - patient_id in patient_ids → share that specific patient (cs = contains)
+    - student_ids IS NULL rows → share ALL students (always match)
+    - student_id in student_ids → share that specific student (cs = contains)
 
     Args:
-        doctor_id: Current doctor UUID string
-        patient_id: Optional patient UUID string for selective matching
+        counsellor_id: Current counsellor UUID string
+        student_id: Optional student UUID string for selective matching
 
     Returns:
-        List of linked doctor ID strings
+        List of linked counsellor ID strings
     """
     from services.supabase_service import supabase
 
     try:
-        query = supabase.table("doctor_doctor_patients")\
-            .select("linked_doctor_id")\
-            .eq("doctor_id", doctor_id)\
+        query = supabase.table("counsellor_counsellor_students")\
+            .select("linked_counsellor_id")\
+            .eq("counsellor_id", counsellor_id)\
             .eq("is_active", True)
 
-        if patient_id:
-            # DB-level filter: match "share all" (NULL) OR array contains this patient
-            query = query.or_(f"patient_ids.is.null,patient_ids.cs.{{{patient_id}}}")
+        if student_id:
+            # DB-level filter: match "share all" (NULL) OR array contains this student
+            query = query.or_(f"student_ids.is.null,student_ids.cs.{{{student_id}}}")
         else:
-            # No patient context — only match "share all" links
-            query = query.is_("patient_ids", "null")
+            # No student context — only match "share all" links
+            query = query.is_("student_ids", "null")
 
         result = query.execute()
-        return list(set(row["linked_doctor_id"] for row in (result.data or [])))
+        return list(set(row["linked_counsellor_id"] for row in (result.data or [])))
 
     except Exception as e:
-        logger.warning(f"[VISIT_DETECT] Error fetching linked doctors: {e}")
+        logger.warning(f"[VISIT_DETECT] Error fetching linked counsellors: {e}")
         return []
 
 
-def _batch_get_nurse_doctor_links(
-    nurse_ids: List[str], doctor_ids: List[str]
+def _batch_get_assistant_counsellor_links(
+    assistant_ids: List[str], counsellor_ids: List[str]
 ) -> set:
     """
-    Batch-fetch all nurse-doctor links for the given IDs.
-    Returns a set of (nurse_id, doctor_id) tuples for O(1) lookup.
+    Batch-fetch all assistant-counsellor links for the given IDs.
+    Returns a set of (assistant_id, counsellor_id) tuples for O(1) lookup.
 
     Single DB query replaces N individual _is_nurse_linked_to_doctor calls.
     """
     from services.supabase_service import supabase
 
     try:
-        result = supabase.table("nurse_doctors")\
-            .select("nurse_id, doctor_id")\
-            .in_("nurse_id", nurse_ids)\
-            .in_("doctor_id", doctor_ids)\
+        result = supabase.table("assistant_counsellors")\
+            .select("assistant_id, counsellor_id")\
+            .in_("assistant_id", assistant_ids)\
+            .in_("counsellor_id", counsellor_ids)\
             .execute()
-        return {(row["nurse_id"], row["doctor_id"]) for row in (result.data or [])}
+        return {(row["assistant_id"], row["counsellor_id"]) for row in (result.data or [])}
     except Exception as e:
-        logger.warning(f"[VISIT_DETECT] Error batch-fetching nurse-doctor links: {e}")
+        logger.warning(f"[VISIT_DETECT] Error batch-fetching assistant-counsellor links: {e}")
         return set()

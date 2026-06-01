@@ -115,10 +115,10 @@ class MergeRequest(BaseModel):
     **Supported Combinations:**
     1. 2-4 database extractions (source_extraction_ids)
     2. 1-3 extractions + 1-3 JSON uploads (totaling 2-4)
-    3. 2-4 JSON uploads only (requires patient_id)
+    3. 2-4 JSON uploads only (requires student_id)
     4. Using submission_ids instead of extraction_ids (source_submission_ids)
 
-    **patient_id Requirement:**
+    **student_id Requirement:**
     - Optional when at least 1 extraction is provided (derived from extraction)
     - Required when using only JSON uploads (no extractions)
 
@@ -142,13 +142,13 @@ class MergeRequest(BaseModel):
         ...,
         description="Target template code (e.g., 'OP_GENERAL', 'OP_SMITH_1225141530')"
     )
-    doctor_id: str = Field(
+    counsellor_id: str = Field(
         ...,
-        description="Doctor ID performing the merge"
+        description="Counsellor ID performing the merge"
     )
-    patient_id: Optional[str] = Field(
+    student_id: Optional[str] = Field(
         None,
-        description="Patient UUID. Required when merging only JSON uploads (no extractions). Optional when extractions are provided."
+        description="Student UUID. Required when merging only JSON uploads (no extractions). Optional when extractions are provided."
     )
     merge_notes: Optional[str] = Field(
         None,
@@ -166,7 +166,7 @@ class MergeRequest(BaseModel):
                             "550e8400-e29b-41d4-a716-446655440002"
                         ],
                         "target_template_code": "OP_GENERAL",
-                        "doctor_id": "550e8400-e29b-41d4-a716-446655440099",
+                        "counsellor_id": "550e8400-e29b-41d4-a716-446655440099",
                         "merge_notes": "Follow-up consolidation"
                     }
                 },
@@ -183,11 +183,11 @@ class MergeRequest(BaseModel):
                             }
                         ],
                         "target_template_code": "OP_GENERAL",
-                        "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+                        "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
                     }
                 },
                 {
-                    "title": "Merge JSON uploads only (requires patient_id)",
+                    "title": "Merge JSON uploads only (requires student_id)",
                     "value": {
                         "uploaded_json_sources": [
                             {
@@ -204,8 +204,8 @@ class MergeRequest(BaseModel):
                             }
                         ],
                         "target_template_code": "OP_GENERAL",
-                        "doctor_id": "550e8400-e29b-41d4-a716-446655440099",
-                        "patient_id": "550e8400-e29b-41d4-a716-446655440088"
+                        "counsellor_id": "550e8400-e29b-41d4-a716-446655440099",
+                        "student_id": "550e8400-e29b-41d4-a716-446655440088"
                     }
                 }
             ]
@@ -235,13 +235,13 @@ class MergePreviewRequest(BaseModel):
         ...,
         description="Target template code (e.g., 'OP_GENERAL', 'OP_SMITH_1225141530')"
     )
-    doctor_id: str = Field(
+    counsellor_id: str = Field(
         ...,
-        description="Doctor ID performing the merge"
+        description="Counsellor ID performing the merge"
     )
-    patient_id: Optional[str] = Field(
+    student_id: Optional[str] = Field(
         None,
-        description="Patient UUID. Required when merging only JSON uploads (no extractions)."
+        description="Student UUID. Required when merging only JSON uploads (no extractions)."
     )
 
     class Config:
@@ -252,13 +252,13 @@ class MergePreviewRequest(BaseModel):
                 ],
                 "uploaded_json_sources": [
                     {
-                        "data": {"external_notes": "Patient referred from external clinic"},
+                        "data": {"external_notes": "Student referred from external clinic"},
                         "upload_type": "NOTES",
                         "source_name": "Referral Notes"
                     }
                 ],
                 "target_template_code": "DISCHARGE_GENERAL",
-                "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+                "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
             }
         }
 
@@ -274,7 +274,7 @@ class MergeMetadata(BaseModel):
     source_count: int = Field(..., description="Number of source extractions merged")
     target_template_code: str = Field(..., description="Target template code used for merge")
     merge_timestamp: str = Field(..., description="ISO timestamp of merge operation")
-    doctor_confirmed: bool = Field(..., description="Whether doctor confirmed the merge")
+    doctor_confirmed: bool = Field(..., description="Whether counsellor confirmed the merge")
     merge_notes: Optional[str] = Field(None, description="Notes about the merge")
     conflict_count: int = Field(..., description="Number of conflicting fields detected")
     conflicts_resolved: List[str] = Field(..., description="List of field names with conflicts that were resolved")
@@ -337,7 +337,7 @@ class MergeErrorResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "success": False,
-                "error": "Cannot merge extractions from different patients"
+                "error": "Cannot merge extractions from different students"
             }
         }
 
@@ -401,7 +401,7 @@ class SourceExtractionInfo(BaseModel):
     consultation_type_code: str = Field(..., description="Consultation type of source")
     consultation_type_name: str = Field(..., description="Consultation type name")
     created_at: datetime = Field(..., description="Creation timestamp of source extraction")
-    doctor_name: Optional[str] = Field(None, description="Doctor who created source extraction")
+    counsellor_name: Optional[str] = Field(None, description="Counsellor who created source extraction")
     merge_order: int = Field(..., description="Chronological order in merge (1=oldest, N=newest)")
     merge_strategy: str = Field(..., description="Strategy used for this source (e.g., 'ai_contextual')")
 
@@ -426,7 +426,7 @@ class MergeLineageResponse(BaseModel):
                         "consultation_type_code": "OP",
                         "consultation_type_name": "Outpatient Consultation",
                         "created_at": "2025-11-01T09:00:00Z",
-                        "doctor_name": "Dr. Smith",
+                        "counsellor_name": "Dr. Smith",
                         "merge_order": 1,
                         "merge_strategy": "ai_contextual"
                     },
@@ -435,7 +435,7 @@ class MergeLineageResponse(BaseModel):
                         "consultation_type_code": "OP",
                         "consultation_type_name": "Outpatient Consultation",
                         "created_at": "2025-11-15T10:30:00Z",
-                        "doctor_name": "Dr. Smith",
+                        "counsellor_name": "Dr. Smith",
                         "merge_order": 2,
                         "merge_strategy": "ai_contextual"
                     }
@@ -455,39 +455,39 @@ class MergeLineageResponse(BaseModel):
         }
 
 
-class PatientTimelineExtraction(BaseModel):
+class StudentTimelineExtraction(BaseModel):
     """
-    Information about an extraction in patient timeline.
+    Information about an extraction in student timeline.
     """
     extraction_id: str = Field(..., description="Extraction UUID")
     consultation_type_code: str = Field(..., description="Consultation type code")
     consultation_type_name: str = Field(..., description="Consultation type name")
     created_at: datetime = Field(..., description="Creation timestamp")
-    doctor_name: Optional[str] = Field(None, description="Doctor name")
+    counsellor_name: Optional[str] = Field(None, description="Counsellor name")
     is_merged: bool = Field(False, description="Whether this is a merged extraction")
     source_count: int = Field(0, description="Number of source extractions (if merged)")
     segment_count: int = Field(..., description="Number of segments")
 
 
-class PatientTimelineResponse(BaseModel):
+class StudentTimelineResponse(BaseModel):
     """
-    Response model for patient extraction timeline.
+    Response model for student extraction timeline.
     """
-    patient_id: str = Field(..., description="Patient UUID")
-    extractions: List[PatientTimelineExtraction] = Field(..., description="List of extractions, chronologically ordered")
+    student_id: str = Field(..., description="Student UUID")
+    extractions: List[StudentTimelineExtraction] = Field(..., description="List of extractions, chronologically ordered")
     total_count: int = Field(..., description="Total number of extractions")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "patient_id": "550e8400-e29b-41d4-a716-446655440050",
+                "student_id": "550e8400-e29b-41d4-a716-446655440050",
                 "extractions": [
                     {
                         "extraction_id": "550e8400-e29b-41d4-a716-446655440001",
                         "consultation_type_code": "OP",
                         "consultation_type_name": "Outpatient Consultation",
                         "created_at": "2025-11-01T09:00:00Z",
-                        "doctor_name": "Dr. Smith",
+                        "counsellor_name": "Dr. Smith",
                         "is_merged": False,
                         "source_count": 0,
                         "segment_count": 12
@@ -497,7 +497,7 @@ class PatientTimelineResponse(BaseModel):
                         "consultation_type_code": "OP",
                         "consultation_type_name": "Outpatient Consultation",
                         "created_at": "2025-11-15T10:30:00Z",
-                        "doctor_name": "Dr. Smith",
+                        "counsellor_name": "Dr. Smith",
                         "is_merged": False,
                         "source_count": 0,
                         "segment_count": 12
@@ -507,7 +507,7 @@ class PatientTimelineResponse(BaseModel):
                         "consultation_type_code": "OP",
                         "consultation_type_name": "Outpatient Consultation",
                         "created_at": "2025-11-19T10:30:00Z",
-                        "doctor_name": "Dr. Smith",
+                        "counsellor_name": "Dr. Smith",
                         "is_merged": True,
                         "source_count": 2,
                         "segment_count": 12

@@ -423,7 +423,7 @@ const handleProgressiveExtraction = async (transcriptText: string) => {
     const coreResponse = await extractMedicalSummary({
       transcript: transcriptText.trim(),
       consultation_type_code: selectedTemplate.consultation_type_code as ConsultationTypeCode,
-      doctor_id: selectedDoctorId || undefined,
+      counsellor_id: selectedDoctorId || undefined,
       template_code: selectedTemplate.template_code,
       mode: 'core',
       model: extractionModel,
@@ -454,7 +454,7 @@ const extractAdditionalSegments = async (extractionModel: string, transcriptText
     const additionalResponse = await extractMedicalSummary({
       transcript: transcriptText.trim(),
       consultation_type_code: selectedTemplate.consultation_type_code as ConsultationTypeCode,
-      doctor_id: selectedDoctorId || undefined,
+      counsellor_id: selectedDoctorId || undefined,
       template_code: selectedTemplate.template_code,
       mode: 'additional',
       model: extractionModel,
@@ -479,7 +479,7 @@ const extractAdditionalSegments = async (extractionModel: string, transcriptText
 {
   transcript: string,
   consultation_type_code: 'OP' | 'DISCHARGE' | 'RESPIRATORY',
-  doctor_id?: string,
+  counsellor_id?: string,
   template_code: string,
   mode: 'core' | 'additional' | 'full',
   model: 'gemini-2.5-flash' | 'gemini-2.5-pro'

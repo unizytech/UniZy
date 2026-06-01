@@ -1,10 +1,10 @@
 """
-Investigations Router - API for Doctor Investigation List Management
+Investigations Router - API for Counsellor Investigation List Management
 
 Endpoints for:
-- Doctor investigation list CRUD
+- Counsellor investigation list CRUD
 - CSV upload
-- Hospital investigation list management
+- School investigation list management
 - Investigation matching test
 - Feedback submission and review
 """
@@ -18,54 +18,54 @@ from pydantic import BaseModel, Field
 
 from models.auth_models import ClientContext
 from dependencies.auth import require_admin
-from services.auth_service import get_doctor_hospital_id
+from services.auth_service import get_counsellor_school_id
 
 # Conditional EHR auth imports
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
-    from dependencies.auth import EHRDoctorAccessChecker, get_current_client
+    from dependencies.auth import EHRCounsellorAccessChecker, get_current_client
 
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: Optional[str] = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
-    async def verify_hospital_access(request: Request, hospital_id: Optional[str] = None):  # type: ignore[misc]
-        """Verify client has access to hospital data. Allows admin, web_app, and EHR (with hospital scoping)."""
+    async def verify_school_access(request: Request, school_id: Optional[str] = None):  # type: ignore[misc]
+        """Verify client has access to school data. Allows admin, web_app, and EHR (with school scoping)."""
         client = get_current_client(request)
-        if hospital_id and client.client_type == "ehr":
-            hospital_uuid = uuid.UUID(hospital_id)
-            if not client.can_access_hospital(hospital_uuid):
+        if school_id and client.client_type == "ehr":
+            school_uuid = uuid.UUID(school_id)
+            if not client.can_access_school(school_uuid):
                 raise HTTPException(
                     status_code=403,
                     detail="Access denied"
                 )
         return client
 else:
-    async def verify_doctor_access(request: Request = None, doctor_id: Optional[str] = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request = None, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
-    async def verify_hospital_access(request: Request = None, hospital_id: Optional[str] = None):  # type: ignore[misc]
+    async def verify_school_access(request: Request = None, school_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
 from services.investigation_service import (
-    # Doctor investigations
-    create_doctor_investigation,
-    update_doctor_investigation,
-    delete_doctor_investigation,
-    list_doctor_investigations,
-    copy_hospital_investigation_to_doctor,
+    # Counsellor investigations
+    create_counsellor_investigation,
+    update_counsellor_investigation,
+    delete_counsellor_investigation,
+    list_counsellor_investigations,
+    copy_school_investigation_to_counsellor,
     upload_investigation_list,
     upload_investigation_list_json,
-    # Hospital investigations
-    create_hospital_investigation,
-    list_hospital_investigations,
-    update_hospital_investigation,
-    delete_hospital_investigation,
-    upload_hospital_investigation_list,
+    # School investigations
+    create_school_investigation,
+    list_school_investigations,
+    update_school_investigation,
+    delete_school_investigation,
+    upload_school_investigation_list,
     # Matching
     match_investigation_name,
     get_investigation_list_for_prompt,
@@ -74,7 +74,7 @@ from services.investigation_service import (
     list_pending_investigation_feedback,
     list_investigation_feedback_history,
     # Backfill
-    backfill_doctor_investigations_from_hospital,
+    backfill_counsellor_investigations_from_school,
 )
 
 # Configure logging
@@ -134,25 +134,25 @@ class InvestigationBulkUpload(BaseModel):
     investigations: List[InvestigationBulkItem]
 
 
-class HospitalInvestigationCreate(InvestigationCreate):
+class SchoolInvestigationCreate(InvestigationCreate):
     pass
 
 
 # ============================================================================
-# Doctor Investigation Endpoints
+# Counsellor Investigation Endpoints
 # ============================================================================
 
-@router.get("/{doctor_id}")
-async def get_doctor_investigations(
+@router.get("/{counsellor_id}")
+async def get_counsellor_investigations(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     investigation_type: Optional[str] = None,
     category: Optional[str] = None,
     search: Optional[str] = None,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    List all investigations for a doctor.
+    List all investigations for a counsellor.
 
     Query params:
     - investigation_type: Filter by type (laboratory, imaging, other)
@@ -160,8 +160,8 @@ async def get_doctor_investigations(
     - search: Search in names
     """
     try:
-        investigations = list_doctor_investigations(
-            doctor_id=uuid.UUID(doctor_id),
+        investigations = list_counsellor_investigations(
+            counsellor_id=uuid.UUID(counsellor_id),
             investigation_type=investigation_type,
             category=category,
             search=search
@@ -171,49 +171,49 @@ async def get_doctor_investigations(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.get("/{doctor_id}/combined")
+@router.get("/{counsellor_id}/combined")
 async def get_combined_investigations(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     investigation_type: Optional[str] = None,
     category: Optional[str] = None,
     search: Optional[str] = None,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    List combined investigations for a doctor (doctor list + hospital list, deduplicated).
+    List combined investigations for a counsellor (counsellor list + school list, deduplicated).
 
-    Doctor investigations take priority over hospital investigations when duplicates exist.
+    Counsellor investigations take priority over school investigations when duplicates exist.
     Deduplication is based on normalized_name.
     """
     try:
-        doctor_uuid = uuid.UUID(doctor_id)
+        counsellor_uuid = uuid.UUID(counsellor_id)
 
-        # Get doctor's own investigations
-        doctor_investigations = list_doctor_investigations(
-            doctor_id=doctor_uuid,
+        # Get counsellor's own investigations
+        counsellor_investigations = list_counsellor_investigations(
+            counsellor_id=counsellor_uuid,
             investigation_type=investigation_type,
             category=category,
             search=search
         )
 
-        # Get doctor's hospital_id and fetch hospital investigations
-        hospital_id = await get_doctor_hospital_id(doctor_uuid)
-        if hospital_id:
-            hospital_investigations = list_hospital_investigations(
-                hospital_id=hospital_id,
+        # Get counsellor's school_id and fetch school investigations
+        school_id = await get_counsellor_school_id(counsellor_uuid)
+        if school_id:
+            hospital_investigations = list_school_investigations(
+                school_id=school_id,
                 investigation_type=investigation_type,
                 category=category
             )
         else:
             hospital_investigations = []
 
-        # Deduplicate: doctor investigations take priority
-        seen_names = {i["normalized_name"] for i in doctor_investigations}
-        combined = list(doctor_investigations)
+        # Deduplicate: counsellor investigations take priority
+        seen_names = {i["normalized_name"] for i in counsellor_investigations}
+        combined = list(counsellor_investigations)
         for inv in hospital_investigations:
             if inv["normalized_name"] not in seen_names:
-                # Filter by search if provided (hospital list doesn't support search natively)
+                # Filter by search if provided (school list doesn't support search natively)
                 if search and search.lower() not in inv.get("investigation_name", "").lower():
                     continue
                 seen_names.add(inv["normalized_name"])
@@ -222,26 +222,26 @@ async def get_combined_investigations(
         return {
             "investigations": combined,
             "count": len(combined),
-            "doctor_count": len(doctor_investigations),
+            "counsellor_count": len(counsellor_investigations),
             "hospital_count": len(hospital_investigations),
         }
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/{doctor_id}")
-async def add_doctor_investigation(
+@router.post("/{counsellor_id}")
+async def add_counsellor_investigation(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     data: InvestigationCreate,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Add a single investigation to doctor's list.
+    Add a single investigation to counsellor's list.
     """
     try:
-        investigation = create_doctor_investigation(
-            doctor_id=uuid.UUID(doctor_id),
+        investigation = create_counsellor_investigation(
+            counsellor_id=uuid.UUID(counsellor_id),
             investigation_name=data.investigation_name,
             investigation_type=data.investigation_type,
             common_names=data.common_names,
@@ -258,19 +258,19 @@ async def add_doctor_investigation(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.put("/{doctor_id}/{investigation_id}")
+@router.put("/{counsellor_id}/{investigation_id}")
 async def update_investigation(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     investigation_id: str,
     data: InvestigationUpdate,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Update an investigation in doctor's list.
+    Update an investigation in counsellor's list.
     """
     try:
-        investigation = update_doctor_investigation(
+        investigation = update_counsellor_investigation(
             investigation_id=uuid.UUID(investigation_id),
             investigation_name=data.investigation_name,
             investigation_type=data.investigation_type,
@@ -288,18 +288,18 @@ async def update_investigation(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.delete("/{doctor_id}/{investigation_id}")
+@router.delete("/{counsellor_id}/{investigation_id}")
 async def remove_investigation(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     investigation_id: str,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Soft delete an investigation from doctor's list.
+    Soft delete an investigation from counsellor's list.
     """
     try:
-        success = delete_doctor_investigation(uuid.UUID(investigation_id))
+        success = delete_counsellor_investigation(uuid.UUID(investigation_id))
         if not success:
             raise HTTPException(status_code=400, detail="Failed to delete investigation")
         return {"message": "Investigation deleted"}
@@ -307,13 +307,13 @@ async def remove_investigation(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/{doctor_id}/upload")
+@router.post("/{counsellor_id}/upload")
 async def upload_csv(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     file: UploadFile = File(...),
     replace_existing: bool = Query(default=False),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Upload CSV file with investigations.
@@ -326,7 +326,7 @@ async def upload_csv(
         csv_content = content.decode('utf-8')
 
         result = upload_investigation_list(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             csv_content=csv_content,
             filename=file.filename or "upload.csv",
             replace_existing=replace_existing
@@ -346,13 +346,13 @@ async def upload_csv(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.post("/{doctor_id}/upload-json")
+@router.post("/{counsellor_id}/upload-json")
 async def upload_json(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     data: InvestigationBulkUpload,
     replace_existing: bool = Query(default=False),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Upload investigations via JSON body.
@@ -384,7 +384,7 @@ async def upload_json(
             })
 
         result = upload_investigation_list_json(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             investigations=investigations,
             replace_existing=replace_existing
         )
@@ -401,20 +401,20 @@ async def upload_json(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.post("/{doctor_id}/copy-from-hospital/{hospital_investigation_id}")
-async def copy_from_hospital(
+@router.post("/{counsellor_id}/copy-from-school/{school_investigation_id}")
+async def copy_from_school(
     request: Request,
-    doctor_id: str,
-    hospital_investigation_id: str,
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str,
+    school_investigation_id: str,
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Copy a hospital investigation to doctor's personal list.
+    Copy a school investigation to counsellor's personal list.
     """
     try:
-        result = copy_hospital_investigation_to_doctor(
-            hospital_investigation_id=uuid.UUID(hospital_investigation_id),
-            doctor_id=uuid.UUID(doctor_id)
+        result = copy_school_investigation_to_counsellor(
+            school_investigation_id=uuid.UUID(school_investigation_id),
+            counsellor_id=uuid.UUID(counsellor_id)
         )
         if not result:
             raise HTTPException(status_code=400, detail="Failed to copy investigation")
@@ -423,12 +423,12 @@ async def copy_from_hospital(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/{doctor_id}/test-match")
+@router.post("/{counsellor_id}/test-match")
 async def test_match(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     data: MatchTestRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Test investigation matching without saving.
@@ -438,7 +438,7 @@ async def test_match(
     try:
         result = await match_investigation_name(
             extracted_name=data.investigation_name,
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             investigation_type=data.investigation_type
         )
         return {
@@ -453,12 +453,12 @@ async def test_match(
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.get("/{doctor_id}/prompt-injection")
+@router.get("/{counsellor_id}/prompt-injection")
 async def get_prompt_injection(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     max_investigations: int = Query(default=100),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Get investigation list formatted for prompt injection.
@@ -467,11 +467,11 @@ async def get_prompt_injection(
     """
     try:
         prompt_text = get_investigation_list_for_prompt(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             max_investigations=max_investigations
         )
         return {
-            "doctor_id": doctor_id,
+            "counsellor_id": counsellor_id,
             "prompt_text": prompt_text,
             "character_count": len(prompt_text)
         }
@@ -480,23 +480,23 @@ async def get_prompt_injection(
 
 
 # ============================================================================
-# Hospital Investigation Endpoints
+# School Investigation Endpoints
 # ============================================================================
 
-@router.get("/hospital/{hospital_id}")
-async def get_hospital_investigations(
+@router.get("/school/{school_id}")
+async def get_school_investigations(
     request: Request,
-    hospital_id: str,
+    school_id: str,
     investigation_type: Optional[str] = None,
     category: Optional[str] = None,
-    _auth = Depends(verify_hospital_access)
+    _auth = Depends(verify_school_access)
 ):
     """
-    List all investigations for a hospital.
+    List all investigations for a school.
     """
     try:
-        investigations = list_hospital_investigations(
-            hospital_id=uuid.UUID(hospital_id),
+        investigations = list_school_investigations(
+            school_id=uuid.UUID(school_id),
             investigation_type=investigation_type,
             category=category
         )
@@ -505,19 +505,19 @@ async def get_hospital_investigations(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.post("/hospital/{hospital_id}")
-async def add_hospital_investigation(
-    hospital_id: str,
-    data: HospitalInvestigationCreate,
-    created_by: str = Query(..., description="Admin doctor ID"),
+@router.post("/school/{school_id}")
+async def add_school_investigation(
+    school_id: str,
+    data: SchoolInvestigationCreate,
+    created_by: str = Query(..., description="Admin counsellor ID"),
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Add a single investigation to hospital's list.
+    Add a single investigation to school's list.
     """
     try:
-        investigation = create_hospital_investigation(
-            hospital_id=uuid.UUID(hospital_id),
+        investigation = create_school_investigation(
+            school_id=uuid.UUID(school_id),
             created_by=uuid.UUID(created_by),
             investigation_name=data.investigation_name,
             investigation_type=data.investigation_type,
@@ -527,31 +527,31 @@ async def add_hospital_investigation(
             loinc_code=data.loinc_code,
             cpt_code=data.cpt_code
         )
-        return {"message": "Hospital investigation added", "investigation": investigation}
+        return {"message": "School investigation added", "investigation": investigation}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Failed to add hospital investigation: {e}")
+        logger.error(f"Failed to add school investigation: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.post("/hospital/{hospital_id}/upload")
-async def upload_hospital_csv(
-    hospital_id: str,
+@router.post("/school/{school_id}/upload")
+async def upload_school_csv(
+    school_id: str,
     file: UploadFile = File(...),
-    created_by: str = Query(..., description="Admin doctor ID"),
+    created_by: str = Query(..., description="Admin counsellor ID"),
     replace_existing: bool = Query(default=False),
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Upload CSV file with hospital investigations.
+    Upload CSV file with school investigations.
     """
     try:
         content = await file.read()
         csv_content = content.decode('utf-8')
 
-        result = upload_hospital_investigation_list(
-            hospital_id=uuid.UUID(hospital_id),
+        result = upload_school_investigation_list(
+            school_id=uuid.UUID(school_id),
             csv_content=csv_content,
             filename=file.filename or "upload.csv",
             created_by=uuid.UUID(created_by),
@@ -563,22 +563,22 @@ async def upload_hospital_csv(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Hospital upload failed: {e}")
+        logger.error(f"School upload failed: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.put("/hospital/{hospital_id}/{investigation_id}")
-async def update_hospital_investigation_endpoint(
-    hospital_id: str,
+@router.put("/school/{school_id}/{investigation_id}")
+async def update_school_investigation_endpoint(
+    school_id: str,
     investigation_id: str,
     data: InvestigationUpdate,
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Update a hospital investigation.
+    Update a school investigation.
     """
     try:
-        investigation = update_hospital_investigation(
+        investigation = update_school_investigation(
             investigation_id=uuid.UUID(investigation_id),
             investigation_name=data.investigation_name,
             investigation_type=data.investigation_type,
@@ -588,32 +588,32 @@ async def update_hospital_investigation_endpoint(
             loinc_code=data.loinc_code,
             cpt_code=data.cpt_code
         )
-        return {"message": "Hospital investigation updated", "investigation": investigation}
+        return {"message": "School investigation updated", "investigation": investigation}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Failed to update hospital investigation: {e}")
+        logger.error(f"Failed to update school investigation: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
-@router.delete("/hospital/{hospital_id}/{investigation_id}")
-async def delete_hospital_investigation_endpoint(
-    hospital_id: str,
+@router.delete("/school/{school_id}/{investigation_id}")
+async def delete_school_investigation_endpoint(
+    school_id: str,
     investigation_id: str,
     client: ClientContext = Depends(require_admin)
 ):
     """
-    Soft delete a hospital investigation (sets is_active=False).
+    Soft delete a school investigation (sets is_active=False).
     """
     try:
-        success = delete_hospital_investigation(uuid.UUID(investigation_id))
+        success = delete_school_investigation(uuid.UUID(investigation_id))
         if not success:
-            raise HTTPException(status_code=404, detail="Hospital investigation not found")
-        return {"message": "Hospital investigation deleted"}
+            raise HTTPException(status_code=404, detail="School investigation not found")
+        return {"message": "School investigation deleted"}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
     except Exception as e:
-        logger.error(f"Failed to delete hospital investigation: {e}")
+        logger.error(f"Failed to delete school investigation: {e}")
         raise HTTPException(status_code=400, detail="Invalid request")
 
 
@@ -621,22 +621,22 @@ async def delete_hospital_investigation_endpoint(
 # Feedback Endpoints
 # ============================================================================
 
-@router.get("/feedback/{doctor_id}/pending")
+@router.get("/feedback/{counsellor_id}/pending")
 async def get_pending_feedback(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     limit: int = Query(default=100),
     offset: int = Query(default=0),
     include_exact_matches: bool = Query(default=False, description="Include exact and common_name matches (default: only fuzzy and doctor_edit)"),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Get matches pending feedback for a doctor.
+    Get matches pending feedback for a counsellor.
 
-    By default, only returns matches that NEED doctor action:
+    By default, only returns matches that NEED counsellor action:
     - 'fuzzy' matches: System guessed a correction → Agree/Disagree
     - 'no_match' matches: New investigation not in any list → Add to list or Correct
-    - 'doctor_edit' matches: FYI only (doctor already corrected in UI)
+    - 'doctor_edit' matches: FYI only (counsellor already corrected in UI)
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
@@ -646,7 +646,7 @@ async def get_pending_feedback(
     """
     try:
         records = list_pending_investigation_feedback(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             limit=limit,
             offset=offset,
             include_exact_matches=include_exact_matches
@@ -662,10 +662,10 @@ async def get_pending_feedback(
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
 
-@router.get("/feedback/{doctor_id}/history")
+@router.get("/feedback/{counsellor_id}/history")
 async def get_feedback_history(
     request: Request,
-    doctor_id: str,
+    counsellor_id: str,
     feedback_status: Optional[str] = None,
     investigation_type: Optional[str] = None,
     confidence_min: Optional[float] = None,
@@ -675,15 +675,15 @@ async def get_feedback_history(
     limit: int = Query(default=100),
     offset: int = Query(default=0),
     include_exact_matches: bool = Query(default=False, description="Include exact and common_name matches (default: only fuzzy, no_match, and doctor_edit)"),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Get feedback history with filters for the review screen.
 
-    By default, only returns matches that need/needed doctor action:
+    By default, only returns matches that need/needed counsellor action:
     - 'fuzzy' matches: System guessed a correction
     - 'no_match' matches: New investigation not in any list
-    - 'doctor_edit_*' matches: FYI only (doctor already corrected in UI)
+    - 'doctor_edit_*' matches: FYI only (counsellor already corrected in UI)
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
@@ -693,7 +693,7 @@ async def get_feedback_history(
     """
     try:
         result = list_investigation_feedback_history(
-            doctor_id=uuid.UUID(doctor_id),
+            counsellor_id=uuid.UUID(counsellor_id),
             feedback_status=feedback_status,
             investigation_type=investigation_type,
             confidence_min=confidence_min,
@@ -714,12 +714,12 @@ async def submit_feedback(
     request: Request,
     match_log_id: str,
     data: FeedbackSubmit,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Submit feedback for an investigation match.
 
-    If agreed with hospital match, auto-copies to doctor's personal list.
+    If agreed with school match, auto-copies to counsellor's personal list.
     """
     try:
         correct_id = uuid.UUID(data.correct_investigation_id) if data.correct_investigation_id else None
@@ -742,8 +742,8 @@ async def submit_feedback(
 async def bulk_agree_feedback(
     request: Request,
     match_log_ids: List[str],
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Bulk agree with multiple matches.
@@ -767,29 +767,29 @@ async def bulk_agree_feedback(
 
 
 # ============================================================================
-# Backfill - Enrich doctor investigations from hospital list
+# Backfill - Enrich counsellor investigations from school list
 # ============================================================================
 
-@router.post("/{doctor_id}/backfill-from-hospital")
-async def backfill_investigations_from_hospital(
-    doctor_id: str,
+@router.post("/{counsellor_id}/backfill-from-school")
+async def backfill_investigations_from_school(
+    counsellor_id: str,
     dry_run: bool = Query(True, description="If true, only report what would be updated without making changes"),
     _admin = Depends(require_admin)
 ):
     """
-    Backfill doctor investigation entries that have no external_id by matching
-    against the hospital investigation list. Admin only.
+    Backfill counsellor investigation entries that have no external_id by matching
+    against the school investigation list. Admin only.
 
     Use dry_run=true first to preview changes, then dry_run=false to apply.
     """
     try:
-        result = backfill_doctor_investigations_from_hospital(
-            doctor_id=uuid.UUID(doctor_id),
+        result = backfill_counsellor_investigations_from_school(
+            counsellor_id=uuid.UUID(counsellor_id),
             dry_run=dry_run
         )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
-        logger.error(f"Investigation backfill failed for doctor {doctor_id}: {e}")
+        logger.error(f"Investigation backfill failed for counsellor {counsellor_id}: {e}")
         raise HTTPException(status_code=500, detail="Backfill failed")

@@ -9,7 +9,7 @@ Retrieves relevant clinical guidelines using RAG for triage augmentation:
 - Citation support for suggestions
 - Numeric threshold matching (BP, Hb values)
 
-This layer runs AFTER hospital intelligence to add evidence context.
+This layer runs AFTER school intelligence to add evidence context.
 
 Enhanced v2 (Jan 2026):
 - Integrates with clinical_conditions table for structured STG data
@@ -150,7 +150,7 @@ class ClinicalConditionMatch:
 @dataclass
 class ExtractionContext:
     """
-    Context extracted from medical extraction for RAG query construction.
+    Context extracted from extraction for RAG query construction.
 
     Contains all relevant segments for building intelligent queries.
     """
@@ -230,7 +230,7 @@ class RAGGuidelinesLayer:
 
         Args:
             chief_complaints: List of chief complaints to search for
-            specialty: Doctor specialty to filter by
+            specialty: Counsellor specialty to filter by
             topics: Optional additional topic keywords
             top_k: Maximum number of results to return
             min_similarity: Minimum similarity threshold (0-1)
@@ -306,7 +306,7 @@ class RAGGuidelinesLayer:
         extraction: Dict[str, Any]
     ) -> ExtractionContext:
         """
-        Extract relevant context from a medical extraction for RAG queries.
+        Extract relevant context from an extraction for RAG queries.
 
         Searches for segments using known segment codes:
         - CHIEF_COMPLAINTS, Chief Complaints
@@ -317,7 +317,7 @@ class RAGGuidelinesLayer:
         - PRESCRIPTION, TREATMENT_PLAN
 
         Args:
-            extraction: Medical extraction record from database
+            extraction: extraction record from database
 
         Returns:
             ExtractionContext with all relevant data
@@ -516,7 +516,7 @@ class RAGGuidelinesLayer:
         - Numeric threshold matching (BP, Hb)
 
         Args:
-            context: ExtractionContext with patient data
+            context: ExtractionContext with student data
             chunk_types: Optional list of chunk types to filter
             top_k: Maximum results to return
             min_similarity: Minimum similarity threshold
@@ -698,7 +698,7 @@ class RAGGuidelinesLayer:
         Args:
             suggestions: Current triage suggestions
             condition_matches: Matched clinical condition chunks
-            context: Extraction context with patient data
+            context: Extraction context with student data
 
         Returns:
             Enhanced TriageSuggestions
@@ -772,7 +772,7 @@ class RAGGuidelinesLayer:
                             category="contraindication",
                             suggestion=f"⚠️ Review: {contraindication} interaction risk",
                             priority="critical",
-                            rationale=f"Patient on medication that may interact. {match.citation}",
+                            rationale=f"Student on medication that may interact. {match.citation}",
                             source="rag_drug_check",
                             related_presentation=match.condition_name,
                         ))
@@ -871,7 +871,7 @@ class RAGGuidelinesLayer:
 
         Args:
             keywords: List of keywords to search for
-            specialty: Doctor specialty to filter by
+            specialty: Counsellor specialty to filter by
             top_k: Maximum number of results
             supabase_client: Supabase client
 

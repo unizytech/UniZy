@@ -343,7 +343,7 @@ class ClinicalConditionIngestionService:
             "step_wise_management": condition.step_wise_management.model_dump() if condition.step_wise_management else None,
             "emergency_protocols": condition.emergency_protocols.model_dump() if condition.emergency_protocols else None,
             "follow_up": condition.follow_up.model_dump() if condition.follow_up else None,
-            "patient_education": condition.patient_education.model_dump() if condition.patient_education else None,
+            "student_education": condition.student_education.model_dump() if condition.student_education else None,
             "full_json": condition.model_dump(),
             "is_active": True,
             "is_verified": False,

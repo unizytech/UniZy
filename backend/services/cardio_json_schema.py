@@ -70,7 +70,7 @@ CARDIO_JSON_SCHEMA = {
         "historyOfPresentIllness": {
             "type": "object",
             "properties": {
-                "last_visit": {"type": "string", "description": "Last visit date and doctor"},
+                "last_visit": {"type": "string", "description": "Last visit date and counsellor"},
                 "recent_labs": {"type": "string", "description": "Recent lab values"},
                 "activity_status": {"type": "string", "description": "Activity status"},
                 "current_complaints": {"type": "string", "description": "Current complaints with details"},
@@ -168,7 +168,7 @@ CARDIO_JSON_SCHEMA = {
                     "comment": {"type": "string", "description": "Additional comments or '-'"}
                 }
             },
-            "description": "Medication chart with GKNM hospital format"
+            "description": "Medication chart with GKNM school format"
         },
         "carePlanAndAdvice": {
             "type": "object",
@@ -199,7 +199,7 @@ CARDIO_JSON_SCHEMA = {
             "type": "object",
             "properties": {
                 "review_with_reports": {"type": "string", "description": "Review date"},
-                "doctor_name": {"type": "string", "description": "Doctor to follow up with"},
+                "counsellor_name": {"type": "string", "description": "Counsellor to follow up with"},
                 "reports_needed": {"type": "string", "description": "Reports to bring"},
                 "timeline": {"type": "string", "description": "Timeline for follow-up"}
             },
@@ -219,11 +219,11 @@ CARDIO_JSON_SCHEMA = {
         "signature": {
             "type": "object",
             "properties": {
-                "doctor_name": {"type": "string", "description": "Doctor's name"},
+                "counsellor_name": {"type": "string", "description": "Doctor's name"},
                 "qualifications": {"type": "string", "description": "Qualifications"},
                 "date_time": {"type": "string", "description": "Date and time of signature"}
             },
-            "description": "Doctor signature information"
+            "description": "Counsellor signature information"
         }
     }
 }

@@ -396,7 +396,7 @@ DIFFERENTIAL_TREES: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "diagnosis": "Autoimmune_Encephalitis",
                     "features": ["young_female", "seizures", "movement_disorder", "rapid_progression", "psychiatric_symptoms_with_neurological"],
                     "tests": ["Anti_NMDA_receptor_antibodies", "CSF_analysis", "MRI_brain"],
-                    "note": "Consider in young patients with atypical presentation"
+                    "note": "Consider in young students with atypical presentation"
                 }
             ],
             "red_flags": [
@@ -507,7 +507,7 @@ DIFFERENTIAL_TREES: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "Sudden calmness after severe depression (may have made decision)"
             ],
             "immediate_actions": [
-                "Do NOT leave patient alone",
+                "Do NOT leave student alone",
                 "Remove access to means (secure pesticides, medications, sharp objects)",
                 "Involve family/caregivers immediately",
                 "Consider psychiatric admission (voluntary or involuntary under MHA 2017)",
@@ -584,185 +584,6 @@ DIFFERENTIAL_TREES: Dict[str, Dict[str, Dict[str, Any]]] = {
                 {"test": "HIV, HBsAg, HCV", "rationale": "If IV drug use history", "cost": "MEDIUM"}
             ],
             "source": "NDDTC_Guidelines_IPS_mhGAP"
-        }
-    },
-
-    # =========================================================================
-    # NEONATOLOGY
-    # =========================================================================
-    "neonatology": {
-
-        "respiratory_distress": {
-            "age_groups": ["neonate"],
-            "must_rule_out": [
-                {
-                    "diagnosis": "RDS_Respiratory_Distress_Syndrome",
-                    "features": ["preterm", "grunting", "nasal_flaring", "intercostal_retraction", "cyanosis"],
-                    "tests": ["Chest_Xray", "ABG", "SpO2"],
-                    "xray_findings": "Ground glass appearance, air bronchogram, reduced lung volume",
-                    "note": "Surfactant deficiency - common in preterm <34 weeks"
-                },
-                {
-                    "diagnosis": "TTN_Transient_Tachypnea_Newborn",
-                    "features": ["term_or_near_term", "LSCS_delivery", "tachypnea", "mild_distress", "rapid_improvement"],
-                    "tests": ["Chest_Xray", "SpO2"],
-                    "xray_findings": "Perihilar streaking, fluid in fissures, hyperinflation",
-                    "note": "Usually resolves within 24-72 hours"
-                },
-                {
-                    "diagnosis": "MAS_Meconium_Aspiration",
-                    "features": ["meconium_stained_liquor", "post_term", "depressed_at_birth", "barrel_chest"],
-                    "tests": ["Chest_Xray", "ABG"],
-                    "xray_findings": "Patchy infiltrates, hyperinflation, pneumothorax"
-                },
-                {
-                    "diagnosis": "Pneumothorax",
-                    "features": ["sudden_deterioration", "asymmetric_chest", "shift_of_apex_beat", "absent_breath_sounds"],
-                    "tests": ["Chest_Xray", "Transillumination"],
-                    "immediate": True
-                },
-                {
-                    "diagnosis": "Congenital_Heart_Disease",
-                    "features": ["cyanosis", "murmur", "poor_response_to_O2", "differential_cyanosis"],
-                    "tests": ["Hyperoxia_test", "SpO2_pre_post_ductal", "2D_Echo", "Chest_Xray"],
-                    "note": "Cyanosis not improving with O2 suggests cardiac cause"
-                },
-                {
-                    "diagnosis": "Neonatal_Sepsis",
-                    "features": ["lethargy", "poor_feeding", "temperature_instability", "respiratory_distress", "poor_perfusion"],
-                    "tests": ["Blood_culture", "CBC", "CRP", "Procalcitonin"],
-                    "note": "Respiratory distress may be only sign of sepsis in newborn"
-                },
-                {
-                    "diagnosis": "Congenital_Diaphragmatic_Hernia",
-                    "features": ["scaphoid_abdomen", "barrel_chest", "absent_breath_sounds", "bowel_sounds_in_chest"],
-                    "tests": ["Chest_Xray"],
-                    "immediate": True
-                }
-            ],
-            "red_flags": [
-                "Severe distress (Downe score >6, Silverman score >7)",
-                "Cyanosis not responding to O2 (consider CHD)",
-                "Apnea",
-                "Bradycardia (<100/min)",
-                "Shock (poor perfusion, prolonged CRT, weak pulses)",
-                "Sudden deterioration (pneumothorax)",
-                "Seizures"
-            ],
-            "first_line_investigations": [
-                {"test": "SpO2 (pre and post ductal)", "rationale": "Hypoxia assessment, differential cyanosis for CHD", "cost": "FREE"},
-                {"test": "Chest X-ray", "rationale": "Differentiate RDS, TTN, MAS, pneumothorax", "cost": "LOW"},
-                {"test": "ABG", "rationale": "Respiratory vs metabolic acidosis", "cost": "LOW"},
-                {"test": "Blood glucose", "rationale": "Hypoglycemia common in sick neonates", "cost": "LOW"},
-                {"test": "CBC, CRP", "rationale": "Sepsis screen", "cost": "LOW"},
-                {"test": "Blood culture", "rationale": "If sepsis suspected", "cost": "LOW"}
-            ],
-            "immediate_assessment": [
-                "Downe score / Silverman-Anderson score for severity",
-                "Pre and post ductal SpO2",
-                "Gestational age and birth weight",
-                "Mode of delivery (LSCS increases TTN risk)",
-                "Meconium staining of liquor",
-                "Perinatal history (prolonged rupture of membranes, maternal fever)"
-            ],
-            "source": "NNF_CPG_Respiratory_Distress"
-        },
-
-        "neonatal_sepsis": {
-            "age_groups": ["neonate"],
-            "must_rule_out": [
-                {
-                    "diagnosis": "Early_Onset_Sepsis",
-                    "features": ["onset_<72_hours", "maternal_risk_factors", "respiratory_distress", "temperature_instability"],
-                    "tests": ["Blood_culture", "CBC", "CRP", "Procalcitonin"],
-                    "pathogens": "GBS, E.coli, Klebsiella"
-                },
-                {
-                    "diagnosis": "Late_Onset_Sepsis",
-                    "features": ["onset_>72_hours", "nosocomial_risk", "catheter_associated", "NEC_features"],
-                    "tests": ["Blood_culture", "CBC", "CRP", "CSF_analysis"],
-                    "pathogens": "Klebsiella, Staphylococcus, Candida"
-                },
-                {
-                    "diagnosis": "Meningitis",
-                    "features": ["bulging_fontanelle", "seizures", "lethargy", "high_pitched_cry"],
-                    "tests": ["CSF_analysis", "Blood_culture", "CBC"]
-                }
-            ],
-            "red_flags": [
-                "Shock (poor perfusion, CRT >3 sec, weak pulses)",
-                "Apnea",
-                "Seizures",
-                "Sclerema (hardening of skin)",
-                "Bleeding manifestations (DIC)",
-                "Bulging fontanelle (meningitis)"
-            ],
-            "first_line_investigations": [
-                {"test": "Blood culture", "rationale": "Gold standard - before antibiotics", "cost": "LOW"},
-                {"test": "CBC with differential", "rationale": "WBC count, I:T ratio, thrombocytopenia", "cost": "LOW"},
-                {"test": "CRP", "rationale": "Rises in 6-8 hours of infection", "cost": "LOW"},
-                {"test": "Procalcitonin", "rationale": "Early marker, helps antibiotic decisions", "cost": "MEDIUM"},
-                {"test": "CSF analysis", "rationale": "If meningitis suspected or proven sepsis", "cost": "LOW"},
-                {"test": "Urine culture", "rationale": "If late onset sepsis", "cost": "LOW"}
-            ],
-            "risk_factors_early_onset": [
-                "Prolonged rupture of membranes >18 hours",
-                "Maternal fever during labor",
-                "Maternal GBS colonization",
-                "Preterm delivery",
-                "Foul smelling liquor",
-                "Maternal UTI"
-            ],
-            "source": "NNF_CPG_Sepsis"
-        },
-
-        "neonatal_jaundice": {
-            "age_groups": ["neonate"],
-            "must_rule_out": [
-                {
-                    "diagnosis": "Physiological_Jaundice",
-                    "features": ["onset_after_24_hours", "peaks_day_3-5", "resolves_by_2_weeks", "well_baby"],
-                    "tests": ["TSB_or_TcB"]
-                },
-                {
-                    "diagnosis": "Pathological_Jaundice",
-                    "features": ["onset_<24_hours", "rapid_rise", "prolonged_>2_weeks", "direct_hyperbilirubinemia"],
-                    "tests": ["TSB", "Direct_bilirubin", "Reticulocyte_count", "Coombs_test", "G6PD"]
-                },
-                {
-                    "diagnosis": "Hemolytic_Disease",
-                    "features": ["Rh_incompatibility", "ABO_incompatibility", "G6PD_deficiency", "rapid_rise_bilirubin"],
-                    "tests": ["Blood_group_mother_baby", "Coombs_test", "G6PD_screen", "Reticulocyte_count"]
-                },
-                {
-                    "diagnosis": "Sepsis",
-                    "features": ["jaundice_with_lethargy", "poor_feeding", "temperature_instability"],
-                    "tests": ["Sepsis_screen", "Blood_culture"]
-                },
-                {
-                    "diagnosis": "Biliary_Atresia",
-                    "features": ["prolonged_jaundice", "direct_hyperbilirubinemia", "pale_stools", "dark_urine"],
-                    "tests": ["Direct_bilirubin", "LFT", "USG_abdomen"],
-                    "note": "Surgical emergency - refer if direct bilirubin elevated"
-                }
-            ],
-            "red_flags": [
-                "Jaundice within 24 hours of birth",
-                "Bilirubin rising >5 mg/dL/day",
-                "Bilirubin >95th percentile for age (use Bhutani nomogram)",
-                "Signs of acute bilirubin encephalopathy (lethargy, hypotonia, high-pitched cry)",
-                "Direct hyperbilirubinemia >2 mg/dL",
-                "Jaundice beyond 2 weeks"
-            ],
-            "first_line_investigations": [
-                {"test": "Total Serum Bilirubin", "rationale": "Severity assessment, plot on nomogram", "cost": "LOW"},
-                {"test": "Direct Bilirubin", "rationale": "Rule out biliary atresia if elevated", "cost": "LOW"},
-                {"test": "Blood group (mother and baby)", "rationale": "ABO/Rh incompatibility", "cost": "LOW"},
-                {"test": "Coombs test (DAT)", "rationale": "Immune hemolysis", "cost": "LOW"},
-                {"test": "Reticulocyte count", "rationale": "Hemolysis", "cost": "LOW"},
-                {"test": "G6PD screen", "rationale": "Common cause in India", "cost": "LOW"}
-            ],
-            "source": "NNF_CPG_Jaundice_AAP"
         }
     },
 
@@ -1128,7 +949,7 @@ DIFFERENTIAL_TREES: Dict[str, Dict[str, Dict[str, Any]]] = {
                 {"test": "X-ray spine (AP + Lateral)", "rationale": "If red flags present - fracture, tumor, infection", "cost": "LOW"},
                 {"test": "MRI spine", "rationale": "Gold standard if red flags, radiculopathy, or persistent symptoms >6 weeks", "cost": "HIGH"},
                 {"test": "CBC, CRP, ESR", "rationale": "If infection or malignancy suspected", "cost": "LOW"},
-                {"test": "HLA-B27", "rationale": "If inflammatory back pain in young patient (AS suspected)", "cost": "MEDIUM"}
+                {"test": "HLA-B27", "rationale": "If inflammatory back pain in young student (AS suspected)", "cost": "MEDIUM"}
             ],
             "history_essentials": [
                 "Duration (acute <6 weeks, chronic >12 weeks)",

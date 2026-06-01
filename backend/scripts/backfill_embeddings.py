@@ -8,10 +8,10 @@ Run this after enabling the Q&A feature to populate the embedding tables.
 Usage:
     cd backend
     source venv/bin/activate
-    python scripts/backfill_embeddings.py [--hospital-id UUID] [--batch-size N] [--dry-run]
+    python scripts/backfill_embeddings.py [--school-id UUID] [--batch-size N] [--dry-run]
 
 Options:
-    --hospital-id UUID    Only process extractions for this hospital
+    --school-id UUID    Only process extractions for this school
     --batch-size N        Number of extractions to process per batch (default: 50)
     --dry-run             Count extractions without processing
     --force               Re-embed even if embedding already exists
@@ -39,24 +39,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def count_extractions(hospital_id: UUID = None, exclude_embedded: bool = True) -> dict:
+async def count_extractions(school_id: UUID = None, exclude_embedded: bool = True) -> dict:
     """Count extractions to process"""
 
     # Count total extractions
-    query = supabase.table("medical_extractions").select("id", count="exact")
-    if hospital_id:
-        query = query.eq("hospital_id", str(hospital_id))
+    query = supabase.table("extractions").select("id", count="exact")
+    if school_id:
+        query = query.eq("school_id", str(school_id))
 
     total_result = query.execute()
     total_count = total_result.count or 0
 
     # Count already embedded
     embedded_query = supabase.table("extraction_embeddings").select("extraction_id", count="exact")
-    if hospital_id:
-        # Join with extractions to filter by hospital
+    if school_id:
+        # Join with extractions to filter by school
         embedded_result = supabase.rpc(
             "count_embedded_extractions_for_hospital",
-            {"p_hospital_id": str(hospital_id)}
+            {"p_hospital_id": str(school_id)}
         ).execute()
         embedded_count = embedded_result.data if embedded_result.data else 0
     else:
@@ -73,7 +73,7 @@ async def count_extractions(hospital_id: UUID = None, exclude_embedded: bool = T
 
 
 async def fetch_extraction_ids(
-    hospital_id: UUID = None,
+    school_id: UUID = None,
     exclude_embedded: bool = True,
     batch_size: int = 50,
     offset: int = 0
@@ -83,9 +83,9 @@ async def fetch_extraction_ids(
     if exclude_embedded:
         # Get IDs not in extraction_embeddings
         # Using a raw query approach since Supabase Python client doesn't support NOT IN directly
-        query = supabase.table("medical_extractions").select("id")
-        if hospital_id:
-            query = query.eq("hospital_id", str(hospital_id))
+        query = supabase.table("extractions").select("id")
+        if school_id:
+            query = query.eq("school_id", str(school_id))
 
         query = query.order("created_at", desc=True).range(offset, offset + batch_size - 1)
         result = query.execute()
@@ -103,9 +103,9 @@ async def fetch_extraction_ids(
             return [id for id in all_ids if id not in embedded_ids]
         return []
     else:
-        query = supabase.table("medical_extractions").select("id")
-        if hospital_id:
-            query = query.eq("hospital_id", str(hospital_id))
+        query = supabase.table("extractions").select("id")
+        if school_id:
+            query = query.eq("school_id", str(school_id))
 
         query = query.order("created_at", desc=True).range(offset, offset + batch_size - 1)
         result = query.execute()
@@ -114,7 +114,7 @@ async def fetch_extraction_ids(
 
 
 async def backfill_embeddings(
-    hospital_id: UUID = None,
+    school_id: UUID = None,
     batch_size: int = 50,
     force: bool = False,
     dry_run: bool = False
@@ -126,14 +126,14 @@ async def backfill_embeddings(
     logger.info("=" * 60)
 
     # Count extractions
-    counts = await count_extractions(hospital_id, exclude_embedded=not force)
+    counts = await count_extractions(school_id, exclude_embedded=not force)
 
     logger.info(f"Total extractions: {counts['total']}")
     logger.info(f"Already embedded: {counts['already_embedded']}")
     logger.info(f"Pending: {counts['pending']}")
 
-    if hospital_id:
-        logger.info(f"Filtering by hospital: {hospital_id}")
+    if school_id:
+        logger.info(f"Filtering by school: {school_id}")
 
     if dry_run:
         logger.info("DRY RUN - No embeddings will be generated")
@@ -154,7 +154,7 @@ async def backfill_embeddings(
     while True:
         # Fetch batch
         extraction_ids = await fetch_extraction_ids(
-            hospital_id=hospital_id,
+            school_id=school_id,
             exclude_embedded=not force,
             batch_size=batch_size,
             offset=offset
@@ -213,9 +213,9 @@ def main():
         description="Backfill embeddings for existing extractions"
     )
     parser.add_argument(
-        "--hospital-id",
+        "--school-id",
         type=str,
-        help="Only process extractions for this hospital UUID"
+        help="Only process extractions for this school UUID"
     )
     parser.add_argument(
         "--batch-size",
@@ -236,10 +236,10 @@ def main():
 
     args = parser.parse_args()
 
-    hospital_id = UUID(args.hospital_id) if args.hospital_id else None
+    school_id = UUID(args.school_id) if args.school_id else None
 
     asyncio.run(backfill_embeddings(
-        hospital_id=hospital_id,
+        school_id=school_id,
         batch_size=args.batch_size,
         force=args.force,
         dry_run=args.dry_run

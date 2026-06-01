@@ -6,10 +6,10 @@
  * Given an extraction ID, fetches:
  *   - The original AI extraction
  *   - The latest edited extraction
- *   - The formatted EHR payload that was sent to the hospital EHR API
+ *   - The formatted EHR payload that was sent to the school EHR API
  *
  * and renders them side-by-side so admins can verify the formatter
- * produced the correct wire shape from the doctor's edits.
+ * produced the correct wire shape from the counsellor's edits.
  *
  * Backend: GET /api/v1/extractions/{extraction_id}/ehr-payload
  */

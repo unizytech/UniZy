@@ -26,15 +26,15 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
     from dependencies.auth import (
         EHRExtractionAccessChecker,
-        EHRDoctorAccessChecker,
+        EHRCounsellorAccessChecker,
         get_current_client,
         validate_ehr_extraction_access,
-        validate_ehr_doctor_access,
+        validate_ehr_counsellor_access,
         require_admin,
     )
 
     _extraction_checker = EHRExtractionAccessChecker()
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
 
     async def verify_extraction_access(request: Request, extraction_id: str = None):  # type: ignore[misc]
         """Verify EHR client has access to extraction data."""
@@ -42,11 +42,11 @@ if AUTH_ENABLED:
         client = get_current_client(request)
         return await _extraction_checker(request, extraction_uuid, client)
 
-    async def verify_doctor_access(request: Request, doctor_id: str = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: str = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
     async def validate_extraction_from_body(http_request: Request, extraction_id: str):  # type: ignore[misc]
         """
@@ -63,15 +63,15 @@ if AUTH_ENABLED:
                     detail="Access denied"
                 )
 
-    async def validate_doctor_from_body(http_request: Request, doctor_id: str):  # type: ignore[misc]
+    async def validate_counsellor_from_body(http_request: Request, counsellor_id: str):  # type: ignore[misc]
         """
-        Validate doctor_id access after body is parsed.
+        Validate counsellor_id access after body is parsed.
         Raises HTTPException 403 if access denied.
         """
         client = get_current_client(http_request)
         if client.client_type == "ehr":
-            doctor_uuid = uuid.UUID(doctor_id)
-            if not await validate_ehr_doctor_access(client, doctor_uuid):
+            counsellor_uuid = uuid.UUID(counsellor_id)
+            if not await validate_ehr_counsellor_access(client, counsellor_uuid):
                 raise HTTPException(
                     status_code=403,
                     detail="Access denied"
@@ -101,13 +101,13 @@ else:
     async def verify_extraction_access(request: Request = None, extraction_id: str = None):  # type: ignore[misc]
         return None
 
-    async def verify_doctor_access(request: Request = None, doctor_id: str = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request = None, counsellor_id: str = None):  # type: ignore[misc]
         return None
 
     async def validate_extraction_from_body(http_request: Request = None, extraction_id: str = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
-    async def validate_doctor_from_body(http_request: Request = None, doctor_id: str = None):  # type: ignore[misc]
+    async def validate_counsellor_from_body(http_request: Request = None, counsellor_id: str = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
 from services.triage import (
@@ -141,11 +141,11 @@ router = APIRouter(
 
 class TriageRequest(BaseModel):
     """Request model for generating triage suggestions from extraction ID"""
-    extraction_id: str = Field(..., description="UUID of the medical extraction")
+    extraction_id: str = Field(..., description="UUID of the extraction")
     include_gemini: bool = Field(True, description="Whether to use Gemini AI for gap analysis")
-    # Optional patient context parameters (Phase 0.5 enhancement)
-    patient_id: Optional[str] = Field(None, description="UUID of the patient for historical context (auto-detected if not provided)")
-    doctor_id: Optional[str] = Field(None, description="UUID of the doctor for suggestion logging")
+    # Optional student context parameters (Phase 0.5 enhancement)
+    student_id: Optional[str] = Field(None, description="UUID of the student for historical context (auto-detected if not provided)")
+    counsellor_id: Optional[str] = Field(None, description="UUID of the counsellor for suggestion logging")
     log_suggestions: bool = Field(True, description="Whether to log suggestions to database for learning")
     force_regenerate: bool = Field(False, description="Force regenerate suggestions even if they exist in DB")
 
@@ -160,7 +160,7 @@ class TriageFromJsonRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     """Request model for submitting feedback on a triage suggestion"""
     suggestion_id: str = Field(..., description="UUID of the suggestion from triage_suggestion_log")
-    doctor_id: str = Field(..., description="UUID of the doctor providing feedback")
+    counsellor_id: str = Field(..., description="UUID of the counsellor providing feedback")
     feedback_type: str = Field(..., description="Type of feedback: 'accepted', 'rejected', 'maybe', or 'modified'")
     rejection_reason: Optional[str] = Field(None, description="Reason for rejection if feedback_type is 'rejected'")
     modified_text: Optional[str] = Field(None, description="Modified suggestion text if feedback_type is 'modified'")
@@ -247,10 +247,10 @@ async def generate_triage_suggestions(http_request: Request, request: TriageRequ
     - Nice-to-have suggestions (additional workup)
 
     Enhanced features (Phase 0.5):
-    - Patient historical context (allergies, chronic conditions, emotions, compliance)
+    - Student historical context (allergies, chronic conditions, emotions, compliance)
     - Allergy-based suggestion filtering (vetoes contraindicated suggestions)
-    - Psychosocial recommendations based on patient history
-    - Optional suggestion logging for learning doctor patterns
+    - Psychosocial recommendations based on student history
+    - Optional suggestion logging for learning counsellor patterns
 
     Uses matched differential diagnosis trees and optional Gemini AI analysis.
 
@@ -263,7 +263,7 @@ async def generate_triage_suggestions(http_request: Request, request: TriageRequ
         # Validate extraction access for EHR clients
         await validate_extraction_from_body(http_request, request.extraction_id)
         # Check if triage analysis is enabled for this consultation type
-        ext_check = supabase.table("medical_extractions").select(
+        ext_check = supabase.table("extractions").select(
             "consultation_type_id, consultation_types!inner(type_code, enable_triage_analysis)"
         ).eq("id", request.extraction_id).single().execute()
 
@@ -304,7 +304,7 @@ async def generate_triage_suggestions(http_request: Request, request: TriageRequ
                 logger.info(f"[TRIAGE_API] Found {len(existing.data)} existing suggestions for extraction {request.extraction_id}")
 
                 # Get extraction metadata for response
-                ext_result = supabase.table("medical_extractions").select(
+                ext_result = supabase.table("extractions").select(
                     "consultation_types!inner(type_code, type_name)"
                 ).eq("id", request.extraction_id).single().execute()
 
@@ -354,13 +354,13 @@ async def generate_triage_suggestions(http_request: Request, request: TriageRequ
                 )
 
         # No existing suggestions or force_regenerate - generate new ones
-        # Fetch extraction from database with patient context
+        # Fetch extraction from database with student context
         # Use left join for recording_sessions (may not exist for direct extractions)
-        result = supabase.table("medical_extractions").select(
+        result = supabase.table("extractions").select(
             """
             *,
             consultation_types!inner(type_code, type_name),
-            recording_sessions(patient_id)
+            recording_sessions(student_id)
             """
         ).eq("id", request.extraction_id).single().execute()
 
@@ -370,20 +370,20 @@ async def generate_triage_suggestions(http_request: Request, request: TriageRequ
         extraction = result.data
         consultation_type_code = extraction.get("consultation_types", {}).get("type_code", "OP")
 
-        # Get patient_id from request or auto-detect from extraction
-        patient_id = request.patient_id
-        if not patient_id:
+        # Get student_id from request or auto-detect from extraction
+        student_id = request.student_id
+        if not student_id:
             recording_session = extraction.get("recording_sessions") or {}
-            patient_id = recording_session.get("patient_id")
+            student_id = recording_session.get("student_id")
 
         logger.info(f"[TRIAGE_API] Generating NEW suggestions for extraction {request.extraction_id}, "
-                   f"patient: {patient_id}, doctor: {request.doctor_id}, type: {consultation_type_code}")
+                   f"student: {student_id}, counsellor: {request.counsellor_id}, type: {consultation_type_code}")
 
-        # Generate triage suggestions with patient context
+        # Generate triage suggestions with student context
         suggestions = await generate_triage_from_extraction_v2(
             extraction=extraction,
-            patient_id=patient_id,
-            doctor_id=request.doctor_id,
+            student_id=student_id,
+            counsellor_id=request.counsellor_id,
             consultation_type_code=consultation_type_code,
             include_gemini=request.include_gemini,
             log_suggestions=request.log_suggestions,
@@ -561,18 +561,18 @@ async def submit_triage_feedback(http_request: Request, request: FeedbackRequest
     """
     Submit optional feedback on a triage suggestion.
 
-    This endpoint allows doctors to provide feedback on generated suggestions:
-    - 'accepted': Doctor agrees with the suggestion
-    - 'rejected': Doctor disagrees (optionally with reason)
-    - 'modified': Doctor modified the suggestion (with new text)
+    This endpoint allows counsellors to provide feedback on generated suggestions:
+    - 'accepted': Counsellor agrees with the suggestion
+    - 'rejected': Counsellor disagrees (optionally with reason)
+    - 'modified': Counsellor modified the suggestion (with new text)
 
-    Feedback is used to learn doctor patterns for future personalization.
+    Feedback is used to learn counsellor patterns for future personalization.
 
     **Authentication:** Requires Bearer token (API key or JWT).
     """
     try:
-        # Validate doctor access for EHR clients
-        await validate_doctor_from_body(http_request, request.doctor_id)
+        # Validate counsellor access for EHR clients
+        await validate_counsellor_from_body(http_request, request.counsellor_id)
 
         # Validate feedback_type
         if request.feedback_type not in ('accepted', 'rejected', 'maybe', 'modified'):
@@ -591,7 +591,7 @@ async def submit_triage_feedback(http_request: Request, request: FeedbackRequest
         # Insert feedback
         result = supabase.table("triage_feedback").insert({
             "suggestion_id": request.suggestion_id,
-            "doctor_id": request.doctor_id,
+            "counsellor_id": request.counsellor_id,
             "feedback_type": request.feedback_type,
             "rejection_reason": request.rejection_reason,
             "modified_text": request.modified_text,
@@ -617,27 +617,27 @@ async def submit_triage_feedback(http_request: Request, request: FeedbackRequest
         raise HTTPException(status_code=500, detail="Failed to submit feedback")
 
 
-@router.get("/feedback/stats/{doctor_id}")
-async def get_doctor_feedback_stats(
+@router.get("/feedback/stats/{counsellor_id}")
+async def get_counsellor_feedback_stats(
     request: Request,
-    doctor_id: str,
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str,
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Get feedback statistics for a specific doctor.
+    Get feedback statistics for a specific counsellor.
 
     Returns aggregated stats on suggestion acceptance/rejection rates.
 
     **Authentication:** Requires Bearer token (API key or JWT).
     """
     try:
-        # Query triage_doctor_stats view
-        result = supabase.table("triage_doctor_stats").select("*").eq("doctor_id", doctor_id).single().execute()
+        # Query triage_counsellor_stats view
+        result = supabase.table("triage_counsellor_stats").select("*").eq("counsellor_id", counsellor_id).single().execute()
 
         if not result.data:
             # Return empty stats if no feedback yet
             return {
-                "doctor_id": doctor_id,
+                "counsellor_id": counsellor_id,
                 "total_suggestions": 0,
                 "total_feedback_given": 0,
                 "accepted_count": 0,
@@ -737,10 +737,10 @@ async def list_presentations(specialty: str):
 
 class TriageV2Request(BaseModel):
     """Request model for multi-layer triage generation"""
-    extraction_id: str = Field(..., description="UUID of the medical extraction")
-    patient_id: Optional[str] = Field(None, description="UUID of the patient for historical context")
-    doctor_id: Optional[str] = Field(None, description="UUID of the doctor")
-    hospital_id: Optional[str] = Field(None, description="UUID of the hospital")
+    extraction_id: str = Field(..., description="UUID of the extraction")
+    student_id: Optional[str] = Field(None, description="UUID of the student for historical context")
+    counsellor_id: Optional[str] = Field(None, description="UUID of the counsellor")
+    school_id: Optional[str] = Field(None, description="UUID of the school")
     include_gemini: bool = Field(True, description="Whether to use Gemini AI for gap analysis")
     log_suggestions: bool = Field(True, description="Whether to log suggestions to database")
     enabled_layers: Optional[List[str]] = Field(None, description="Explicit list of layers to enable (overrides config)")
@@ -789,10 +789,10 @@ class ConditionSearchRequest(BaseModel):
     urgency: Optional[str] = Field(None, description="Filter by urgency level (routine, urgent, emergency)")
     comorbidity: Optional[str] = Field(None, description="Filter by comorbidity (e.g., diabetes, ckd)")
     drug_class: Optional[str] = Field(None, description="Filter by drug class (e.g., CCB, ACE_inhibitor)")
-    # Patient vitals for threshold matching
-    patient_sbp: Optional[int] = Field(None, description="Patient systolic BP for threshold matching")
-    patient_dbp: Optional[int] = Field(None, description="Patient diastolic BP for threshold matching")
-    patient_hb: Optional[float] = Field(None, description="Patient hemoglobin for threshold matching")
+    # Student vitals for threshold matching
+    patient_sbp: Optional[int] = Field(None, description="Student systolic BP for threshold matching")
+    patient_dbp: Optional[int] = Field(None, description="Student diastolic BP for threshold matching")
+    patient_hb: Optional[float] = Field(None, description="Student hemoglobin for threshold matching")
     limit: int = Field(10, ge=1, le=50, description="Maximum results to return")
     similarity_threshold: float = Field(0.4, ge=0, le=1, description="Minimum similarity score")
 
@@ -873,8 +873,8 @@ async def generate_triage_multi_layer(http_request: Request, request: TriageV2Re
 
     This endpoint uses the configurable multi-layer architecture:
     - **Base MVP**: Always active - differential trees + Gemini AI
-    - **Doctor Practice Style**: Learn individual doctor patterns (if enabled)
-    - **Hospital Intelligence**: Peer comparison and benchmarks (if enabled)
+    - **Counsellor Practice Style**: Learn individual counsellor patterns (if enabled)
+    - **School Intelligence**: Peer comparison and benchmarks (if enabled)
     - **RAG Guidelines**: Evidence-based recommendations (if enabled)
 
     Layers can be enabled/disabled globally via /layers/config or per-request
@@ -890,7 +890,7 @@ async def generate_triage_multi_layer(http_request: Request, request: TriageV2Re
         await validate_extraction_from_body(http_request, request.extraction_id)
 
         # Check if triage analysis is enabled for this consultation type
-        ext_check = supabase.table("medical_extractions").select(
+        ext_check = supabase.table("extractions").select(
             "*, consultation_types!inner(type_code, enable_triage_analysis)"
         ).eq("id", request.extraction_id).single().execute()
 
@@ -923,22 +923,22 @@ async def generate_triage_multi_layer(http_request: Request, request: TriageV2Re
         extraction = ext_check.data
         consultation_type_code = consultation_type.get("type_code", "OP")
 
-        # Get hospital_id from doctor if not provided
-        hospital_id = request.hospital_id
-        if not hospital_id and request.doctor_id:
-            doctor_result = supabase.table("doctors").select("hospital_id").eq(
-                "id", request.doctor_id
+        # Get school_id from counsellor if not provided
+        school_id = request.school_id
+        if not school_id and request.counsellor_id:
+            counsellor_result = supabase.table("counsellors").select("school_id").eq(
+                "id", request.counsellor_id
             ).single().execute()
-            if doctor_result.data:
-                hospital_id = doctor_result.data.get("hospital_id")
+            if counsellor_result.data:
+                school_id = counsellor_result.data.get("school_id")
 
         # Use multi-layer orchestrator
         orchestrator = get_triage_orchestrator()
         suggestions = await orchestrator.generate_suggestions(
             extraction=extraction,
-            patient_id=request.patient_id,
-            doctor_id=request.doctor_id,
-            hospital_id=hospital_id,
+            student_id=request.student_id,
+            counsellor_id=request.counsellor_id,
+            school_id=school_id,
             consultation_type_code=consultation_type_code,
             include_gemini_analysis=request.include_gemini,
             log_suggestions=request.log_suggestions,

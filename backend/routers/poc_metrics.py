@@ -8,9 +8,9 @@ Admin-only endpoints for the "POC Metrics" screen:
   GET  /api/v1/poc-metrics/export     single .xlsx with 4 sheets
 
 All endpoints accept:
-  - hospital_id (required)
-  - doctor_id   (optional)
-  - nurse_id    (optional)
+  - school_id (required)
+  - counsellor_id   (optional)
+  - assistant_id    (optional)
   - start_date  (YYYY-MM-DD, IST day)
   - end_date    (YYYY-MM-DD, IST day, inclusive)
 """
@@ -62,11 +62,11 @@ def _validate_range(start: date, end: date):
 
 @router.get("/tracker")
 async def tracker(
-    hospital_id: str = Query(..., description="Hospital UUID"),
+    school_id: str = Query(..., description="School UUID"),
     start_date: str = Query(..., description="Start date (IST) YYYY-MM-DD"),
     end_date: str = Query(..., description="End date (IST) YYYY-MM-DD"),
-    doctor_id: Optional[str] = Query(None),
-    nurse_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
+    assistant_id: Optional[str] = Query(None),
     client: ClientContext = Depends(require_admin),
 ):
     """Per-consultation tracker rows (Tracker sheet)."""
@@ -74,7 +74,7 @@ async def tracker(
     e = _parse_date(end_date, "end_date")
     _validate_range(s, e)
     try:
-        rows = get_tracker_rows(hospital_id, doctor_id, nurse_id, s, e)
+        rows = get_tracker_rows(school_id, counsellor_id, assistant_id, s, e)
     except Exception as ex:
         logger.exception("[POC_METRICS] tracker failed")
         raise HTTPException(status_code=500, detail=f"tracker query failed: {ex}")
@@ -83,11 +83,11 @@ async def tracker(
 
 @router.get("/aggregate")
 async def aggregate(
-    hospital_id: str = Query(...),
+    school_id: str = Query(...),
     start_date: str = Query(...),
     end_date: str = Query(...),
-    doctor_id: Optional[str] = Query(None),
-    nurse_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
+    assistant_id: Optional[str] = Query(None),
     client: ClientContext = Depends(require_admin),
 ):
     """Per-day rollup (Aggregate sheet)."""
@@ -95,7 +95,7 @@ async def aggregate(
     e = _parse_date(end_date, "end_date")
     _validate_range(s, e)
     try:
-        dates, rows = get_aggregate_rows(hospital_id, doctor_id, nurse_id, s, e)
+        dates, rows = get_aggregate_rows(school_id, counsellor_id, assistant_id, s, e)
     except Exception as ex:
         logger.exception("[POC_METRICS] aggregate failed")
         raise HTTPException(status_code=500, detail=f"aggregate query failed: {ex}")
@@ -108,11 +108,11 @@ async def aggregate(
 
 @router.get("/timings")
 async def timings(
-    hospital_id: str = Query(...),
+    school_id: str = Query(...),
     start_date: str = Query(...),
     end_date: str = Query(...),
-    doctor_id: Optional[str] = Query(None),
-    nurse_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
+    assistant_id: Optional[str] = Query(None),
     client: ClientContext = Depends(require_admin),
 ):
     """Timing tables (Doctor_All + Attendant_Nurse sheets)."""
@@ -120,7 +120,7 @@ async def timings(
     e = _parse_date(end_date, "end_date")
     _validate_range(s, e)
     try:
-        tt = get_timings_tables(hospital_id, doctor_id, nurse_id, s, e)
+        tt = get_timings_tables(school_id, counsellor_id, assistant_id, s, e)
     except Exception as ex:
         logger.exception("[POC_METRICS] timings failed")
         raise HTTPException(status_code=500, detail=f"timings query failed: {ex}")
@@ -129,12 +129,12 @@ async def timings(
 
 @router.get("/detail")
 async def detail(
-    hospital_id: str = Query(...),
+    school_id: str = Query(...),
     start_date: str = Query(...),
     end_date: str = Query(...),
     metric: str = Query(..., description=f"One of: {sorted(METRIC_CODES)}"),
-    doctor_id: Optional[str] = Query(None),
-    nurse_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
+    assistant_id: Optional[str] = Query(None),
     session_id: Optional[str] = Query(None, description="Scope to a single session (Tracker click)"),
     client: ClientContext = Depends(require_admin),
 ):
@@ -145,7 +145,7 @@ async def detail(
     e = _parse_date(end_date, "end_date")
     _validate_range(s, e)
     try:
-        rows = get_metric_detail(hospital_id, doctor_id, nurse_id, s, e, metric, session_id)
+        rows = get_metric_detail(school_id, counsellor_id, assistant_id, s, e, metric, session_id)
     except Exception as ex:
         logger.exception("[POC_METRICS] detail failed")
         raise HTTPException(status_code=500, detail=f"detail query failed: {ex}")
@@ -154,11 +154,11 @@ async def detail(
 
 @router.get("/export")
 async def export(
-    hospital_id: str = Query(...),
+    school_id: str = Query(...),
     start_date: str = Query(...),
     end_date: str = Query(...),
-    doctor_id: Optional[str] = Query(None),
-    nurse_id: Optional[str] = Query(None),
+    counsellor_id: Optional[str] = Query(None),
+    assistant_id: Optional[str] = Query(None),
     client: ClientContext = Depends(require_admin),
 ):
     """Single .xlsx with 4 sheets: Tracker, Aggregate, Doctor_All, Attendant_Nurse."""
@@ -166,7 +166,7 @@ async def export(
     e = _parse_date(end_date, "end_date")
     _validate_range(s, e)
     try:
-        blob = build_xlsx(hospital_id, doctor_id, nurse_id, s, e)
+        blob = build_xlsx(school_id, counsellor_id, assistant_id, s, e)
     except Exception as ex:
         logger.exception("[POC_METRICS] export failed")
         raise HTTPException(status_code=500, detail=f"export failed: {ex}")

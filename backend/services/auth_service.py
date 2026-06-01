@@ -38,8 +38,8 @@ from cachetools import TTLCache
 # Key: auth_user_id (str), Value: admin_user dict or None
 _admin_users_cache: TTLCache = TTLCache(maxsize=100, ttl=600)  # 10 minutes
 
-# Cache for doctor hospital_id lookups - 10 minute TTL
-# Key: doctor_id (str), Value: hospital_id (str) or None
+# Cache for counsellor school_id lookups - 10 minute TTL
+# Key: counsellor_id (str), Value: school_id (str) or None
 _doctor_hospital_cache: TTLCache = TTLCache(maxsize=500, ttl=600)  # 10 minutes
 
 
@@ -72,28 +72,28 @@ def invalidate_admin_users_cache(auth_user_id: Optional[str] = None) -> int:
         return count
 
 
-def invalidate_auth_doctor_hospital_cache(doctor_id: Optional[str] = None) -> int:
+def invalidate_auth_counsellor_school_cache(counsellor_id: Optional[str] = None) -> int:
     """
-    Invalidate doctor_hospital cache entries in auth_service.
+    Invalidate counsellor_school cache entries in auth_service.
 
     Args:
-        doctor_id: Specific doctor to invalidate, or None to clear all
+        counsellor_id: Specific counsellor to invalidate, or None to clear all
 
     Returns:
         Number of entries invalidated
     """
     global _doctor_hospital_cache
-    if doctor_id:
-        cache_key = str(doctor_id)
+    if counsellor_id:
+        cache_key = str(counsellor_id)
         if cache_key in _doctor_hospital_cache:
             del _doctor_hospital_cache[cache_key]
-            logger.debug(f"[CACHE_INVALIDATE] Cleared auth doctor_hospital cache for doctor {cache_key[:8]}...")
+            logger.debug(f"[CACHE_INVALIDATE] Cleared auth counsellor_school cache for counsellor {cache_key[:8]}...")
             return 1
         return 0
     else:
         count = len(_doctor_hospital_cache)
         _doctor_hospital_cache.clear()
-        logger.debug(f"[CACHE_INVALIDATE] Cleared all auth doctor_hospital cache ({count} entries)")
+        logger.debug(f"[CACHE_INVALIDATE] Cleared all auth counsellor_school cache ({count} entries)")
         return count
 
 
@@ -336,8 +336,8 @@ async def exchange_client_credentials(client_id: UUID, client_secret: str) -> Cl
         client_type=client["client_type"],
         jwt_secret=client["jwt_secret"],
         scopes=client.get("scopes", []),
-        hospital_id=UUID(client["hospital_id"]) if client.get("hospital_id") else None,
-        allowed_doctor_ids=[UUID(d) for d in client["allowed_doctor_ids"]] if client.get("allowed_doctor_ids") else None,
+        school_id=UUID(client["school_id"]) if client.get("school_id") else None,
+        allowed_counsellor_ids=[UUID(d) for d in client["allowed_counsellor_ids"]] if client.get("allowed_counsellor_ids") else None,
         expires_in_hours=expiry_minutes / 60,
     )
 
@@ -398,8 +398,8 @@ async def refresh_client_token(client_id: UUID, refresh_token: str) -> ClientRef
         client_type=client["client_type"],
         jwt_secret=client["jwt_secret"],
         scopes=client.get("scopes", []),
-        hospital_id=UUID(client["hospital_id"]) if client.get("hospital_id") else None,
-        allowed_doctor_ids=[UUID(d) for d in client["allowed_doctor_ids"]] if client.get("allowed_doctor_ids") else None,
+        school_id=UUID(client["school_id"]) if client.get("school_id") else None,
+        allowed_counsellor_ids=[UUID(d) for d in client["allowed_counsellor_ids"]] if client.get("allowed_counsellor_ids") else None,
         expires_in_hours=expiry_minutes / 60,
     )
 
@@ -464,8 +464,8 @@ async def verify_api_key(api_key: str) -> ClientContext:
             client_type=client["client_type"],
             client_id=UUID(client["id"]),
             client_name=client["client_name"],
-            hospital_id=UUID(client["hospital_id"]) if client.get("hospital_id") else None,
-            allowed_doctor_ids=[UUID(d) for d in client["allowed_doctor_ids"]] if client.get("allowed_doctor_ids") else None,
+            school_id=UUID(client["school_id"]) if client.get("school_id") else None,
+            allowed_counsellor_ids=[UUID(d) for d in client["allowed_counsellor_ids"]] if client.get("allowed_counsellor_ids") else None,
             scopes=client.get("scopes", []),
         )
 
@@ -486,8 +486,8 @@ def generate_service_jwt(
     client_type: str,
     jwt_secret: str,
     scopes: list,
-    hospital_id: Optional[UUID] = None,
-    allowed_doctor_ids: Optional[list] = None,
+    school_id: Optional[UUID] = None,
+    allowed_counsellor_ids: Optional[list] = None,
     expires_in_hours: int = 24,
 ) -> ServiceJWTResponse:
     """
@@ -499,8 +499,8 @@ def generate_service_jwt(
         client_type: 'mobile_app' or 'web_app'
         jwt_secret: Per-client secret for signing
         scopes: List of permission scopes
-        hospital_id: Hospital restriction (None = global)
-        allowed_doctor_ids: Doctor restrictions (None = all)
+        school_id: School restriction (None = global)
+        allowed_counsellor_ids: Counsellor restrictions (None = all)
         expires_in_hours: Token expiration time
 
     Returns:
@@ -514,8 +514,8 @@ def generate_service_jwt(
         "client_name": client_name,
         "client_type": client_type,
         "scopes": scopes,
-        "hospital_id": str(hospital_id) if hospital_id else None,
-        "allowed_doctor_ids": [str(d) for d in allowed_doctor_ids] if allowed_doctor_ids else None,
+        "school_id": str(school_id) if school_id else None,
+        "allowed_counsellor_ids": [str(d) for d in allowed_counsellor_ids] if allowed_counsellor_ids else None,
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
         "iss": "1hat-api",
@@ -584,8 +584,8 @@ async def verify_service_jwt(token: str) -> ClientContext:
             client_type=payload["client_type"],
             client_id=UUID(payload["sub"]),
             client_name=payload["client_name"],
-            hospital_id=UUID(payload["hospital_id"]) if payload.get("hospital_id") else None,
-            allowed_doctor_ids=[UUID(d) for d in payload["allowed_doctor_ids"]] if payload.get("allowed_doctor_ids") else None,
+            school_id=UUID(payload["school_id"]) if payload.get("school_id") else None,
+            allowed_counsellor_ids=[UUID(d) for d in payload["allowed_counsellor_ids"]] if payload.get("allowed_counsellor_ids") else None,
             scopes=payload.get("scopes", []),
         )
 
@@ -715,19 +715,19 @@ async def verify_supabase_jwt(token: str) -> ClientContext:
         else:
             logger.debug(f"[CACHE] admin_users cache HIT for {auth_user_id[:8]}...")
 
-        # Read hospital_id from admin_user record
-        # NULL = global/super_admin access, Non-NULL = scoped to this hospital
-        admin_hospital_id = None
-        if admin_user.get("hospital_id"):
-            admin_hospital_id = UUID(admin_user["hospital_id"])
+        # Read school_id from admin_user record
+        # NULL = global/super_admin access, Non-NULL = scoped to this school
+        admin_school_id = None
+        if admin_user.get("school_id"):
+            admin_school_id = UUID(admin_user["school_id"])
 
         # Build admin client context
         return ClientContext(
             client_type="admin",
             client_id=UUID(admin_user["id"]),
             client_name=admin_user.get("full_name") or email,
-            hospital_id=admin_hospital_id,
-            allowed_doctor_ids=None,  # Admin has access to all doctors
+            school_id=admin_school_id,
+            allowed_counsellor_ids=None,  # Admin has access to all counsellors
             scopes=DEFAULT_SCOPES["admin"],
             user_id=UUID(auth_user_id),
             user_email=email,
@@ -758,11 +758,11 @@ async def create_api_client(data: APIClientCreate) -> APIKeyCreateResponse:
     Raises:
         HTTPException: On validation or database errors
     """
-    # Validate EHR clients must have hospital_id
-    if data.client_type == "ehr" and not data.hospital_id:
+    # Validate EHR clients must have school_id
+    if data.client_type == "ehr" and not data.school_id:
         raise HTTPException(
             status_code=400,
-            detail="EHR clients must be associated with a hospital"
+            detail="EHR clients must be associated with a school"
         )
 
     # Determine auth_mode: only EHR clients can use 'token', others always use JWT
@@ -803,8 +803,8 @@ async def create_api_client(data: APIClientCreate) -> APIKeyCreateResponse:
             "api_key_prefix": key_prefix,
             "jwt_secret": jwt_secret,
             "client_secret_hash": client_secret_hash,
-            "hospital_id": str(data.hospital_id) if data.hospital_id else None,
-            "allowed_doctor_ids": [str(d) for d in data.allowed_doctor_ids] if data.allowed_doctor_ids else None,
+            "school_id": str(data.school_id) if data.school_id else None,
+            "allowed_counsellor_ids": [str(d) for d in data.allowed_counsellor_ids] if data.allowed_counsellor_ids else None,
             "scopes": scopes,
             "rate_limit_per_hour": data.rate_limit_per_hour,
             "token_expiry_minutes": data.token_expiry_minutes,
@@ -850,8 +850,8 @@ async def create_api_client(data: APIClientCreate) -> APIKeyCreateResponse:
                 client_type=client["client_type"],
                 jwt_secret=jwt_secret,
                 scopes=scopes,
-                hospital_id=data.hospital_id,
-                allowed_doctor_ids=data.allowed_doctor_ids,
+                school_id=data.school_id,
+                allowed_counsellor_ids=data.allowed_counsellor_ids,
                 expires_in_hours=24 * 30,  # 30 days for initial token
             )
 
@@ -1070,8 +1070,8 @@ async def refresh_service_jwt(client_id: UUID, expires_in_hours: int = 24) -> Se
             client_type=client["client_type"],
             jwt_secret=client["jwt_secret"],
             scopes=client.get("scopes", []),
-            hospital_id=UUID(client["hospital_id"]) if client.get("hospital_id") else None,
-            allowed_doctor_ids=[UUID(d) for d in client["allowed_doctor_ids"]] if client.get("allowed_doctor_ids") else None,
+            school_id=UUID(client["school_id"]) if client.get("school_id") else None,
+            allowed_counsellor_ids=[UUID(d) for d in client["allowed_counsellor_ids"]] if client.get("allowed_counsellor_ids") else None,
             expires_in_hours=expires_in_hours,
         )
 
@@ -1141,8 +1141,8 @@ async def log_api_usage(
     status_code: int,
     response_time_ms: int,
     client_type: Optional[str] = None,
-    doctor_id: Optional[UUID] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[UUID] = None,
+    student_id: Optional[str] = None,
     error_message: Optional[str] = None,
 ):
     """
@@ -1155,8 +1155,8 @@ async def log_api_usage(
         status_code: Response status code
         response_time_ms: Response time in milliseconds
         client_type: Type of client (admin, ehr, mobile_app, web_app)
-        doctor_id: Doctor context (optional)
-        patient_id: Patient context (optional)
+        counsellor_id: Counsellor context (optional)
+        student_id: Student context (optional)
         error_message: Error message if request failed (optional)
     """
     # Skip logging for admin users (not in api_clients table)
@@ -1172,8 +1172,8 @@ async def log_api_usage(
                 "method": method,
                 "status_code": status_code,
                 "response_time_ms": response_time_ms,
-                "doctor_id": str(doctor_id) if doctor_id else None,
-                "patient_id": patient_id,
+                "counsellor_id": str(counsellor_id) if counsellor_id else None,
+                "student_id": student_id,
                 "error_message": error_message,
             }).execute()
         )
@@ -1183,16 +1183,16 @@ async def log_api_usage(
 
 
 # ============================================================================
-# Hospital & Doctor Access Validation
+# School & Counsellor Access Validation
 # ============================================================================
 
-async def validate_hospital_access(client: ClientContext, hospital_id: UUID) -> bool:
+async def validate_school_access(client: ClientContext, school_id: UUID) -> bool:
     """
-    Validate that a client can access data from a specific hospital.
+    Validate that a client can access data from a specific school.
 
     Args:
         client: The authenticated client context
-        hospital_id: The hospital to check access for
+        school_id: The school to check access for
 
     Returns:
         True if access is allowed
@@ -1200,21 +1200,21 @@ async def validate_hospital_access(client: ClientContext, hospital_id: UUID) -> 
     Raises:
         HTTPException: If access is denied
     """
-    if not client.can_access_hospital(hospital_id):
+    if not client.can_access_school(school_id):
         raise HTTPException(
             status_code=403,
-            detail=f"Access denied: client is restricted to hospital {client.hospital_id}"
+            detail=f"Access denied: client is restricted to school {client.school_id}"
         )
     return True
 
 
-async def validate_doctor_access(client: ClientContext, doctor_id: UUID) -> bool:
+async def validate_counsellor_access(client: ClientContext, counsellor_id: UUID) -> bool:
     """
-    Validate that a client can access a specific doctor's data.
+    Validate that a client can access a specific counsellor's data.
 
     Args:
         client: The authenticated client context
-        doctor_id: The doctor to check access for
+        counsellor_id: The counsellor to check access for
 
     Returns:
         True if access is allowed
@@ -1222,80 +1222,80 @@ async def validate_doctor_access(client: ClientContext, doctor_id: UUID) -> bool
     Raises:
         HTTPException: If access is denied
     """
-    if not client.can_access_doctor(doctor_id):
+    if not client.can_access_counsellor(counsellor_id):
         raise HTTPException(
             status_code=403,
-            detail="Access denied: client does not have access to this doctor's data"
+            detail="Access denied: client does not have access to this counsellor's data"
         )
     return True
 
 
-async def validate_doctor_exists(doctor_id: UUID) -> bool:
+async def validate_counsellor_exists(counsellor_id: UUID) -> bool:
     """
-    Validate that a doctor exists in the database.
+    Validate that a counsellor exists in the database.
 
     Args:
-        doctor_id: The doctor ID to validate
+        counsellor_id: The counsellor ID to validate
 
     Returns:
-        True if doctor exists
+        True if counsellor exists
 
     Raises:
-        HTTPException: If doctor not found
+        HTTPException: If counsellor not found
     """
     try:
         result = retry_on_network_error(
-            lambda: supabase.table("doctors")
+            lambda: supabase.table("counsellors")
             .select("id")
-            .eq("id", str(doctor_id))
+            .eq("id", str(counsellor_id))
             .execute()
         )
 
         if not result.data:
-            raise HTTPException(status_code=404, detail=f"Doctor not found: {doctor_id}")
+            raise HTTPException(status_code=404, detail=f"Counsellor not found: {counsellor_id}")
 
         return True
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error validating doctor: {e}")
-        raise HTTPException(status_code=500, detail="Error validating doctor")
+        logger.error(f"Error validating counsellor: {e}")
+        raise HTTPException(status_code=500, detail="Error validating counsellor")
 
 
 # ============================================================================
-# Patient Auto-Creation (for EHR clients)
+# Student Auto-Creation (for EHR clients)
 # ============================================================================
 
-async def ensure_patient_exists(
-    patient_id: str,
+async def ensure_student_exists(
+    student_id: str,
     client: ClientContext,
     patient_name: Optional[str] = None,
 ) -> str:
     """
-    Ensure a patient exists in the database. Auto-creates if missing (for EHR clients).
+    Ensure a student exists in the database. Auto-creates if missing (for EHR clients).
 
     Args:
-        patient_id: External patient identifier
+        student_id: External student identifier
         client: The authenticated client context
-        patient_name: Optional patient name for creation
+        patient_name: Optional student name for creation
 
     Returns:
-        The patient's internal UUID
+        The student's internal UUID
 
     Raises:
         HTTPException: On database errors
     """
     try:
-        # Check if patient exists (scoped by hospital when available)
-        hospital_id = client.hospital_id if hasattr(client, 'hospital_id') else None
+        # Check if student exists (scoped by school when available)
+        school_id = client.school_id if hasattr(client, 'school_id') else None
 
         def _check():
-            query = supabase.table("patients").select("id").eq("patient_id", patient_id)
-            if hospital_id:
-                query = query.eq("hospital_id", str(hospital_id))
+            query = supabase.table("students").select("id").eq("student_id", student_id)
+            if school_id:
+                query = query.eq("school_id", str(school_id))
             else:
-                query = query.is_("hospital_id", "null")
+                query = query.is_("school_id", "null")
             return query.execute()
 
         result = retry_on_network_error(_check)
@@ -1307,55 +1307,55 @@ async def ensure_patient_exists(
         if client.client_type != "ehr":
             raise HTTPException(
                 status_code=404,
-                detail=f"Patient not found: {patient_id}"
+                detail=f"Student not found: {student_id}"
             )
 
-        # Create patient (with hospital scoping)
+        # Create student (with school scoping)
         insert_data = {
-            "patient_id": patient_id,
-            "full_name": patient_name or f"Patient {patient_id}",
+            "student_id": student_id,
+            "full_name": patient_name or f"Student {student_id}",
         }
-        if hospital_id:
-            insert_data["hospital_id"] = str(hospital_id)
+        if school_id:
+            insert_data["school_id"] = str(school_id)
 
         create_result = retry_on_network_error(
-            lambda: supabase.table("patients").insert(insert_data).execute()
+            lambda: supabase.table("students").insert(insert_data).execute()
         )
 
         if create_result.data:
-            logger.info(f"Auto-created patient {patient_id} for EHR client {client.client_name}")
+            logger.info(f"Auto-created student {student_id} for EHR client {client.client_name}")
             return create_result.data[0]["id"]
 
-        raise HTTPException(status_code=500, detail="Failed to create patient")
+        raise HTTPException(status_code=500, detail="Failed to create student")
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error ensuring patient exists: {e}")
-        raise HTTPException(status_code=500, detail="Error processing patient")
+        logger.error(f"Error ensuring student exists: {e}")
+        raise HTTPException(status_code=500, detail="Error processing student")
 
 
 # ============================================================================
-# EHR Hospital-Scoped Access Validation
+# EHR School-Scoped Access Validation
 # ============================================================================
 # These functions validate that EHR clients can only access resources
-# belonging to doctors within their assigned hospital.
+# belonging to counsellors within their assigned school.
 
 # --- Lookup Functions ---
 
-async def get_doctor_hospital_id(doctor_id: UUID) -> Optional[UUID]:
+async def get_counsellor_school_id(counsellor_id: UUID) -> Optional[UUID]:
     """
-    Get the hospital_id for a doctor.
+    Get the school_id for a counsellor.
 
     Uses in-memory cache with 10-minute TTL to reduce database queries.
 
     Args:
-        doctor_id: The doctor's UUID
+        counsellor_id: The counsellor's UUID
 
     Returns:
-        The hospital's UUID or None if not found/no hospital
+        The school's UUID or None if not found/no school
     """
-    cache_key = str(doctor_id)
+    cache_key = str(counsellor_id)
 
     # Check cache first
     if cache_key in _doctor_hospital_cache:
@@ -1366,249 +1366,249 @@ async def get_doctor_hospital_id(doctor_id: UUID) -> Optional[UUID]:
 
     try:
         result = retry_on_network_error(
-            lambda: supabase.table("doctors")
-            .select("hospital_id")
-            .eq("id", str(doctor_id))
+            lambda: supabase.table("counsellors")
+            .select("school_id")
+            .eq("id", str(counsellor_id))
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("hospital_id"):
-            hospital_id = result.data[0]["hospital_id"]
-            _doctor_hospital_cache[cache_key] = hospital_id
-            return UUID(hospital_id)
+        if result.data and result.data[0].get("school_id"):
+            school_id = result.data[0]["school_id"]
+            _doctor_hospital_cache[cache_key] = school_id
+            return UUID(school_id)
 
         # Cache negative result
         _doctor_hospital_cache[cache_key] = None
         return None
     except Exception as e:
-        logger.error(f"Error getting doctor hospital_id: {e}")
+        logger.error(f"Error getting counsellor school_id: {e}")
         return None
 
 
-async def get_nurse_hospital_id(nurse_id: UUID) -> Optional[UUID]:
+async def get_assistant_school_id(assistant_id: UUID) -> Optional[UUID]:
     """
-    Get the hospital_id for a nurse.
+    Get the school_id for an assistant.
 
     Args:
-        nurse_id: The nurse's UUID
+        assistant_id: The assistant's UUID
 
     Returns:
-        The hospital's UUID or None if not found/no hospital
+        The school's UUID or None if not found/no school
     """
     try:
         result = retry_on_network_error(
-            lambda: supabase.table("nurses")
-            .select("hospital_id")
-            .eq("id", str(nurse_id))
+            lambda: supabase.table("assistants")
+            .select("school_id")
+            .eq("id", str(assistant_id))
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("hospital_id"):
-            return UUID(result.data[0]["hospital_id"])
+        if result.data and result.data[0].get("school_id"):
+            return UUID(result.data[0]["school_id"])
         return None
     except Exception as e:
-        logger.error(f"Error getting nurse hospital_id: {e}")
+        logger.error(f"Error getting assistant school_id: {e}")
         return None
 
 
-async def get_extraction_doctor_id(extraction_id: UUID) -> Optional[UUID]:
+async def get_extraction_counsellor_id(extraction_id: UUID) -> Optional[UUID]:
     """
-    Get the doctor_id for an extraction.
+    Get the counsellor_id for an extraction.
 
     Args:
         extraction_id: The extraction's UUID
 
     Returns:
-        The doctor's UUID or None if not found
+        The counsellor's UUID or None if not found
     """
     try:
         result = retry_on_network_error(
-            lambda: supabase.table("medical_extractions")
-            .select("doctor_id")
+            lambda: supabase.table("extractions")
+            .select("counsellor_id")
             .eq("id", str(extraction_id))
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("doctor_id"):
-            return UUID(result.data[0]["doctor_id"])
+        if result.data and result.data[0].get("counsellor_id"):
+            return UUID(result.data[0]["counsellor_id"])
         return None
     except Exception as e:
-        logger.error(f"Error getting extraction doctor_id: {e}")
+        logger.error(f"Error getting extraction counsellor_id: {e}")
         return None
 
 
-async def get_session_doctor_id(session_id: UUID) -> Optional[UUID]:
+async def get_session_counsellor_id(session_id: UUID) -> Optional[UUID]:
     """
-    Get the doctor_id for a recording session.
+    Get the counsellor_id for a recording session.
 
     Args:
         session_id: The session's UUID
 
     Returns:
-        The doctor's UUID or None if not found
+        The counsellor's UUID or None if not found
     """
     try:
         result = retry_on_network_error(
             lambda: supabase.table("recording_sessions")
-            .select("doctor_id")
+            .select("counsellor_id")
             .eq("id", str(session_id))
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("doctor_id"):
-            return UUID(result.data[0]["doctor_id"])
+        if result.data and result.data[0].get("counsellor_id"):
+            return UUID(result.data[0]["counsellor_id"])
         return None
     except Exception as e:
-        logger.error(f"Error getting session doctor_id: {e}")
+        logger.error(f"Error getting session counsellor_id: {e}")
         return None
 
 
-async def get_session_nurse_id(session_id: UUID) -> Optional[UUID]:
+async def get_session_assistant_id(session_id: UUID) -> Optional[UUID]:
     """
-    Get the nurse_id for a recording session.
+    Get the assistant_id for a recording session.
 
     Args:
         session_id: The session's UUID
 
     Returns:
-        The nurse's UUID or None if not found
+        The assistant's UUID or None if not found
     """
     try:
         result = retry_on_network_error(
             lambda: supabase.table("recording_sessions")
-            .select("nurse_id")
+            .select("assistant_id")
             .eq("id", str(session_id))
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("nurse_id"):
-            return UUID(result.data[0]["nurse_id"])
+        if result.data and result.data[0].get("assistant_id"):
+            return UUID(result.data[0]["assistant_id"])
         return None
     except Exception as e:
-        logger.error(f"Error getting session nurse_id: {e}")
+        logger.error(f"Error getting session assistant_id: {e}")
         return None
 
 
-async def get_submission_doctor_id(submission_id: UUID) -> Optional[UUID]:
+async def get_submission_counsellor_id(submission_id: UUID) -> Optional[UUID]:
     """
-    Get the doctor_id for a submission (via processing_jobs -> recording_sessions).
+    Get the counsellor_id for a submission (via processing_jobs -> recording_sessions).
 
     Args:
         submission_id: The submission's UUID
 
     Returns:
-        The doctor's UUID or None if not found
+        The counsellor's UUID or None if not found
     """
     try:
         # Single query with join: processing_jobs -> recording_sessions
         result = retry_on_network_error(
             lambda: supabase.table("processing_jobs")
-            .select("recording_sessions(doctor_id)")
+            .select("recording_sessions(counsellor_id)")
             .eq("submission_id", str(submission_id))
             .limit(1)
             .execute()
         )
         if result.data and result.data[0].get("recording_sessions"):
-            doctor_id = result.data[0]["recording_sessions"].get("doctor_id")
-            if doctor_id:
-                return UUID(doctor_id)
+            counsellor_id = result.data[0]["recording_sessions"].get("counsellor_id")
+            if counsellor_id:
+                return UUID(counsellor_id)
         return None
     except Exception as e:
-        logger.error(f"Error getting submission doctor_id: {e}")
+        logger.error(f"Error getting submission counsellor_id: {e}")
         return None
 
 
-async def get_submission_nurse_id(submission_id: UUID) -> Optional[UUID]:
+async def get_submission_assistant_id(submission_id: UUID) -> Optional[UUID]:
     """
-    Get the nurse_id for a submission (via processing_jobs -> recording_sessions).
+    Get the assistant_id for a submission (via processing_jobs -> recording_sessions).
 
     Args:
         submission_id: The submission's UUID
 
     Returns:
-        The nurse's UUID or None if not found
+        The assistant's UUID or None if not found
     """
     try:
         # Single query with join: processing_jobs -> recording_sessions
         result = retry_on_network_error(
             lambda: supabase.table("processing_jobs")
-            .select("recording_sessions(nurse_id)")
+            .select("recording_sessions(assistant_id)")
             .eq("submission_id", str(submission_id))
             .limit(1)
             .execute()
         )
         if result.data and result.data[0].get("recording_sessions"):
-            nurse_id = result.data[0]["recording_sessions"].get("nurse_id")
-            if nurse_id:
-                return UUID(nurse_id)
+            assistant_id = result.data[0]["recording_sessions"].get("assistant_id")
+            if assistant_id:
+                return UUID(assistant_id)
         return None
     except Exception as e:
-        logger.error(f"Error getting submission nurse_id: {e}")
+        logger.error(f"Error getting submission assistant_id: {e}")
         return None
 
 
-async def get_correlation_doctor_id(correlation_id: str) -> Optional[UUID]:
+async def get_correlation_counsellor_id(correlation_id: str) -> Optional[UUID]:
     """
-    Get the doctor_id for a correlation_id (via recording_sessions table).
+    Get the counsellor_id for a correlation_id (via recording_sessions table).
 
     Args:
         correlation_id: The correlation ID string
 
     Returns:
-        The doctor's UUID or None if not found
+        The counsellor's UUID or None if not found
     """
     try:
         result = retry_on_network_error(
             lambda: supabase.table("recording_sessions")
-            .select("doctor_id")
+            .select("counsellor_id")
             .eq("correlation_id", correlation_id)
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("doctor_id"):
-            return UUID(result.data[0]["doctor_id"])
+        if result.data and result.data[0].get("counsellor_id"):
+            return UUID(result.data[0]["counsellor_id"])
         return None
     except Exception as e:
-        logger.error(f"Error getting correlation doctor_id: {e}")
+        logger.error(f"Error getting correlation counsellor_id: {e}")
         return None
 
 
-async def get_correlation_nurse_id(correlation_id: str) -> Optional[UUID]:
+async def get_correlation_assistant_id(correlation_id: str) -> Optional[UUID]:
     """
-    Get the nurse_id for a correlation_id (via recording_sessions table).
+    Get the assistant_id for a correlation_id (via recording_sessions table).
 
     Args:
         correlation_id: The correlation ID string
 
     Returns:
-        The nurse's UUID or None if not found
+        The assistant's UUID or None if not found
     """
     try:
         result = retry_on_network_error(
             lambda: supabase.table("recording_sessions")
-            .select("nurse_id")
+            .select("assistant_id")
             .eq("correlation_id", correlation_id)
             .limit(1)
             .execute()
         )
-        if result.data and result.data[0].get("nurse_id"):
-            return UUID(result.data[0]["nurse_id"])
+        if result.data and result.data[0].get("assistant_id"):
+            return UUID(result.data[0]["assistant_id"])
         return None
     except Exception as e:
-        logger.error(f"Error getting correlation nurse_id: {e}")
+        logger.error(f"Error getting correlation assistant_id: {e}")
         return None
 
 
 # --- Validation Functions ---
 
-async def validate_ehr_doctor_access(client: ClientContext, doctor_id: UUID) -> bool:
+async def validate_ehr_counsellor_access(client: ClientContext, counsellor_id: UUID) -> bool:
     """
-    For EHR clients: Validate doctor belongs to client's hospital.
+    For EHR clients: Validate counsellor belongs to client's school.
     Admin/Mobile/Web: Always return True.
 
     Args:
         client: The authenticated client context
-        doctor_id: The doctor to validate access for
+        counsellor_id: The counsellor to validate access for
 
     Returns:
         True if access is allowed, False otherwise
@@ -1621,26 +1621,26 @@ async def validate_ehr_doctor_access(client: ClientContext, doctor_id: UUID) -> 
     if client.client_type in ("mobile_app", "web_app"):
         return True
 
-    # Only EHR clients need hospital-scoped validation
+    # Only EHR clients need school-scoped validation
     if client.client_type != "ehr":
         return True
 
-    # EHR must have hospital_id
-    if client.hospital_id is None:
-        logger.warning(f"EHR client {client.client_name} has no hospital_id")
+    # EHR must have school_id
+    if client.school_id is None:
+        logger.warning(f"EHR client {client.client_name} has no school_id")
         return False
 
-    doctor_hospital = await get_doctor_hospital_id(doctor_id)
-    if doctor_hospital is None:
-        logger.warning(f"Doctor {doctor_id} has no hospital_id")
+    counsellor_school = await get_counsellor_school_id(counsellor_id)
+    if counsellor_school is None:
+        logger.warning(f"Counsellor {counsellor_id} has no school_id")
         return False
 
-    return doctor_hospital == client.hospital_id
+    return counsellor_school == client.school_id
 
 
 async def validate_ehr_extraction_access(client: ClientContext, extraction_id: UUID) -> bool:
     """
-    Validate extraction belongs to a doctor in client's hospital.
+    Validate extraction belongs to a counsellor in client's school.
 
     Args:
         client: The authenticated client context
@@ -1652,17 +1652,17 @@ async def validate_ehr_extraction_access(client: ClientContext, extraction_id: U
     if client.client_type in ("admin", "mobile_app", "web_app"):
         return True
 
-    doctor_id = await get_extraction_doctor_id(extraction_id)
-    if doctor_id is None:
-        logger.warning(f"Extraction {extraction_id} has no doctor_id")
+    counsellor_id = await get_extraction_counsellor_id(extraction_id)
+    if counsellor_id is None:
+        logger.warning(f"Extraction {extraction_id} has no counsellor_id")
         return False
 
-    return await validate_ehr_doctor_access(client, doctor_id)
+    return await validate_ehr_counsellor_access(client, counsellor_id)
 
 
 async def validate_ehr_submission_access(client: ClientContext, submission_id: UUID) -> bool:
     """
-    Validate submission belongs to a doctor or nurse in client's hospital.
+    Validate submission belongs to a counsellor or assistant in client's school.
 
     Args:
         client: The authenticated client context
@@ -1674,27 +1674,27 @@ async def validate_ehr_submission_access(client: ClientContext, submission_id: U
     if client.client_type in ("admin", "mobile_app", "web_app"):
         return True
 
-    # First try doctor-based validation
-    doctor_id = await get_submission_doctor_id(submission_id)
-    if doctor_id is not None:
-        return await validate_ehr_doctor_access(client, doctor_id)
+    # First try counsellor-based validation
+    counsellor_id = await get_submission_counsellor_id(submission_id)
+    if counsellor_id is not None:
+        return await validate_ehr_counsellor_access(client, counsellor_id)
 
-    # Fall back to nurse-based validation if no doctor_id
-    nurse_id = await get_submission_nurse_id(submission_id)
-    if nurse_id is not None:
-        nurse_hospital = await get_nurse_hospital_id(nurse_id)
-        if nurse_hospital is None:
-            logger.warning(f"Nurse {nurse_id} has no hospital_id")
+    # Fall back to assistant-based validation if no counsellor_id
+    assistant_id = await get_submission_assistant_id(submission_id)
+    if assistant_id is not None:
+        assistant_school = await get_assistant_school_id(assistant_id)
+        if assistant_school is None:
+            logger.warning(f"Assistant {assistant_id} has no school_id")
             return False
-        return nurse_hospital == client.hospital_id
+        return assistant_school == client.school_id
 
-    logger.warning(f"Submission {submission_id} has no doctor_id or nurse_id")
+    logger.warning(f"Submission {submission_id} has no counsellor_id or assistant_id")
     return False
 
 
 async def validate_ehr_session_access(client: ClientContext, session_id: UUID) -> bool:
     """
-    Validate session belongs to a doctor or nurse in client's hospital.
+    Validate session belongs to a counsellor or assistant in client's school.
 
     Args:
         client: The authenticated client context
@@ -1706,27 +1706,27 @@ async def validate_ehr_session_access(client: ClientContext, session_id: UUID) -
     if client.client_type in ("admin", "mobile_app", "web_app"):
         return True
 
-    # First try doctor-based validation
-    doctor_id = await get_session_doctor_id(session_id)
-    if doctor_id is not None:
-        return await validate_ehr_doctor_access(client, doctor_id)
+    # First try counsellor-based validation
+    counsellor_id = await get_session_counsellor_id(session_id)
+    if counsellor_id is not None:
+        return await validate_ehr_counsellor_access(client, counsellor_id)
 
-    # Fall back to nurse-based validation if no doctor_id
-    nurse_id = await get_session_nurse_id(session_id)
-    if nurse_id is not None:
-        nurse_hospital = await get_nurse_hospital_id(nurse_id)
-        if nurse_hospital is None:
-            logger.warning(f"Nurse {nurse_id} has no hospital_id")
+    # Fall back to assistant-based validation if no counsellor_id
+    assistant_id = await get_session_assistant_id(session_id)
+    if assistant_id is not None:
+        assistant_school = await get_assistant_school_id(assistant_id)
+        if assistant_school is None:
+            logger.warning(f"Assistant {assistant_id} has no school_id")
             return False
-        return nurse_hospital == client.hospital_id
+        return assistant_school == client.school_id
 
-    logger.warning(f"Session {session_id} has no doctor_id or nurse_id")
+    logger.warning(f"Session {session_id} has no counsellor_id or assistant_id")
     return False
 
 
 async def validate_ehr_correlation_access(client: ClientContext, correlation_id: str) -> bool:
     """
-    Validate correlation_id belongs to a doctor or nurse in client's hospital.
+    Validate correlation_id belongs to a counsellor or assistant in client's school.
 
     Args:
         client: The authenticated client context
@@ -1738,34 +1738,34 @@ async def validate_ehr_correlation_access(client: ClientContext, correlation_id:
     if client.client_type in ("admin", "mobile_app", "web_app"):
         return True
 
-    # First try doctor-based validation
-    doctor_id = await get_correlation_doctor_id(correlation_id)
-    if doctor_id is not None:
-        return await validate_ehr_doctor_access(client, doctor_id)
+    # First try counsellor-based validation
+    counsellor_id = await get_correlation_counsellor_id(correlation_id)
+    if counsellor_id is not None:
+        return await validate_ehr_counsellor_access(client, counsellor_id)
 
-    # Fall back to nurse-based validation if no doctor_id
-    nurse_id = await get_correlation_nurse_id(correlation_id)
-    if nurse_id is not None:
-        nurse_hospital = await get_nurse_hospital_id(nurse_id)
-        if nurse_hospital is None:
-            logger.warning(f"Nurse {nurse_id} has no hospital_id")
+    # Fall back to assistant-based validation if no counsellor_id
+    assistant_id = await get_correlation_assistant_id(correlation_id)
+    if assistant_id is not None:
+        assistant_school = await get_assistant_school_id(assistant_id)
+        if assistant_school is None:
+            logger.warning(f"Assistant {assistant_id} has no school_id")
             return False
-        return nurse_hospital == client.hospital_id
+        return assistant_school == client.school_id
 
-    logger.warning(f"Correlation {correlation_id} has no doctor_id or nurse_id")
+    logger.warning(f"Correlation {correlation_id} has no counsellor_id or assistant_id")
     return False
 
 
-async def validate_ehr_patient_access(client: ClientContext, patient_id: str) -> bool:
+async def validate_ehr_student_access(client: ClientContext, student_id: str) -> bool:
     """
-    Validate patient has extractions from doctors in client's hospital.
+    Validate student has extractions from counsellors in client's school.
 
-    This checks if the patient has any extraction records associated with
-    doctors from the client's hospital.
+    This checks if the student has any extraction records associated with
+    counsellors from the client's school.
 
     Args:
         client: The authenticated client context
-        patient_id: The patient identifier to validate access for (UUID or human-readable patient_id)
+        student_id: The student identifier to validate access for (UUID or human-readable student_id)
 
     Returns:
         True if access is allowed, False otherwise
@@ -1776,45 +1776,45 @@ async def validate_ehr_patient_access(client: ClientContext, patient_id: str) ->
     if client.client_type != "ehr":
         return True
 
-    if client.hospital_id is None:
-        logger.warning(f"EHR client {client.client_name} has no hospital_id")
+    if client.school_id is None:
+        logger.warning(f"EHR client {client.client_name} has no school_id")
         return False
 
     try:
-        # Resolve patient UUID: medical_extractions.patient_id stores UUID (patients.id),
-        # not the human-readable patient_id string
-        patient_uuid = patient_id
+        # Resolve student UUID: extractions.student_id stores UUID (students.id),
+        # not the human-readable student_id string
+        patient_uuid = student_id
 
-        # Check if patient_id is a UUID or a human-readable patient_id
+        # Check if student_id is a UUID or a human-readable student_id
         try:
-            UUID(patient_id)
+            UUID(student_id)
             # It's already a valid UUID
         except ValueError:
-            # It's a human-readable patient_id, look up the UUID from patients table
-            # Scope by hospital to prevent cross-hospital patient leakage
-            def _lookup_patient():
-                query = supabase.table("patients").select("id").eq("patient_id", patient_id)
-                if client.hospital_id:
-                    query = query.eq("hospital_id", str(client.hospital_id))
+            # It's a human-readable student_id, look up the UUID from students table
+            # Scope by school to prevent cross-school student leakage
+            def _lookup_student():
+                query = supabase.table("students").select("id").eq("student_id", student_id)
+                if client.school_id:
+                    query = query.eq("school_id", str(client.school_id))
                 return query.limit(1).execute()
-            patient_result = retry_on_network_error(_lookup_patient)
-            if not patient_result.data:
-                logger.warning(f"Patient not found with patient_id: {patient_id}")
+            student_result = retry_on_network_error(_lookup_student)
+            if not student_result.data:
+                logger.warning(f"Student not found with student_id: {student_id}")
                 return False
-            patient_uuid = patient_result.data[0]["id"]
+            patient_uuid = student_result.data[0]["id"]
 
-        # Check if patient has any extractions from doctors in this hospital
-        # Using a join query: medical_extractions -> doctors -> hospital_id
+        # Check if student has any extractions from counsellors in this school
+        # Using a join query: extractions -> counsellors -> school_id
         result = retry_on_network_error(
-            lambda: supabase.table("medical_extractions")
-            .select("id, doctors!inner(hospital_id)")
-            .eq("patient_id", patient_uuid)
-            .eq("doctors.hospital_id", str(client.hospital_id))
+            lambda: supabase.table("extractions")
+            .select("id, counsellors!inner(school_id)")
+            .eq("student_id", patient_uuid)
+            .eq("counsellors.school_id", str(client.school_id))
             .limit(1)
             .execute()
         )
 
         return len(result.data) > 0
     except Exception as e:
-        logger.error(f"Error validating patient access: {e}")
+        logger.error(f"Error validating student access: {e}")
         return False

@@ -1,19 +1,19 @@
 """
-EHR Routing Service - Unified Doctor-Based EHR Routing
+EHR Routing Service - Unified Counsellor-Based EHR Routing
 
 This service provides unified routing logic for sending extractions to EHR systems
-based on the doctor's assigned EHR type (doctor.ehr_type_id).
+based on the counsellor's assigned EHR type (counsellor.ehr_type_id).
 
 Key Features:
-- Doctor-based routing: Doctor's ehr_type_id determines which EHR to send to
-- Hospital config: Hospital's config provides the URL and credentials for that EHR type
+- Counsellor-based routing: Counsellor's ehr_type_id determines which EHR to send to
+- School config: School's config provides the URL and credentials for that EHR type
 - Unified triggers: Both extraction creation AND edit/save trigger EHR sync
 - Fire-and-forget: All EHR sends are non-blocking (asyncio.create_task)
 - Single query: Uses DB function for minimal latency impact
 
 URL Construction:
-- Base URL: hospital_ehr.api_url > ehr_types.default_api_url
-- Suffix: template_ehr.url_suffix (looked up by template + doctor's ehr_type)
+- Base URL: school_ehr.api_url > ehr_types.default_api_url
+- Suffix: template_ehr.url_suffix (looked up by template + counsellor's ehr_type)
 - Final: base_url + (url_suffix or '')
 """
 
@@ -38,48 +38,48 @@ def _get_ehr_http_client() -> httpx.AsyncClient:
     return _ehr_http_client
 
 
-async def get_doctor_ehr_config(doctor_id: str, template_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+async def get_counsellor_ehr_config(counsellor_id: str, template_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
-    Get EHR routing configuration for a doctor using single DB query.
+    Get EHR routing configuration for a counsellor using single DB query.
 
-    Uses the get_doctor_ehr_config SQL function for minimal latency.
+    Uses the get_counsellor_ehr_config SQL function for minimal latency.
 
     Args:
-        doctor_id: Doctor UUID as string
+        counsellor_id: Counsellor UUID as string
         template_code: Optional template code for URL suffix lookup (needed for Neopead)
 
     Returns:
-        Dict with {ehr_code, hospital_id, api_url, api_key, url_suffix} or None if:
-        - Doctor has no ehr_type_id
-        - Hospital has no config for doctor's EHR type
-        - Hospital EHR config has no api_url and ehr_types has no default_api_url
+        Dict with {ehr_code, school_id, api_url, api_key, url_suffix} or None if:
+        - Counsellor has no ehr_type_id
+        - School has no config for counsellor's EHR type
+        - School EHR config has no api_url and ehr_types has no default_api_url
     """
     try:
-        result = supabase.rpc("get_doctor_ehr_config", {
-            "p_doctor_id": doctor_id,
+        result = supabase.rpc("get_counsellor_ehr_config", {
+            "p_counsellor_id": counsellor_id,
             "p_template_code": template_code
         }).execute()
 
         if result.data and len(result.data) > 0:
             config = result.data[0]
             logger.info(
-                f"[EHR_ROUTING] Found EHR config for doctor {doctor_id}: "
+                f"[EHR_ROUTING] Found EHR config for counsellor {counsellor_id}: "
                 f"ehr_code={config.get('ehr_code')}, "
                 f"has_url={bool(config.get('api_url'))}, "
                 f"suffix={config.get('url_suffix')}"
             )
             return config
 
-        logger.debug(f"[EHR_ROUTING] No EHR config for doctor {doctor_id}")
+        logger.debug(f"[EHR_ROUTING] No EHR config for counsellor {counsellor_id}")
         return None
 
     except Exception as e:
-        logger.warning(f"[EHR_ROUTING] Failed to get EHR config for doctor {doctor_id}: {e}")
+        logger.warning(f"[EHR_ROUTING] Failed to get EHR config for counsellor {counsellor_id}: {e}")
         return None
 
 
 async def route_to_ehr(
-    doctor_id: str,
+    counsellor_id: str,
     extraction_data: Dict[str, Any],
     patient_info: Dict[str, Any],
     template_code: Optional[str] = None,
@@ -87,17 +87,17 @@ async def route_to_ehr(
     extraction_id: Optional[str] = None,
 ) -> bool:
     """
-    Route extraction to EHR based on doctor's ehr_type_id.
+    Route extraction to EHR based on counsellor's ehr_type_id.
 
     Called on BOTH extraction creation AND edit/save.
     Uses single DB function for minimal latency.
 
     Args:
-        doctor_id: Doctor UUID as string
+        counsellor_id: Counsellor UUID as string
         extraction_data: The extraction insights dict (original or edited)
-        patient_info: Patient info dict containing:
-            - patient_id: Patient external ID (e.g., UHID)
-            - hospital_code: Hospital code for Aosta
+        patient_info: Student info dict containing:
+            - student_id: Student external ID (e.g., UHID)
+            - school_code: School code for Aosta
             - ip_id/op_id: Visit IDs for Aosta
             - visit_number: Visit number for Raster
             - consultant_id: Consultant ID for Raster
@@ -118,10 +118,10 @@ async def route_to_ehr(
 
     try:
         # Get EHR config using single DB query
-        config = await get_doctor_ehr_config(doctor_id, template_code)
+        config = await get_counsellor_ehr_config(counsellor_id, template_code)
 
         if not config:
-            logger.info(f"[EHR_ROUTING] No EHR config for doctor {doctor_id} - skipping EHR sync on {action}")
+            logger.info(f"[EHR_ROUTING] No EHR config for counsellor {counsellor_id} - skipping EHR sync on {action}")
             return False
 
         ehr_code = config.get("ehr_code")
@@ -130,14 +130,14 @@ async def route_to_ehr(
         url_suffix = config.get("url_suffix") or ""
 
         if not base_url:
-            logger.info(f"[EHR_ROUTING] No API URL for doctor {doctor_id} EHR {ehr_code} - skipping")
+            logger.info(f"[EHR_ROUTING] No API URL for counsellor {counsellor_id} EHR {ehr_code} - skipping")
             return False
 
         # Construct final URL (base + suffix for neopead templates)
         final_url = base_url + url_suffix
 
         logger.info(
-            f"[EHR_ROUTING] Routing to {ehr_code} for doctor {doctor_id} on {action}: "
+            f"[EHR_ROUTING] Routing to {ehr_code} for counsellor {counsellor_id} on {action}: "
             f"url={final_url[:50]}..., template={template_code}"
         )
 
@@ -169,14 +169,6 @@ async def route_to_ehr(
                 extraction_id=extraction_id,
                 template_code=template_code,
             )
-        elif ehr_code == "neopead":
-            await _send_to_neopead(
-                extraction_data=extraction_data,
-                template_code=template_code,
-                api_url=final_url,
-                api_key=api_key,
-                extraction_id=extraction_id,
-            )
         elif ehr_code == "kg_ehr":
             await _send_to_kg(
                 extraction_data=extraction_data,
@@ -193,7 +185,7 @@ async def route_to_ehr(
         return True
 
     except Exception as e:
-        logger.error(f"[EHR_ROUTING] Failed to route to EHR for doctor {doctor_id}: {e}", exc_info=True)
+        logger.error(f"[EHR_ROUTING] Failed to route to EHR for counsellor {counsellor_id}: {e}", exc_info=True)
         return False
 
 
@@ -215,7 +207,7 @@ async def _send_to_aosta(
 
     Args:
         extraction_data: The extraction insights dict
-        patient_info: Must contain: patient_id, hospital_code, and optionally ip_id, op_id
+        patient_info: Must contain: student_id, school_code, and optionally ip_id, op_id
         api_url: Aosta API URL
         api_key: Optional API key for authentication
         extraction_id: Extraction UUID for storing ehr_payload_json
@@ -246,9 +238,9 @@ async def _send_to_aosta(
 
         payload = format_for_aosta(
             extraction_insights=extraction_data,
-            patient_id=patient_info.get("patient_id", ""),
-            doctor_id=patient_info.get("doctor_id", ""),
-            hospital_code=patient_info.get("hospital_code", ""),
+            student_id=patient_info.get("student_id", ""),
+            counsellor_id=patient_info.get("counsellor_id", ""),
+            school_code=patient_info.get("school_code", ""),
             ip_id=patient_info.get("ip_id"),
             op_id=patient_info.get("op_id")
         )
@@ -256,7 +248,7 @@ async def _send_to_aosta(
         # Store the EXACT Aosta payload to ehr_payload_json
         if extraction_id:
             try:
-                supabase.table("medical_extractions")\
+                supabase.table("extractions")\
                     .update({"ehr_payload_json": payload})\
                     .eq("id", extraction_id).execute()
             except Exception as e:
@@ -303,9 +295,9 @@ async def _send_to_gem(
     try:
         common_args = dict(
             extraction_insights=extraction_data,
-            patient_id=patient_info.get("patient_id", ""),
-            doctor_id=patient_info.get("doctor_id", ""),
-            hospital_code=patient_info.get("hospital_code", ""),
+            student_id=patient_info.get("student_id", ""),
+            counsellor_id=patient_info.get("counsellor_id", ""),
+            school_code=patient_info.get("school_code", ""),
             template_id=patient_info.get("template_id_aosta", ""),
             template_name=patient_info.get("template_name_aosta", ""),
             ip_id=patient_info.get("ip_id"),
@@ -324,7 +316,7 @@ async def _send_to_gem(
 
         if extraction_id:
             try:
-                supabase.table("medical_extractions")\
+                supabase.table("extractions")\
                     .update({"ehr_payload_json": payload})\
                     .eq("id", extraction_id).execute()
             except Exception as e:
@@ -358,7 +350,7 @@ async def _send_to_raster_emr(
 
     Args:
         extraction_data: The extraction insights dict
-        patient_info: Must contain: patient_id (uhid), visit_number, consultant_id, modified_user_id
+        patient_info: Must contain: student_id (uhid), visit_number, consultant_id, modified_user_id
         api_url: Raster EMR API URL
         api_key: Optional API key for authentication
         extraction_id: Extraction UUID for storing ehr_payload_json
@@ -382,7 +374,7 @@ async def _send_to_raster_emr(
         if template_upper == "RASTER_NEW_OP":
             payload = format_for_raster_new_op(
                 extraction_insights=extraction_data,
-                uhid=patient_info.get("patient_id", ""),
+                uhid=patient_info.get("student_id", ""),
                 visit_number=patient_info.get("visit_number", ""),
                 consultant_id=patient_info.get("consultant_id", 0),
                 modified_user_id=_created_user_id,
@@ -392,7 +384,7 @@ async def _send_to_raster_emr(
         elif template_upper == "RASTER_OP":
             payload = format_for_raster(
                 extraction_insights=extraction_data,
-                uhid=patient_info.get("patient_id", ""),
+                uhid=patient_info.get("student_id", ""),
                 visit_number=patient_info.get("visit_number", ""),
                 consultant_id=patient_info.get("consultant_id", 0),
                 modified_user_id=_created_user_id,
@@ -406,7 +398,7 @@ async def _send_to_raster_emr(
         # Store the EXACT Raster payload to ehr_payload_json
         if extraction_id:
             try:
-                supabase.table("medical_extractions")\
+                supabase.table("extractions")\
                     .update({"ehr_payload_json": payload})\
                     .eq("id", extraction_id).execute()
             except Exception as e:
@@ -430,88 +422,6 @@ async def _send_to_raster_emr(
         logger.error(f"[EHR_ROUTING:RASTER] Failed to send to Raster EMR: {e}")
 
 
-async def _send_to_neopead(
-    extraction_data: Dict[str, Any],
-    template_code: Optional[str],
-    api_url: str,
-    api_key: Optional[str] = None,
-    extraction_id: Optional[str] = None,
-) -> None:
-    """
-    Send extraction to Neopead (uses template-specific formatting).
-
-    Since extraction_data is now RAW (no lookups applied at DB save time),
-    we apply lookups here before sending to the Neopead API.
-
-    Args:
-        extraction_data: The RAW extraction insights dict
-        template_code: Template code for formatting (e.g., NEO_DAILY, NEO_OP)
-        api_url: Full Neopead API URL (base + suffix)
-        api_key: Optional API key for authentication
-        extraction_id: Extraction UUID for storing ehr_payload_json
-    """
-    from services.neo_lookup_dispatcher import apply_template_lookups
-    from services.raster_api_service import (
-        _validate_and_fix_neo_daily_payload,
-        _validate_and_fix_neo_proforma_payload,
-        _validate_and_fix_neo_op_payload,
-        _sanitize_escaped_slashes
-    )
-
-    try:
-        # Apply lookups to normalize enum values + sentence capitalization
-        payload = apply_template_lookups({**extraction_data}, template_code)
-        template_upper = (template_code or "").upper()
-
-        # Apply structural validation
-        if template_upper in ["NEO_DAILY", "NEONATAL_DAILY"]:
-            payload = _validate_and_fix_neo_daily_payload(payload)
-        elif template_upper in ["NEO_PROFORMA", "NEONATAL_PROFORMA"]:
-            payload = _validate_and_fix_neo_proforma_payload(payload)
-        elif template_upper in ["NEO_OP", "NEONATAL_OP"]:
-            from datetime import datetime
-            payload["opDateTime"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            payload = _validate_and_fix_neo_op_payload(payload)
-
-        # Sanitize escaped slashes before sending
-        payload = _sanitize_escaped_slashes(payload)
-
-        # Store the EXACT payload to ehr_payload_json
-        if extraction_id:
-            try:
-                supabase.table("medical_extractions")\
-                    .update({"ehr_payload_json": payload})\
-                    .eq("id", extraction_id).execute()
-            except Exception as e:
-                logger.warning(f"[EHR_ROUTING:NEOPEAD] Failed to store ehr_payload_json: {e}")
-
-        # Build headers
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "VHR-Backend/1.0"
-        }
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        # Send to Neopead
-        logger.info(f"[EHR_ROUTING:NEOPEAD] Sending to {api_url}")
-
-        client = _get_ehr_http_client()
-        response = await client.post(api_url, json=payload, headers=headers)
-
-        if 200 <= response.status_code < 300:
-            logger.info(f"[EHR_ROUTING:NEOPEAD] Successfully sent to Neopead")
-        else:
-            logger.warning(
-                f"[EHR_ROUTING:NEOPEAD] Neopead returned status {response.status_code}: "
-                f"{response.text[:200]}"
-            )
-
-    except Exception as e:
-        logger.error(f"[EHR_ROUTING:NEOPEAD] Failed to send to Neopead: {e}")
-
-
 async def _send_to_kg(
     extraction_data: Dict[str, Any],
     patient_info: Dict[str, Any],
@@ -521,7 +431,7 @@ async def _send_to_kg(
     template_code: Optional[str] = None,
 ) -> None:
     """
-    Format and send extraction to KG Hospital EHR.
+    Format and send extraction to KG School EHR.
 
     Resolves the live formatter via templates.formatter_code (single source
     of truth, shared with the empty-preview path). Adding a new KG-flavored
@@ -529,8 +439,8 @@ async def _send_to_kg(
 
     Args:
         extraction_data: The extraction insights dict
-        patient_info: Must contain: patient_id (UHID), doctor_id, patient_uuid, visit_id
-        api_url: KG Hospital API URL
+        patient_info: Must contain: student_id (UHID), counsellor_id, patient_uuid, visit_id
+        api_url: KG School API URL
         api_key: Optional API key for authentication
         extraction_id: Extraction UUID for storing ehr_payload_json
         template_code: Template code used for the extraction (drives formatter lookup)
@@ -569,31 +479,31 @@ async def _send_to_kg(
             )
             return
 
-        # Doctor name for payload
-        doctor_name = ""
-        doctor_id = patient_info.get("doctor_id", "")
-        if doctor_id:
+        # Counsellor name for payload
+        counsellor_name = ""
+        counsellor_id = patient_info.get("counsellor_id", "")
+        if counsellor_id:
             try:
-                doc_result = supabase.table("doctors")\
-                    .select("full_name").eq("id", doctor_id).limit(1).execute()
+                doc_result = supabase.table("counsellors")\
+                    .select("full_name").eq("id", counsellor_id).limit(1).execute()
                 if doc_result.data:
-                    doctor_name = doc_result.data[0].get("full_name", "")
+                    counsellor_name = doc_result.data[0].get("full_name", "")
             except Exception as e:
-                logger.warning(f"[EHR_ROUTING:KG] Failed to fetch doctor name: {e}")
+                logger.warning(f"[EHR_ROUTING:KG] Failed to fetch counsellor name: {e}")
 
         formatter_args = dict(
             extraction_data=extraction_data,
-            patient_id=patient_info.get("patient_uuid", ""),
-            doctor_id=doctor_id,
+            student_id=patient_info.get("patient_uuid", ""),
+            counsellor_id=counsellor_id,
             extraction_id=extraction_id or "",
-            doctor_name=doctor_name,
-            uhid=patient_info.get("patient_id", ""),
+            counsellor_name=counsellor_name,
+            uhid=patient_info.get("student_id", ""),
             visit_id=patient_info.get("visit_id", ""),
             role=patient_info.get("role", ""),
         )
 
         # Dispatch via the registry. None means formatter_code isn't a KG
-        # formatter (misconfig: doctor routed to KG with a non-KG template).
+        # formatter (misconfig: counsellor routed to KG with a non-KG template).
         payload = format_kg_payload(formatter_code, **formatter_args)
         if payload is None:
             logger.info(
@@ -606,7 +516,7 @@ async def _send_to_kg(
         # Persist EXACT payload sent to KG
         if extraction_id:
             try:
-                supabase.table("medical_extractions")\
+                supabase.table("extractions")\
                     .update({"ehr_payload_json": payload})\
                     .eq("id", extraction_id).execute()
             except Exception as e:
@@ -614,19 +524,19 @@ async def _send_to_kg(
                     f"[EHR_ROUTING:KG] Failed to store ehr_payload_json: {e}"
                 )
 
-        # Send to KG Hospital
+        # Send to KG School
         result = await send_to_kg(payload=payload, api_url=api_url, api_key=api_key)
         if result.get("success"):
-            logger.info("[EHR_ROUTING:KG] Successfully sent to KG Hospital EHR")
+            logger.info("[EHR_ROUTING:KG] Successfully sent to KG School EHR")
         else:
-            logger.warning(f"[EHR_ROUTING:KG] KG Hospital returned error: {result}")
+            logger.warning(f"[EHR_ROUTING:KG] KG School returned error: {result}")
 
     except Exception as e:
-        logger.error(f"[EHR_ROUTING:KG] Failed to send to KG Hospital: {e}")
+        logger.error(f"[EHR_ROUTING:KG] Failed to send to KG School: {e}")
 
 
 def schedule_ehr_sync(
-    doctor_id: str,
+    counsellor_id: str,
     extraction_data: Dict[str, Any],
     patient_info: Dict[str, Any],
     template_code: Optional[str] = None,
@@ -640,31 +550,31 @@ def schedule_ehr_sync(
     in asyncio.create_task() to ensure it doesn't block the main flow.
 
     Args:
-        doctor_id: Doctor UUID as string
+        counsellor_id: Counsellor UUID as string
         extraction_data: The extraction insights dict
-        patient_info: Patient info dict (see route_to_ehr for required fields)
+        patient_info: Student info dict (see route_to_ehr for required fields)
         template_code: Template code (needed for Neopead)
         is_edit: True if this is an edit/save operation
 
     Returns:
-        True if task was scheduled, False if doctor_id is missing
+        True if task was scheduled, False if counsellor_id is missing
     """
-    if not doctor_id:
-        logger.debug("[EHR_ROUTING] No doctor_id provided - skipping EHR sync")
+    if not counsellor_id:
+        logger.debug("[EHR_ROUTING] No counsellor_id provided - skipping EHR sync")
         return False
 
     action = "edit" if is_edit else "creation"
 
     try:
         asyncio.create_task(_route_to_ehr_safe(
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             extraction_data=extraction_data,
             patient_info=patient_info,
             template_code=template_code,
             is_edit=is_edit,
             extraction_id=extraction_id,
         ))
-        logger.info(f"[EHR_ROUTING] Scheduled EHR sync for doctor {doctor_id} on {action}")
+        logger.info(f"[EHR_ROUTING] Scheduled EHR sync for counsellor {counsellor_id} on {action}")
         return True
 
     except Exception as e:
@@ -673,7 +583,7 @@ def schedule_ehr_sync(
 
 
 async def _route_to_ehr_safe(
-    doctor_id: str,
+    counsellor_id: str,
     extraction_data: Dict[str, Any],
     patient_info: Dict[str, Any],
     template_code: Optional[str] = None,
@@ -687,7 +597,7 @@ async def _route_to_ehr_safe(
     """
     try:
         await route_to_ehr(
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             extraction_data=extraction_data,
             patient_info=patient_info,
             template_code=template_code,
@@ -696,4 +606,4 @@ async def _route_to_ehr_safe(
         )
     except Exception as e:
         action = "edit" if is_edit else "creation"
-        logger.error(f"[EHR_ROUTING] Unhandled error in EHR sync for doctor {doctor_id} on {action}: {e}")
+        logger.error(f"[EHR_ROUTING] Unhandled error in EHR sync for counsellor {counsellor_id} on {action}: {e}")

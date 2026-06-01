@@ -1,5 +1,5 @@
 """
-Background Tasks for Medical Extraction Pipeline
+Background Tasks for Extraction Pipeline
 
 Handles asynchronous tasks that run independently of the main extraction workflow.
 
@@ -41,7 +41,7 @@ async def _wait_for_extraction_to_exist(
     poll_interval: float = 2.0,
 ) -> bool:
     """
-    Wait for an extraction to exist in medical_extractions table.
+    Wait for an extraction to exist in extractions table.
 
     This handles the race condition where parallel emotion analysis completes
     before the main extraction is saved to the database.
@@ -59,7 +59,7 @@ async def _wait_for_extraction_to_exist(
     waited = 0.0
     while waited < max_wait_seconds:
         try:
-            result = supabase.table("medical_extractions").select("id").eq("id", str(extraction_id)).limit(1).execute()
+            result = supabase.table("extractions").select("id").eq("id", str(extraction_id)).limit(1).execute()
             if result.data and len(result.data) > 0:
                 logger.debug(f"[EMOTION:WAIT] Extraction exists after {waited:.1f}s wait")
                 return True
@@ -164,7 +164,7 @@ async def _is_emotion_analysis_enabled_for_extraction(extraction_id: uuid.UUID) 
     try:
         # Get extraction with its consultation_type_id
         extraction_result = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select("consultation_type_id")
             .eq("id", str(extraction_id))
             .limit(1)
@@ -207,7 +207,7 @@ async def schedule_combined_emotion_extraction(
     consultation_type_id: uuid.UUID,
     template_id: str,
     session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ):
     """
     Schedule COMBINED text+audio emotion extraction as background task.
@@ -224,11 +224,11 @@ async def schedule_combined_emotion_extraction(
         audio_content: Audio data bytes
         audio_mime_type: MIME type of audio (e.g., 'audio/webm', 'audio/mp3')
         transcript: Full consultation transcript text
-        extraction_id: UUID of medical extraction to link to
+        extraction_id: UUID of extraction to link to
         consultation_type_id: UUID of consultation type
         template_id: Template UUID for database-driven prompts (required)
         session_id: Optional session ID for LLM usage tracking
-        doctor_id: Optional doctor ID for LLM usage tracking
+        counsellor_id: Optional counsellor ID for LLM usage tracking
 
     Returns:
         None (task runs in background)
@@ -271,7 +271,7 @@ async def schedule_combined_emotion_extraction(
                 extraction_id=extraction_id,
                 template_id=template_id,
                 session_id=session_id,
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
             )
         )
 
@@ -286,7 +286,7 @@ async def _run_combined_emotion_extraction(
     extraction_id: uuid.UUID,
     template_id: str,
     session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ):
     """
     Internal: Run combined text+audio emotion extraction.
@@ -321,7 +321,7 @@ async def _run_combined_emotion_extraction(
             template_id=template_id,
             model=emotion_model,
             session_id=session_id,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             extraction_id=str(extraction_id),
         )
 
@@ -394,189 +394,6 @@ async def _run_combined_emotion_extraction(
 
 
 # ============================================================================
-# Audio-Only Emotion Extraction (For Skip-Transcription Mode)
-# ============================================================================
-
-async def schedule_audio_only_emotion_extraction(
-    audio_content: bytes,
-    audio_mime_type: str,
-    extraction_id: uuid.UUID,
-    consultation_type_id: uuid.UUID,
-    template_id: str,
-    session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
-):
-    """
-    Schedule AUDIO-ONLY emotion extraction as background task.
-
-    This is for skip_transcription mode where no transcript is available.
-    Extracts emotions from audio vocal characteristics only.
-
-    The output uses AUDIO_* segments but maps to the unified emotion schema
-    format with source="audio_only" and mismatch=None (no text comparison possible).
-
-    Args:
-        audio_content: Audio data bytes
-        audio_mime_type: MIME type of audio (e.g., 'audio/webm', 'audio/mp3')
-        extraction_id: UUID of medical extraction to link to
-        consultation_type_id: UUID of consultation type
-        template_id: Template UUID for database-driven prompts (required)
-        session_id: Optional session ID for LLM usage tracking
-        doctor_id: Optional doctor ID for LLM usage tracking
-
-    Returns:
-        None (task runs in background)
-    """
-    from services.supabase_service import (
-        get_consultation_type,
-        is_emotion_analysis_enabled,
-        update_extraction_emotion_status,
-    )
-
-    try:
-        consultation_type = get_consultation_type(consultation_type_id)
-
-        if not consultation_type:
-            logger.warning(f"[EMOTION:AUDIO_ONLY] Consultation type not found: {consultation_type_id}. Skipping.")
-            return
-
-        if not is_emotion_analysis_enabled(consultation_type_id):
-            logger.info(f"[EMOTION:AUDIO_ONLY] Emotion analysis disabled for {consultation_type.get('type_code')}. Skipping.")
-            return
-
-        if not template_id:
-            logger.warning(f"[EMOTION:AUDIO_ONLY] No template_id provided. Skipping audio-only emotion extraction.")
-            return
-
-        # Mark emotion extraction as started
-        update_extraction_emotion_status(extraction_id, started=True)
-
-        logger.debug(
-            f"[EMOTION:AUDIO_ONLY] Scheduling for extraction_id={extraction_id}, "
-            f"consultation_type={consultation_type.get('type_code')}, "
-            f"audio_size={len(audio_content)} bytes (no transcript - audio-only mode)"
-        )
-
-        asyncio.create_task(
-            _run_audio_only_emotion_extraction(
-                audio_content=audio_content,
-                audio_mime_type=audio_mime_type,
-                extraction_id=extraction_id,
-                template_id=template_id,
-                session_id=session_id,
-                doctor_id=doctor_id,
-            )
-        )
-
-    except Exception as e:
-        logger.error(f"[EMOTION:AUDIO_ONLY] Failed to schedule: {e}")
-
-
-async def _run_audio_only_emotion_extraction(
-    audio_content: bytes,
-    audio_mime_type: str,
-    extraction_id: uuid.UUID,
-    template_id: str,
-    session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
-):
-    """
-    Internal: Run audio-only emotion extraction.
-
-    Uses AUDIO_* segment prompts and schemas to analyze vocal characteristics.
-    Outputs unified segments with source="audio_only" and mismatch=None.
-    """
-    from services.gemini_service import extract_audio_only_emotions
-    from services.supabase_service import (
-        update_extraction_emotion_status,
-        save_unified_emotion_segments,
-        get_emotion_model_by_mode,
-        check_extraction_exists,
-    )
-    from services.webhook_service import send_emotion_analysis_webhook
-
-    # Get emotion model from processing_modes table
-    emotion_model = get_emotion_model_by_mode("default")
-    logger.debug(f"[EMOTION:AUDIO_ONLY] Using model: {emotion_model}")
-
-    try:
-        # Wait for extraction record to exist (may be created by parallel task)
-        extraction_exists = await _wait_for_extraction_to_exist(extraction_id)
-        if not extraction_exists:
-            logger.warning(f"[EMOTION:AUDIO_ONLY] Extraction {extraction_id} not found after waiting. Proceeding anyway.")
-
-        # Run audio-only emotion extraction (single attempt - no app-level retry)
-        result = await extract_audio_only_emotions(
-            audio_content=audio_content,
-            audio_mime_type=audio_mime_type,
-            template_id=template_id,
-            model=emotion_model,
-            session_id=session_id,
-            doctor_id=doctor_id,
-            extraction_id=str(extraction_id),
-        )
-
-        if not result or not result.get("success"):
-            error_msg = result.get("error", "Unknown error") if result else "No result returned"
-            logger.error(f"[EMOTION:AUDIO_ONLY] Extraction failed: {error_msg}")
-            update_extraction_emotion_status(
-                extraction_id=extraction_id,
-                failed=True,
-                error=error_msg
-            )
-            return
-
-        unified_segments = result.get("unified_segments", {})
-        metadata = result.get("metadata", {})
-
-        logger.debug(
-            f"[EMOTION:AUDIO_ONLY] Extraction successful: {len(unified_segments)} segments, "
-            f"api_duration={metadata.get('api_duration_seconds', 0):.2f}s"
-        )
-
-        # Save unified segments to database
-        try:
-            if check_extraction_exists(extraction_id):
-                save_unified_emotion_segments(extraction_id, unified_segments, source="audio_only")
-                logger.debug(f"[EMOTION:AUDIO_ONLY] Saved unified segments for extraction_id={extraction_id}")
-            else:
-                logger.warning(f"[EMOTION:AUDIO_ONLY] Skipping save - extraction doesn't exist")
-        except Exception as e:
-            logger.warning(f"[EMOTION:AUDIO_ONLY] Failed to save unified segments: {e}")
-
-        # Update extraction status: completed
-        update_extraction_emotion_status(
-            extraction_id=extraction_id,
-            completed=True
-        )
-
-        # Send webhook notification
-        try:
-            await send_emotion_analysis_webhook(extraction_id=str(extraction_id))
-            logger.info(f"[EMOTION:AUDIO_ONLY] Webhook sent for extraction_id={extraction_id}")
-        except Exception as e:
-            logger.warning(f"[EMOTION:AUDIO_ONLY] Failed to send webhook: {e}")
-
-    except asyncio.TimeoutError:
-        error_msg = "Audio-only emotion extraction timed out"
-        logger.error(f"[EMOTION:AUDIO_ONLY] {error_msg}")
-        update_extraction_emotion_status(
-            extraction_id=extraction_id,
-            failed=True,
-            error=error_msg
-        )
-
-    except Exception as e:
-        error_msg = f"Audio-only emotion extraction failed: {str(e)}"
-        logger.error(f"[EMOTION:AUDIO_ONLY] {error_msg}", exc_info=True)
-        update_extraction_emotion_status(
-            extraction_id=extraction_id,
-            failed=True,
-            error=error_msg
-        )
-
-
-# ============================================================================
 # Live Session Audio Processing (for RecordTab Gemini Live API sessions)
 # ============================================================================
 
@@ -586,7 +403,7 @@ async def schedule_live_audio_emotion(
     session_id: uuid.UUID,
     consultation_type_id: Optional[uuid.UUID],
     template_id: Optional[str],
-    doctor_id: Optional[str],
+    counsellor_id: Optional[str],
     transcript: str,
     extraction_id: uuid.UUID,  # Pre-generated extraction_id from /extract
 ):
@@ -600,7 +417,7 @@ async def schedule_live_audio_emotion(
     Reuses patterns from recording_processor.py
 
     NOTE: Triage runs from main extraction path (not blocked by this).
-    Only consultation insights (patient dropoff analysis) waits for emotion.
+    Only consultation insights (student dropoff analysis) waits for emotion.
 
     Args:
         correlation_id: Session correlation ID (used as key in memory store)
@@ -608,7 +425,7 @@ async def schedule_live_audio_emotion(
         session_id: UUID of recording session
         consultation_type_id: Optional consultation type ID
         template_id: Optional template ID for emotion prompts
-        doctor_id: Optional doctor ID
+        counsellor_id: Optional counsellor ID
         transcript: Full transcript (for combined emotion analysis)
         extraction_id: Pre-generated extraction_id (passed from /extract)
     """
@@ -662,7 +479,7 @@ async def schedule_live_audio_emotion(
             consultation_type_id=consultation_type_id,
             template_id=template_id,
             session_id=str(session_id),
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
         )
 
         logger.info(f"[LIVE_AUDIO] ✓ Completed async processing for {correlation_id}")
@@ -711,7 +528,7 @@ async def _save_live_audio_to_session(
 
 async def _schedule_allied_health_needs(
     extraction_id: uuid.UUID,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ):
     """
     Schedule allied health needs assessment as a fire-and-forget task.
@@ -721,13 +538,13 @@ async def _schedule_allied_health_needs(
     OTHER_EMOTIONS_DETECTED, FINANCIAL_CONCERNS, etc.) to determine referral needs.
 
     Args:
-        extraction_id: UUID of the medical extraction
-        doctor_id: Optional doctor ID (will be fetched from extraction if not provided)
+        extraction_id: UUID of the extraction
+        counsellor_id: Optional counsellor ID (will be fetched from extraction if not provided)
     """
     try:
         from services.supabase_service import get_extraction_by_id, get_consultation_insights_by_extraction
 
-        # Get extraction details for doctor_id and patient_id
+        # Get extraction details for counsellor_id and student_id
         extraction = get_extraction_by_id(extraction_id)
         if not extraction:
             logger.warning(
@@ -745,14 +562,14 @@ async def _schedule_allied_health_needs(
             )
             return
 
-        # Use provided doctor_id or get from extraction
-        final_doctor_id = doctor_id or extraction.get('doctor_id')
-        patient_id = extraction.get('patient_id')
+        # Use provided counsellor_id or get from extraction
+        final_counsellor_id = counsellor_id or extraction.get('counsellor_id')
+        student_id = extraction.get('student_id')
 
         from services.log_sanitizer import truncate_id as _tid
         logger.debug(
             f"[ALLIED_HEALTH] Scheduling assessment for extraction_id={extraction_id}, "
-            f"doctor_id={_tid(final_doctor_id)}, patient_id={_tid(patient_id)}"
+            f"counsellor_id={_tid(final_counsellor_id)}, student_id={_tid(student_id)}"
         )
 
         # Import and schedule the assessment
@@ -762,8 +579,8 @@ async def _schedule_allied_health_needs(
             calculate_and_save_allied_needs(
                 extraction_id=extraction_id,
                 consultation_insights=consultation_insights,
-                doctor_id=uuid.UUID(final_doctor_id) if final_doctor_id else None,
-                patient_id=uuid.UUID(patient_id) if patient_id else None,
+                counsellor_id=uuid.UUID(final_counsellor_id) if final_counsellor_id else None,
+                student_id=uuid.UUID(student_id) if student_id else None,
             )
         )
 
@@ -781,28 +598,28 @@ async def _schedule_allied_health_needs(
 
 
 # ============================================================================
-# Patient Dropoff Risk - Background Processing
+# Student Dropoff Risk - Background Processing
 # ============================================================================
 
-async def _schedule_patient_dropoff_risk(
+async def _schedule_student_dropoff_risk(
     extraction_id: uuid.UUID,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ):
     """
-    Schedule patient dropoff risk assessment as a fire-and-forget task.
+    Schedule student dropoff risk assessment as a fire-and-forget task.
 
     This should be called AFTER emotion analysis completes since it uses
     emotional segments (ANXIETY_POST_CONSULTATION, FINANCIAL_CONCERNS,
     TREATMENT_COMPLIANCE_LIKELIHOOD, etc.) to calculate churn indicators.
 
     Args:
-        extraction_id: UUID of the medical extraction
-        doctor_id: Optional doctor ID (will be fetched from extraction if not provided)
+        extraction_id: UUID of the extraction
+        counsellor_id: Optional counsellor ID (will be fetched from extraction if not provided)
     """
     try:
         from services.supabase_service import get_extraction_by_id, get_consultation_insights_by_extraction
 
-        # Get extraction details for doctor_id and patient_id
+        # Get extraction details for counsellor_id and student_id
         extraction = get_extraction_by_id(extraction_id)
         if not extraction:
             logger.warning(
@@ -820,25 +637,25 @@ async def _schedule_patient_dropoff_risk(
             )
             return
 
-        # Use provided doctor_id or get from extraction
-        final_doctor_id = doctor_id or extraction.get('doctor_id')
-        patient_id = extraction.get('patient_id')
+        # Use provided counsellor_id or get from extraction
+        final_counsellor_id = counsellor_id or extraction.get('counsellor_id')
+        student_id = extraction.get('student_id')
 
         from services.log_sanitizer import truncate_id as _tid
         logger.debug(
             f"[DROPOFF_RISK] Scheduling assessment for extraction_id={extraction_id}, "
-            f"doctor_id={_tid(final_doctor_id)}, patient_id={_tid(patient_id)}"
+            f"counsellor_id={_tid(final_counsellor_id)}, student_id={_tid(student_id)}"
         )
 
         # Import and schedule the assessment
-        from services.patient_dropoff_service import calculate_and_save_dropoff_risk
+        from services.student_dropoff_service import calculate_and_save_dropoff_risk
 
         asyncio.create_task(
             calculate_and_save_dropoff_risk(
                 extraction_id=extraction_id,
                 consultation_insights=consultation_insights,
-                doctor_id=uuid.UUID(final_doctor_id) if final_doctor_id else None,
-                patient_id=uuid.UUID(patient_id) if patient_id else None,
+                counsellor_id=uuid.UUID(final_counsellor_id) if final_counsellor_id else None,
+                student_id=uuid.UUID(student_id) if student_id else None,
             )
         )
 
@@ -863,8 +680,8 @@ async def schedule_triage_generation(
     extraction_id: uuid.UUID,
     transcript: Optional[str] = None,
     extraction_data: Optional[Dict[str, Any]] = None,
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     consultation_type_code: Optional[str] = None,
     include_gemini: bool = False,
     enable_consultation_insights: bool = True,
@@ -879,11 +696,11 @@ async def schedule_triage_generation(
     4. Consultation insights then triggers all assessment services
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         transcript: Full consultation transcript (required for consultation insights)
         extraction_data: Extracted medical data dict (required for consultation insights)
-        doctor_id: Optional doctor ID
-        patient_id: Optional patient ID
+        counsellor_id: Optional counsellor ID
+        student_id: Optional student ID
         consultation_type_code: Optional consultation type code
         include_gemini: Whether to use Gemini AI analysis (default False for speed)
         enable_consultation_insights: Whether to chain to consultation insights (default True)
@@ -900,8 +717,8 @@ async def schedule_triage_generation(
                 extraction_id=extraction_id,
                 transcript=transcript,
                 extraction_data=extraction_data,
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
                 consultation_type_code=consultation_type_code,
                 include_gemini=include_gemini,
                 enable_consultation_insights=enable_consultation_insights,
@@ -925,8 +742,8 @@ async def _run_triage_generation(
     extraction_id: uuid.UUID,
     transcript: Optional[str] = None,
     extraction_data: Optional[Dict[str, Any]] = None,
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     consultation_type_code: Optional[str] = None,
     include_gemini: bool = False,
     enable_consultation_insights: bool = True,
@@ -970,8 +787,8 @@ async def _run_triage_generation(
         orchestrator = TriageMultiLayerOrchestrator(supabase_client=supabase)
         triage_suggestions = await orchestrator.generate_suggestions(
             extraction=extraction,
-            patient_id=patient_id,
-            doctor_id=doctor_id,
+            student_id=student_id,
+            counsellor_id=counsellor_id,
             consultation_type_code=consultation_type_code,
             include_gemini_analysis=include_gemini,
             log_suggestions=True,  # Save to triage_suggestion_log
@@ -1001,8 +818,8 @@ async def _run_triage_generation(
                 extraction_id=extraction_id,
                 transcript=transcript,
                 extraction_data=insights_extraction_data,
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
             )
         else:
             logger.warning(
@@ -1014,8 +831,8 @@ async def _run_triage_generation(
             await _schedule_care_quality_risk(
                 extraction_id=extraction_id,
                 consultation_insights={},  # Empty - no transcript means no insights
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
             )
 
     except Exception as e:
@@ -1034,8 +851,8 @@ async def schedule_consultation_insights_extraction(
     extraction_id: uuid.UUID,
     transcript: str,
     extraction_data: Dict[str, Any],
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
 ):
     """
     Schedule consultation insights extraction as a fire-and-forget task.
@@ -1046,11 +863,11 @@ async def schedule_consultation_insights_extraction(
     3. Cascades to all assessment services (severity, needs, allied, dropoff, care_quality)
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         transcript: Full consultation transcript
         extraction_data: Dict with extracted segments (DIAGNOSIS, PRESCRIPTION, etc.)
-        doctor_id: Optional doctor ID
-        patient_id: Optional patient ID
+        counsellor_id: Optional counsellor ID
+        student_id: Optional student ID
     """
     try:
         logger.debug(
@@ -1062,8 +879,8 @@ async def schedule_consultation_insights_extraction(
                 extraction_id=extraction_id,
                 transcript=transcript,
                 extraction_data=extraction_data,
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
             )
         )
 
@@ -1084,8 +901,8 @@ async def _run_consultation_insights_extraction(
     extraction_id: uuid.UUID,
     transcript: str,
     extraction_data: Dict[str, Any],
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
 ):
     """
     Internal: Run consultation insights extraction and cascade to assessment services.
@@ -1109,7 +926,7 @@ async def _run_consultation_insights_extraction(
         start_time = datetime.utcnow()
 
         # Wait for extraction to exist (handles race condition with fire-and-forget DB save)
-        # This is important because consultation_insights has FK to medical_extractions
+        # This is important because consultation_insights has FK to extractions
         extraction_exists = await _wait_for_extraction_to_exist(extraction_id, max_wait_seconds=30)
         if not extraction_exists:
             logger.warning(
@@ -1128,7 +945,7 @@ async def _run_consultation_insights_extraction(
             extraction_data=extraction_data,
             model=insights_model,  # Use model from processing_modes table
             extraction_id=extraction_id,
-            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
         )
 
         # Get metadata from insights
@@ -1143,8 +960,8 @@ async def _run_consultation_insights_extraction(
         # Step 2: Save raw insights to consultation_insights table
         insights_data = {
             "extraction_id": str(extraction_id),
-            "patient_id": patient_id,
-            "doctor_id": doctor_id,
+            "student_id": student_id,
+            "counsellor_id": counsellor_id,
             **insights,  # All 14 signal groups
             "model_used": model_used,
             "extraction_version": metadata.get("extraction_version", "1.0.0"),
@@ -1163,8 +980,8 @@ async def _run_consultation_insights_extraction(
             extraction_data=extraction_data,
             consultation_insights=insights,
             consultation_insights_id=insights_id,
-            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
-            patient_id=uuid.UUID(patient_id) if patient_id else None,
+            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
+            student_id=uuid.UUID(student_id) if student_id else None,
         )
 
         # Step 4: Calculate and save other clinical needs
@@ -1173,8 +990,8 @@ async def _run_consultation_insights_extraction(
             extraction_id=extraction_id,
             consultation_insights=insights,
             consultation_insights_id=insights_id,
-            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
-            patient_id=uuid.UUID(patient_id) if patient_id else None,
+            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
+            student_id=uuid.UUID(student_id) if student_id else None,
         )
 
         # Step 5: Calculate and save allied health needs
@@ -1183,8 +1000,8 @@ async def _run_consultation_insights_extraction(
             extraction_id=extraction_id,
             consultation_insights=insights,
             consultation_insights_id=insights_id,
-            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
-            patient_id=uuid.UUID(patient_id) if patient_id else None,
+            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
+            student_id=uuid.UUID(student_id) if student_id else None,
         )
 
         # Step 6: Calculate and save dropoff risk
@@ -1210,28 +1027,28 @@ async def _run_consultation_insights_extraction(
                     f"proceeding without emotion modifiers for extraction_id={extraction_id}"
                 )
 
-        from services.patient_dropoff_service import calculate_and_save_dropoff_risk
+        from services.student_dropoff_service import calculate_and_save_dropoff_risk
         await calculate_and_save_dropoff_risk(
             extraction_id=extraction_id,
             consultation_insights=insights,
             consultation_insights_id=insights_id,
-            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
-            patient_id=uuid.UUID(patient_id) if patient_id else None,
+            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
+            student_id=uuid.UUID(student_id) if student_id else None,
         )
 
         # Step 7: Schedule care quality risk assessment + interventions (final step)
-        # Get hospital_id from doctor for revenue pricing lookup
-        hospital_id = None
-        if doctor_id:
-            from services.supabase_service import get_doctor_hospital_id_cached
-            hospital_id = get_doctor_hospital_id_cached(uuid.UUID(doctor_id))
+        # Get school_id from counsellor for revenue pricing lookup
+        school_id = None
+        if counsellor_id:
+            from services.supabase_service import get_counsellor_school_id_cached
+            school_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
 
         await _schedule_care_quality_risk(
             extraction_id=extraction_id,
             consultation_insights=insights,
-            doctor_id=doctor_id,
-            patient_id=patient_id,
-            hospital_id=str(hospital_id) if hospital_id else None,
+            counsellor_id=counsellor_id,
+            student_id=student_id,
+            school_id=str(school_id) if school_id else None,
             consultation_insights_id=str(insights_id) if insights_id else None,
         )
 
@@ -1252,8 +1069,8 @@ async def _run_consultation_insights_extraction(
             await _schedule_care_quality_risk(
                 extraction_id=extraction_id,
                 consultation_insights={},  # Empty fallback
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
             )
         except Exception:
             pass
@@ -1266,9 +1083,9 @@ async def _run_consultation_insights_extraction(
 async def _schedule_care_quality_risk(
     extraction_id: uuid.UUID,
     consultation_insights: Dict[str, Any],
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
-    hospital_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
+    school_id: Optional[str] = None,
     consultation_insights_id: Optional[str] = None,
 ):
     """
@@ -1281,11 +1098,11 @@ async def _schedule_care_quality_risk(
     interventions based on all assessment results.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         consultation_insights: AI-extracted consultation insights (REQUIRED)
-        doctor_id: Optional doctor ID
-        patient_id: Optional patient ID
-        hospital_id: Optional hospital ID (for revenue intervention pricing)
+        counsellor_id: Optional counsellor ID
+        student_id: Optional student ID
+        school_id: Optional school ID (for revenue intervention pricing)
         consultation_insights_id: Optional consultation_insights record ID
     """
     try:
@@ -1298,9 +1115,9 @@ async def _schedule_care_quality_risk(
             _run_care_quality_and_interventions(
                 extraction_id=extraction_id,
                 consultation_insights=consultation_insights,
-                doctor_id=doctor_id,
-                patient_id=patient_id,
-                hospital_id=hospital_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
+                school_id=school_id,
                 consultation_insights_id=consultation_insights_id,
             )
         )
@@ -1321,9 +1138,9 @@ async def _schedule_care_quality_risk(
 async def _run_care_quality_and_interventions(
     extraction_id: uuid.UUID,
     consultation_insights: Dict[str, Any],
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
-    hospital_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
+    school_id: Optional[str] = None,
     consultation_insights_id: Optional[str] = None,
 ):
     """
@@ -1334,11 +1151,11 @@ async def _run_care_quality_and_interventions(
     2. Generate REVENUE, RETENTION, QUALITY interventions based on all assessments
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         consultation_insights: AI-extracted consultation insights
-        doctor_id: Optional doctor ID
-        patient_id: Optional patient ID
-        hospital_id: Optional hospital ID (for revenue pricing lookup)
+        counsellor_id: Optional counsellor ID
+        student_id: Optional student ID
+        school_id: Optional school ID (for revenue pricing lookup)
         consultation_insights_id: Optional consultation_insights record ID
     """
     from services.care_quality_service import calculate_and_save_care_quality
@@ -1349,8 +1166,8 @@ async def _run_care_quality_and_interventions(
         await calculate_and_save_care_quality(
             extraction_id=extraction_id,
             consultation_insights=consultation_insights,
-            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
-            patient_id=uuid.UUID(patient_id) if patient_id else None,
+            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
+            student_id=uuid.UUID(student_id) if student_id else None,
         )
 
         # Step 2: Generate and save interventions (REVENUE, RETENTION, QUALITY)
@@ -1360,7 +1177,7 @@ async def _run_care_quality_and_interventions(
 
         result = await generate_and_save_interventions(
             extraction_id=extraction_id,
-            hospital_id=uuid.UUID(hospital_id) if hospital_id else None,
+            school_id=uuid.UUID(school_id) if school_id else None,
             consultation_insights_id=uuid.UUID(consultation_insights_id) if consultation_insights_id else None,
         )
 
@@ -1421,7 +1238,7 @@ def format_emotion_task_summary(
 
 async def schedule_medicine_edit_feedback(
     extraction_id: uuid.UUID,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     original_extraction: Dict[str, Any],
     edited_extraction: Dict[str, Any],
 ):
@@ -1431,28 +1248,28 @@ async def schedule_medicine_edit_feedback(
     Compares original vs edited extraction to:
     1. Identify medicine name standardizations/spelling corrections
     2. Log to medicine_match_log with feedback_status='agreed'
-    3. Auto-add corrected medicines to doctor's personal list
+    3. Auto-add corrected medicines to counsellor's personal list
 
     This runs in background and doesn't affect the PUT response time.
 
     Args:
-        extraction_id: Medical extraction UUID
-        doctor_id: Doctor UUID who made edits
+        extraction_id: extraction UUID
+        counsellor_id: Counsellor UUID who made edits
         original_extraction: AI-generated extraction JSON
-        edited_extraction: Doctor-edited extraction JSON
+        edited_extraction: Counsellor-edited extraction JSON
 
     Returns:
         None (task runs in background)
     """
     logger.debug(
         f"[MEDICINE_EDIT] Scheduling feedback processing for extraction_id={extraction_id}, "
-        f"doctor_id={doctor_id}"
+        f"counsellor_id={counsellor_id}"
     )
 
     asyncio.create_task(
         _run_medicine_edit_feedback(
             extraction_id=extraction_id,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             original_extraction=original_extraction,
             edited_extraction=edited_extraction,
         )
@@ -1461,7 +1278,7 @@ async def schedule_medicine_edit_feedback(
 
 async def _run_medicine_edit_feedback(
     extraction_id: uuid.UUID,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     original_extraction: Dict[str, Any],
     edited_extraction: Dict[str, Any],
 ):
@@ -1478,7 +1295,7 @@ async def _run_medicine_edit_feedback(
 
         result = await process_medicine_edit_feedback(
             extraction_id=extraction_id,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             original_extraction=original_extraction,
             edited_extraction=edited_extraction,
         )
@@ -1522,16 +1339,16 @@ async def test_combined_emotion_scheduling():
 
     # Create test data
     test_transcript = """
-    Doctor: Good morning, how are you feeling today?
-    Patient: I'm very worried, doctor. I haven't been sleeping well because of these chest pains.
-    Doctor: I understand your concern. Let's talk about your symptoms. When did this start?
-    Patient: About a week ago. I'm really scared it might be my heart. My father had a heart attack at my age.
-    Doctor: I can see you're anxious. Let me examine you and we'll run some tests. How is your insurance coverage?
-    Patient: Um, actually, I'm worried about the cost. Can we do just the necessary tests?
-    Doctor: Of course. We'll prioritize the most important ones. Don't worry, we'll work this out.
-    Patient: Thank you, doctor. I really appreciate that.
-    Doctor: The exam looks good. I'll order an ECG and some blood work. These should give us a clear picture.
-    Patient: Okay, I feel a bit better now. Thank you for explaining everything.
+    Counsellor: Good morning, how are you feeling today?
+    Student: I'm very worried, counsellor. I haven't been sleeping well because of these chest pains.
+    Counsellor: I understand your concern. Let's talk about your symptoms. When did this start?
+    Student: About a week ago. I'm really scared it might be my heart. My father had a heart attack at my age.
+    Counsellor: I can see you're anxious. Let me examine you and we'll run some tests. How is your insurance coverage?
+    Student: Um, actually, I'm worried about the cost. Can we do just the necessary tests?
+    Counsellor: Of course. We'll prioritize the most important ones. Don't worry, we'll work this out.
+    Student: Thank you, counsellor. I really appreciate that.
+    Counsellor: The exam looks good. I'll order an ECG and some blood work. These should give us a clear picture.
+    Student: Okay, I feel a bit better now. Thank you for explaining everything.
     """
 
     test_extraction_id = uuid.uuid4()

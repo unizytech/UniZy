@@ -4,9 +4,9 @@ Other Clinical Needs Assessment Service (AI-Only)
 Uses AI-extracted consultation insights to identify additional care requirements
 beyond the current consultation:
 
-- is_followup_diagnostics: Patient needs diagnostic tests before/at next visit
-- is_recurring_diagnostics: Patient needs periodic monitoring tests
-- is_rx_refill: Patient will need prescription refill
+- is_followup_diagnostics: Student needs diagnostic tests before/at next visit
+- is_recurring_diagnostics: Student needs periodic monitoring tests
+- is_rx_refill: Student will need prescription refill
 
 Priority Level (consolidated score):
   - HIGH: All 3 flags TRUE, OR (recurring_diagnostics + rx_refill) both TRUE
@@ -52,9 +52,9 @@ class ClinicalNeedsResult:
 
     Attributes:
         priority_level: Consolidated priority (NONE, LOW, MEDIUM, HIGH)
-        is_followup_diagnostics: Patient needs tests before/at next visit
-        is_recurring_diagnostics: Patient needs periodic monitoring tests
-        is_rx_refill: Patient will need prescription refill
+        is_followup_diagnostics: Student needs tests before/at next visit
+        is_recurring_diagnostics: Student needs periodic monitoring tests
+        is_rx_refill: Student will need prescription refill
         followup_diagnostics_reasons: Evidence for is_followup_diagnostics
         recurring_diagnostics_reasons: Evidence for is_recurring_diagnostics
         rx_refill_reasons: Evidence for is_rx_refill
@@ -87,8 +87,8 @@ class ClinicalNeedsResult:
 async def calculate_and_save_needs(
     extraction_id: uuid.UUID,
     consultation_insights: Dict[str, Any],
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
     consultation_insights_id: Optional[uuid.UUID] = None
 ) -> Optional[uuid.UUID]:
     """
@@ -98,10 +98,10 @@ async def calculate_and_save_needs(
     Uses AI-extracted consultation insights (no keyword-based fallback).
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         consultation_insights: AI-extracted consultation insights (REQUIRED)
-        doctor_id: Optional doctor UUID
-        patient_id: Optional patient UUID
+        counsellor_id: Optional counsellor UUID
+        student_id: Optional student UUID
 
     Returns:
         UUID of saved assessment, or None on error
@@ -141,8 +141,8 @@ async def calculate_and_save_needs(
         # input_data here contains only minimal context for audit/debugging
         needs_data = {
             "extraction_id": str(extraction_id),
-            "patient_id": str(patient_id) if patient_id else None,
-            "doctor_id": str(doctor_id) if doctor_id else None,
+            "student_id": str(student_id) if student_id else None,
+            "counsellor_id": str(counsellor_id) if counsellor_id else None,
             "consultation_insights_id": str(consultation_insights_id) if consultation_insights_id else None,
             "priority_level": result.priority_level.value,
             "is_followup_diagnostics": result.is_followup_diagnostics,

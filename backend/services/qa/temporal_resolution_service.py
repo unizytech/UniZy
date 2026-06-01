@@ -3,10 +3,10 @@ Temporal Resolution Service
 
 Resolves temporal references in user queries to actual dates and extraction IDs.
 Examples:
-- "last visit" -> most recent extraction for patient
+- "last visit" -> most recent extraction for student
 - "January 15th" -> calculate date (current or previous year)
 - "3 months ago" -> date arithmetic
-- "first visit" -> patient's earliest extraction
+- "first visit" -> student's earliest extraction
 """
 
 import logging
@@ -31,8 +31,8 @@ class TemporalResolutionService:
 
         resolved = await service.resolve_references(
             references=[TemporalReference(type=TemporalReferenceType.RELATIVE_VISIT, raw_text="last visit", visit_offset=-1)],
-            patient_id=patient_uuid,
-            hospital_id=hospital_uuid
+            student_id=patient_uuid,
+            school_id=school_uuid
         )
 
         # resolved[0].resolved_date = datetime of last visit
@@ -52,9 +52,9 @@ class TemporalResolutionService:
     async def resolve_references(
         self,
         references: List[TemporalReference],
-        patient_id: UUID,
-        hospital_id: UUID,
-        doctor_id: Optional[UUID] = None,
+        student_id: UUID,
+        school_id: UUID,
+        counsellor_id: Optional[UUID] = None,
         current_extraction_id: Optional[UUID] = None
     ) -> List[TemporalReference]:
         """
@@ -62,9 +62,9 @@ class TemporalResolutionService:
 
         Args:
             references: List of temporal references to resolve
-            patient_id: Patient UUID for visit lookups
-            hospital_id: Hospital UUID for scoping
-            doctor_id: Optional doctor filter
+            student_id: Student UUID for visit lookups
+            school_id: School UUID for scoping
+            counsellor_id: Optional counsellor filter
             current_extraction_id: Current extraction context (for "previous" resolution)
 
         Returns:
@@ -73,11 +73,11 @@ class TemporalResolutionService:
         if not references:
             return []
 
-        # Fetch patient visits for resolution
-        visits = await self._get_patient_visits(
-            patient_id=patient_id,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
+        # Fetch student visits for resolution
+        visits = await self._get_student_visits(
+            student_id=student_id,
+            school_id=school_id,
+            counsellor_id=counsellor_id,
             limit=50  # Get enough history for most queries
         )
 
@@ -96,37 +96,37 @@ class TemporalResolutionService:
 
         return resolved
 
-    async def _get_patient_visits(
+    async def _get_student_visits(
         self,
-        patient_id: UUID,
-        hospital_id: UUID,
-        doctor_id: Optional[UUID] = None,
+        student_id: UUID,
+        school_id: UUID,
+        counsellor_id: Optional[UUID] = None,
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        Fetch patient's consultations ordered by date DESC.
+        Fetch student's consultations ordered by date DESC.
 
         Returns list of dicts with:
-        - extraction_id, created_at, consultation_type_name, doctor_name
+        - extraction_id, created_at, consultation_type_name, counsellor_name
 
-        Note: medical_extractions doesn't have hospital_id column.
-        Filters by hospital through doctors.hospital_id join.
+        Note: extractions doesn't have school_id column.
+        Filters by school through counsellors.school_id join.
         """
         try:
             supabase = self._get_supabase()
 
-            query = supabase.table("medical_extractions")\
+            query = supabase.table("extractions")\
                 .select(
-                    "id, created_at, consultation_type_id, doctor_id, "
-                    "consultation_types(type_name), doctors!inner(full_name, hospital_id)"
+                    "id, created_at, consultation_type_id, counsellor_id, "
+                    "consultation_types(type_name), counsellors!inner(full_name, school_id)"
                 )\
-                .eq("patient_id", str(patient_id))\
-                .eq("doctors.hospital_id", str(hospital_id))\
+                .eq("student_id", str(student_id))\
+                .eq("counsellors.school_id", str(school_id))\
                 .order("created_at", desc=True)\
                 .limit(limit)
 
-            if doctor_id:
-                query = query.eq("doctor_id", str(doctor_id))
+            if counsellor_id:
+                query = query.eq("counsellor_id", str(counsellor_id))
 
             result = query.execute()
 
@@ -136,15 +136,15 @@ class TemporalResolutionService:
                     "extraction_id": row["id"],
                     "created_at": row["created_at"],
                     "consultation_type_name": row.get("consultation_types", {}).get("type_name") if row.get("consultation_types") else None,
-                    "doctor_name": row.get("doctors", {}).get("full_name") if row.get("doctors") else None,
-                    "doctor_id": row.get("doctor_id"),
+                    "counsellor_name": row.get("counsellors", {}).get("full_name") if row.get("counsellors") else None,
+                    "counsellor_id": row.get("counsellor_id"),
                     "consultation_type_id": row.get("consultation_type_id")
                 })
 
             return visits
 
         except Exception as e:
-            logger.error(f"Failed to fetch patient visits: {e}")
+            logger.error(f"Failed to fetch student visits: {e}")
             return []
 
     async def _resolve_single_reference(

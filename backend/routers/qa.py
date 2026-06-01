@@ -54,7 +54,7 @@ else:
             client_type="admin",
             client_id=UUID("00000000-0000-0000-0000-000000000000"),
             client_name="dev_client",
-            hospital_id=None,
+            school_id=None,
             scopes=["qa:query", "qa:history"]
         )
 
@@ -73,15 +73,15 @@ async def execute_query(
 
     The query is classified into one of three intents:
     - **SEMANTIC**: Pattern detection, insights -> Narrative response
-    - **HYBRID**: Search with filters -> Patient/extraction table
+    - **HYBRID**: Search with filters -> Student/extraction table
     - **SQL**: Analytics, counts -> Charts/stats
 
     **Query Examples:**
-    - "What are common diagnoses in diabetic patients?" -> Narrative
-    - "Show patients with hypertension from last month" -> Table
+    - "What are common diagnoses in diabetic students?" -> Narrative
+    - "Show students with hypertension from last month" -> Table
     - "How many extractions were done this week?" -> Chart
 
-    **Auth:** Admin, Web, or EHR clients with hospital scoping.
+    **Auth:** Admin, Web, or EHR clients with school scoping.
     """
     from services.qa.query_reframer_service import query_reframer_service
     from services.qa.query_classifier_service import query_classifier_service
@@ -89,47 +89,47 @@ async def execute_query(
     from services.qa.analytics_engine_service import analytics_engine_service
     from services.qa.qa_synthesis_service import qa_synthesis_service
     from services.qa.temporal_resolution_service import temporal_resolution_service
-    from services.qa.patient_longitudinal_service import patient_longitudinal_service
+    from services.qa.student_longitudinal_service import student_longitudinal_service
     from services.supabase_service import supabase
 
     start_time = datetime.now(timezone.utc)
 
     try:
-        # Get hospital_id from request (preferred) or resolve from hospital_code, or fall back to client context
-        hospital_id = request.hospital_id
-        if not hospital_id and request.hospital_code:
-            hospital_response = (
-                supabase.table("hospitals")
+        # Get school_id from request (preferred) or resolve from school_code, or fall back to client context
+        school_id = request.school_id
+        if not school_id and request.school_code:
+            school_response = (
+                supabase.table("schools")
                 .select("id")
-                .eq("hospital_code", request.hospital_code)
+                .eq("school_code", request.school_code)
                 .eq("is_active", True)
                 .execute()
             )
-            if not hospital_response.data or len(hospital_response.data) == 0:
+            if not school_response.data or len(school_response.data) == 0:
                 raise HTTPException(
                     status_code=404,
-                    detail="Hospital not found or inactive"
+                    detail="School not found or inactive"
                 )
-            hospital_id = UUID(hospital_response.data[0]["id"])
-        if not hospital_id:
-            hospital_id = client.hospital_id
-        if not hospital_id:
+            school_id = UUID(school_response.data[0]["id"])
+        if not school_id:
+            school_id = client.school_id
+        if not school_id:
             raise HTTPException(
                 status_code=400,
-                detail="Hospital context required for Q&A queries. Please provide hospital_id or hospital_code in request."
+                detail="School context required for Q&A queries. Please provide school_id or school_code in request."
             )
 
-        doctor_id = request.doctor_id
+        counsellor_id = request.counsellor_id
 
-        # Resolve patient_id (external UHID or internal UUID) to internal UUID
-        patient_id = None
-        if request.patient_id:
-            from routers.patient_history import resolve_patient_id
-            patient_id = resolve_patient_id(request.patient_id, hospital_id=str(hospital_id) if hospital_id else None)
-            if not patient_id:
+        # Resolve student_id (external UHID or internal UUID) to internal UUID
+        student_id = None
+        if request.student_id:
+            from routers.student_history import resolve_student_id
+            student_id = resolve_student_id(request.student_id, school_id=str(school_id) if school_id else None)
+            if not student_id:
                 raise HTTPException(
                     status_code=404,
-                    detail="Patient not found"
+                    detail="Student not found"
                 )
 
         # Step 0: Reframe query (expand abbreviations, fix typos, normalize terms)
@@ -151,7 +151,7 @@ async def execute_query(
         # Step 1: Classify query
         classified = await query_classifier_service.classify(
             query=query_for_classification,
-            hospital_id=hospital_id,
+            school_id=school_id,
             prior_context=request.prior_context
         )
 
@@ -221,17 +221,17 @@ async def execute_query(
             classified.comparison_mode = is_comparison_query
             classified.requires_patient_history = True
 
-        # Check if query requires patient context but none provided.
+        # Check if query requires student context but none provided.
         # Only gate on temporal/comparison signals — NOT requires_patient_history alone,
-        # since cross-patient queries like "common diagnoses across my patients" falsely
-        # trigger requires_patient_history but don't need a specific patient.
-        needs_patient = (
+        # since cross-student queries like "common diagnoses across my students" falsely
+        # trigger requires_patient_history but don't need a specific student.
+        needs_student = (
             classified.comparison_mode or
             (classified.temporal_references and len(classified.temporal_references) > 0) or
             pattern_detected  # Also check backup pattern
         )
 
-        if needs_patient and not request.patient_id:
+        if needs_student and not request.student_id:
             # Return a helpful message instead of failing silently
             end_time = datetime.now(timezone.utc)
             total_time_ms = int((end_time - start_time).total_seconds() * 1000)
@@ -245,8 +245,8 @@ async def execute_query(
                 reframe_expansions=reframed.expansions if reframed.expansions else None,
                 reframe_corrections=reframed.corrections if reframed.corrections else None,
                 narrative=(
-                    "This query references specific visits or requires patient history. "
-                    "Please select a **Doctor** first, then a **Patient** from the filters above "
+                    "This query references specific visits or requires student history. "
+                    "Please select a **Counsellor** first, then a **Student** from the filters above "
                     "to enable temporal comparisons like 'last visit', 'previous consultation', or 'since first visit'."
                 ),
                 temporal_references=[
@@ -260,17 +260,17 @@ async def execute_query(
                 total_time_ms=total_time_ms
             )
 
-        # Step 2: Resolve temporal references if patient context is available
+        # Step 2: Resolve temporal references if student context is available
         temporal_resolution_time_ms = 0
         resolved_temporal_refs = None
-        if classified.temporal_references and patient_id:
+        if classified.temporal_references and student_id:
             temp_start = datetime.now(timezone.utc)
             try:
                 resolved_temporal_refs = await temporal_resolution_service.resolve_references(
                     references=classified.temporal_references,
-                    patient_id=patient_id,
-                    hospital_id=hospital_id,
-                    doctor_id=doctor_id,
+                    student_id=student_id,
+                    school_id=school_id,
+                    counsellor_id=counsellor_id,
                     current_extraction_id=request.extraction_id
                 )
                 logger.info(f"Resolved {len(resolved_temporal_refs)} temporal references")
@@ -286,17 +286,17 @@ async def execute_query(
         referenced_visits = None
 
         # Handle multi-visit queries (e.g., "last 3 visits") differently from comparison queries
-        if is_multi_visit_query and patient_id:
+        if is_multi_visit_query and student_id:
             long_start = datetime.now(timezone.utc)
             try:
                 # Use longitudinal summary for multi-visit queries
                 num_visits = num_visits_requested or 3  # Default to 3 if not specified
                 logger.info(f"Fetching longitudinal summary for {num_visits} visits")
 
-                longitudinal_data = await patient_longitudinal_service.get_longitudinal_summary(
-                    patient_id=patient_id,
-                    hospital_id=hospital_id,
-                    doctor_id=doctor_id,
+                longitudinal_data = await student_longitudinal_service.get_longitudinal_summary(
+                    student_id=student_id,
+                    school_id=school_id,
+                    counsellor_id=counsellor_id,
                     num_visits=num_visits
                 )
 
@@ -305,10 +305,10 @@ async def execute_query(
                     referenced_visits = longitudinal_data.get("visits", [])
 
                     # Generate narrative from multi-visit data
-                    narrative = await patient_longitudinal_service.synthesize_multi_visit_narrative(
+                    narrative = await student_longitudinal_service.synthesize_multi_visit_narrative(
                         query=request.query,
                         longitudinal_data=longitudinal_data,
-                        hospital_id=hospital_id
+                        school_id=school_id
                     )
 
                     long_end = datetime.now(timezone.utc)
@@ -317,8 +317,8 @@ async def execute_query(
 
                     # Log query to history
                     await _log_query_history(
-                        hospital_id=hospital_id,
-                        doctor_id=doctor_id,
+                        school_id=school_id,
+                        counsellor_id=counsellor_id,
                         client=client,
                         query=request.query,
                         reframed=reframed,
@@ -353,7 +353,7 @@ async def execute_query(
             longitudinal_time_ms = int((long_end - long_start).total_seconds() * 1000)
 
         # Handle comparison queries (e.g., "what changed since last visit")
-        elif classified.comparison_mode and patient_id and resolved_temporal_refs:
+        elif classified.comparison_mode and student_id and resolved_temporal_refs:
             long_start = datetime.now(timezone.utc)
             try:
                 # Get baseline extraction from temporal references
@@ -364,10 +364,10 @@ async def execute_query(
 
                 if baseline_ref and baseline_ref.resolved_extraction_id:
                     # Get changes since baseline visit
-                    longitudinal_data = await patient_longitudinal_service.get_changes_since_visit(
-                        patient_id=patient_id,
+                    longitudinal_data = await student_longitudinal_service.get_changes_since_visit(
+                        student_id=student_id,
                         baseline_extraction_id=baseline_ref.resolved_extraction_id,
-                        hospital_id=hospital_id,
+                        school_id=school_id,
                         current_extraction_id=request.extraction_id
                     )
 
@@ -380,10 +380,10 @@ async def execute_query(
                         referenced_visits = [v for v in referenced_visits if v]
 
                         # Generate narrative from longitudinal data
-                        narrative = await patient_longitudinal_service.synthesize_narrative(
+                        narrative = await student_longitudinal_service.synthesize_narrative(
                             query=request.query,
                             longitudinal_data=longitudinal_data,
-                            hospital_id=hospital_id
+                            school_id=school_id
                         )
 
                         long_end = datetime.now(timezone.utc)
@@ -392,8 +392,8 @@ async def execute_query(
 
                         # Log query to history
                         await _log_query_history(
-                            hospital_id=hospital_id,
-                            doctor_id=doctor_id,
+                            school_id=school_id,
+                            counsellor_id=counsellor_id,
                             client=client,
                             query=request.query,
                             reframed=reframed,
@@ -431,7 +431,7 @@ async def execute_query(
         # Use resolved_temporal_refs (from classifier OR regex backup) rather than
         # is_temporal_query (regex-only) so LLM-detected temporal refs also trigger this.
         elif (not is_multi_visit_query and not classified.comparison_mode
-              and patient_id and resolved_temporal_refs):
+              and student_id and resolved_temporal_refs):
             long_start = datetime.now(timezone.utc)
             try:
                 # Find the resolved extraction_id from temporal references
@@ -442,17 +442,17 @@ async def execute_query(
 
                 if target_ref and target_ref.resolved_extraction_id:
                     # Fetch data for the specific visit
-                    visit_data = await patient_longitudinal_service.get_single_visit_data(
+                    visit_data = await student_longitudinal_service.get_single_visit_data(
                         extraction_id=target_ref.resolved_extraction_id,
-                        hospital_id=hospital_id
+                        school_id=school_id
                     )
 
                     if visit_data and not visit_data.get("error"):
                         # Synthesize a focused narrative from the single visit
-                        narrative = await patient_longitudinal_service.synthesize_single_visit_narrative(
+                        narrative = await student_longitudinal_service.synthesize_single_visit_narrative(
                             query=request.query,
                             visit_data=visit_data,
-                            hospital_id=hospital_id
+                            school_id=school_id
                         )
 
                         referenced_visits = [visit_data.get("visit_info")]
@@ -464,8 +464,8 @@ async def execute_query(
 
                         # Log query to history
                         await _log_query_history(
-                            hospital_id=hospital_id,
-                            doctor_id=doctor_id,
+                            school_id=school_id,
+                            counsellor_id=counsellor_id,
                             client=client,
                             query=request.query,
                             reframed=reframed,
@@ -503,9 +503,9 @@ async def execute_query(
             # Analytics query -> Text-to-SQL (use reframed query)
             analytics_result = await analytics_engine_service.execute_analytics_query(
                 query=query_for_classification,
-                hospital_id=hospital_id,
-                doctor_id=doctor_id,
-                patient_id=patient_id
+                school_id=school_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id
             )
 
             end_time = datetime.now(timezone.utc)
@@ -513,8 +513,8 @@ async def execute_query(
 
             # Log query to history (with reframing info)
             await _log_query_history(
-                hospital_id=hospital_id,
-                doctor_id=doctor_id,
+                school_id=school_id,
+                counsellor_id=counsellor_id,
                 client=client,
                 query=request.query,
                 reframed=reframed,
@@ -564,9 +564,9 @@ async def execute_query(
             # Use reframed query for embedding search
             search_result = await semantic_search_service.search(
                 query=query_for_classification,
-                hospital_id=hospital_id,
-                doctor_id=doctor_id,
-                patient_id=patient_id,
+                school_id=school_id,
+                counsellor_id=counsellor_id,
+                student_id=student_id,
                 search_level=classified.search_level,
                 segment_codes=segment_codes_for_search,
                 consultation_type_id=request.consultation_type_id,
@@ -588,7 +588,7 @@ async def execute_query(
                     query=request.query,
                     results=results,
                     total_count=total_count,
-                    hospital_id=hospital_id,
+                    school_id=school_id,
                     prior_context=request.prior_context
                 )
 
@@ -596,8 +596,8 @@ async def execute_query(
                 total_time_ms = int((end_time - start_time).total_seconds() * 1000)
 
                 await _log_query_history(
-                    hospital_id=hospital_id,
-                    doctor_id=doctor_id,
+                    school_id=school_id,
+                    counsellor_id=counsellor_id,
                     client=client,
                     query=request.query,
                     reframed=reframed,
@@ -643,8 +643,8 @@ async def execute_query(
                 total_time_ms = int((end_time - start_time).total_seconds() * 1000)
 
                 await _log_query_history(
-                    hospital_id=hospital_id,
-                    doctor_id=doctor_id,
+                    school_id=school_id,
+                    counsellor_id=counsellor_id,
                     client=client,
                     query=request.query,
                     reframed=reframed,
@@ -732,8 +732,8 @@ async def get_query_history(
     """
     from services.supabase_service import supabase
 
-    hospital_id = client.hospital_id
-    doctor_id = None  # Could filter by user if needed
+    school_id = client.school_id
+    counsellor_id = None  # Could filter by user if needed
 
     offset = (page - 1) * limit
 
@@ -741,8 +741,8 @@ async def get_query_history(
         .select("*")\
         .order("created_at", desc=True)
 
-    if hospital_id:
-        query = query.eq("hospital_id", str(hospital_id))
+    if school_id:
+        query = query.eq("school_id", str(school_id))
 
     query = query.range(offset, offset + limit - 1)
     result = query.execute()
@@ -773,8 +773,8 @@ async def get_query_history(
     # Get total count
     count_result = supabase.table("qa_query_history")\
         .select("id", count="exact")
-    if hospital_id:
-        count_result = count_result.eq("hospital_id", str(hospital_id))
+    if school_id:
+        count_result = count_result.eq("school_id", str(school_id))
     count_result = count_result.execute()
     total_count = count_result.count or 0
 
@@ -812,8 +812,8 @@ async def export_results(
 
         # Header
         writer.writerow([
-            "Patient Name",
-            "Patient ID",
+            "Student Name",
+            "Student ID",
             "Doctor",
             "Consultation Type",
             "Date",
@@ -824,8 +824,8 @@ async def export_results(
         for result in request.results:
             writer.writerow([
                 result.patient_name or "",
-                result.patient_external_id or "",
-                result.doctor_name or "",
+                result.student_external_id or "",
+                result.counsellor_name or "",
                 result.consultation_type_name or "",
                 str(result.created_at)[:10] if result.created_at else "",
                 f"{result.similarity_score:.2f}"
@@ -858,25 +858,25 @@ async def export_results(
 
 
 # ============================================================================
-# Patient Visits (for temporal/longitudinal queries)
+# Student Visits (for temporal/longitudinal queries)
 # ============================================================================
 
-@router.get("/patients/{patient_id}/visits")
-async def get_patient_visits(
-    patient_id: str,
-    hospital_id: Optional[UUID] = Query(None, description="Hospital ID filter (used for auth context only)"),
-    doctor_id: Optional[UUID] = Query(None, description="Doctor ID filter"),
+@router.get("/students/{student_id}/visits")
+async def get_student_visits(
+    student_id: str,
+    school_id: Optional[UUID] = Query(None, description="School ID filter (used for auth context only)"),
+    counsellor_id: Optional[UUID] = Query(None, description="Counsellor ID filter"),
     consultation_type_id: Optional[UUID] = Query(None, description="Consultation type filter"),
     limit: int = Query(20, ge=1, le=100, description="Number of visits to return"),
     client: ClientContext = Depends(get_current_client)
 ):
     """
-    Get a patient's consultation visits for the Q&A visit selector.
+    Get a student's consultation visits for the Q&A visit selector.
 
-    Returns a list of visits with extraction_id, date, consultation type, and doctor.
+    Returns a list of visits with extraction_id, date, consultation type, and counsellor.
     Ordered by date DESC (most recent first).
 
-    **patient_id** can be either external patient ID (UHID) or internal UUID.
+    **student_id** can be either external student ID (UHID) or internal UUID.
 
     **Use Cases:**
     - Populate visit selector dropdown in Q&A interface
@@ -884,38 +884,38 @@ async def get_patient_visits(
     - Filter Q&A scope to a specific consultation
     """
     from services.supabase_service import supabase
-    from routers.patient_history import resolve_patient_id_or_404
+    from routers.student_history import resolve_student_id_or_404
 
     try:
-        # Use hospital from request or client context for filtering
-        effective_hospital_id = hospital_id or client.hospital_id
+        # Use school from request or client context for filtering
+        effective_school_id = school_id or client.school_id
 
-        # Resolve external patient_id (UHID) or internal UUID to database UUID
-        # Scope by hospital to prevent cross-hospital patient leakage
-        resolve_hospital = str(effective_hospital_id) if effective_hospital_id else None
-        if not resolve_hospital and doctor_id:
-            from services.supabase_service import get_doctor_hospital_id_cached
-            resolve_hospital = get_doctor_hospital_id_cached(str(doctor_id))
-        resolved_patient_id = resolve_patient_id_or_404(patient_id, hospital_id=resolve_hospital)
+        # Resolve external student_id (UHID) or internal UUID to database UUID
+        # Scope by school to prevent cross-school student leakage
+        resolve_school = str(effective_school_id) if effective_school_id else None
+        if not resolve_school and counsellor_id:
+            from services.supabase_service import get_counsellor_school_id_cached
+            resolve_school = get_counsellor_school_id_cached(str(counsellor_id))
+        resolved_student_id = resolve_student_id_or_404(student_id, school_id=resolve_school)
 
-        # Note: medical_extractions doesn't have hospital_id column
-        # Filter by hospital through doctors.hospital_id join
+        # Note: extractions doesn't have school_id column
+        # Filter by school through counsellors.school_id join
 
-        query = supabase.table("medical_extractions")\
+        query = supabase.table("extractions")\
             .select(
-                "id, created_at, consultation_type_id, doctor_id, "
-                "consultation_types(type_code, type_name), doctors!inner(full_name, hospital_id)"
+                "id, created_at, consultation_type_id, counsellor_id, "
+                "consultation_types(type_code, type_name), counsellors!inner(full_name, school_id)"
             )\
-            .eq("patient_id", str(resolved_patient_id))\
+            .eq("student_id", str(resolved_student_id))\
             .order("created_at", desc=True)\
             .limit(limit)
 
-        # Filter by hospital through doctors table
-        if effective_hospital_id:
-            query = query.eq("doctors.hospital_id", str(effective_hospital_id))
+        # Filter by school through counsellors table
+        if effective_school_id:
+            query = query.eq("counsellors.school_id", str(effective_school_id))
 
-        if doctor_id:
-            query = query.eq("doctor_id", str(doctor_id))
+        if counsellor_id:
+            query = query.eq("counsellor_id", str(counsellor_id))
 
         if consultation_type_id:
             query = query.eq("consultation_type_id", str(consultation_type_id))
@@ -925,20 +925,20 @@ async def get_patient_visits(
         visits = []
         for row in (result.data or []):
             ct = row.get("consultation_types") or {}
-            doc = row.get("doctors") or {}
+            doc = row.get("counsellors") or {}
             visits.append({
                 "extraction_id": row["id"],
                 "created_at": row["created_at"],
                 "consultation_type_id": row.get("consultation_type_id"),
                 "consultation_type_code": ct.get("type_code"),
                 "consultation_type_name": ct.get("type_name"),
-                "doctor_id": row.get("doctor_id"),
-                "doctor_name": doc.get("full_name")
+                "counsellor_id": row.get("counsellor_id"),
+                "counsellor_name": doc.get("full_name")
             })
 
         return {
             "success": True,
-            "patient_id": str(patient_id),
+            "student_id": str(student_id),
             "visits": visits,
             "count": len(visits)
         }
@@ -946,8 +946,8 @@ async def get_patient_visits(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get patient visits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get patient visits")
+        logger.error(f"Failed to get student visits: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get student visits")
 
 
 # ============================================================================
@@ -955,8 +955,8 @@ async def get_patient_visits(
 # ============================================================================
 
 async def _log_query_history(
-    hospital_id: UUID,
-    doctor_id: Optional[UUID],
+    school_id: UUID,
+    counsellor_id: Optional[UUID],
     client: ClientContext,
     query: str,
     reframed: ReframedQuery,
@@ -986,8 +986,8 @@ async def _log_query_history(
             ]
 
         supabase.table("qa_query_history").insert({
-            "hospital_id": str(hospital_id),
-            "doctor_id": str(doctor_id) if doctor_id else None,
+            "school_id": str(school_id),
+            "counsellor_id": str(counsellor_id) if counsellor_id else None,
             "user_role": client.user_role or client.client_type,
             "query_text": query,
             "query_intent": intent.value,

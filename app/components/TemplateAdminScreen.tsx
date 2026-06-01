@@ -4,23 +4,23 @@
  * Template Admin Screen
  *
  * PURPOSE:
- * 1. PRIMARY: Manage global templates (doctor_id = NULL)
- *    - Create starter templates available to all doctors
+ * 1. PRIMARY: Manage global templates (counsellor_id = NULL)
+ *    - Create starter templates available to all counsellors
  *    - Set default segment configurations for each consultation type
  *
- * 2. SECONDARY: Admin oversight of doctor templates
- *    - View all doctor-specific templates
- *    - Edit doctor templates when needed (admin override)
+ * 2. SECONDARY: Admin oversight of counsellor templates
+ *    - View all counsellor-specific templates
+ *    - Edit counsellor templates when needed (admin override)
  *
  * 3. Manage consultation types and segments
  *    - Define consultation types (OP, DISCHARGE, etc.)
  *    - Create/edit segment definitions (building blocks)
- *    - Approve doctor-requested segments
+ *    - Approve counsellor-requested segments
  *
  * ARCHITECTURE NOTE:
- * - Doctors create their own templates from DoctorTemplateConfigScreen
- * - Doctors can use global templates as starting points
- * - Templates are owned by doctors (templates.doctor_id)
+ * - Counsellors create their own templates from CounsellorTemplateConfigScreen
+ * - Counsellors can use global templates as starting points
+ * - Templates are owned by counsellors (templates.counsellor_id)
  * - No more "activation" concept - templates are directly owned
  */
 
@@ -387,17 +387,17 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
 
   // Helper function to format visibility status
   const getVisibilityStatus = (consultationType: any) => {
-    const hasDoctorRestrictions = consultationType.visible_to_doctors && consultationType.visible_to_doctors.length > 0;
-    const hasHospitalRestrictions = consultationType.visible_to_hospitals && consultationType.visible_to_hospitals.length > 0;
+    const hasCounsellorRestrictions = consultationType.visible_to_counsellors && consultationType.visible_to_counsellors.length > 0;
+    const hasSchoolRestrictions = consultationType.visible_to_schools && consultationType.visible_to_schools.length > 0;
     const hasSpecializationRestrictions = consultationType.visible_to_specializations && consultationType.visible_to_specializations.length > 0;
 
-    if (!hasDoctorRestrictions && !hasHospitalRestrictions && !hasSpecializationRestrictions) {
+    if (!hasCounsellorRestrictions && !hasSchoolRestrictions && !hasSpecializationRestrictions) {
       return { icon: '🌐', text: 'All', color: 'text-green-700 bg-green-100' };
     }
 
     const restrictions = [];
-    if (hasDoctorRestrictions) restrictions.push(`${consultationType.visible_to_doctors.length} doctors`);
-    if (hasHospitalRestrictions) restrictions.push(`${consultationType.visible_to_hospitals.length} hospitals`);
+    if (hasCounsellorRestrictions) restrictions.push(`${consultationType.visible_to_counsellors.length} counsellors`);
+    if (hasSchoolRestrictions) restrictions.push(`${consultationType.visible_to_schools.length} schools`);
     if (hasSpecializationRestrictions) restrictions.push(`${consultationType.visible_to_specializations.length} specializations`);
 
     return {
@@ -823,7 +823,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
           <div className="divide-y divide-gray-200">
             {filteredTemplates.map((template, index) => (
               <div
-                key={`${template.id}-${template.doctor_id || 'admin'}-${index}`}
+                key={`${template.id}-${template.counsellor_id || 'admin'}-${index}`}
                 className="p-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-start justify-between">
@@ -835,7 +835,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                       <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
                         {template.template_code}
                       </span>
-                      {!template.doctor_id ? (
+                      {!template.counsellor_id ? (
                         <span className="text-xs font-medium text-blue-600">
                           Common Template
                         </span>
@@ -1642,7 +1642,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
               ? (consultationTypes[0]?.type_code as ConsultationTypeCode) // Default to first CT when ALL is selected
               : (selectedConsultationType as ConsultationTypeCode)
           }
-          // Note: Don't pass userId - admin users create global templates with doctor_id = NULL
+          // Note: Don't pass userId - admin users create global templates with counsellor_id = NULL
           onSuccess={handleCreateSuccess}
           onCancel={() => setShowCreateForm(false)}
         />
@@ -1655,7 +1655,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
           consultationTypeCode={
             (editingTemplate.consultation_type_code || selectedConsultationType) as ConsultationTypeCode
           }
-          // Note: Don't pass userId - admin users edit global templates, doctor_id preserved from original
+          // Note: Don't pass userId - admin users edit global templates, counsellor_id preserved from original
           onSuccess={handleEditSuccess}
           onCancel={() => setEditingTemplate(null)}
         />
@@ -1947,7 +1947,7 @@ export function TemplateAdminScreen({ userId }: TemplateAdminScreenProps) {
                             <p className="text-sm text-gray-600 mt-1">{template.description}</p>
                           )}
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                            {template.doctor_id ? (
+                            {template.counsellor_id ? (
                               <span className="flex items-center gap-1">
                                 <span className="font-medium">Owner:</span>
                                 Counsellor-specific

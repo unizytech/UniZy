@@ -2,8 +2,8 @@
 Enhanced Supabase Database Service for Live Recording Feature
 
 This service handles all database operations for the enhanced schema:
-- Doctors management
-- Patients management
+- Counsellors management
+- Students management
 - Prompt templates with versioning
 - Recording sessions with template mapping
 - Audio chunks with automatic cleanup
@@ -44,9 +44,9 @@ logger = logging.getLogger(__name__)
 
 _CACHE_TTL_SECONDS = 28800  # 8 hours (invalidated on updates)
 
-# Cache for doctor's hospital_id (infinite TTL - manual invalidation only)
-# Doctor→hospital mapping never changes unless doctor is reassigned
-# Key: doctor_id (str), Value: hospital_id (str) or None
+# Cache for counsellor's school_id (infinite TTL - manual invalidation only)
+# Counsellor→school mapping never changes unless counsellor is reassigned
+# Key: counsellor_id (str), Value: school_id (str) or None
 _doctor_hospital_cache: Dict[str, Optional[str]] = {}
 
 # Cache for consultation_types
@@ -65,13 +65,13 @@ _template_by_code_cache: TTLCache = TTLCache(maxsize=100, ttl=_CACHE_TTL_SECONDS
 _template_by_id_cache: TTLCache = TTLCache(maxsize=100, ttl=_CACHE_TTL_SECONDS)
 
 # Cache for get_template_by_code_unified RPC
-# Key: (template_code, doctor_id, consultation_type_id), Value: result dict
+# Key: (template_code, counsellor_id, consultation_type_id), Value: result dict
 _template_unified_cache: TTLCache = TTLCache(maxsize=200, ttl=_CACHE_TTL_SECONDS)
 
 # ============================================================================
-# Hospital Settings Cache (INFINITE TTL - manual invalidation only)
+# School Settings Cache (INFINITE TTL - manual invalidation only)
 # ============================================================================
-# This cache stores per-hospital settings like FFmpeg stitching, audio quality
+# This cache stores per-school settings like FFmpeg stitching, audio quality
 # thresholds, etc. Uses infinite TTL (simple dict) since settings rarely change
 # and we have explicit invalidation when settings are updated.
 
@@ -88,28 +88,28 @@ load_dotenv()
 # Cache Invalidation Functions
 # ============================================================================
 
-def invalidate_doctor_hospital_cache(doctor_id: Optional[uuid.UUID] = None) -> int:
+def invalidate_counsellor_school_cache(counsellor_id: Optional[uuid.UUID] = None) -> int:
     """
-    Invalidate doctor_hospital cache entries.
+    Invalidate counsellor_school cache entries.
 
     Args:
-        doctor_id: Specific doctor to invalidate, or None to clear all
+        counsellor_id: Specific counsellor to invalidate, or None to clear all
 
     Returns:
         Number of entries invalidated
     """
     global _doctor_hospital_cache
-    if doctor_id:
-        cache_key = str(doctor_id)
+    if counsellor_id:
+        cache_key = str(counsellor_id)
         if cache_key in _doctor_hospital_cache:
             del _doctor_hospital_cache[cache_key]
-            logger.debug(f"[CACHE_INVALIDATE] Cleared doctor_hospital cache for doctor {str(doctor_id)[:8]}...")
+            logger.debug(f"[CACHE_INVALIDATE] Cleared counsellor_school cache for counsellor {str(counsellor_id)[:8]}...")
             return 1
         return 0
     else:
         count = len(_doctor_hospital_cache)
         _doctor_hospital_cache.clear()
-        logger.debug(f"[CACHE_INVALIDATE] Cleared all doctor_hospital cache ({count} entries)")
+        logger.debug(f"[CACHE_INVALIDATE] Cleared all counsellor_school cache ({count} entries)")
         return count
 
 
@@ -203,7 +203,7 @@ def invalidate_template_cache(
             del _template_by_code_cache[template_code]
             count += 1
         # Also clear unified cache entries with this template_code
-        # Key format is "template_code:doctor_id" (colon separator)
+        # Key format is "template_code:counsellor_id" (colon separator)
         keys_to_delete = [k for k in _template_unified_cache if k.startswith(template_code + ":")]
         for k in keys_to_delete:
             del _template_unified_cache[k]
@@ -217,6 +217,13 @@ def invalidate_template_cache(
         logger.debug(f"[CACHE_INVALIDATE] Cleared all template caches ({count} entries)")
     elif count > 0:
         logger.debug(f"[CACHE_INVALIDATE] Cleared template cache ({count} entries)")
+
+    # Keep schema-derived merge metadata in sync with template/schema changes.
+    try:
+        from services import merge_metadata_service
+        merge_metadata_service.clear(template_id)
+    except Exception as e:
+        logger.debug(f"[CACHE_INVALIDATE] merge metadata clear skipped: {e}")
 
     return count
 
@@ -263,42 +270,42 @@ def invalidate_processing_mode_cache(mode_code: Optional[str] = None) -> int:
 
 
 # ============================================================================
-# Hospital Settings Cache (Infinite TTL)
+# School Settings Cache (Infinite TTL)
 # ============================================================================
 
-def get_hospital_settings_cached(hospital_id: str) -> Dict[str, Any]:
+def get_school_settings_cached(school_id: str) -> Dict[str, Any]:
     """
-    Get hospital settings with infinite TTL cache.
+    Get school settings with infinite TTL cache.
 
-    Cache is only invalidated when settings are updated via invalidate_hospital_settings_cache().
+    Cache is only invalidated when settings are updated via invalidate_school_settings_cache().
     This provides O(1) lookup for hot-path operations like recording processing.
 
     Args:
-        hospital_id: Hospital UUID string
+        school_id: School UUID string
 
     Returns:
-        Dict with hospital settings:
+        Dict with school settings:
         - use_ffmpeg_stitching (bool): Enable FFmpeg for audio stitching
         - audio_quality_block_threshold (str): 'poor', 'fair', or 'none'
         - min_transcript_length (int): Min transcript chars to proceed
         - max_silence_ratio (float): Max silence ratio (0.0-1.0)
     """
-    if not hospital_id:
-        return _get_default_hospital_settings()
+    if not school_id:
+        return _get_default_school_settings()
 
     # Check cache first (thread-safe read)
     with _hospital_settings_lock:
-        if hospital_id in _hospital_settings_cache:
-            return _hospital_settings_cache[hospital_id]
+        if school_id in _hospital_settings_cache:
+            return _hospital_settings_cache[school_id]
 
     # Cache miss - fetch from DB
     try:
-        result = supabase.table("hospitals").select(
+        result = supabase.table("schools").select(
             "use_ffmpeg_stitching, audio_quality_block_threshold, "
             "min_transcript_length, max_silence_ratio, min_snr_db, min_rms_db, "
             "min_speech_ratio, enable_audio_validation, feature_flags, "
             "silence_thresh_dbfs, min_silence_len_ms, silence_padding_ms"
-        ).eq("id", hospital_id).single().execute()
+        ).eq("id", school_id).single().execute()
 
         if result.data:
             settings = {
@@ -316,28 +323,28 @@ def get_hospital_settings_cached(hospital_id: str) -> Dict[str, Any]:
                 "silence_padding_ms": int(result.data.get("silence_padding_ms") if result.data.get("silence_padding_ms") is not None else 200),
             }
         else:
-            settings = _get_default_hospital_settings()
+            settings = _get_default_school_settings()
 
         # Store in cache (thread-safe write)
         with _hospital_settings_lock:
-            _hospital_settings_cache[hospital_id] = settings
+            _hospital_settings_cache[school_id] = settings
 
-        logger.debug(f"[CACHE] Hospital settings cached for {hospital_id[:8]}...")
+        logger.debug(f"[CACHE] School settings cached for {school_id[:8]}...")
         return settings
 
     except Exception as e:
-        logger.warning(f"[CACHE] Failed to fetch hospital settings for {hospital_id}: {e}")
-        return _get_default_hospital_settings()
+        logger.warning(f"[CACHE] Failed to fetch school settings for {school_id}: {e}")
+        return _get_default_school_settings()
 
 
-def invalidate_hospital_settings_cache(hospital_id: Optional[str] = None) -> int:
+def invalidate_school_settings_cache(school_id: Optional[str] = None) -> int:
     """
-    Invalidate cached settings for a hospital.
+    Invalidate cached settings for a school.
 
-    Call this when hospital settings are updated via the API.
+    Call this when school settings are updated via the API.
 
     Args:
-        hospital_id: Specific hospital to invalidate, or None to clear all
+        school_id: Specific school to invalidate, or None to clear all
 
     Returns:
         Number of entries invalidated
@@ -345,21 +352,21 @@ def invalidate_hospital_settings_cache(hospital_id: Optional[str] = None) -> int
     global _hospital_settings_cache
 
     with _hospital_settings_lock:
-        if hospital_id:
-            if hospital_id in _hospital_settings_cache:
-                del _hospital_settings_cache[hospital_id]
-                logger.debug(f"[CACHE_INVALIDATE] Cleared hospital settings cache for {hospital_id[:8]}...")
+        if school_id:
+            if school_id in _hospital_settings_cache:
+                del _hospital_settings_cache[school_id]
+                logger.debug(f"[CACHE_INVALIDATE] Cleared school settings cache for {school_id[:8]}...")
                 return 1
             return 0
         else:
             count = len(_hospital_settings_cache)
             _hospital_settings_cache.clear()
-            logger.debug(f"[CACHE_INVALIDATE] Cleared all hospital settings cache ({count} entries)")
+            logger.debug(f"[CACHE_INVALIDATE] Cleared all school settings cache ({count} entries)")
             return count
 
 
 def _get_default_feature_flags() -> Dict[str, bool]:
-    """Return default feature flags for hospitals."""
+    """Return default feature flags for schools."""
     return {
         "care_plan": True,
         "merge": True,
@@ -380,8 +387,8 @@ def _get_default_feature_flags() -> Dict[str, bool]:
     }
 
 
-def _get_default_hospital_settings() -> Dict[str, Any]:
-    """Return default hospital settings."""
+def _get_default_school_settings() -> Dict[str, Any]:
+    """Return default school settings."""
     return {
         "use_ffmpeg_stitching": False,
         "audio_quality_block_threshold": "poor",
@@ -557,52 +564,52 @@ except Exception as e:
 
 
 # ============================================================================
-# Doctors Operations
+# Counsellors Operations
 # ============================================================================
 
-def create_doctor(
+def create_counsellor(
     email: str,
     full_name: str,
     specialization: Optional[str] = None,
     default_template: Optional[str] = 'SMALL',
 ) -> Dict[str, Any]:
-    """Create a new doctor profile"""
+    """Create a new counsellor profile"""
     data = {
         "email": email,
         "full_name": full_name,
         "specialization": specialization,
         "default_template": default_template,
     }
-    response = supabase.table("doctors").insert(data).execute()
+    response = supabase.table("counsellors").insert(data).execute()
     return response.data[0] if response.data else {}
 
 
-def get_doctor_by_email(email: str) -> Optional[Dict[str, Any]]:
-    """Get doctor by email"""
-    response = supabase.table("doctors").select("*").eq("email", email).execute()
+def get_counsellor_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """Get counsellor by email"""
+    response = supabase.table("counsellors").select("*").eq("email", email).execute()
     return response.data[0] if response.data else None
 
 
-def get_doctor_by_id(doctor_id: uuid.UUID) -> Optional[Dict[str, Any]]:
-    """Get doctor by ID"""
-    response = supabase.table("doctors").select("*").eq("id", str(doctor_id)).execute()
+def get_counsellor_by_id(counsellor_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    """Get counsellor by ID"""
+    response = supabase.table("counsellors").select("*").eq("id", str(counsellor_id)).execute()
     return response.data[0] if response.data else None
 
 
-def get_doctor_hospital_id_cached(doctor_id: uuid.UUID) -> Optional[str]:
+def get_counsellor_school_id_cached(counsellor_id: uuid.UUID) -> Optional[str]:
     """
-    Get doctor's hospital_id with caching.
+    Get counsellor's school_id with caching.
 
-    Uses in-memory cache with infinite TTL (manual invalidation via invalidate_doctor_hospital_cache).
+    Uses in-memory cache with infinite TTL (manual invalidation via invalidate_counsellor_school_cache).
     This is called frequently during extraction pipeline for medicine/investigation lookups.
 
     Args:
-        doctor_id: Doctor's UUID
+        counsellor_id: Counsellor's UUID
 
     Returns:
-        Hospital ID string or None
+        School ID string or None
     """
-    cache_key = str(doctor_id)
+    cache_key = str(counsellor_id)
 
     # Check cache first
     if cache_key in _doctor_hospital_cache:
@@ -611,80 +618,80 @@ def get_doctor_hospital_id_cached(doctor_id: uuid.UUID) -> Optional[str]:
     # Cache miss - query database
     try:
         response = retry_on_network_error(
-            lambda: supabase.table("doctors")
-            .select("hospital_id")
+            lambda: supabase.table("counsellors")
+            .select("school_id")
             .eq("id", cache_key)
             .limit(1)
             .execute()
         )
-        hospital_id = response.data[0].get("hospital_id") if response.data else None
-        _doctor_hospital_cache[cache_key] = hospital_id
-        return hospital_id
+        school_id = response.data[0].get("school_id") if response.data else None
+        _doctor_hospital_cache[cache_key] = school_id
+        return school_id
     except Exception as e:
-        logger.error(f"Error getting doctor hospital_id: {type(e).__name__}")
+        logger.error(f"Error getting counsellor school_id: {type(e).__name__}")
         return None
 
 
-def update_doctor_last_login(doctor_id: uuid.UUID) -> None:
-    """Update doctor's last login timestamp"""
-    supabase.table("doctors").update({
+def update_counsellor_last_login(counsellor_id: uuid.UUID) -> None:
+    """Update counsellor's last login timestamp"""
+    supabase.table("counsellors").update({
         "last_login_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", str(doctor_id)).execute()
+    }).eq("id", str(counsellor_id)).execute()
 
 
 # ============================================================================
-# Patients Operations (Optional)
+# Students Operations (Optional)
 # ============================================================================
 
-def create_or_get_patient(
-    patient_id: str,
+def create_or_get_student(
+    student_id: str,
     full_name: Optional[str] = None,
     ip_id: Optional[str] = None,
     op_id: Optional[str] = None,
-    hospital_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    school_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Create patient if doesn't exist, otherwise return existing (with retry logic).
-    Auto-links doctor to patient's doctor_ids array if not already present.
+    Create student if doesn't exist, otherwise return existing (with retry logic).
+    Auto-links counsellor to student's counsellor_ids array if not already present.
 
     Args:
-        patient_id: External patient identifier (e.g., MRN)
-        full_name: Patient's full name (optional)
+        student_id: External student identifier (e.g., MRN)
+        full_name: Student's full name (optional)
         ip_id: Inpatient visit/admission ID (optional, from EHR)
         op_id: Outpatient visit ID (optional, from EHR)
-        hospital_id: Hospital UUID for scoped patient isolation (optional)
-        doctor_id: Doctor UUID to auto-link to patient (optional)
+        school_id: School UUID for scoped student isolation (optional)
+        counsellor_id: Counsellor UUID to auto-link to student (optional)
 
     Returns:
-        Patient record dict
+        Student record dict
     """
-    # Check if exists (scoped by hospital_id when provided)
-    def _check_patient():
-        query = supabase.table("patients").select("*").eq("patient_id", patient_id)
-        if hospital_id:
-            query = query.eq("hospital_id", hospital_id)
+    # Check if exists (scoped by school_id when provided)
+    def _check_student():
+        query = supabase.table("students").select("*").eq("student_id", student_id)
+        if school_id:
+            query = query.eq("school_id", school_id)
         else:
-            query = query.is_("hospital_id", "null")
+            query = query.is_("school_id", "null")
         return query.execute()
 
-    response = retry_on_network_error(_check_patient)
+    response = retry_on_network_error(_check_student)
 
     if response.data:
         return response.data[0]
 
     # Create new
     data = {
-        "patient_id": patient_id,
+        "student_id": student_id,
         "full_name": full_name,
     }
 
-    if hospital_id:
-        data["hospital_id"] = hospital_id
+    if school_id:
+        data["school_id"] = school_id
 
-    # Auto-link doctor on creation
-    if doctor_id:
-        data["doctor_ids"] = [doctor_id]
+    # Auto-link counsellor on creation
+    if counsellor_id:
+        data["counsellor_ids"] = [counsellor_id]
 
     # Add optional IP/OP IDs if provided
     if ip_id:
@@ -692,42 +699,42 @@ def create_or_get_patient(
     if op_id:
         data["op_id"] = op_id
 
-    def _create_patient():
-        response = supabase.table("patients").insert(data).execute()
+    def _create_student():
+        response = supabase.table("students").insert(data).execute()
         return response
 
     try:
-        response = retry_on_network_error(_create_patient)
+        response = retry_on_network_error(_create_student)
         return response.data[0] if response.data else {}
     except Exception as e:
-        # Race condition: another request created the patient between our check and insert
+        # Race condition: another request created the student between our check and insert
         if "23505" in str(e):
-            response = retry_on_network_error(_check_patient)
+            response = retry_on_network_error(_check_student)
             if response.data:
                 return response.data[0]
         raise
 
 
-def link_doctor_to_patient(patient_uuid: str, doctor_id: str):
+def link_counsellor_to_student(patient_uuid: str, counsellor_id: str):
     """
-    Append doctor_id to patient's doctor_ids array if not already present.
+    Append counsellor_id to student's counsellor_ids array if not already present.
     Sync function — call via asyncio.create_task(asyncio.to_thread(...)) for fire-and-forget.
     """
     try:
-        result = supabase.table("patients").select("doctor_ids").eq("id", patient_uuid).execute()
+        result = supabase.table("students").select("counsellor_ids").eq("id", patient_uuid).execute()
         if not result.data:
             return
 
-        current_ids = result.data[0].get("doctor_ids") or []
-        if doctor_id in current_ids:
+        current_ids = result.data[0].get("counsellor_ids") or []
+        if counsellor_id in current_ids:
             return  # Already linked
 
-        current_ids.append(doctor_id)
-        supabase.table("patients").update({"doctor_ids": current_ids}).eq("id", patient_uuid).execute()
+        current_ids.append(counsellor_id)
+        supabase.table("students").update({"counsellor_ids": current_ids}).eq("id", patient_uuid).execute()
         from services.log_sanitizer import truncate_id as _tid
-        logger.info(f"Auto-linked doctor {_tid(doctor_id)} to patient {_tid(patient_uuid)}")
+        logger.info(f"Auto-linked counsellor {_tid(counsellor_id)} to student {_tid(patient_uuid)}")
     except Exception as e:
-        logger.warning(f"Failed to auto-link doctor to patient: {e}")
+        logger.warning(f"Failed to auto-link counsellor to student: {e}")
 
 
 # ============================================================================
@@ -736,8 +743,8 @@ def link_doctor_to_patient(patient_uuid: str, doctor_id: str):
 
 def create_recording_session(
     correlation_id: uuid.UUID,
-    doctor_id: str,
-    patient_id: str,
+    counsellor_id: str,
+    student_id: str,
     template_code: str,
     processing_mode: str,
     extraction_mode: Optional[str],
@@ -747,7 +754,7 @@ def create_recording_session(
     consultation_type_id: Optional[str] = None,
     template_name: Optional[str] = None,
     session_context_json: Optional[Dict[str, Any]] = None,
-    nurse_id: Optional[str] = None,
+    assistant_id: Optional[str] = None,
     recording_metadata_json: Optional[Dict[str, Any]] = None,
     api_client_id: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -756,8 +763,8 @@ def create_recording_session(
 
     Args:
         correlation_id: Unique session identifier
-        doctor_id: Doctor's UUID
-        patient_id: Patient identifier (external ID like MRN)
+        counsellor_id: Counsellor's UUID
+        student_id: Student identifier (external ID like MRN)
         template_code: Template code for database lookups (unique identifier) or 'TRANSCRIPT_ONLY'
         processing_mode: Processing mode code ('fast', 'default', 'thorough', etc.)
         extraction_mode: Extraction mode ('core', 'additional', 'full') or None
@@ -769,8 +776,8 @@ def create_recording_session(
         session_context_json: Lean session context with template references (~1-2KB).
             Contains template_id, prompt/schema hashes, has_preassembled flag.
             Eliminates redundant DB queries during /chunk and background processing.
-        nurse_id: Optional nurse UUID who initiated/managed the recording session
-        recording_metadata_json: Additional metadata (patient info, doctor info, custom fields)
+        assistant_id: Optional assistant UUID who initiated/managed the recording session
+        recording_metadata_json: Additional metadata (student info, counsellor info, custom fields)
             that flows through to /status response. Stored as JSONB.
         api_client_id: Optional API client UUID that initiated this session (for usage tracking)
     """
@@ -781,25 +788,25 @@ def create_recording_session(
         ip_id = recording_metadata_json.get('ip_id')
         op_id = recording_metadata_json.get('op_id')
 
-    # Derive hospital_id from doctor for patient scoping
-    hospital_id = get_doctor_hospital_id_cached(doctor_id)
+    # Derive school_id from counsellor for student scoping
+    school_id = get_counsellor_school_id_cached(counsellor_id)
 
-    # Auto-create or get patient record by external patient_id
-    patient_record = create_or_get_patient(
-        patient_id=patient_id,
+    # Auto-create or get student record by external student_id
+    student_record = create_or_get_student(
+        student_id=student_id,
         full_name=None,  # Frontend doesn't send full_name yet
         ip_id=ip_id,
         op_id=op_id,
-        hospital_id=hospital_id,
-        doctor_id=doctor_id,
+        school_id=school_id,
+        counsellor_id=counsellor_id,
     )
-    patient_uuid = patient_record['id']
+    patient_uuid = student_record['id']
 
     data = {
         "correlation_id": str(correlation_id),
-        "doctor_id": doctor_id,
-        "patient_id": patient_uuid,  # Link to patients table UUID
-        "patient_identifier": patient_id,  # Keep original external ID for reference
+        "counsellor_id": counsellor_id,
+        "student_id": patient_uuid,  # Link to students table UUID
+        "student_identifier": student_id,  # Keep original external ID for reference
         "template_code": template_code,  # Unique identifier for template lookups
         "template_name": template_name or template_code,  # Display name (fallback to code if not provided)
         "processing_mode": processing_mode,
@@ -812,9 +819,9 @@ def create_recording_session(
         "session_context_json": session_context_json or {},  # Lean session context (~1-2KB)
     }
 
-    # Add nurse_id if provided
-    if nurse_id:
-        data["nurse_id"] = nurse_id
+    # Add assistant_id if provided
+    if assistant_id:
+        data["assistant_id"] = assistant_id
 
     # Add api_client_id if provided (for usage tracking)
     if api_client_id:
@@ -832,28 +839,28 @@ def create_recording_session(
     session = response.data[0] if response.data else {}
 
     from services.log_sanitizer import truncate_id as _tid
-    logger.info(f"Created recording session: {session.get('id')} for doctor: {_tid(str(doctor_id))}")
+    logger.info(f"Created recording session: {session.get('id')} for counsellor: {_tid(str(counsellor_id))}")
 
     return session
 
 
 def create_minimal_recording_session(
     correlation_id: uuid.UUID,
-    doctor_id: str,
-    patient_id: str,
+    counsellor_id: str,
+    student_id: str,
     template_code: Optional[str],
     processing_mode: str,
     extraction_mode: Optional[str],
     chunk_duration_seconds: int = 10,
     template_name: Optional[str] = None,
-    nurse_id: Optional[str] = None,
+    assistant_id: Optional[str] = None,
     recording_metadata_json: Optional[Dict[str, Any]] = None,
     api_client_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a minimal recording session for fast /start response.
 
-    Only does patient lookup + session insert (1-2 DB calls).
+    Only does student lookup + session insert (1-2 DB calls).
     Heavy validation (template lookup, processing mode config, session context)
     is deferred to a background task that updates the session afterward.
 
@@ -867,25 +874,25 @@ def create_minimal_recording_session(
         ip_id = recording_metadata_json.get('ip_id')
         op_id = recording_metadata_json.get('op_id')
 
-    # Derive hospital_id from doctor for patient scoping
-    hospital_id = get_doctor_hospital_id_cached(doctor_id)
+    # Derive school_id from counsellor for student scoping
+    school_id = get_counsellor_school_id_cached(counsellor_id)
 
-    # Auto-create or get patient record by external patient_id
-    patient_record = create_or_get_patient(
-        patient_id=patient_id,
+    # Auto-create or get student record by external student_id
+    student_record = create_or_get_student(
+        student_id=student_id,
         full_name=None,
         ip_id=ip_id,
         op_id=op_id,
-        hospital_id=hospital_id,
-        doctor_id=doctor_id,
+        school_id=school_id,
+        counsellor_id=counsellor_id,
     )
-    patient_uuid = patient_record['id']
+    patient_uuid = student_record['id']
 
     data = {
         "correlation_id": str(correlation_id),
-        "doctor_id": doctor_id,
-        "patient_id": patient_uuid,
-        "patient_identifier": patient_id,
+        "counsellor_id": counsellor_id,
+        "student_id": patient_uuid,
+        "student_identifier": student_id,
         "template_code": template_code,
         "template_name": template_name or template_code or "Unknown",
         "processing_mode": processing_mode,
@@ -895,9 +902,9 @@ def create_minimal_recording_session(
         "validation_status": "pending",
     }
 
-    # Add nurse_id if provided
-    if nurse_id:
-        data["nurse_id"] = nurse_id
+    # Add assistant_id if provided
+    if assistant_id:
+        data["assistant_id"] = assistant_id
 
     # Add api_client_id if provided (for usage tracking)
     if api_client_id:
@@ -915,7 +922,7 @@ def create_minimal_recording_session(
     session = response.data[0] if response.data else {}
 
     from services.log_sanitizer import truncate_id as _tid
-    logger.info(f"Created minimal recording session: {session.get('id')} for doctor: {_tid(str(doctor_id))} (validation_status=pending)")
+    logger.info(f"Created minimal recording session: {session.get('id')} for counsellor: {_tid(str(counsellor_id))} (validation_status=pending)")
 
     return session
 
@@ -1930,8 +1937,8 @@ def create_consultation_type(
     icon_name: Optional[str] = None,
     color_code: Optional[str] = None,
     clone_from_consultation_type_id: Optional[str] = None,
-    visible_to_hospitals: Optional[List[str]] = None,
-    visible_to_doctors: Optional[List[str]] = None,
+    visible_to_schools: Optional[List[str]] = None,
+    visible_to_counsellors: Optional[List[str]] = None,
     visible_to_specializations: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
@@ -1946,8 +1953,8 @@ def create_consultation_type(
         icon_name: Icon name for UI display
         color_code: Color code for UI theme (e.g., '#EF4444')
         clone_from_consultation_type_id: Optional UUID of consultation type to clone segments from
-        visible_to_hospitals: List of hospital UUIDs (optional - restricts visibility to these hospitals)
-        visible_to_doctors: List of doctor UUIDs (optional - restricts visibility to these doctors)
+        visible_to_schools: List of school UUIDs (optional - restricts visibility to these schools)
+        visible_to_counsellors: List of counsellor UUIDs (optional - restricts visibility to these counsellors)
         visible_to_specializations: List of specializations (optional - restricts visibility to these specializations)
 
     Visibility Logic:
@@ -1982,8 +1989,8 @@ def create_consultation_type(
         "icon_name": icon_name,
         "color_code": color_code,
         # Visibility controls (optional - if all empty/None, everyone can see it)
-        "visible_to_hospitals": visible_to_hospitals if visible_to_hospitals else None,
-        "visible_to_doctors": visible_to_doctors if visible_to_doctors else None,
+        "visible_to_schools": visible_to_schools if visible_to_schools else None,
+        "visible_to_counsellors": visible_to_counsellors if visible_to_counsellors else None,
         "visible_to_specializations": visible_to_specializations if visible_to_specializations else None,
         # Default feature toggles for NEW consultation types (disabled by default)
         # Admins can enable these after creation via TemplateAdminScreen
@@ -2084,7 +2091,7 @@ def create_consultation_type(
 
 def get_segment_definitions(
     consultation_type_id: uuid.UUID,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     template_code: Optional[str] = None,
     mode: str = "full",
 ) -> Dict[str, Any]:
@@ -2098,14 +2105,14 @@ def get_segment_definitions(
 
     Args:
         consultation_type_id: Consultation type ID (required)
-        doctor_id: User ID for personalized configuration (None = default config)
+        counsellor_id: User ID for personalized configuration (None = default config)
         template_code: Template code for template-specific configuration (optional, unique identifier)
         mode: 'core' | 'additional' | 'full'
     """
     # =========================================================================
     # TEMPLATE LOOKUP STRATEGY:
-    # 1. If doctor_id + template_code: Try unified lookup (owned → shared → global)
-    # 2. If doctor_id only: Try default template for doctor
+    # 1. If counsellor_id + template_code: Try unified lookup (owned → shared → global)
+    # 2. If counsellor_id only: Try default template for counsellor
     # 3. If template_code only: Try global template lookup
     # 4. Fallback: Use consultation_type_segments
     # =========================================================================
@@ -2113,10 +2120,10 @@ def get_segment_definitions(
     active_template_id = None
     use_template_segments = False
 
-    if doctor_id and template_code:
-        # Case 1: Doctor + specific template requested
+    if counsellor_id and template_code:
+        # Case 1: Counsellor + specific template requested
         # Use unified lookup (checks owned, shared, global)
-        active_template_record = get_active_template_by_code_cached(doctor_id, template_code)
+        active_template_record = get_active_template_by_code_cached(counsellor_id, template_code)
 
         if active_template_record:
             active_template_id = uuid.UUID(active_template_record["id"])
@@ -2128,18 +2135,18 @@ def get_segment_definitions(
         else:
             # Template not found - fall through to consultation_type_segments
             logger.warning(
-                f"[GET_SEGMENT_DEFINITIONS] Template '{template_code}' not found for doctor {doctor_id}, "
+                f"[GET_SEGMENT_DEFINITIONS] Template '{template_code}' not found for counsellor {counsellor_id}, "
                 f"falling back to consultation_type_segments"
             )
 
-    elif doctor_id and not template_code:
-        # Case 2: Doctor but no specific template - look for global template for this consultation type
-        # Query for global templates (doctor_id IS NULL) for the given consultation_type_id
+    elif counsellor_id and not template_code:
+        # Case 2: Counsellor but no specific template - look for global template for this consultation type
+        # Query for global templates (counsellor_id IS NULL) for the given consultation_type_id
         global_template_response = (
             supabase.table("templates")
             .select("id, template_code, template_name")
             .eq("consultation_type_id", str(consultation_type_id))
-            .is_("doctor_id", "null")
+            .is_("counsellor_id", "null")
             .eq("is_active", True)
             .order("is_default", desc=True)  # Prefer default global template
             .limit(1)
@@ -2160,11 +2167,11 @@ def get_segment_definitions(
                 f"falling back to consultation_type_segments"
             )
 
-    elif not doctor_id and template_code:
-        # Case 3: No doctor but template_code provided - check for global template
+    elif not counsellor_id and template_code:
+        # Case 3: No counsellor but template_code provided - check for global template
         global_template = get_template_by_code(template_code)
 
-        if global_template and global_template.get('doctor_id') is None:
+        if global_template and global_template.get('counsellor_id') is None:
             active_template_id = uuid.UUID(global_template["id"])
             use_template_segments = True
             logger.debug(
@@ -2176,7 +2183,7 @@ def get_segment_definitions(
                 f"falling back to consultation_type_segments"
             )
 
-    # else: Case 4 - No doctor_id, no template_code → use consultation_type_segments (below)
+    # else: Case 4 - No counsellor_id, no template_code → use consultation_type_segments (below)
 
     # Get segment configurations from template_segments table
     result = []
@@ -2352,16 +2359,16 @@ def get_processing_mode(mode_code: str) -> Dict[str, Any]:
 
 
 def get_default_template_id(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     consultation_type_id: uuid.UUID
 ) -> Optional[uuid.UUID]:
     """
-    Get default active template for a doctor and consultation type.
+    Get default active template for a counsellor and consultation type.
 
     Looks up template with is_active=TRUE and is_default=TRUE.
 
     Args:
-        doctor_id: Doctor's UUID
+        counsellor_id: Counsellor's UUID
         consultation_type_id: Consultation type UUID
 
     Returns:
@@ -2371,7 +2378,7 @@ def get_default_template_id(
     response = (
         supabase.table("templates")
         .select("id")
-        .eq("doctor_id", str(doctor_id))
+        .eq("counsellor_id", str(counsellor_id))
         .eq("consultation_type_id", str(consultation_type_id))
         .eq("is_active", True)
         .eq("is_default", True)
@@ -2385,11 +2392,11 @@ def get_default_template_id(
 
 
 def get_active_template_by_code(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     template_code: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Get active template by doctor ID and template code.
+    Get active template by counsellor ID and template code.
 
     Returns full template info including consultation_type_id.
     Uses unified RPC function that checks owned, shared, and global templates
@@ -2398,7 +2405,7 @@ def get_active_template_by_code(
     Priority: 1=owned, 2=shared, 3=global
 
     Args:
-        doctor_id: Doctor's UUID
+        counsellor_id: Counsellor's UUID
         template_code: Template code to look up (unique identifier)
 
     Returns:
@@ -2408,7 +2415,7 @@ def get_active_template_by_code(
     response = supabase.rpc(
         'get_template_by_code_unified',
         {
-            'p_doctor_id': str(doctor_id),
+            'p_counsellor_id': str(counsellor_id),
             'p_template_code': template_code
         }
     ).execute()
@@ -2435,28 +2442,28 @@ def get_active_template_by_code(
         }
 
     from services.log_sanitizer import truncate_id as _tid
-    logger.warning(f"[GET_ACTIVE_TEMPLATE] Template with code '{template_code}' not found for doctor {_tid(str(doctor_id))} (checked owned, shared, and global via unified RPC)")
+    logger.warning(f"[GET_ACTIVE_TEMPLATE] Template with code '{template_code}' not found for counsellor {_tid(str(counsellor_id))} (checked owned, shared, and global via unified RPC)")
     return None
 
 
 def get_active_template_by_code_cached(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     template_code: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Get active template by doctor ID and template code with caching.
+    Get active template by counsellor ID and template code with caching.
 
     Uses 8-hour TTL cache to reduce database queries.
-    Cache key: (template_code, doctor_id)
+    Cache key: (template_code, counsellor_id)
 
     Args:
-        doctor_id: Doctor's UUID
+        counsellor_id: Counsellor's UUID
         template_code: Template code to look up
 
     Returns:
         Dict with template info or None
     """
-    cache_key = f"{template_code}:{doctor_id}"
+    cache_key = f"{template_code}:{counsellor_id}"
 
     # Check cache first
     if cache_key in _template_unified_cache:
@@ -2464,7 +2471,7 @@ def get_active_template_by_code_cached(
         return _template_unified_cache[cache_key]
 
     # Cache miss - call original function
-    result = get_active_template_by_code(doctor_id, template_code)
+    result = get_active_template_by_code(counsellor_id, template_code)
     _template_unified_cache[cache_key] = result
 
     return result
@@ -2481,8 +2488,8 @@ def get_all_processing_modes() -> List[Dict[str, Any]]:
 
 # ============================================================================
 # REMOVED: doctor_segment_configurations functions
-# Doctor segment customization now handled via template cloning:
-# - Doctor clones template → creates new templates record
+# Counsellor segment customization now handled via template cloning:
+# - Counsellor clones template → creates new templates record
 # - Configuration stored in template_segments (linked to new template)
 # - No need for separate doctor_segment_configurations table
 # ============================================================================
@@ -2492,7 +2499,7 @@ def get_all_processing_modes() -> List[Dict[str, Any]]:
 
 def get_templates(
     consultation_type_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     filter_type: Optional[str] = None,
     include_view_access: bool = False  # Deprecated, kept for API compatibility (ignored)
 ) -> List[Dict[str, Any]]:
@@ -2500,16 +2507,16 @@ def get_templates(
     Get available segment templates.
 
     Filter Types:
-    - 'admin': Only templates created by admin (doctor_id = NULL)
-    - 'doctor': Doctor's templates (junction table with is_active=True + owned + global)
-    - 'all': All active templates (admin + doctor-owned, ignores doctor_id)
-    - None: Defaults to 'doctor' behavior if doctor_id provided, else all templates
+    - 'admin': Only templates created by admin (counsellor_id = NULL)
+    - 'doctor': Counsellor's templates (junction table with is_active=True + owned + global)
+    - 'all': All active templates (admin + counsellor-owned, ignores counsellor_id)
+    - None: Defaults to 'doctor' behavior if counsellor_id provided, else all templates
 
-    If doctor_id is NOT provided and no filter_type, returns all templates (admin view).
+    If counsellor_id is NOT provided and no filter_type, returns all templates (admin view).
 
     Args:
         consultation_type_id: Filter by consultation type (None = all consultation types)
-        doctor_id: Optional doctor UUID for junction table filtering
+        counsellor_id: Optional counsellor UUID for junction table filtering
         filter_type: Optional filter ('admin', 'doctor', 'all')
         include_view_access: Deprecated, ignored. Kept for API compatibility.
 
@@ -2517,14 +2524,14 @@ def get_templates(
         List of templates based on filter criteria
     """
     # Define columns for listing templates (excludes internal fields like assembled_full_prompt, assembled_schema_json)
-    TEMPLATE_LIST_COLUMNS = "id, template_code, template_name, description, consultation_type_id, is_active, is_default, use_case, specialization, hospital_id, doctor_id, estimated_extraction_time_seconds, created_at, updated_at"
+    TEMPLATE_LIST_COLUMNS = "id, template_code, template_name, description, consultation_type_id, is_active, is_default, use_case, specialization, school_id, counsellor_id, estimated_extraction_time_seconds, created_at, updated_at"
 
     # Handle filter_type for admin screen
     if filter_type == 'admin':
-        # Admin templates only (doctor_id = NULL)
+        # Admin templates only (counsellor_id = NULL)
         query = supabase.table("templates")\
             .select(TEMPLATE_LIST_COLUMNS)\
-            .is_("doctor_id", "null")\
+            .is_("counsellor_id", "null")\
             .eq("is_active", True)
 
         if consultation_type_id is not None:
@@ -2536,21 +2543,21 @@ def get_templates(
         return response.data if response.data else []
 
     elif filter_type == 'doctor':
-        # If doctor_id is provided: Doctor's activated templates from junction + owned + global
-        # If doctor_id is NOT provided (admin view): ALL doctor-owned templates (doctor_id IS NOT NULL)
+        # If counsellor_id is provided: Counsellor's activated templates from junction + owned + global
+        # If counsellor_id is NOT provided (admin view): ALL counsellor-owned templates (counsellor_id IS NOT NULL)
 
-        if doctor_id is None:
-            # Admin view: Show ALL doctor-owned templates (where doctor_id IS NOT NULL)
-            logger.debug("[GET_TEMPLATES] filter_type='doctor' without doctor_id: Returning all doctor-owned templates (admin view)")
+        if counsellor_id is None:
+            # Admin view: Show ALL counsellor-owned templates (where counsellor_id IS NOT NULL)
+            logger.debug("[GET_TEMPLATES] filter_type='doctor' without counsellor_id: Returning all counsellor-owned templates (admin view)")
             query = supabase.table("templates")\
                 .select(TEMPLATE_LIST_COLUMNS)\
                 .eq("is_active", True)\
-                .not_.is_("doctor_id", "null")  # Only doctor-owned templates
+                .not_.is_("counsellor_id", "null")  # Only counsellor-owned templates
 
             # Filter by consultation type if provided
             if consultation_type_id is not None:
                 query = query.or_(f"consultation_type_id.is.null,consultation_type_id.eq.{str(consultation_type_id)}")
-            # If consultation_type_id is None, return ALL doctor-owned templates
+            # If consultation_type_id is None, return ALL counsellor-owned templates
 
             response = query.order("template_name").execute()
             templates = response.data if response.data else []
@@ -2559,26 +2566,26 @@ def get_templates(
             for t in templates:
                 t['source'] = 'doctor'
 
-            logger.debug(f"[GET_TEMPLATES] Admin view (doctor-owned): Retrieved {len(templates)} templates")
+            logger.debug(f"[GET_TEMPLATES] Admin view (counsellor-owned): Retrieved {len(templates)} templates")
             return templates
 
         templates = []
 
-        # Run all 3 independent queries in parallel for doctor's templates
+        # Run all 3 independent queries in parallel for counsellor's templates
         def _fetch_junction():
-            doctor_templates_query = (
-                supabase.table("doctor_templates")
+            counsellor_templates_query = (
+                supabase.table("counsellor_templates")
                 .select(f"template_id, is_active, templates({TEMPLATE_LIST_COLUMNS})")
-                .eq("doctor_id", str(doctor_id))
+                .eq("counsellor_id", str(counsellor_id))
                 .eq("is_active", True)
             )
-            return doctor_templates_query.execute()
+            return counsellor_templates_query.execute()
 
         def _fetch_owned():
             owned_query = (
                 supabase.table("templates")
                 .select(TEMPLATE_LIST_COLUMNS)
-                .eq("doctor_id", str(doctor_id))
+                .eq("counsellor_id", str(counsellor_id))
                 .eq("is_active", True)
             )
             if consultation_type_id is not None:
@@ -2589,7 +2596,7 @@ def get_templates(
             global_query = (
                 supabase.table("templates")
                 .select(TEMPLATE_LIST_COLUMNS)
-                .is_("doctor_id", "null")
+                .is_("counsellor_id", "null")
                 .eq("is_active", True)
             )
             if consultation_type_id is not None:
@@ -2601,13 +2608,13 @@ def get_templates(
         owned_future = _service_executor.submit(_fetch_owned)
         global_future = _service_executor.submit(_fetch_global)
 
-        doctor_templates_response = junction_future.result()
+        counsellor_templates_response = junction_future.result()
         owned_response = owned_future.result()
         global_response = global_future.result()
 
         # Process junction table results
-        if doctor_templates_response.data:
-            for dt in doctor_templates_response.data:
+        if counsellor_templates_response.data:
+            for dt in counsellor_templates_response.data:
                 template = dt.get("templates")
                 if template:
                     if not template.get("is_active", True):
@@ -2640,14 +2647,14 @@ def get_templates(
                 seen_ids.add(template_id)
                 unique_templates.append(template)
 
-        logger.debug(f"[GET_TEMPLATES] filter_type='doctor', doctor_id={doctor_id}, consultation_type_id={consultation_type_id}, templates={len(unique_templates)}")
+        logger.debug(f"[GET_TEMPLATES] filter_type='doctor', counsellor_id={counsellor_id}, consultation_type_id={consultation_type_id}, templates={len(unique_templates)}")
         return unique_templates
 
     elif filter_type == 'all':
-        # Both admin and doctor-owned templates (for admin view)
-        # Query ALL templates directly instead of using filter_type='doctor' (which requires doctor_id)
+        # Both admin and counsellor-owned templates (for admin view)
+        # Query ALL templates directly instead of using filter_type='doctor' (which requires counsellor_id)
         query = supabase.table("templates")\
-            .select("id, template_code, template_name, description, consultation_type_id, is_active, is_default, use_case, specialization, hospital_id, doctor_id, estimated_extraction_time_seconds")\
+            .select("id, template_code, template_name, description, consultation_type_id, is_active, is_default, use_case, specialization, school_id, counsellor_id, estimated_extraction_time_seconds")\
             .eq("is_active", True)
 
         # Filter by consultation type if provided
@@ -2660,31 +2667,31 @@ def get_templates(
 
         # Mark source for each template
         for t in templates:
-            if t.get('doctor_id') is None:
+            if t.get('counsellor_id') is None:
                 t['source'] = 'admin'
             else:
                 t['source'] = 'doctor'
 
-        logger.debug(f"[GET_TEMPLATES] filter_type='all': Retrieved {len(templates)} templates (admin + doctor-owned)")
+        logger.debug(f"[GET_TEMPLATES] filter_type='all': Retrieved {len(templates)} templates (admin + counsellor-owned)")
         return templates
 
     # Default behavior when no filter_type specified:
-    # - If doctor_id provided: Use junction table logic (same as filter_type='doctor')
-    # - If no doctor_id: Show all templates (admin view)
-    if doctor_id is not None:
-        # Use junction table logic for doctor access
+    # - If counsellor_id provided: Use junction table logic (same as filter_type='doctor')
+    # - If no counsellor_id: Show all templates (admin view)
+    if counsellor_id is not None:
+        # Use junction table logic for counsellor access
         # This replaces the old doctor_visible_templates VIEW which didn't respect
-        # the doctor_templates junction table
-        logger.debug(f"[GET_TEMPLATES] No filter_type specified with doctor_id={doctor_id}, using junction table logic (filter_type='doctor')")
+        # the counsellor_templates junction table
+        logger.debug(f"[GET_TEMPLATES] No filter_type specified with counsellor_id={counsellor_id}, using junction table logic (filter_type='doctor')")
         return get_templates(
             consultation_type_id=consultation_type_id,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             filter_type='doctor',
         )
     else:
-        # Admin view: show all templates (both admin and doctor-owned)
+        # Admin view: show all templates (both admin and counsellor-owned)
         query = supabase.table("templates")\
-            .select("id, template_code, template_name, description, consultation_type_id, is_active, is_default, use_case, specialization, hospital_id, doctor_id, estimated_extraction_time_seconds")\
+            .select("id, template_code, template_name, description, consultation_type_id, is_active, is_default, use_case, specialization, school_id, counsellor_id, estimated_extraction_time_seconds")\
             .eq("is_active", True)
 
         # Filter by consultation type if provided
@@ -2763,21 +2770,21 @@ def get_template_configuration(template_id: uuid.UUID) -> List[Dict[str, Any]]:
 
 def clone_template(
     source_template_id: uuid.UUID,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     new_template_name: Optional[str] = None,
     new_template_code: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Clone an existing template to create a doctor-owned copy.
+    Clone an existing template to create a counsellor-owned copy.
 
     Creates a new template record + copies all template_segments configurations.
-    Use this when a doctor wants to customize a common template or another doctor's template.
+    Use this when a counsellor wants to customize a common template or another counsellor's template.
 
     Args:
         source_template_id: Template UUID to clone from
-        doctor_id: Doctor UUID who will own the cloned template
-        new_template_name: Optional custom name (defaults to "{source_name} - {doctor_name} Copy")
-        new_template_code: Optional custom code (defaults to "{source_code}_{doctor_id[:8]}")
+        counsellor_id: Counsellor UUID who will own the cloned template
+        new_template_name: Optional custom name (defaults to "{source_name} - {counsellor_name} Copy")
+        new_template_code: Optional custom code (defaults to "{source_code}_{counsellor_id[:8]}")
 
     Returns:
         New template record with cloned segments
@@ -2800,20 +2807,20 @@ def clone_template(
 
     source = source_template.data[0]
 
-    # Get doctor details for naming
+    # Get counsellor details for naming
     doctor = (
-        supabase.table("doctors")
+        supabase.table("counsellors")
         .select("full_name")
-        .eq("id", str(doctor_id))
+        .eq("id", str(counsellor_id))
         .limit(1)
         .execute()
     )
 
-    doctor_name = doctor.data[0]["full_name"] if doctor.data else str(doctor_id)[:8]
+    counsellor_name = doctor.data[0]["full_name"] if doctor.data else str(counsellor_id)[:8]
 
     # Generate new template name and code
-    final_template_name = new_template_name or f"{source['template_name']} - {doctor_name} Copy"
-    final_template_code = new_template_code or f"{source['template_code']}_{str(doctor_id)[:8]}"
+    final_template_name = new_template_name or f"{source['template_name']} - {counsellor_name} Copy"
+    final_template_code = new_template_code or f"{source['template_code']}_{str(counsellor_id)[:8]}"
 
     # Create new template record
     new_template_data = {
@@ -2823,8 +2830,8 @@ def clone_template(
         "consultation_type_id": source["consultation_type_id"],
         "use_case": source.get("use_case"),
         "specialization": source.get("specialization"),
-        "hospital_id": source.get("hospital_id"),
-        "doctor_id": str(doctor_id),  # Set doctor ownership
+        "school_id": source.get("school_id"),
+        "counsellor_id": str(counsellor_id),  # Set counsellor ownership
         "is_default": False,
         "is_active": True,
         "estimated_extraction_time_seconds": source.get("estimated_extraction_time_seconds")
@@ -2859,54 +2866,54 @@ def clone_template(
         # Bulk insert cloned segments
         supabase.table("template_segments").insert(cloned_segments).execute()
 
-    logger.info(f"Cloned template {source_template_id} → {new_template_id} for doctor {doctor_id}")
+    logger.info(f"Cloned template {source_template_id} → {new_template_id} for counsellor {counsellor_id}")
 
     return {
         "template_id": new_template_id,
         "template_code": final_template_code,
         "template_name": final_template_name,
-        "doctor_id": str(doctor_id),
+        "counsellor_id": str(counsellor_id),
         "source_template_id": str(source_template_id),
         "segments_cloned": len(source_segments.data) if source_segments.data else 0,
         "status": "cloned"
     }
 
 
-def get_doctor_active_template(doctor_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+def get_counsellor_active_template(counsellor_id: uuid.UUID) -> Optional[Dict[str, Any]]:
     """
-    [DEPRECATED] Get the currently active templates for a doctor.
+    [DEPRECATED] Get the currently active templates for a counsellor.
 
-    Use get_templates(filter_type='doctor', doctor_id=doctor_id) instead.
+    Use get_templates(filter_type='doctor', counsellor_id=counsellor_id) instead.
 
     Returns:
         First active template if exists, or None
     """
-    logger.warning("[DEPRECATED] get_doctor_active_template is deprecated, use get_templates(filter_type='doctor') instead")
-    templates = get_templates(doctor_id=doctor_id, filter_type='doctor')
+    logger.warning("[DEPRECATED] get_counsellor_active_template is deprecated, use get_templates(filter_type='doctor') instead")
+    templates = get_templates(counsellor_id=counsellor_id, filter_type='doctor')
     return templates[0] if templates else None
 
 
-def get_doctor_active_templates_by_template(
-    doctor_id: uuid.UUID,
+def get_counsellor_active_templates_by_template(
+    counsellor_id: uuid.UUID,
     template_id: uuid.UUID
 ) -> list[Dict[str, Any]]:
     """
-    [DEPRECATED] Get all active instances of a specific template for a doctor.
+    [DEPRECATED] Get all active instances of a specific template for a counsellor.
 
     Use direct templates table query instead.
 
     Args:
-        doctor_id: Doctor UUID
+        counsellor_id: Counsellor UUID
         template_id: Template UUID
 
     Returns:
         List of active template instances
     """
-    logger.warning("[DEPRECATED] get_doctor_active_templates_by_template is deprecated")
+    logger.warning("[DEPRECATED] get_counsellor_active_templates_by_template is deprecated")
     response = (
         supabase.table("templates")
         .select("*")
-        .eq("doctor_id", str(doctor_id))
+        .eq("counsellor_id", str(counsellor_id))
         .eq("id", str(template_id))
         .eq("is_active", True)
         .order("updated_at", desc=True)
@@ -2916,15 +2923,15 @@ def get_doctor_active_templates_by_template(
 
 
 def check_template_name_available(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     custom_name: str,
     exclude_template_id: Optional[uuid.UUID] = None
 ) -> bool:
     """
-    Check if a template name is available for a doctor.
+    Check if a template name is available for a counsellor.
 
     Args:
-        doctor_id: Doctor UUID
+        counsellor_id: Counsellor UUID
         custom_name: Proposed template name
         exclude_template_id: Optional template ID to exclude (for rename)
 
@@ -2935,7 +2942,7 @@ def check_template_name_available(
     query = (
         supabase.table("templates")
         .select("id")
-        .eq("doctor_id", str(doctor_id))
+        .eq("counsellor_id", str(counsellor_id))
         .eq("template_name", custom_name.strip())
     )
 
@@ -2947,19 +2954,19 @@ def check_template_name_available(
 
 
 def check_template_code_available(
-    doctor_id: Optional[uuid.UUID],
+    counsellor_id: Optional[uuid.UUID],
     template_code: str,
     exclude_template_id: Optional[uuid.UUID] = None
 ) -> bool:
     """
     Check if a template code is available.
 
-    The database has UNIQUE (doctor_id, template_code) constraint,
+    The database has UNIQUE (counsellor_id, template_code) constraint,
     but PostgreSQL allows multiple NULLs in unique constraints.
-    This function enforces uniqueness even for common templates (doctor_id=NULL).
+    This function enforces uniqueness even for common templates (counsellor_id=NULL).
 
     Args:
-        doctor_id: Doctor UUID (None for common templates)
+        counsellor_id: Counsellor UUID (None for common templates)
         template_code: Proposed template code (unique identifier)
         exclude_template_id: Optional template ID to exclude (for updates)
 
@@ -2968,12 +2975,12 @@ def check_template_code_available(
     """
     query = supabase.table("templates").select("id").eq("template_code", template_code.strip())
 
-    if doctor_id:
-        # Doctor-owned template: check against this doctor's templates
-        query = query.eq("doctor_id", str(doctor_id))
+    if counsellor_id:
+        # Counsellor-owned template: check against this counsellor's templates
+        query = query.eq("counsellor_id", str(counsellor_id))
     else:
-        # Common template (doctor_id=NULL): check against other common templates
-        query = query.is_("doctor_id", "null")
+        # Common template (counsellor_id=NULL): check against other common templates
+        query = query.is_("counsellor_id", "null")
 
     if exclude_template_id:
         query = query.neq("id", str(exclude_template_id))
@@ -2982,7 +2989,7 @@ def check_template_code_available(
     return len(response.data) == 0
 
 
-def validate_segment_configuration(doctor_id: uuid.UUID) -> Dict[str, Any]:
+def validate_segment_configuration(counsellor_id: uuid.UUID) -> Dict[str, Any]:
     """
     Validate user's segment configuration for clinical safety.
 
@@ -2990,7 +2997,7 @@ def validate_segment_configuration(doctor_id: uuid.UUID) -> Dict[str, Any]:
         Dict with 'is_valid' (bool) and 'error_message' (str or None)
     """
     response = supabase.rpc("validate_segment_configuration", {
-        "p_doctor_id": str(doctor_id)
+        "p_counsellor_id": str(counsellor_id)
     }).execute()
 
     if response.data:
@@ -2999,8 +3006,8 @@ def validate_segment_configuration(doctor_id: uuid.UUID) -> Dict[str, Any]:
         return {"is_valid": False, "error_message": "Validation failed"}
 
 
-# reset_doctor_segment_config() REMOVED
-# Doctor customization now handled via template cloning (clone_template function)
+# reset_counsellor_segment_config() REMOVED
+# Counsellor customization now handled via template cloning (clone_template function)
 
 
 # ============================================================================
@@ -3014,8 +3021,8 @@ def create_template(
     consultation_type_id: uuid.UUID,
     use_case: Optional[str] = None,
     specialization: Optional[str] = None,
-    hospital_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    school_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     estimated_extraction_time_seconds: Optional[float] = None,
     is_active: bool = True,
 ) -> Dict[str, Any]:
@@ -3029,10 +3036,10 @@ def create_template(
         consultation_type_id: Consultation type UUID
         use_case: Optional use case (e.g., 'quick_consultation')
         specialization: Optional specialization for visibility filtering
-        hospital_id: Optional hospital ID for hospital-specific templates
-        doctor_id: Optional doctor who owns the template (NULL = common template)
+        school_id: Optional school ID for school-specific templates
+        counsellor_id: Optional counsellor who owns the template (NULL = common template)
         estimated_extraction_time_seconds: Optional performance hint
-        is_active: Whether template is active and visible to doctors (default: True)
+        is_active: Whether template is active and visible to counsellors (default: True)
 
     Returns:
         Created template record
@@ -3050,10 +3057,10 @@ def create_template(
         template_data["use_case"] = use_case
     if specialization is not None:
         template_data["specialization"] = specialization
-    if hospital_id is not None:
-        template_data["hospital_id"] = str(hospital_id)
-    if doctor_id is not None:
-        template_data["doctor_id"] = str(doctor_id)
+    if school_id is not None:
+        template_data["school_id"] = str(school_id)
+    if counsellor_id is not None:
+        template_data["counsellor_id"] = str(counsellor_id)
     if estimated_extraction_time_seconds is not None:
         template_data["estimated_extraction_time_seconds"] = estimated_extraction_time_seconds
 
@@ -3731,7 +3738,7 @@ def inherit_from_template(
 
 
 # ============================================================================
-# Medical Extractions Storage (Multi-Consultation Type)
+# Extractions Storage (Multi-Consultation Type)
 # ============================================================================
 
 def save_extraction(
@@ -3741,11 +3748,11 @@ def save_extraction(
     segment_count: int,
     full_extraction_json: Dict[str, Any],
     session_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
 ) -> Dict[str, Any]:
     """
-    Save a medical extraction to the database.
+    Save an extraction to the database.
 
     Args:
         consultation_type_id: Type of consultation (OP, DISCHARGE, etc.)
@@ -3754,8 +3761,8 @@ def save_extraction(
         segment_count: Number of segments extracted
         full_extraction_json: Complete extraction data
         session_id: Optional recording session ID
-        doctor_id: Optional doctor/user ID
-        patient_id: Optional patient ID
+        counsellor_id: Optional counsellor/user ID
+        student_id: Optional student ID
 
     Returns:
         Created extraction record
@@ -3770,12 +3777,12 @@ def save_extraction(
 
     if session_id:
         data["session_id"] = str(session_id)
-    if doctor_id:
-        data["doctor_id"] = str(doctor_id)
-    if patient_id:
-        data["patient_id"] = str(patient_id)
+    if counsellor_id:
+        data["counsellor_id"] = str(counsellor_id)
+    if student_id:
+        data["student_id"] = str(student_id)
 
-    response = supabase.table("medical_extractions").insert(data).execute()
+    response = supabase.table("extractions").insert(data).execute()
     return response.data[0] if response.data else {}
 
 
@@ -3787,7 +3794,7 @@ def save_extraction_segments(
     Save individual segments for an extraction (segment-value table).
 
     Args:
-        extraction_id: Medical extraction ID
+        extraction_id: extraction ID
         segments: List of segments with keys:
             - segment_code: str
             - segment_value: dict | str (stored as JSONB)
@@ -3825,7 +3832,7 @@ def save_extraction_segments(
 def get_extraction_by_id(extraction_id: uuid.UUID) -> Optional[Dict[str, Any]]:
     """Get extraction record by ID"""
     response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("*, consultation_types(*)")
         .eq("id", str(extraction_id))
         .execute()
@@ -3846,7 +3853,7 @@ def check_extraction_exists(extraction_id: uuid.UUID) -> bool:
         bool: True if extraction exists, False otherwise
     """
     response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("id")
         .eq("id", str(extraction_id))
         .limit(1)
@@ -3879,7 +3886,7 @@ def update_extraction_emotion_status(
     error: Optional[str] = None
 ) -> None:
     """
-    Update emotion extraction status flags in medical_extractions table.
+    Update emotion extraction status flags in extractions table.
 
     This function updates the tracking columns for background emotion extraction:
     - emotion_extraction_started: Task has been scheduled/started
@@ -3890,7 +3897,7 @@ def update_extraction_emotion_status(
     - emotion_extraction_completed_at: Timestamp when completed
 
     Args:
-        extraction_id: UUID of medical extraction
+        extraction_id: UUID of extraction
         started: Set emotion_extraction_started=True and record timestamp
         completed: Set emotion_extraction_completed=True and record timestamp
         failed: Set emotion_extraction_failed=True
@@ -3927,9 +3934,9 @@ def update_extraction_emotion_status(
             logger.warning(f"[EMOTION] No status updates to apply for extraction_id={extraction_id}")
             return
 
-        # Update medical_extractions record
+        # Update extractions record
         response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .update(update_data)
             .eq("id", str(extraction_id))
             .execute()
@@ -3983,84 +3990,19 @@ def invalidate_audio_emotion_prompt_cache(template_id: Optional[uuid.UUID] = Non
         logger.debug("[AUDIO_EMOTION_PROMPT] Full cache invalidated")
 
 
-def save_audio_emotion_segments(
-    extraction_id: uuid.UUID,
-    audio_emotion_data: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-    """
-    Save audio-based emotion analysis segments to extraction_segments table.
-
-    Converts audio emotion segments from voice analysis into individual
-    segment records linked to the medical extraction.
-
-    Args:
-        extraction_id: UUID of medical extraction to link to
-        audio_emotion_data: Dict with audio emotion segments:
-            - AUDIO_PATIENT_ANXIETY
-            - AUDIO_DOCTOR_STYLE
-            - AUDIO_INTERACTION_DYNAMICS
-
-    Returns:
-        List of saved segment records
-
-    Raises:
-        Exception: If save fails
-    """
-    from .audio_emotion_prompts import get_audio_emotion_segment_codes
-
-    logger.debug(f"[AUDIO_EMOTION] Saving audio emotion segments for extraction_id={extraction_id}")
-
-    try:
-        # Prepare segment records from audio emotion data
-        segment_records = []
-        audio_segment_codes = get_audio_emotion_segment_codes()
-
-        for segment_code in audio_segment_codes:
-            if segment_code in audio_emotion_data:
-                record = {
-                    "extraction_id": str(extraction_id),
-                    "segment_code": segment_code,
-                    "segment_value": audio_emotion_data[segment_code],
-                    "brevity_level": "balanced",
-                    "terminology_style": "medical_terms",
-                }
-                segment_records.append(record)
-            else:
-                logger.warning(f"[AUDIO_EMOTION] Missing segment in audio_emotion_data: {segment_code}")
-
-        if not segment_records:
-            logger.warning(f"[AUDIO_EMOTION] No audio emotion segments to save for extraction_id={extraction_id}")
-            return []
-
-        # Bulk insert audio emotion segments
-        logger.debug(f"[AUDIO_EMOTION] Inserting {len(segment_records)} audio emotion segments...")
-        response = supabase.table("extraction_segments").insert(segment_records).execute()
-
-        saved_count = len(response.data) if response.data else 0
-        logger.debug(f"[AUDIO_EMOTION] Successfully saved {saved_count} audio emotion segments")
-
-        return response.data if response.data else []
-
-    except Exception as e:
-        logger.error(f"[AUDIO_EMOTION] Error saving audio emotion segments: {e}", exc_info=True)
-        raise Exception(f"Failed to save audio emotion segments: {str(e)}")
-
-
-# ============================================================================
-# Unified Emotion Segments (Combined Format for All Modes)
-# ============================================================================
-
-# Unified segment codes (no TEXT_EMOTION_ or AUDIO_ prefix)
-# Note: INTERACTION_DYNAMICS and CONGRUENCE_SUMMARY added Jan 2026
-# CONGRUENCE_SUMMARY only generated in combined mode (requires text+audio comparison)
+# Standardized emotion segment codes (no COMBINED_/AUDIO_ prefix) — counselling 3-speaker model.
+# Single source of truth: derived by stripping 'COMBINED_' from the active emotion
+# segment_definitions (migration 20260601150000). Consumed by save_unified_emotion_segments /
+# get_unified_emotion_segments below, and imported by webhook_service / nudge_api_service /
+# student_dropoff_service so they all stay in sync.
 UNIFIED_EMOTION_SEGMENT_CODES = [
-    "ANXIETY_POST_CONSULTATION",
-    "FINANCIAL_CONCERNS",
-    "OTHER_EMOTIONS_DETECTED",
-    "TREATMENT_COMPLIANCE_LIKELIHOOD",
-    "DOCTOR_COMMUNICATION_STYLE",
-    "INTERACTION_DYNAMICS",
-    "CONGRUENCE_SUMMARY"
+    "STUDENT_ANXIETY",
+    "PARENT_ANXIETY",
+    "STUDENT_ENGAGEMENT",
+    "COUNSELLOR_COMMUNICATION",
+    "SESSION_INTERACTION_DYNAMICS",
+    "SESSION_OTHER_EMOTIONS",
+    "SESSION_CONGRUENCE_SUMMARY",
 ]
 
 
@@ -4077,7 +4019,7 @@ def save_unified_emotion_segments(
     should save to these unified segment codes for consistency.
 
     Args:
-        extraction_id: UUID of medical extraction to link to
+        extraction_id: UUID of extraction to link to
         segments_data: Dict with unified segment keys:
             - ANXIETY_POST_CONSULTATION (with nested pre/post/trajectory)
             - FINANCIAL_CONCERNS
@@ -4152,7 +4094,7 @@ def get_unified_emotion_segments(extraction_id: uuid.UUID) -> Dict[str, Any]:
     These segments are available for all emotion modes (text_only, audio_only, combined).
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         Dict with unified emotion segment codes as keys and segment values as values.
@@ -4187,7 +4129,7 @@ def update_audio_emotion_extraction_status(
     fallback_used: bool = False,
 ) -> None:
     """
-    Update audio emotion extraction status flags in medical_extractions table.
+    Update audio emotion extraction status flags in extractions table.
 
     This function updates the tracking columns for background audio emotion extraction:
     - audio_emotion_extraction_started: Task has been scheduled/started
@@ -4199,7 +4141,7 @@ def update_audio_emotion_extraction_status(
     - audio_emotion_extraction_fallback_used: True if fallback to empty emotions was used
 
     Args:
-        extraction_id: UUID of medical extraction
+        extraction_id: UUID of extraction
         started: Set audio_emotion_extraction_started=True and record timestamp
         completed: Set audio_emotion_extraction_completed=True and record timestamp
         failed: Set audio_emotion_extraction_failed=True
@@ -4239,7 +4181,7 @@ def update_audio_emotion_extraction_status(
             return
 
         response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .update(update_data)
             .eq("id", str(extraction_id))
             .execute()
@@ -4488,7 +4430,7 @@ def get_audio_transcription_prompt_with_fallback(template_id: uuid.UUID) -> Dict
             "properties": {
                 "transcript": {
                     "type": "string",
-                    "description": "Complete transcription with speaker diarization (Doctor:/Patient:)"
+                    "description": "Complete transcription with speaker diarization (Counsellor:/Student:)"
                 },
                 **base_schema.get("properties", {})
             },
@@ -4967,7 +4909,7 @@ def save_congruence_analysis(
     Save emotion congruence analysis segment to extraction_segments table.
 
     Args:
-        extraction_id: UUID of medical extraction to link to
+        extraction_id: UUID of extraction to link to
         congruence_data: Dict with congruence analysis results
 
     Returns:
@@ -5009,10 +4951,10 @@ def update_congruence_analysis_status(
     error: Optional[str] = None
 ) -> None:
     """
-    Update congruence analysis status flags in medical_extractions table.
+    Update congruence analysis status flags in extractions table.
 
     Args:
-        extraction_id: UUID of medical extraction
+        extraction_id: UUID of extraction
         started: Set congruence_analysis_started=True
         completed: Set congruence_analysis_completed=True
         failed: Set congruence_analysis_failed=True
@@ -5043,7 +4985,7 @@ def update_congruence_analysis_status(
             return
 
         response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .update(update_data)
             .eq("id", str(extraction_id))
             .execute()
@@ -5064,14 +5006,14 @@ def save_intervention_recommendations(
     """
     Save recommended interventions using the database RPC function.
 
-    The interventions are saved to the patient_interventions table via
-    the save_patient_interventions RPC function which handles:
+    The interventions are saved to the student_interventions table via
+    the save_student_interventions RPC function which handles:
     - Deleting existing interventions for this extraction
     - Linking to intervention_definitions
     - Ranking and marking top 3 recommendations
 
     Args:
-        extraction_id: UUID of medical extraction to link to
+        extraction_id: UUID of extraction to link to
         interventions_data: Dict with:
             - interventions: List of intervention objects with code, priority, etc.
             - total_triggered: Count of interventions
@@ -5113,7 +5055,7 @@ def save_intervention_recommendations(
 
         # Call the RPC function to save interventions
         response = supabase.rpc(
-            "save_patient_interventions",
+            "save_student_interventions",
             {
                 "p_extraction_id": str(extraction_id),
                 "p_interventions": interventions_for_rpc
@@ -5136,50 +5078,50 @@ def save_intervention_recommendations(
         raise Exception(f"Failed to save intervention recommendations: {str(e)}")
 
 
-def get_patient_by_id(patient_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+def get_student_by_id(student_id: uuid.UUID) -> Optional[Dict[str, Any]]:
     """
-    Get patient record by ID including add_info for neonatal overrides.
+    Get student record by ID including add_info for neonatal overrides.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
 
     Returns:
-        Patient record with id, patient_id (UHID), full_name, add_info
-        None if patient not found
+        Student record with id, student_id (UHID), full_name, add_info
+        None if student not found
     """
     try:
         response = (
-            supabase.table("patients")
-            .select("id, patient_id, full_name, add_info")
-            .eq("id", str(patient_id))
+            supabase.table("students")
+            .select("id, student_id, full_name, add_info")
+            .eq("id", str(student_id))
             .single()
             .execute()
         )
         return response.data if response.data else None
     except Exception as e:
-        logger.error(f"[PATIENT] Error fetching patient {patient_id}: {e}")
+        logger.error(f"[STUDENT] Error fetching student {student_id}: {e}")
         return None
 
 
-def update_patient_preferred_language(patient_id: str, language: str) -> bool:
-    """Update the preferred_language column for a patient. Synchronous (run via asyncio.to_thread)."""
+def update_student_preferred_language(student_id: str, language: str) -> bool:
+    """Update the preferred_language column for a student. Synchronous (run via asyncio.to_thread)."""
     try:
-        supabase.table("patients").update(
+        supabase.table("students").update(
             {"preferred_language": language}
-        ).eq("id", patient_id).execute()
-        logger.info(f"[LANGUAGE] Updated preferred_language='{language}' for patient {patient_id}")
+        ).eq("id", student_id).execute()
+        logger.info(f"[LANGUAGE] Updated preferred_language='{language}' for student {student_id}")
         return True
     except Exception as e:
-        logger.warning(f"[LANGUAGE] Failed to update preferred_language for patient {patient_id}: {e}")
+        logger.warning(f"[LANGUAGE] Failed to update preferred_language for student {student_id}: {e}")
         return False
 
 
-def get_patient_interventions(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
+def get_student_interventions(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
     """
-    Get patient interventions for an extraction.
+    Get student interventions for an extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         List of intervention objects with:
@@ -5196,8 +5138,8 @@ def get_patient_interventions(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
     logger.debug(f"[INTERVENTIONS] Getting interventions for extraction_id={extraction_id}")
 
     try:
-        # Query patient_interventions with join to intervention_definitions
-        # Note: Column names in patient_interventions table:
+        # Query student_interventions with join to intervention_definitions
+        # Note: Column names in student_interventions table:
         #   - priority_level (not priority)
         #   - is_top_recommendation (not is_top_3)
         # Column names in intervention_definitions table:
@@ -5205,7 +5147,7 @@ def get_patient_interventions(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
         #   - intervention_name (not name)
         #   - priority_level (not default_priority)
         response = (
-            supabase.table("patient_interventions")
+            supabase.table("student_interventions")
             .select(
                 "id, intervention_code, priority_level, priority_score, trigger_reason, "
                 "is_top_recommendation, analysis_mode, rationale_sources, created_at, "
@@ -5262,7 +5204,7 @@ def get_extraction_emotion_status(extraction_id: uuid.UUID) -> Dict[str, Any]:
     """
     try:
         response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select(
                 "emotion_extraction_started, emotion_extraction_completed, emotion_extraction_failed, "
                 "audio_emotion_extraction_started, audio_emotion_extraction_completed, audio_emotion_extraction_failed, "
@@ -5289,13 +5231,13 @@ def update_extraction_timing(
     total_processing_time_seconds: Optional[float] = None,
 ) -> None:
     """
-    Update timing metrics in medical_extractions table after extraction completes.
+    Update timing metrics in extractions table after extraction completes.
 
     This function is called AFTER extraction completes to update timing fields
     that were not available during the initial save_medical_extraction() call.
 
     Args:
-        extraction_id: UUID of medical extraction
+        extraction_id: UUID of extraction
         extraction_time_seconds: Time spent on medical insights extraction (in seconds)
         total_processing_time_seconds: Total processing time from start to finish (in seconds)
 
@@ -5320,9 +5262,9 @@ def update_extraction_timing(
             logger.warning(f"[TIMING_UPDATE] No timing updates to apply for extraction_id={extraction_id}")
             return
 
-        # Update medical_extractions record
+        # Update extractions record
         response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .update(update_data)
             .eq("id", str(extraction_id))
             .execute()
@@ -5355,19 +5297,19 @@ def get_consultation_type(consultation_type_id: uuid.UUID) -> Optional[Dict[str,
 
 def search_extractions(
     consultation_type_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """
-    Search medical extractions with filters.
+    Search extractions with filters.
 
     Args:
         consultation_type_id: Filter by consultation type
-        doctor_id: Filter by doctor/user
-        patient_id: Filter by patient
+        counsellor_id: Filter by counsellor/user
+        student_id: Filter by student
         start_date: ISO date string (e.g., '2025-01-01')
         end_date: ISO date string
         limit: Maximum results (default: 50)
@@ -5376,7 +5318,7 @@ def search_extractions(
         List of extraction records with consultation type info
     """
     query = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("*, consultation_types(type_code, type_name)")
         .order("created_at", desc=True)
         .limit(limit)
@@ -5384,10 +5326,10 @@ def search_extractions(
 
     if consultation_type_id:
         query = query.eq("consultation_type_id", str(consultation_type_id))
-    if doctor_id:
-        query = query.eq("doctor_id", str(doctor_id))
-    if patient_id:
-        query = query.eq("patient_id", str(patient_id))
+    if counsellor_id:
+        query = query.eq("counsellor_id", str(counsellor_id))
+    if student_id:
+        query = query.eq("student_id", str(student_id))
     if start_date:
         query = query.gte("created_at", start_date)
     if end_date:
@@ -5418,7 +5360,7 @@ def search_segment_values(
     # Use PostgreSQL full-text search
     query = (
         supabase.table("extraction_segments")
-        .select("*, medical_extractions(*, consultation_types(type_code, type_name))")
+        .select("*, extractions(*, consultation_types(type_code, type_name))")
         .eq("segment_code", segment_code)
         .text_search("segment_value_text", search_text)
         .order("created_at", desc=True)
@@ -5426,8 +5368,8 @@ def search_segment_values(
     )
 
     if consultation_type_id:
-        # Filter via join to medical_extractions
-        query = query.eq("medical_extractions.consultation_type_id", str(consultation_type_id))
+        # Filter via join to extractions
+        query = query.eq("extractions.consultation_type_id", str(consultation_type_id))
 
     response = query.execute()
     return response.data if response.data else []
@@ -6319,11 +6261,11 @@ def create_segment_request(
     display_order: int,
     default_brevity_level: str,
     default_terminology_style: str,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     template_id: Optional[uuid.UUID] = None
 ) -> Dict[str, Any]:
     """
-    Create a segment request (Doctor - No Schema Required).
+    Create a segment request (Counsellor - No Schema Required).
 
     Creates a segment with status='pending_approval' that awaits admin review.
     The segment does NOT require a schema_definition_json initially.
@@ -6337,14 +6279,14 @@ def create_segment_request(
         display_order: Display order in UI
         default_brevity_level: concise/balanced/detailed
         default_terminology_style: medical_terms/simple_terms/as_spoken
-        doctor_id: Doctor UUID creating the request
+        counsellor_id: Counsellor UUID creating the request
         template_id: Template UUID (optional) - links segment to requesting template
 
     Returns:
         Created segment record with status='pending_approval'
 
     Note:
-        Migration 20251123000200 removed created_by_doctor_id, now using doctor_id column.
+        Migration 20251123000200 removed created_by_counsellor_id, now using counsellor_id column.
     """
     # Check if segment_code already exists
     existing = (
@@ -6380,7 +6322,7 @@ def create_segment_request(
         "default_brevity_level": default_brevity_level,
         "default_terminology_style": default_terminology_style,
         "status": "pending_approval",  # Pending admin review
-        "doctor_id": str(doctor_id),  # Track requester (changed from created_by_doctor_id)
+        "counsellor_id": str(counsellor_id),  # Track requester (changed from created_by_counsellor_id)
         "template_id": str(template_id) if template_id else None,  # Link to template
         "is_required": False,
         "is_active": False  # Inactive until admin approves and activates
@@ -6399,14 +6341,14 @@ def get_pending_segments() -> List[Dict[str, Any]]:
     Get all segment requests with status='pending_approval'.
 
     Returns:
-        List of pending segment records with doctor information
+        List of pending segment records with counsellor information
 
     Note:
-        Migration 20251123000200 removed created_by_doctor_id, now using doctor_id column.
+        Migration 20251123000200 removed created_by_counsellor_id, now using counsellor_id column.
     """
     response = (
         supabase.table("segment_definitions")
-        .select("*, consultation_types(type_code, type_name), doctor_id(full_name, email)")
+        .select("*, consultation_types(type_code, type_name), counsellor_id(full_name, email)")
         .eq("status", "pending_approval")
         .order("created_at", desc=True)
         .execute()
@@ -6419,9 +6361,9 @@ def get_pending_segments() -> List[Dict[str, Any]]:
         if segment.get("consultation_types"):
             segment_data["consultation_type_code"] = segment["consultation_types"]["type_code"]
             segment_data["consultation_type_name"] = segment["consultation_types"]["type_name"]
-        if segment.get("doctor_id"):
-            segment_data["requester_name"] = segment["doctor_id"]["full_name"]
-            segment_data["requester_email"] = segment["doctor_id"]["email"]
+        if segment.get("counsellor_id"):
+            segment_data["requester_name"] = segment["counsellor_id"]["full_name"]
+            segment_data["requester_email"] = segment["counsellor_id"]["email"]
         segments.append(segment_data)
 
     return segments
@@ -6495,7 +6437,7 @@ def add_segment_to_template(
     """
     Add a segment to a template's segment list (template_segments junction table).
 
-    This is automatically called when a doctor-requested segment is approved.
+    This is automatically called when a counsellor-requested segment is approved.
     The unique combination of (template_id, segment_id) ensures no duplicates.
 
     Args:
@@ -6576,14 +6518,14 @@ def add_segment_to_template(
 
 
 # ============================================================================
-# Medical Extractions Operations (with Edit Tracking)
+# Extractions Operations (with Edit Tracking)
 # ============================================================================
 
 def save_medical_extraction(
     session_id: uuid.UUID,
     consultation_type_id: uuid.UUID,
-    doctor_id: uuid.UUID,
-    patient_id: Optional[uuid.UUID],
+    counsellor_id: uuid.UUID,
+    student_id: Optional[uuid.UUID],
     extraction_mode: str,
     model_used: str,
     segments: List[Dict[str, Any]],
@@ -6597,7 +6539,7 @@ def save_medical_extraction(
     total_processing_time_seconds: Optional[float] = None,
     # Pre-generated extraction_id for parallel emotion analysis
     extraction_id: Optional[uuid.UUID] = None,
-    # Recording metadata (patient info, doctor info, custom fields) copied from session
+    # Recording metadata (student info, counsellor info, custom fields) copied from session
     recording_metadata_json: Optional[Dict[str, Any]] = None,
     # Formatted EHR payload (lookup-normalized for Neopaed, Aosta/Raster-formatted)
     ehr_payload_json: Optional[Dict[str, Any]] = None,
@@ -6606,17 +6548,17 @@ def save_medical_extraction(
     parent_extraction_ids: Optional[list] = None,
 ) -> uuid.UUID:
     """
-    Save medical extraction to database (original AI-generated version).
+    Save extraction to database (original AI-generated version).
 
     This function saves:
-    1. medical_extractions record with original_extraction_json
+    1. extractions record with original_extraction_json
     2. extraction_segments records with version_type='original' (one per segment)
 
     Args:
         session_id: Recording session UUID
         consultation_type_id: Consultation type UUID
-        doctor_id: Doctor who performed extraction
-        patient_id: Patient UUID (optional)
+        counsellor_id: Counsellor who performed extraction
+        student_id: Student UUID (optional)
         extraction_mode: 'core', 'additional', or 'full'
         model_used: Model name (e.g., 'gemini-2.0-flash-exp')
         segments: List of segment configs used
@@ -6630,7 +6572,7 @@ def save_medical_extraction(
         extraction_id: Pre-generated UUID for parallel emotion analysis (optional)
                       If provided, the database record will use this ID instead of auto-generating
         recording_metadata_json: Additional metadata copied from recording session
-                      (patient info, doctor info, custom fields). Flows to /status response.
+                      (student info, counsellor info, custom fields). Flows to /status response.
 
     Returns:
         extraction_id: UUID of created medical_extraction record
@@ -6649,8 +6591,8 @@ def save_medical_extraction(
     extraction_data = {
         "session_id": str(session_id),
         "consultation_type_id": str(consultation_type_id),
-        "doctor_id": str(doctor_id),
-        "patient_id": str(patient_id) if patient_id else None,
+        "counsellor_id": str(counsellor_id),
+        "student_id": str(student_id) if student_id else None,
         "extraction_mode": extraction_mode,
         "model_used": model_used,
         "segment_count": len(segments),
@@ -6682,7 +6624,7 @@ def save_medical_extraction(
     logger.debug(f"[SAVE_EXTRACTION] - extraction_time_seconds in data dict: {extraction_data.get('extraction_time_seconds')}")
 
     try:
-        extraction_response = supabase.table("medical_extractions").insert(extraction_data).execute()
+        extraction_response = supabase.table("extractions").insert(extraction_data).execute()
     except Exception as insert_err:
         # FK constraint violation: submission_id references processing_jobs(submission_id)
         # If processing_job was never created (fire-and-forget failed), create it now and retry
@@ -6699,7 +6641,7 @@ def save_medical_extraction(
                 )
                 logger.info(f"[SAVE_EXTRACTION] ✅ Processing job created as fallback for submission_id={submission_id}")
                 # Retry the extraction insert
-                extraction_response = supabase.table("medical_extractions").insert(extraction_data).execute()
+                extraction_response = supabase.table("extractions").insert(extraction_data).execute()
             except Exception as retry_err:
                 logger.error(f"[SAVE_EXTRACTION] ❌ Fallback failed: {retry_err}")
                 raise retry_err
@@ -6707,7 +6649,7 @@ def save_medical_extraction(
             raise insert_err
 
     if not extraction_response.data or len(extraction_response.data) == 0:
-        raise Exception("Failed to create medical extraction record")
+        raise Exception("Failed to create extraction record")
 
     extraction_id = uuid.UUID(extraction_response.data[0]["id"])
 
@@ -6767,7 +6709,7 @@ def get_extraction_data(
     Get extraction data (returns edited version if exists, otherwise original).
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
         include_segments: Whether to include individual segments (uses current_extraction_state view)
 
     Returns:
@@ -6775,9 +6717,9 @@ def get_extraction_data(
     """
     # Get extraction record (only needed columns, avoids large transcript_text/merge fields)
     extraction_response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select(
-            "id, session_id, consultation_type_id, doctor_id, patient_id, "
+            "id, session_id, consultation_type_id, counsellor_id, student_id, "
             "extraction_mode, segment_count, edit_count, last_edited_at, last_edited_by, "
             "created_at, updated_at, original_extraction_json, edited_extraction_json, is_merged, "
             "recording_metadata_json"
@@ -6802,8 +6744,8 @@ def get_extraction_data(
         "extraction_id": extraction["id"],
         "session_id": extraction["session_id"],
         "consultation_type_id": extraction["consultation_type_id"],
-        "doctor_id": extraction["doctor_id"],
-        "patient_id": extraction["patient_id"],
+        "counsellor_id": extraction["counsellor_id"],
+        "student_id": extraction["student_id"],
         "extraction_mode": extraction["extraction_mode"],
         "segment_count": extraction["segment_count"],
         "extraction_data": current_data,
@@ -6830,7 +6772,7 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
 
     This replaces direct reads from processing_jobs table.
     After migration, all extraction data (transcript, insights, metrics) is stored
-    in medical_extractions table and retrieved here for SSE delivery.
+    in extractions table and retrieved here for SSE delivery.
 
     Args:
         submission_id: Processing job UUID
@@ -6849,10 +6791,10 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
     """
     try:
         logger.debug(f"[GET_EXTRACTION_BY_SUBMISSION] ========== FETCHING EXTRACTION ==========")
-        logger.debug(f"[GET_EXTRACTION_BY_SUBMISSION] Query: medical_extractions WHERE submission_id = {submission_id}")
+        logger.debug(f"[GET_EXTRACTION_BY_SUBMISSION] Query: extractions WHERE submission_id = {submission_id}")
 
         response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select("*")
             .eq("submission_id", str(submission_id))
             .limit(1)
@@ -6864,7 +6806,7 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
         if not response.data:
             logger.error(f"[GET_EXTRACTION_BY_SUBMISSION] ❌ NO EXTRACTION FOUND!")
             logger.error(f"[GET_EXTRACTION_BY_SUBMISSION] submission_id queried: {submission_id}")
-            logger.error(f"[GET_EXTRACTION_BY_SUBMISSION] This means no row in medical_extractions has this submission_id")
+            logger.error(f"[GET_EXTRACTION_BY_SUBMISSION] This means no row in extractions has this submission_id")
             return None
 
         extraction = response.data[0]
@@ -6887,9 +6829,9 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
             "total_processing_time_seconds": extraction.get("total_processing_time_seconds"),
             # Recording metadata (flows from /start to /status)
             "recording_metadata_json": extraction.get("recording_metadata_json"),
-            # Doctor and patient IDs (needed for Aosta integration)
-            "doctor_id": extraction.get("doctor_id"),
-            "patient_id": extraction.get("patient_id"),
+            # Counsellor and student IDs (needed for Aosta integration)
+            "counsellor_id": extraction.get("counsellor_id"),
+            "student_id": extraction.get("student_id"),
             # Edited extraction (for EHR edit endpoints)
             "original_extraction_json": extraction.get("original_extraction_json"),
             "edited_extraction_json": extraction.get("edited_extraction_json"),
@@ -6913,14 +6855,14 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
 #
 # def get_extraction_for_webhook(extraction_id: uuid.UUID) -> Optional[Dict[str, Any]]:
 #     """
-#     Get extraction data from medical_extractions table for external webhook delivery.
+#     Get extraction data from extractions table for external webhook delivery.
 #
 #     This function fetches data FROM THE DATABASE (not from memory) to ensure
 #     webhooks deliver exactly what's stored. Used for external frontend webhooks
 #     (not Supabase Realtime, which uses processing_jobs.progress_json).
 #
 #     Args:
-#         extraction_id: Medical extraction UUID
+#         extraction_id: extraction UUID
 #
 #     Returns:
 #         Dict with 'insights' and 'session_info' formatted for webhook_service.py,
@@ -6940,14 +6882,14 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
 #
 #         # Get extraction with related session data via join
 #         extraction_response = (
-#             supabase.table("medical_extractions")
+#             supabase.table("extractions")
 #             .select("""
 #                 *,
 #                 recording_sessions!inner(
 #                     id,
 #                     correlation_id,
-#                     doctor_id,
-#                     patient_id,
+#                     counsellor_id,
+#                     student_id,
 #                     template_code,
 #                     template_name,
 #                     extraction_mode,
@@ -6989,8 +6931,8 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
 #             "correlation_id": session.get("correlation_id") or str(session.get("id", "")),
 #             "submission_id": extraction.get("submission_id"),
 #             "consultation_id": extraction.get("id"),  # extraction_id for Live API matching
-#             "doctor_id": extraction.get("doctor_id") or session.get("doctor_id"),
-#             "patient_id": extraction.get("patient_id") or session.get("patient_id"),
+#             "counsellor_id": extraction.get("counsellor_id") or session.get("counsellor_id"),
+#             "student_id": extraction.get("student_id") or session.get("student_id"),
 #             "template_code": session.get("template_code"),
 #             "template_name": session.get("template_name"),
 #             "extraction_mode": extraction.get("extraction_mode") or session.get("extraction_mode"),
@@ -7084,16 +7026,16 @@ def update_extraction_edits(
     edit_source: str = "webapp"
 ) -> Dict[str, Any]:
     """
-    Update extraction with doctor's or nurse's edits.
+    Update extraction with counsellor's or assistant's edits.
 
     This stores the latest edited version and increments edit count.
     Original AI-generated extraction remains unchanged.
     Also inserts a version snapshot into extraction_edit_history.
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
         edited_data: Complete edited extraction JSON
-        edited_by: Doctor or Nurse UUID who made edits
+        edited_by: Counsellor or Assistant UUID who made edits
         edited_by_type: Type of user making edits: "doctor" or "nurse"
         edit_source: Source of edit: "webapp", "ehr", "api"
 
@@ -7104,7 +7046,7 @@ def update_extraction_edits(
 
     # Get current extraction (include previous edit data for history)
     current_response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("edit_count, original_extraction_json, edited_extraction_json")
         .eq("id", str(extraction_id))
         .execute()
@@ -7162,11 +7104,11 @@ def update_extraction_edits(
         "edit_count": new_version,
         "last_edited_at": datetime.now(timezone.utc).isoformat(),
         "last_edited_by": str(edited_by),
-        "edited_by_type": edited_by_type  # Track if edited by doctor or nurse
+        "edited_by_type": edited_by_type  # Track if edited by counsellor or assistant
     }
 
     response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .update(updates)
         .eq("id", str(extraction_id))
         .execute()
@@ -7222,7 +7164,7 @@ def _update_extraction_segments(extraction_id: uuid.UUID, edited_data: Dict[str,
     send a subset of segments (e.g., CORE only, not ADDITIONAL).
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
         edited_data: Edited extraction JSON (may be partial - only changed segments)
     """
     # Get all original segments for this extraction
@@ -7293,14 +7235,14 @@ def compare_extraction_versions(extraction_id: uuid.UUID) -> Dict[str, Any]:
     Compare original AI-generated extraction vs latest edited version.
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
 
     Returns:
         Dict with original, edited, edit_count, and comparison metadata
     """
     # Get extraction record
     extraction_response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("original_extraction_json, edited_extraction_json, edit_count, last_edited_at, last_edited_by")
         .eq("id", str(extraction_id))
         .execute()
@@ -7333,7 +7275,7 @@ def get_extraction_by_session(session_id: uuid.UUID) -> Optional[Dict[str, Any]]
         Extraction data dict or None if not found
     """
     response = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("id")
         .eq("session_id", str(session_id))
         .order("created_at", desc=True)
@@ -7361,7 +7303,7 @@ def get_current_extraction_segments(extraction_id: uuid.UUID) -> List[Dict[str, 
     Uses the current_extraction_state view for optimal performance.
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
 
     Returns:
         List of current segment records with is_edited and is_deleted flags
@@ -7381,7 +7323,7 @@ def get_original_segments(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
     Get ONLY original AI-generated segments (ignore edits).
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
 
     Returns:
         List of original segment records
@@ -7402,7 +7344,7 @@ def get_edited_segments(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
     Get ONLY edited segments (returns empty list if never edited).
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
 
     Returns:
         List of edited segment records
@@ -7425,7 +7367,7 @@ def get_segment_comparison(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
     Uses the extraction_segment_comparison view for optimal performance.
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
 
     Returns:
         List of comparison records with original_value, edited_value, and edit_status
@@ -7442,10 +7384,10 @@ def get_segment_comparison(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
 
 def get_deleted_segments(extraction_id: uuid.UUID) -> List[Dict[str, Any]]:
     """
-    Get all segments that were deleted by the doctor.
+    Get all segments that were deleted by the counsellor.
 
     Args:
-        extraction_id: Medical extraction UUID
+        extraction_id: extraction UUID
 
     Returns:
         List of deleted segments (version_type='edited' with segment_value=NULL)
@@ -7472,7 +7414,7 @@ def clone_segment_with_parent_tracking(
     new_segment_name: str,
     consultation_type_id: Optional[str] = None,
     template_id: Optional[str] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     parent_segment_data: Optional[Dict[str, Any]] = None,
     custom_prompt_section_text: Optional[str] = None,
     custom_schema_definition_json: Optional[Dict[str, Any]] = None
@@ -7486,7 +7428,7 @@ def clone_segment_with_parent_tracking(
         new_segment_name: Display name for the new segment
         consultation_type_id: Optional consultation type UUID for the new segment
         template_id: Optional template UUID if this is template-specific
-        doctor_id: Doctor creating the segment
+        counsellor_id: Counsellor creating the segment
         parent_segment_data: Optional parent segment data (if already fetched)
         custom_prompt_section_text: Custom prompt text (if provided, uses this instead of parent's)
         custom_schema_definition_json: Custom schema JSON (if provided, uses this instead of parent's)
@@ -7498,14 +7440,14 @@ def clone_segment_with_parent_tracking(
         ValueError: If parent segment doesn't exist or new segment code already exists
 
     Note:
-        Migration 20251123000200 removed created_by_doctor_id, now using doctor_id column.
+        Migration 20251123000200 removed created_by_counsellor_id, now using counsellor_id column.
     """
     import logging
     logger = logging.getLogger(__name__)
 
     logger.debug(f"[CLONE_WITH_TRACKING] *** CODE VERSION: 2025-11-25-v1 (parent_segment_data required) ***")
     logger.info(f"[CLONE_WITH_TRACKING] Starting: parent={parent_segment_code}, new={new_segment_code}")
-    logger.debug(f"[CLONE_WITH_TRACKING] Params: ct_id={consultation_type_id}, template_id={template_id}, doctor_id={doctor_id}")
+    logger.debug(f"[CLONE_WITH_TRACKING] Params: ct_id={consultation_type_id}, template_id={template_id}, counsellor_id={counsellor_id}")
 
     # parent_segment_data is required - caller must look up the parent segment via junction table
     # to ensure the correct segment is used (segment_code is NOT unique in segment_definitions)
@@ -7557,11 +7499,11 @@ def clone_segment_with_parent_tracking(
         "is_active": True,
         "status": "active",  # Set status to active for cloned segments
         # Ownership: For now, cloned segments are always system segments
-        # TODO: Support doctor-owned segments when cloning on behalf of a specific doctor
+        # TODO: Support counsellor-owned segments when cloning on behalf of a specific counsellor
         "segment_type": "system",
-        "doctor_id": None,
+        "counsellor_id": None,
     }
-    logger.debug(f"[CLONE_WITH_TRACKING] New segment data prepared (doctor_id={new_segment_data.get('doctor_id')})")
+    logger.debug(f"[CLONE_WITH_TRACKING] New segment data prepared (counsellor_id={new_segment_data.get('counsellor_id')})")
 
     # Insert the new segment
     try:
@@ -7747,7 +7689,7 @@ def bulk_clone_segments(
                 new_segment_name=parent_segment.get("segment_name"),
                 consultation_type_id=target_consultation_type_id,
                 template_id=None,
-                doctor_id=admin_id,  # Changed from created_by_doctor_id (migration 20251123000200)
+                counsellor_id=admin_id,  # Changed from created_by_counsellor_id (migration 20251123000200)
                 parent_segment_data=parent_segment  # Pass the already-fetched parent data
             )
 
@@ -8196,21 +8138,21 @@ def get_template_by_id(template_id: uuid.UUID) -> Optional[Dict[str, Any]]:
     return response.data[0] if response.data else None
 
 
-def check_doctor_template_access(doctor_id: uuid.UUID, template_id: uuid.UUID) -> bool:
+def check_counsellor_template_access(counsellor_id: uuid.UUID, template_id: uuid.UUID) -> bool:
     """
-    Check if a doctor has access to a template (via doctor_templates junction).
+    Check if a counsellor has access to a template (via counsellor_templates junction).
 
     Args:
-        doctor_id: Doctor UUID
+        counsellor_id: Counsellor UUID
         template_id: Template UUID
 
     Returns:
-        True if doctor has access, False otherwise
+        True if counsellor has access, False otherwise
     """
     response = (
-        supabase.table("doctor_templates")
+        supabase.table("counsellor_templates")
         .select("id")
-        .eq("doctor_id", str(doctor_id))
+        .eq("counsellor_id", str(counsellor_id))
         .eq("template_id", str(template_id))
         .eq("is_active", True)
         .execute()
@@ -8643,8 +8585,8 @@ def save_clinical_severity_assessment(assessment_data: Dict[str, Any]) -> Option
     Args:
         assessment_data: Dict containing:
             - extraction_id: UUID of the extraction
-            - patient_id: Optional patient UUID
-            - doctor_id: Optional doctor UUID
+            - student_id: Optional student UUID
+            - counsellor_id: Optional counsellor UUID
             - severity_level: LOW, MEDIUM, or HIGH
             - total_score: Numeric score
             - was_overridden: Boolean
@@ -8663,8 +8605,8 @@ def save_clinical_severity_assessment(assessment_data: Dict[str, Any]) -> Option
 
         result = supabase.table("clinical_severity_assessments").insert({
             "extraction_id": assessment_data["extraction_id"],
-            "patient_id": assessment_data.get("patient_id"),
-            "doctor_id": assessment_data.get("doctor_id"),
+            "student_id": assessment_data.get("student_id"),
+            "counsellor_id": assessment_data.get("counsellor_id"),
             "consultation_insights_id": assessment_data.get("consultation_insights_id"),
             "severity_level": assessment_data["severity_level"],
             "total_score": assessment_data["total_score"],
@@ -8712,7 +8654,7 @@ def get_clinical_severity_assessment(extraction_id: uuid.UUID) -> Optional[Dict[
     Get clinical severity assessment for an extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         Assessment dict or None if not found
@@ -8732,15 +8674,15 @@ def get_clinical_severity_assessment(extraction_id: uuid.UUID) -> Optional[Dict[
         return None
 
 
-def get_patient_severity_history(
-    patient_id: uuid.UUID,
+def get_student_severity_history(
+    student_id: uuid.UUID,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Get clinical severity assessment history for a patient.
+    Get clinical severity assessment history for a student.
 
     Args:
-        patient_id: Patient UUID
+        student_id: Student UUID
         limit: Maximum number of records to return
 
     Returns:
@@ -8748,9 +8690,9 @@ def get_patient_severity_history(
     """
     try:
         result = supabase.table("clinical_severity_assessments").select(
-            "*, medical_extractions(id, created_at, consultation_type_id)"
+            "*, extractions(id, created_at, consultation_type_id)"
         ).eq(
-            "patient_id", str(patient_id)
+            "student_id", str(student_id)
         ).order(
             "created_at", desc=True
         ).limit(limit).execute()
@@ -8758,19 +8700,19 @@ def get_patient_severity_history(
         return result.data if result.data else []
 
     except Exception as e:
-        logger.error(f"[SEVERITY] Failed to get severity history for patient {patient_id}: {e}")
+        logger.error(f"[SEVERITY] Failed to get severity history for student {student_id}: {e}")
         return []
 
 
 def get_severity_statistics(
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     days: int = 30
 ) -> Dict[str, Any]:
     """
     Get aggregate severity statistics.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         days: Number of days to look back
 
     Returns:
@@ -8784,8 +8726,8 @@ def get_severity_statistics(
             "severity_level"
         ).gte("created_at", cutoff)
 
-        if doctor_id:
-            query = query.eq("doctor_id", str(doctor_id))
+        if counsellor_id:
+            query = query.eq("counsellor_id", str(counsellor_id))
 
         result = query.execute()
 
@@ -8846,8 +8788,8 @@ def save_other_clinical_needs(needs_data: Dict[str, Any]) -> Optional[uuid.UUID]
     Args:
         needs_data: Dict containing:
             - extraction_id: UUID of the extraction
-            - patient_id: Optional patient UUID
-            - doctor_id: Optional doctor UUID
+            - student_id: Optional student UUID
+            - counsellor_id: Optional counsellor UUID
             - is_followup_diagnostics: Boolean
             - is_recurring_diagnostics: Boolean
             - is_rx_refill: Boolean
@@ -8864,8 +8806,8 @@ def save_other_clinical_needs(needs_data: Dict[str, Any]) -> Optional[uuid.UUID]
     try:
         result = supabase.table("other_clinical_needs").insert({
             "extraction_id": needs_data["extraction_id"],
-            "patient_id": needs_data.get("patient_id"),
-            "doctor_id": needs_data.get("doctor_id"),
+            "student_id": needs_data.get("student_id"),
+            "counsellor_id": needs_data.get("counsellor_id"),
             "consultation_insights_id": needs_data.get("consultation_insights_id"),
             "priority_level": needs_data.get("priority_level", "NONE"),
             "is_followup_diagnostics": needs_data.get("is_followup_diagnostics", False),
@@ -8908,7 +8850,7 @@ def get_clinical_needs_by_extraction(extraction_id: str) -> Optional[Dict[str, A
     Get other clinical needs for an extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         Needs dict or None if not found
@@ -8928,15 +8870,15 @@ def get_clinical_needs_by_extraction(extraction_id: str) -> Optional[Dict[str, A
         return None
 
 
-def get_patient_clinical_needs_history(
-    patient_id: str,
+def get_student_clinical_needs_history(
+    student_id: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Get clinical needs history for a patient.
+    Get clinical needs history for a student.
 
     Args:
-        patient_id: Patient UUID
+        student_id: Student UUID
         limit: Maximum number of records to return
 
     Returns:
@@ -8944,9 +8886,9 @@ def get_patient_clinical_needs_history(
     """
     try:
         result = supabase.table("other_clinical_needs").select(
-            "*, medical_extractions(id, created_at, consultation_type_id)"
+            "*, extractions(id, created_at, consultation_type_id)"
         ).eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(limit).execute()
@@ -8954,23 +8896,23 @@ def get_patient_clinical_needs_history(
         return result.data if result.data else []
 
     except Exception as e:
-        logger.error(f"[CLINICAL_NEEDS] Failed to get needs history for patient {patient_id}: {e}")
+        logger.error(f"[CLINICAL_NEEDS] Failed to get needs history for student {student_id}: {e}")
         return []
 
 
-def get_patient_latest_clinical_needs(patient_id: str) -> Optional[Dict[str, Any]]:
+def get_student_latest_clinical_needs(student_id: str) -> Optional[Dict[str, Any]]:
     """
-    Get latest clinical needs assessment for a patient.
+    Get latest clinical needs assessment for a student.
 
     Args:
-        patient_id: Patient UUID
+        student_id: Student UUID
 
     Returns:
         Most recent needs dict or None
     """
     try:
         result = supabase.table("other_clinical_needs").select("*").eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(1).execute()
@@ -8980,19 +8922,19 @@ def get_patient_latest_clinical_needs(patient_id: str) -> Optional[Dict[str, Any
         return None
 
     except Exception as e:
-        logger.error(f"[CLINICAL_NEEDS] Failed to get latest needs for patient {patient_id}: {e}")
+        logger.error(f"[CLINICAL_NEEDS] Failed to get latest needs for student {student_id}: {e}")
         return None
 
 
 def get_clinical_needs_statistics(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = 30
 ) -> Dict[str, Any]:
     """
     Get aggregate clinical needs statistics.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         days: Number of days to look back
 
     Returns:
@@ -9006,8 +8948,8 @@ def get_clinical_needs_statistics(
             "is_followup_diagnostics, is_recurring_diagnostics, is_rx_refill"
         ).gte("created_at", cutoff)
 
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
 
         result = query.execute()
 
@@ -9067,8 +9009,8 @@ def save_allied_health_needs(needs_data: Dict[str, Any]) -> Optional[uuid.UUID]:
     try:
         result = supabase.table("allied_health_needs").insert({
             "extraction_id": needs_data["extraction_id"],
-            "patient_id": needs_data.get("patient_id"),
-            "doctor_id": needs_data.get("doctor_id"),
+            "student_id": needs_data.get("student_id"),
+            "counsellor_id": needs_data.get("counsellor_id"),
             "consultation_insights_id": needs_data.get("consultation_insights_id"),
             "priority_level": needs_data.get("priority_level", "NONE"),
             "is_mental_health": needs_data.get("is_mental_health", False),
@@ -9142,15 +9084,15 @@ def get_allied_health_by_extraction(extraction_id: str) -> Optional[Dict[str, An
         return None
 
 
-def get_patient_allied_health_history(
-    patient_id: str,
+def get_student_allied_health_history(
+    student_id: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Get patient's allied health needs history.
+    Get student's allied health needs history.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum records to return
 
     Returns:
@@ -9158,9 +9100,9 @@ def get_patient_allied_health_history(
     """
     try:
         result = supabase.table("allied_health_needs").select(
-            "*, medical_extractions(created_at)"
+            "*, extractions(created_at)"
         ).eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(limit).execute()
@@ -9168,23 +9110,23 @@ def get_patient_allied_health_history(
         return result.data if result.data else []
 
     except Exception as e:
-        logger.error(f"[ALLIED_HEALTH] Failed to get patient history: {e}")
+        logger.error(f"[ALLIED_HEALTH] Failed to get student history: {e}")
         return []
 
 
-def get_patient_latest_allied_health(patient_id: str) -> Optional[Dict[str, Any]]:
+def get_student_latest_allied_health(student_id: str) -> Optional[Dict[str, Any]]:
     """
-    Get most recent allied health assessment for a patient.
+    Get most recent allied health assessment for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
 
     Returns:
         Latest allied health assessment or None
     """
     try:
         result = supabase.table("allied_health_needs").select("*").eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(1).execute()
@@ -9194,19 +9136,19 @@ def get_patient_latest_allied_health(patient_id: str) -> Optional[Dict[str, Any]
         return None
 
     except Exception as e:
-        logger.error(f"[ALLIED_HEALTH] Failed to get latest for patient: {e}")
+        logger.error(f"[ALLIED_HEALTH] Failed to get latest for student: {e}")
         return None
 
 
 def get_allied_health_statistics(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = 30
 ) -> Dict[str, Any]:
     """
     Get aggregate allied health statistics.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         days: Number of days to look back
 
     Returns:
@@ -9222,8 +9164,8 @@ def get_allied_health_statistics(
             "is_treatment_education, is_wellness"
         ).gte("created_at", cutoff)
 
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
 
         result = query.execute()
 
@@ -9311,12 +9253,12 @@ def get_other_clinical_needs_by_extraction(extraction_id: str) -> Optional[Dict[
 
 
 # ============================================================================
-# Patient Dropoff Risk Functions
+# Student Dropoff Risk Functions
 # ============================================================================
 
-def save_patient_dropoff_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
+def save_student_dropoff_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
     """
-    Save patient dropoff risk assessment to database.
+    Save student dropoff risk assessment to database.
 
     Args:
         risk_data: Dict containing dropoff probability, risk level, and 5 indicators
@@ -9345,10 +9287,10 @@ def save_patient_dropoff_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
         if compliance_reasons:
             consolidated_reasons.extend([f"[Compliance] {r}" for r in compliance_reasons])
 
-        result = supabase.table("patient_dropoff_risk").insert({
+        result = supabase.table("student_dropoff_risk").insert({
             "extraction_id": risk_data["extraction_id"],
-            "patient_id": risk_data.get("patient_id"),
-            "doctor_id": risk_data.get("doctor_id"),
+            "student_id": risk_data.get("student_id"),
+            "counsellor_id": risk_data.get("counsellor_id"),
             "consultation_insights_id": risk_data.get("consultation_insights_id"),
             "dropoff_probability": risk_data["dropoff_probability"],
             "risk_level": risk_data["risk_level"],
@@ -9387,7 +9329,7 @@ def save_patient_dropoff_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
         if "unique_dropoff_extraction" in str(e) or "duplicate key" in str(e).lower():
             logger.warning(f"[DROPOFF_RISK] Assessment already exists for extraction {risk_data['extraction_id']}")
             try:
-                existing = supabase.table("patient_dropoff_risk").select("id").eq(
+                existing = supabase.table("student_dropoff_risk").select("id").eq(
                     "extraction_id", risk_data["extraction_id"]
                 ).single().execute()
                 if existing.data:
@@ -9402,7 +9344,7 @@ def save_patient_dropoff_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
 
 def get_dropoff_risk_by_extraction(extraction_id: str) -> Optional[Dict[str, Any]]:
     """
-    Get patient dropoff risk assessment for an extraction.
+    Get student dropoff risk assessment for an extraction.
 
     Args:
         extraction_id: UUID of the extraction
@@ -9411,7 +9353,7 @@ def get_dropoff_risk_by_extraction(extraction_id: str) -> Optional[Dict[str, Any
         Dropoff risk assessment dict or None
     """
     try:
-        result = supabase.table("patient_dropoff_risk").select("*").eq(
+        result = supabase.table("student_dropoff_risk").select("*").eq(
             "extraction_id", extraction_id
         ).single().execute()
 
@@ -9423,25 +9365,25 @@ def get_dropoff_risk_by_extraction(extraction_id: str) -> Optional[Dict[str, Any
         return None
 
 
-def get_patient_dropoff_history(
-    patient_id: str,
+def get_student_dropoff_history(
+    student_id: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Get patient's dropoff risk assessment history.
+    Get student's dropoff risk assessment history.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum records to return
 
     Returns:
         List of dropoff risk assessments, newest first
     """
     try:
-        result = supabase.table("patient_dropoff_risk").select(
-            "*, medical_extractions(created_at)"
+        result = supabase.table("student_dropoff_risk").select(
+            "*, extractions(created_at)"
         ).eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(limit).execute()
@@ -9449,23 +9391,23 @@ def get_patient_dropoff_history(
         return result.data if result.data else []
 
     except Exception as e:
-        logger.error(f"[DROPOFF_RISK] Failed to get patient history: {e}")
+        logger.error(f"[DROPOFF_RISK] Failed to get student history: {e}")
         return []
 
 
-def get_patient_latest_dropoff_risk(patient_id: str) -> Optional[Dict[str, Any]]:
+def get_student_latest_dropoff_risk(student_id: str) -> Optional[Dict[str, Any]]:
     """
-    Get most recent dropoff risk assessment for a patient.
+    Get most recent dropoff risk assessment for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
 
     Returns:
         Latest dropoff risk assessment or None
     """
     try:
-        result = supabase.table("patient_dropoff_risk").select("*").eq(
-            "patient_id", patient_id
+        result = supabase.table("student_dropoff_risk").select("*").eq(
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(1).execute()
@@ -9475,54 +9417,54 @@ def get_patient_latest_dropoff_risk(patient_id: str) -> Optional[Dict[str, Any]]
         return None
 
     except Exception as e:
-        logger.error(f"[DROPOFF_RISK] Failed to get latest for patient: {e}")
+        logger.error(f"[DROPOFF_RISK] Failed to get latest for student: {e}")
         return None
 
 
-def get_high_risk_patients(
-    doctor_id: Optional[str] = None,
+def get_high_risk_students(
+    counsellor_id: Optional[str] = None,
     limit: int = 50
 ) -> List[Dict[str, Any]]:
     """
-    Get patients with HIGH or CRITICAL dropoff risk.
+    Get students with HIGH or CRITICAL dropoff risk.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         limit: Maximum records to return
 
     Returns:
-        List of high risk patients with their assessments
+        List of high risk students with their assessments
     """
     try:
-        query = supabase.table("patient_dropoff_risk").select(
-            "*, medical_extractions(created_at)"
+        query = supabase.table("student_dropoff_risk").select(
+            "*, extractions(created_at)"
         ).in_(
             "risk_level", ["HIGH", "CRITICAL"]
         ).order(
             "dropoff_probability", desc=True
         ).limit(limit)
 
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
 
         result = query.execute()
 
         return result.data if result.data else []
 
     except Exception as e:
-        logger.error(f"[DROPOFF_RISK] Failed to get high risk patients: {e}")
+        logger.error(f"[DROPOFF_RISK] Failed to get high risk students: {e}")
         return []
 
 
 def get_dropoff_risk_statistics(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = 30
 ) -> Dict[str, Any]:
     """
     Get aggregate dropoff risk statistics.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         days: Number of days to look back
 
     Returns:
@@ -9532,13 +9474,13 @@ def get_dropoff_risk_statistics(
         from datetime import datetime, timedelta
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-        query = supabase.table("patient_dropoff_risk").select(
+        query = supabase.table("student_dropoff_risk").select(
             "risk_level, dropoff_probability, is_financial_risk, is_competitor_risk, "
             "is_dissatisfaction_risk, is_access_risk, is_compliance_risk"
         ).gte("created_at", cutoff)
 
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
 
         result = query.execute()
 
@@ -9660,8 +9602,8 @@ def save_care_quality_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
     Args:
         risk_data: Dict containing:
             - extraction_id: Required UUID
-            - patient_id: Optional UUID
-            - doctor_id: Optional UUID
+            - student_id: Optional UUID
+            - counsellor_id: Optional UUID
             - care_quality_score: 0-100 score
             - risk_level: LOW/MEDIUM/HIGH/CRITICAL
             - is_medication_issue: Boolean
@@ -9689,8 +9631,8 @@ def save_care_quality_risk(risk_data: Dict[str, Any]) -> Optional[uuid.UUID]:
     try:
         result = supabase.table("care_quality_risk").insert({
             "extraction_id": risk_data["extraction_id"],
-            "patient_id": risk_data.get("patient_id"),
-            "doctor_id": risk_data.get("doctor_id"),
+            "student_id": risk_data.get("student_id"),
+            "counsellor_id": risk_data.get("counsellor_id"),
             "care_quality_score": risk_data["care_quality_score"],
             "risk_level": risk_data["risk_level"],
             "is_medication_issue": risk_data.get("is_medication_issue", False),
@@ -9761,15 +9703,15 @@ def get_care_quality_by_extraction(extraction_id: str) -> Optional[Dict[str, Any
         return None
 
 
-def get_patient_care_quality_history(
-    patient_id: str,
+def get_student_care_quality_history(
+    student_id: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Get patient's care quality risk assessment history.
+    Get student's care quality risk assessment history.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum records to return
 
     Returns:
@@ -9777,9 +9719,9 @@ def get_patient_care_quality_history(
     """
     try:
         result = supabase.table("care_quality_risk").select(
-            "*, medical_extractions(created_at)"
+            "*, extractions(created_at)"
         ).eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order(
             "created_at", desc=True
         ).limit(limit).execute()
@@ -9787,19 +9729,19 @@ def get_patient_care_quality_history(
         return result.data if result.data else []
 
     except Exception as e:
-        logger.error(f"[CARE_QUALITY] Failed to get patient history: {e}")
+        logger.error(f"[CARE_QUALITY] Failed to get student history: {e}")
         return []
 
 
 def get_high_risk_care_quality(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     limit: int = 50
 ) -> List[Dict[str, Any]]:
     """
     Get extractions with HIGH or CRITICAL care quality risk.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         limit: Maximum records to return
 
     Returns:
@@ -9807,15 +9749,15 @@ def get_high_risk_care_quality(
     """
     try:
         query = supabase.table("care_quality_risk").select(
-            "*, medical_extractions(created_at)"
+            "*, extractions(created_at)"
         ).in_(
             "risk_level", ["HIGH", "CRITICAL"]
         ).order(
             "care_quality_score", desc=True
         ).limit(limit)
 
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
 
         result = query.execute()
 
@@ -9827,14 +9769,14 @@ def get_high_risk_care_quality(
 
 
 def get_care_quality_statistics(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = 30
 ) -> Dict[str, Any]:
     """
     Get aggregate care quality risk statistics.
 
     Args:
-        doctor_id: Optional filter by doctor
+        counsellor_id: Optional filter by counsellor
         days: Number of days to look back
 
     Returns:
@@ -9849,8 +9791,8 @@ def get_care_quality_statistics(
             "is_incomplete_treatment, is_followup_gap"
         ).gte("created_at", cutoff)
 
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
 
         result = query.execute()
 
@@ -9947,10 +9889,10 @@ def save_consultation_insights(insights_data: Dict[str, Any]) -> Optional[uuid.U
     try:
         result = supabase.table("consultation_insights").insert({
             "extraction_id": insights_data["extraction_id"],
-            "patient_id": insights_data.get("patient_id"),
-            "doctor_id": insights_data.get("doctor_id"),
+            "student_id": insights_data.get("student_id"),
+            "counsellor_id": insights_data.get("counsellor_id"),
             # 14 Signal Groups
-            "patient_signals": insights_data.get("patient_signals", {}),
+            "student_signals": insights_data.get("student_signals", {}),
             "clinical_severity_signals": insights_data.get("clinical_severity_signals", {}),
             "diagnostic_needs": insights_data.get("diagnostic_needs", {}),
             "medication_signals": insights_data.get("medication_signals", {}),
@@ -9999,7 +9941,7 @@ def get_consultation_insights_by_extraction(extraction_id: str) -> Optional[Dict
     Get consultation insights for an extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         Dict with all 14 signal groups, or None if not found
@@ -10020,15 +9962,15 @@ def get_consultation_insights_by_extraction(extraction_id: str) -> Optional[Dict
         return None
 
 
-def get_consultation_insights_by_patient(
-    patient_id: str,
+def get_consultation_insights_by_student(
+    student_id: str,
     limit: int = 10
 ) -> List[Dict]:
     """
-    Get recent consultation insights for a patient (analytics).
+    Get recent consultation insights for a student (analytics).
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum number of records to return
 
     Returns:
@@ -10036,27 +9978,27 @@ def get_consultation_insights_by_patient(
     """
     try:
         result = supabase.table("consultation_insights").select("*").eq(
-            "patient_id", patient_id
+            "student_id", student_id
         ).order("created_at", desc=True).limit(limit).execute()
 
         return result.data or []
 
     except Exception as e:
-        logger.error(f"[CONSULTATION_INSIGHTS] Failed to get insights for patient {patient_id}: {e}")
+        logger.error(f"[CONSULTATION_INSIGHTS] Failed to get insights for student {student_id}: {e}")
         return []
 
 
-def get_consultation_insights_by_doctor(
-    doctor_id: str,
+def get_consultation_insights_by_counsellor(
+    counsellor_id: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = 100
 ) -> List[Dict]:
     """
-    Get consultation insights for a doctor's patients (analytics).
+    Get consultation insights for a counsellor's students (analytics).
 
     Args:
-        doctor_id: UUID of the doctor
+        counsellor_id: UUID of the counsellor
         start_date: Optional ISO date string for range start
         end_date: Optional ISO date string for range end
         limit: Maximum number of records to return
@@ -10066,7 +10008,7 @@ def get_consultation_insights_by_doctor(
     """
     try:
         query = supabase.table("consultation_insights").select("*").eq(
-            "doctor_id", doctor_id
+            "counsellor_id", counsellor_id
         )
 
         if start_date:
@@ -10079,23 +10021,23 @@ def get_consultation_insights_by_doctor(
         return result.data or []
 
     except Exception as e:
-        logger.error(f"[CONSULTATION_INSIGHTS] Failed to get insights for doctor {doctor_id}: {e}")
+        logger.error(f"[CONSULTATION_INSIGHTS] Failed to get insights for counsellor {counsellor_id}: {e}")
         return []
 
 
 # =============================================================================
-# HOSPITAL INTERVENTION PRICING
+# SCHOOL INTERVENTION PRICING
 # =============================================================================
 
-def get_hospital_intervention_pricing(
-    hospital_id: uuid.UUID,
+def get_school_intervention_pricing(
+    school_id: uuid.UUID,
     intervention_type: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Get pricing for a specific intervention type at a hospital.
+    Get pricing for a specific intervention type at a school.
 
     Args:
-        hospital_id: UUID of the hospital
+        school_id: UUID of the school
         intervention_type: Intervention type code (e.g., "NUTRITIONAL_REFERRAL")
 
     Returns:
@@ -10103,9 +10045,9 @@ def get_hospital_intervention_pricing(
     """
     try:
         response = (
-            supabase.table("hospital_intervention_pricing")
+            supabase.table("school_intervention_pricing")
             .select("revenue_estimate, service_name, currency")
-            .eq("hospital_id", str(hospital_id))
+            .eq("school_id", str(school_id))
             .eq("intervention_type", intervention_type)
             .eq("is_active", True)
             .single()
@@ -10113,25 +10055,25 @@ def get_hospital_intervention_pricing(
         )
         return response.data if response.data else None
     except Exception as e:
-        logger.debug(f"[PRICING] No pricing found for {intervention_type} at hospital {hospital_id}: {e}")
+        logger.debug(f"[PRICING] No pricing found for {intervention_type} at school {school_id}: {e}")
         return None
 
 
-def get_all_hospital_pricing(hospital_id: uuid.UUID) -> Dict[str, Dict[str, Any]]:
+def get_all_school_pricing(school_id: uuid.UUID) -> Dict[str, Dict[str, Any]]:
     """
-    Get all intervention pricing for a hospital (for batch lookups).
+    Get all intervention pricing for a school (for batch lookups).
 
     Args:
-        hospital_id: UUID of the hospital
+        school_id: UUID of the school
 
     Returns:
         Dict mapping intervention_type -> {revenue_estimate, service_name, currency}
     """
     try:
         response = (
-            supabase.table("hospital_intervention_pricing")
+            supabase.table("school_intervention_pricing")
             .select("intervention_type, revenue_estimate, service_name, currency")
-            .eq("hospital_id", str(hospital_id))
+            .eq("school_id", str(school_id))
             .eq("is_active", True)
             .execute()
         )
@@ -10148,7 +10090,7 @@ def get_all_hospital_pricing(hospital_id: uuid.UUID) -> Dict[str, Dict[str, Any]
             for row in response.data
         }
     except Exception as e:
-        logger.error(f"[PRICING] Failed to get pricing for hospital {hospital_id}: {e}")
+        logger.error(f"[PRICING] Failed to get pricing for school {school_id}: {e}")
         return {}
 
 
@@ -10168,7 +10110,7 @@ def save_categorized_intervention(intervention_data: Dict[str, Any]) -> Optional
             - intervention_sub_type: str (e.g., 'allied_health', 'retention')
             - priority_level: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
             - priority_score: int (0-100)
-            - take_up_likelihood: int (0-100, predicted likelihood patient accepts intervention)
+            - take_up_likelihood: int (0-100, predicted likelihood student accepts intervention)
             - trigger_reason: str (plain English reason)
             - action: str (simple action statement)
             - revenue_estimate: Decimal (for REVENUE category)
@@ -10234,7 +10176,7 @@ def save_categorized_intervention(intervention_data: Dict[str, Any]) -> Optional
 
         # Insert
         response = (
-            supabase.table("patient_interventions")
+            supabase.table("student_interventions")
             .insert(record)
             .execute()
         )
@@ -10313,7 +10255,7 @@ def get_categorized_interventions(
     Get categorized interventions for an extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         category: Optional filter by category ('REVENUE', 'RETENTION', 'QUALITY')
 
     Returns:
@@ -10321,7 +10263,7 @@ def get_categorized_interventions(
     """
     try:
         query = (
-            supabase.table("patient_interventions")
+            supabase.table("student_interventions")
             .select("*")
             .eq("extraction_id", str(extraction_id))
             .not_.is_("intervention_category", "null")  # Only categorized interventions
@@ -10343,10 +10285,10 @@ def get_categorized_interventions(
 # Recording Management Operations (List & Reprocess Support)
 # ============================================================================
 
-def list_recordings_for_doctor(
-    doctor_id: uuid.UUID,
-    patient_id: Optional[uuid.UUID] = None,
-    patient_identifier: Optional[str] = None,
+def list_recordings_for_counsellor(
+    counsellor_id: uuid.UUID,
+    student_id: Optional[uuid.UUID] = None,
+    student_identifier: Optional[str] = None,
     status: str = "COMPLETED",
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
@@ -10354,18 +10296,18 @@ def list_recordings_for_doctor(
     offset: int = 0,
 ) -> Dict[str, Any]:
     """
-    List recording sessions for a doctor with optional filters.
+    List recording sessions for a counsellor with optional filters.
 
     Queries recording_sessions and joins with:
-    - patients (for patient_name)
+    - students (for patient_name)
     - processing_jobs (for has_transcript)
-    - medical_extractions (for has_extraction, last_extraction_id)
+    - extractions (for has_extraction, last_extraction_id)
     - templates (for template_name)
 
     Args:
-        doctor_id: UUID of the doctor
-        patient_id: Optional patient UUID filter
-        patient_identifier: Optional external patient ID filter (e.g., MRN)
+        counsellor_id: UUID of the counsellor
+        student_id: Optional student UUID filter
+        student_identifier: Optional external student ID filter (e.g., MRN)
         status: Filter by session status (default: COMPLETED)
         date_from: Optional filter for recordings created on or after this date
         date_to: Optional filter for recordings created on or before this date
@@ -10378,31 +10320,31 @@ def list_recordings_for_doctor(
     try:
         # Build base query with joins
         # Select recording_sessions with related data
-        # Use left join (no !inner) so recordings without patients are included
+        # Use left join (no !inner) so recordings without students are included
         # NOTE: Don't select full_audio_data (large blob) - use full_audio_mime_type to check if audio exists
         query = (
             supabase.table("recording_sessions")
             .select(
-                "id, correlation_id, patient_id, patient_identifier, "
+                "id, correlation_id, student_id, student_identifier, "
                 "template_code, template_name, processing_mode, extraction_mode, "
                 "transcription_model, extraction_model, status, created_at, completed_at, "
                 "full_audio_mime_type, error_message, audio_quality_json, has_processed_audio, "
-                "patients(id, patient_id, full_name)"
+                "students(id, student_id, full_name)"
             )
-            .eq("doctor_id", str(doctor_id))
+            .eq("counsellor_id", str(counsellor_id))
         )
 
         # Apply status filter
         if status:
             query = query.eq("status", status)
 
-        # Apply patient filters
-        if patient_id:
-            query = query.eq("patient_id", str(patient_id))
-        if patient_identifier:
-            # Filter on joined patients table's patient_id (external identifier/MRN)
+        # Apply student filters
+        if student_id:
+            query = query.eq("student_id", str(student_id))
+        if student_identifier:
+            # Filter on joined students table's student_id (external identifier/MRN)
             # Note: This requires inner join behavior, so add !inner for this case only
-            query = query.eq("patients.patient_id", patient_identifier)
+            query = query.eq("students.student_id", student_identifier)
 
         # Apply date range filters
         if date_from:
@@ -10444,9 +10386,9 @@ def list_recordings_for_doctor(
                 if job["session_id"] not in jobs_by_session:
                     jobs_by_session[job["session_id"]] = job
 
-            # Batch fetch latest medical_extractions
+            # Batch fetch latest extractions
             extractions_response = (
-                supabase.table("medical_extractions")
+                supabase.table("extractions")
                 .select("id, session_id, transcript_text, created_at")
                 .in_("session_id", session_ids)
                 .order("created_at", desc=True)
@@ -10482,7 +10424,7 @@ def list_recordings_for_doctor(
             session_id = session["id"]
             job = jobs_by_session.get(session_id, {})
             extraction = extractions_by_session.get(session_id, {})
-            patient = session.get("patients") or {}  # Handle None from left join
+            patient = session.get("students") or {}  # Handle None from left join
             chunk_info = chunks_by_session.get(session_id, {"count": 0, "last_chunk_at": None})
             chunk_count = chunk_info["count"]
             last_chunk_at = chunk_info.get("last_chunk_at")
@@ -10497,8 +10439,8 @@ def list_recordings_for_doctor(
             recordings.append({
                 "session_id": session_id,
                 "correlation_id": session.get("correlation_id"),
-                "patient_id": session.get("patient_id"),
-                "patient_identifier": session.get("patient_identifier"),
+                "student_id": session.get("student_id"),
+                "student_identifier": session.get("student_identifier"),
                 "patient_name": patient.get("full_name"),
                 "consultation_datetime": session.get("created_at"),
                 "completed_at": session.get("completed_at"),
@@ -10526,14 +10468,14 @@ def list_recordings_for_doctor(
         count_query = (
             supabase.table("recording_sessions")
             .select("id", count="exact")
-            .eq("doctor_id", str(doctor_id))
+            .eq("counsellor_id", str(counsellor_id))
         )
         if status:
             count_query = count_query.eq("status", status)
-        if patient_id:
-            count_query = count_query.eq("patient_id", str(patient_id))
-        if patient_identifier:
-            count_query = count_query.eq("patient_identifier", patient_identifier)
+        if student_id:
+            count_query = count_query.eq("student_id", str(student_id))
+        if student_identifier:
+            count_query = count_query.eq("student_identifier", student_identifier)
         if date_from:
             count_query = count_query.gte("created_at", date_from.isoformat())
         if date_to:
@@ -10549,18 +10491,18 @@ def list_recordings_for_doctor(
         if include_merged:
             try:
                 merge_query = (
-                    supabase.table("medical_extractions")
+                    supabase.table("extractions")
                     .select(
-                        "id, patient_id, doctor_id, created_at, merge_metadata, "
-                        "patients(id, patient_id, full_name)"
+                        "id, student_id, counsellor_id, created_at, merge_metadata, "
+                        "students(id, student_id, full_name)"
                     )
-                    .eq("doctor_id", str(doctor_id))
+                    .eq("counsellor_id", str(counsellor_id))
                     .eq("is_merged", True)
                 )
-                if patient_id:
-                    merge_query = merge_query.eq("patient_id", str(patient_id))
-                if patient_identifier:
-                    merge_query = merge_query.eq("patients.patient_id", patient_identifier)
+                if student_id:
+                    merge_query = merge_query.eq("student_id", str(student_id))
+                if student_identifier:
+                    merge_query = merge_query.eq("students.student_id", student_identifier)
                 if date_from:
                     merge_query = merge_query.gte("created_at", date_from.isoformat())
                 if date_to:
@@ -10572,12 +10514,12 @@ def list_recordings_for_doctor(
                 for me in (merge_response.data or []):
                     meta = me.get("merge_metadata") or {}
                     tcode = meta.get("target_template_code")
-                    mpatient = me.get("patients") or {}
+                    mpatient = me.get("students") or {}
                     recordings.append({
                         "session_id": me["id"],  # use extraction id as row key
                         "correlation_id": None,
-                        "patient_id": me.get("patient_id"),
-                        "patient_identifier": mpatient.get("patient_id"),
+                        "student_id": me.get("student_id"),
+                        "student_identifier": mpatient.get("student_id"),
                         "patient_name": mpatient.get("full_name"),
                         "consultation_datetime": me.get("created_at"),
                         "completed_at": me.get("created_at"),
@@ -10602,22 +10544,22 @@ def list_recordings_for_doctor(
                     })
 
                 merge_count_query = (
-                    supabase.table("medical_extractions")
+                    supabase.table("extractions")
                     .select("id", count="exact")
-                    .eq("doctor_id", str(doctor_id))
+                    .eq("counsellor_id", str(counsellor_id))
                     .eq("is_merged", True)
                 )
-                if patient_id:
-                    merge_count_query = merge_count_query.eq("patient_id", str(patient_id))
-                if patient_identifier:
-                    merge_count_query = merge_count_query.eq("patients.patient_id", patient_identifier)
+                if student_id:
+                    merge_count_query = merge_count_query.eq("student_id", str(student_id))
+                if student_identifier:
+                    merge_count_query = merge_count_query.eq("students.student_id", student_identifier)
                 if date_from:
                     merge_count_query = merge_count_query.gte("created_at", date_from.isoformat())
                 if date_to:
                     merge_count_query = merge_count_query.lte("created_at", date_to.isoformat())
                 merged_count = (merge_count_query.execute()).count or 0
             except Exception as e:
-                logger.warning(f"[RECORDINGS] Failed to fetch merged extractions for doctor {doctor_id}: {e}")
+                logger.warning(f"[RECORDINGS] Failed to fetch merged extractions for counsellor {counsellor_id}: {e}")
 
         # Sort the combined list by date desc and slice to the requested page
         recordings.sort(key=lambda r: r.get("consultation_datetime") or "", reverse=True)
@@ -10631,14 +10573,14 @@ def list_recordings_for_doctor(
         }
 
     except Exception as e:
-        logger.error(f"[RECORDINGS] Failed to list recordings for doctor {doctor_id}: {e}", exc_info=True)
+        logger.error(f"[RECORDINGS] Failed to list recordings for counsellor {counsellor_id}: {e}", exc_info=True)
         raise Exception(f"Failed to list recordings: {str(e)}")
 
 
-def list_recordings_for_nurse(
-    nurse_id: uuid.UUID,
-    patient_id: Optional[uuid.UUID] = None,
-    patient_identifier: Optional[str] = None,
+def list_recordings_for_assistant(
+    assistant_id: uuid.UUID,
+    student_id: Optional[uuid.UUID] = None,
+    student_identifier: Optional[str] = None,
     status: str = "COMPLETED",
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
@@ -10646,28 +10588,28 @@ def list_recordings_for_nurse(
     offset: int = 0,
 ) -> Dict[str, Any]:
     """
-    List recording sessions for a nurse with optional filters.
-    Mirror of list_recordings_for_doctor but filtering on nurse_id.
+    List recording sessions for an assistant with optional filters.
+    Mirror of list_recordings_for_counsellor but filtering on assistant_id.
     """
     try:
         query = (
             supabase.table("recording_sessions")
             .select(
-                "id, correlation_id, patient_id, patient_identifier, "
+                "id, correlation_id, student_id, student_identifier, "
                 "template_code, template_name, processing_mode, extraction_mode, "
                 "transcription_model, extraction_model, status, created_at, completed_at, "
                 "full_audio_mime_type, error_message, audio_quality_json, has_processed_audio, "
-                "patients(id, patient_id, full_name)"
+                "students(id, student_id, full_name)"
             )
-            .eq("nurse_id", str(nurse_id))
+            .eq("assistant_id", str(assistant_id))
         )
 
         if status:
             query = query.eq("status", status)
-        if patient_id:
-            query = query.eq("patient_id", str(patient_id))
-        if patient_identifier:
-            query = query.eq("patients.patient_id", patient_identifier)
+        if student_id:
+            query = query.eq("student_id", str(student_id))
+        if student_identifier:
+            query = query.eq("students.student_id", student_identifier)
         if date_from:
             query = query.gte("created_at", date_from.isoformat())
         if date_to:
@@ -10696,9 +10638,9 @@ def list_recordings_for_nurse(
             if job["session_id"] not in jobs_by_session:
                 jobs_by_session[job["session_id"]] = job
 
-        # Batch fetch latest medical_extractions
+        # Batch fetch latest extractions
         extractions_response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select("id, session_id, transcript_text, created_at")
             .in_("session_id", session_ids)
             .order("created_at", desc=True)
@@ -10731,7 +10673,7 @@ def list_recordings_for_nurse(
             session_id = session["id"]
             job = jobs_by_session.get(session_id, {})
             extraction = extractions_by_session.get(session_id, {})
-            patient = session.get("patients") or {}
+            patient = session.get("students") or {}
             chunk_info = chunks_by_session.get(session_id, {"count": 0, "last_chunk_at": None})
             chunk_count = chunk_info["count"]
             last_chunk_at = chunk_info.get("last_chunk_at")
@@ -10743,8 +10685,8 @@ def list_recordings_for_nurse(
             recordings.append({
                 "session_id": session_id,
                 "correlation_id": session.get("correlation_id"),
-                "patient_id": session.get("patient_id"),
-                "patient_identifier": session.get("patient_identifier"),
+                "student_id": session.get("student_id"),
+                "student_identifier": session.get("student_identifier"),
                 "patient_name": patient.get("full_name"),
                 "consultation_datetime": session.get("created_at"),
                 "completed_at": session.get("completed_at"),
@@ -10771,14 +10713,14 @@ def list_recordings_for_nurse(
         count_query = (
             supabase.table("recording_sessions")
             .select("id", count="exact")
-            .eq("nurse_id", str(nurse_id))
+            .eq("assistant_id", str(assistant_id))
         )
         if status:
             count_query = count_query.eq("status", status)
-        if patient_id:
-            count_query = count_query.eq("patient_id", str(patient_id))
-        if patient_identifier:
-            count_query = count_query.eq("patient_identifier", patient_identifier)
+        if student_id:
+            count_query = count_query.eq("student_id", str(student_id))
+        if student_identifier:
+            count_query = count_query.eq("student_identifier", student_identifier)
         if date_from:
             count_query = count_query.gte("created_at", date_from.isoformat())
         if date_to:
@@ -10793,16 +10735,16 @@ def list_recordings_for_nurse(
         }
 
     except Exception as e:
-        logger.error(f"[RECORDINGS] Failed to list recordings for nurse {nurse_id}: {e}", exc_info=True)
+        logger.error(f"[RECORDINGS] Failed to list recordings for assistant {assistant_id}: {e}", exc_info=True)
         raise Exception(f"Failed to list recordings: {str(e)}")
 
 
 def get_session_transcript(session_id: uuid.UUID) -> Optional[str]:
     """
-    Get transcript for a session from processing_jobs or medical_extractions.
+    Get transcript for a session from processing_jobs or extractions.
 
     Checks processing_jobs first (where transcript is stored during processing),
-    falls back to medical_extractions.transcript_text if not found.
+    falls back to extractions.transcript_text if not found.
 
     Args:
         session_id: UUID of the recording session
@@ -10824,9 +10766,9 @@ def get_session_transcript(session_id: uuid.UUID) -> Optional[str]:
         if job_response.data and job_response.data[0].get("transcript"):
             return job_response.data[0]["transcript"]
 
-        # Fallback to medical_extractions (most recent extraction)
+        # Fallback to extractions (most recent extraction)
         extraction_response = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select("transcript_text")
             .eq("session_id", str(session_id))
             .order("created_at", desc=True)
@@ -11000,17 +10942,17 @@ def get_translation_model_by_mode(mode_code: str = "default") -> str:
         return fallback
 
 
-def get_doctor_translation_language(doctor_id: uuid.UUID) -> Optional[str]:
+def get_counsellor_translation_language(counsellor_id: uuid.UUID) -> Optional[str]:
     """
-    Get the translation language for a doctor, with hospital default fallback.
+    Get the translation language for a counsellor, with school default fallback.
     Returns None if no translation language is configured.
     """
     try:
-        # Check doctor-level setting first
+        # Check counsellor-level setting first
         response = (
-            supabase.table("doctors")
-            .select("translation_language, hospital_id")
-            .eq("id", str(doctor_id))
+            supabase.table("counsellors")
+            .select("translation_language, school_id")
+            .eq("id", str(counsellor_id))
             .single()
             .execute()
         )
@@ -11018,27 +10960,27 @@ def get_doctor_translation_language(doctor_id: uuid.UUID) -> Optional[str]:
         if not response.data:
             return None
 
-        doctor_lang = response.data.get("translation_language")
-        if doctor_lang:
-            return doctor_lang
+        counsellor_lang = response.data.get("translation_language")
+        if counsellor_lang:
+            return counsellor_lang
 
-        # Fallback to hospital default
-        hospital_id = response.data.get("hospital_id")
-        if hospital_id:
-            hospital_response = (
-                supabase.table("hospitals")
+        # Fallback to school default
+        school_id = response.data.get("school_id")
+        if school_id:
+            school_response = (
+                supabase.table("schools")
                 .select("default_translation_language")
-                .eq("id", str(hospital_id))
+                .eq("id", str(school_id))
                 .single()
                 .execute()
             )
-            if hospital_response.data:
-                return hospital_response.data.get("default_translation_language")
+            if school_response.data:
+                return school_response.data.get("default_translation_language")
 
         return None
 
     except Exception as e:
-        logger.error(f"[TRANSLATION] Error fetching translation language for doctor {doctor_id}: {e}")
+        logger.error(f"[TRANSLATION] Error fetching translation language for counsellor {counsellor_id}: {e}")
         return None
 
 
@@ -11152,7 +11094,7 @@ def update_translation_edits(
     edited_by: uuid.UUID,
     edited_by_type: str = "doctor",
 ) -> Optional[Dict[str, Any]]:
-    """Save doctor edits to the translated version."""
+    """Save counsellor edits to the translated version."""
     try:
         from datetime import datetime, timezone
 

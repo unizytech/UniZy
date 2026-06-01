@@ -4,7 +4,7 @@ Authentication Dependencies for FastAPI
 Provides dependency injection functions for:
 - Getting the current authenticated client
 - Requiring specific scopes
-- Requiring hospital/doctor access
+- Requiring school/counsellor access
 - Admin-only endpoints
 
 Usage in routers:
@@ -32,12 +32,12 @@ from fastapi import Depends, HTTPException, Request, Query
 
 from models.auth_models import ClientContext
 from services.auth_service import (
-    validate_hospital_access,
-    validate_doctor_access,
-    validate_doctor_exists,
-    ensure_patient_exists,
-    validate_ehr_doctor_access,
-    validate_ehr_patient_access,
+    validate_school_access,
+    validate_counsellor_access,
+    validate_counsellor_exists,
+    ensure_student_exists,
+    validate_ehr_counsellor_access,
+    validate_ehr_student_access,
     validate_ehr_extraction_access,
     validate_ehr_submission_access,
     validate_ehr_session_access,
@@ -93,7 +93,7 @@ def require_scope(scope: str) -> Callable[[ClientContext], ClientContext]:
             pass
 
     Args:
-        scope: The required scope (e.g., "read:extractions", "write:patients")
+        scope: The required scope (e.g., "read:extractions", "write:students")
 
     Returns:
         Dependency function that validates the scope
@@ -160,67 +160,67 @@ def require_all_scopes(*scopes: str) -> Callable[[ClientContext], ClientContext]
 # Resource Access Authorization
 # ============================================================================
 
-def require_hospital_access(
-    hospital_id: UUID = Query(..., description="Hospital ID to access"),
+def require_school_access(
+    school_id: UUID = Query(..., description="School ID to access"),
     client: ClientContext = Depends(get_current_client),
 ) -> ClientContext:
     """
-    Dependency that validates hospital access.
+    Dependency that validates school access.
 
-    Use this when an endpoint accesses hospital-specific data.
-    Mobile/Web apps with hospital_id=NULL have global access.
-    EHR clients can only access their assigned hospital.
+    Use this when an endpoint accesses school-specific data.
+    Mobile/Web apps with school_id=NULL have global access.
+    EHR clients can only access their assigned school.
 
     Usage:
-        @router.get("/hospital/{hospital_id}/data")
-        async def get_hospital_data(
-            hospital_id: UUID,
-            client: ClientContext = Depends(require_hospital_access)
+        @router.get("/school/{school_id}/data")
+        async def get_school_data(
+            school_id: UUID,
+            client: ClientContext = Depends(require_school_access)
         ):
             pass
     """
-    if not client.can_access_hospital(hospital_id):
+    if not client.can_access_school(school_id):
         raise HTTPException(
             status_code=403,
-            detail=f"Access denied: client restricted to hospital {client.hospital_id}",
+            detail=f"Access denied: client restricted to school {client.school_id}",
         )
     return client
 
 
-def require_doctor_access(
-    doctor_id: UUID = Query(..., description="Doctor ID to access"),
+def require_counsellor_access(
+    counsellor_id: UUID = Query(..., description="Counsellor ID to access"),
     client: ClientContext = Depends(get_current_client),
 ) -> ClientContext:
     """
-    Dependency that validates doctor access.
+    Dependency that validates counsellor access.
 
-    Use this when an endpoint accesses doctor-specific data.
+    Use this when an endpoint accesses counsellor-specific data.
 
     Usage:
-        @router.get("/doctor/{doctor_id}/extractions")
-        async def get_doctor_extractions(
-            doctor_id: UUID,
-            client: ClientContext = Depends(require_doctor_access)
+        @router.get("/counsellor/{counsellor_id}/extractions")
+        async def get_counsellor_extractions(
+            counsellor_id: UUID,
+            client: ClientContext = Depends(require_counsellor_access)
         ):
             pass
     """
-    if not client.can_access_doctor(doctor_id):
+    if not client.can_access_counsellor(counsellor_id):
         raise HTTPException(
             status_code=403,
-            detail="Access denied: client does not have access to this doctor's data",
+            detail="Access denied: client does not have access to this counsellor's data",
         )
     return client
 
 
-class DoctorAccessChecker:
+class CounsellorAccessChecker:
     """
-    Callable class for checking doctor access from path parameters.
+    Callable class for checking counsellor access from path parameters.
 
     Usage:
-        @router.get("/doctors/{doctor_id}/patients")
-        async def get_patients(
-            doctor_id: UUID,
-            client: ClientContext = Depends(DoctorAccessChecker())
+        @router.get("/counsellors/{counsellor_id}/students")
+        async def get_students(
+            counsellor_id: UUID,
+            client: ClientContext = Depends(CounsellorAccessChecker())
         ):
             pass
     """
@@ -228,38 +228,38 @@ class DoctorAccessChecker:
     async def __call__(
         self,
         request: Request,
-        doctor_id: Optional[UUID] = None,
+        counsellor_id: Optional[UUID] = None,
         client: ClientContext = Depends(get_current_client),
     ) -> ClientContext:
-        # Try to get doctor_id from path if not provided
-        if doctor_id is None:
-            doctor_id_str = request.path_params.get("doctor_id")
-            if doctor_id_str:
+        # Try to get counsellor_id from path if not provided
+        if counsellor_id is None:
+            counsellor_id_str = request.path_params.get("counsellor_id")
+            if counsellor_id_str:
                 try:
-                    doctor_id = UUID(doctor_id_str)
+                    counsellor_id = UUID(counsellor_id_str)
                 except ValueError:
-                    raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+                    raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-        if doctor_id and not client.can_access_doctor(doctor_id):
+        if counsellor_id and not client.can_access_counsellor(counsellor_id):
             raise HTTPException(
                 status_code=403,
-                detail="Access denied: client does not have access to this doctor's data",
+                detail="Access denied: client does not have access to this counsellor's data",
             )
 
         return client
 
 
-class PatientAccessChecker:
+class StudentAccessChecker:
     """
-    Callable class for checking patient access and auto-creation.
+    Callable class for checking student access and auto-creation.
 
-    For EHR clients, automatically creates patients if they don't exist.
+    For EHR clients, automatically creates students if they don't exist.
 
     Usage:
-        @router.get("/patients/{patient_id}/history")
+        @router.get("/students/{student_id}/history")
         async def get_history(
-            patient_id: str,
-            client: ClientContext = Depends(PatientAccessChecker())
+            student_id: str,
+            client: ClientContext = Depends(StudentAccessChecker())
         ):
             pass
     """
@@ -267,46 +267,46 @@ class PatientAccessChecker:
     def __init__(self, auto_create: bool = True):
         """
         Args:
-            auto_create: Whether to auto-create patients for EHR clients
+            auto_create: Whether to auto-create students for EHR clients
         """
         self.auto_create = auto_create
 
     async def __call__(
         self,
         request: Request,
-        patient_id: Optional[str] = None,
+        student_id: Optional[str] = None,
         client: ClientContext = Depends(get_current_client),
     ) -> ClientContext:
-        # Try to get patient_id from path if not provided
-        if patient_id is None:
-            patient_id = request.path_params.get("patient_id")
+        # Try to get student_id from path if not provided
+        if student_id is None:
+            student_id = request.path_params.get("student_id")
 
-        if patient_id and self.auto_create and client.client_type == "ehr":
-            # Auto-create patient for EHR clients
-            await ensure_patient_exists(patient_id, client)
+        if student_id and self.auto_create and client.client_type == "ehr":
+            # Auto-create student for EHR clients
+            await ensure_student_exists(student_id, client)
 
         return client
 
 
 # ============================================================================
-# EHR Hospital-Scoped Access Checkers
+# EHR School-Scoped Access Checkers
 # ============================================================================
 # These checkers validate that EHR clients can only access resources
-# belonging to doctors within their assigned hospital.
+# belonging to counsellors within their assigned school.
 # Admin/Mobile/Web clients pass through (admin has full access, mobile/web trusted).
 
-class EHRDoctorAccessChecker:
+class EHRCounsellorAccessChecker:
     """
-    Checker for endpoints with doctor_id parameter.
+    Checker for endpoints with counsellor_id parameter.
 
-    Validates that EHR clients can only access doctors in their hospital.
+    Validates that EHR clients can only access counsellors in their school.
     Admin users have full access. Mobile/Web apps are trusted.
 
     Usage:
-        @router.get("/doctors/{doctor_id}/extractions")
-        async def get_doctor_extractions(
-            doctor_id: UUID,
-            client: ClientContext = Depends(EHRDoctorAccessChecker())
+        @router.get("/counsellors/{counsellor_id}/extractions")
+        async def get_counsellor_extractions(
+            counsellor_id: UUID,
+            client: ClientContext = Depends(EHRCounsellorAccessChecker())
         ):
             pass
     """
@@ -314,41 +314,41 @@ class EHRDoctorAccessChecker:
     async def __call__(
         self,
         request: Request,
-        doctor_id: Optional[UUID] = None,
+        counsellor_id: Optional[UUID] = None,
         client: ClientContext = Depends(get_current_client),
     ) -> ClientContext:
-        # Try to get doctor_id from path if not provided
-        if doctor_id is None:
-            doctor_id_str = request.path_params.get("doctor_id")
-            if doctor_id_str:
+        # Try to get counsellor_id from path if not provided
+        if counsellor_id is None:
+            counsellor_id_str = request.path_params.get("counsellor_id")
+            if counsellor_id_str:
                 try:
-                    doctor_id = UUID(doctor_id_str)
+                    counsellor_id = UUID(counsellor_id_str)
                 except ValueError:
-                    raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+                    raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-        if doctor_id and client.client_type == "ehr":
-            if not await validate_ehr_doctor_access(client, doctor_id):
+        if counsellor_id and client.client_type == "ehr":
+            if not await validate_ehr_counsellor_access(client, counsellor_id):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"EHR client restricted to hospital {client.hospital_id}"
+                    detail=f"EHR client restricted to school {client.school_id}"
                 )
 
         return client
 
 
-class EHRPatientAccessChecker:
+class EHRStudentAccessChecker:
     """
-    Checker for endpoints with patient_id parameter.
+    Checker for endpoints with student_id parameter.
 
-    Validates that EHR clients can only access patients with records
-    from doctors in their hospital. Admin users have full access.
+    Validates that EHR clients can only access students with records
+    from counsellors in their school. Admin users have full access.
     Mobile/Web apps are trusted.
 
     Usage:
-        @router.get("/patients/{patient_id}/history")
-        async def get_patient_history(
-            patient_id: str,
-            client: ClientContext = Depends(EHRPatientAccessChecker())
+        @router.get("/students/{student_id}/history")
+        async def get_student_history(
+            student_id: str,
+            client: ClientContext = Depends(EHRStudentAccessChecker())
         ):
             pass
     """
@@ -356,18 +356,18 @@ class EHRPatientAccessChecker:
     async def __call__(
         self,
         request: Request,
-        patient_id: Optional[str] = None,
+        student_id: Optional[str] = None,
         client: ClientContext = Depends(get_current_client),
     ) -> ClientContext:
-        # Try to get patient_id from path if not provided
-        if patient_id is None:
-            patient_id = request.path_params.get("patient_id")
+        # Try to get student_id from path if not provided
+        if student_id is None:
+            student_id = request.path_params.get("student_id")
 
-        if patient_id and client.client_type == "ehr":
-            if not await validate_ehr_patient_access(client, patient_id):
+        if student_id and client.client_type == "ehr":
+            if not await validate_ehr_student_access(client, student_id):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Patient not accessible to hospital {client.hospital_id}"
+                    detail=f"Student not accessible to school {client.school_id}"
                 )
 
         return client
@@ -375,10 +375,10 @@ class EHRPatientAccessChecker:
 
 class EHRExtractionAccessChecker:
     """
-    Checker for endpoints with extraction_id (no doctor_id/patient_id in path).
+    Checker for endpoints with extraction_id (no counsellor_id/student_id in path).
 
     Validates that EHR clients can only access extractions belonging to
-    doctors in their hospital. Admin users have full access.
+    counsellors in their school. Admin users have full access.
     Mobile/Web apps are trusted.
 
     Usage:
@@ -409,7 +409,7 @@ class EHRExtractionAccessChecker:
             if not await validate_ehr_extraction_access(client, extraction_id):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Extraction not accessible to hospital {client.hospital_id}"
+                    detail=f"Extraction not accessible to school {client.school_id}"
                 )
 
         return client
@@ -417,10 +417,10 @@ class EHRExtractionAccessChecker:
 
 class EHRSubmissionAccessChecker:
     """
-    Checker for endpoints with submission_id (no doctor_id/patient_id in path).
+    Checker for endpoints with submission_id (no counsellor_id/student_id in path).
 
     Validates that EHR clients can only access submissions belonging to
-    doctors in their hospital. Admin users have full access.
+    counsellors in their school. Admin users have full access.
     Mobile/Web apps are trusted.
 
     Usage:
@@ -451,7 +451,7 @@ class EHRSubmissionAccessChecker:
             if not await validate_ehr_submission_access(client, submission_id):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Submission not accessible to hospital {client.hospital_id}"
+                    detail=f"Submission not accessible to school {client.school_id}"
                 )
 
         return client
@@ -459,10 +459,10 @@ class EHRSubmissionAccessChecker:
 
 class EHRSessionAccessChecker:
     """
-    Checker for endpoints with session_id (no doctor_id/patient_id in path).
+    Checker for endpoints with session_id (no counsellor_id/student_id in path).
 
     Validates that EHR clients can only access sessions belonging to
-    doctors in their hospital. Admin users have full access.
+    counsellors in their school. Admin users have full access.
     Mobile/Web apps are trusted.
 
     Usage:
@@ -493,7 +493,7 @@ class EHRSessionAccessChecker:
             if not await validate_ehr_session_access(client, session_id):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Session not accessible to hospital {client.hospital_id}"
+                    detail=f"Session not accessible to school {client.school_id}"
                 )
 
         return client
@@ -504,7 +504,7 @@ class EHRCorrelationAccessChecker:
     Checker for endpoints with correlation_id (chunk upload, cancel recording).
 
     Validates that EHR clients can only access recordings belonging to
-    doctors in their hospital. Admin users have full access.
+    counsellors in their school. Admin users have full access.
     Mobile/Web apps are trusted.
 
     Note: correlation_id typically comes from request body, not path.
@@ -532,7 +532,7 @@ class EHRCorrelationAccessChecker:
             if not await validate_ehr_correlation_access(client, correlation_id):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Recording not accessible to hospital {client.hospital_id}"
+                    detail=f"Recording not accessible to school {client.school_id}"
                 )
 
         return client
@@ -624,20 +624,20 @@ def require_extraction_access(
     return client
 
 
-def require_patient_access(
+def require_student_access(
     client: ClientContext = Depends(get_current_client),
 ) -> ClientContext:
     """
-    Requires patient data access.
+    Requires student data access.
     """
     if not (
-        client.has_scope("read:patients")
-        or client.has_scope("write:patients")
+        client.has_scope("read:students")
+        or client.has_scope("write:students")
         or client.client_type == "admin"
     ):
         raise HTTPException(
             status_code=403,
-            detail="Patient access required",
+            detail="Student access required",
         )
     return client
 
@@ -646,46 +646,46 @@ def require_patient_access(
 # Utility Dependencies
 # ============================================================================
 
-async def validate_doctor_id(
-    doctor_id: UUID = Query(..., description="Doctor ID"),
+async def validate_counsellor_id(
+    counsellor_id: UUID = Query(..., description="Counsellor ID"),
     client: ClientContext = Depends(get_current_client),
 ) -> UUID:
     """
-    Validate that a doctor_id exists and client has access.
+    Validate that a counsellor_id exists and client has access.
 
-    Returns the validated doctor_id.
+    Returns the validated counsellor_id.
     """
     # Check access
-    if not client.can_access_doctor(doctor_id):
+    if not client.can_access_counsellor(counsellor_id):
         raise HTTPException(
             status_code=403,
-            detail="Access denied to this doctor's data",
+            detail="Access denied to this counsellor's data",
         )
 
     # Validate exists
-    await validate_doctor_exists(doctor_id)
+    await validate_counsellor_exists(counsellor_id)
 
-    return doctor_id
+    return counsellor_id
 
 
-async def validate_optional_doctor_id(
-    doctor_id: Optional[UUID] = Query(None, description="Doctor ID (optional)"),
+async def validate_optional_counsellor_id(
+    counsellor_id: Optional[UUID] = Query(None, description="Counsellor ID (optional)"),
     client: ClientContext = Depends(get_current_client),
 ) -> Optional[UUID]:
     """
-    Validate an optional doctor_id if provided.
+    Validate an optional counsellor_id if provided.
 
-    Returns the validated doctor_id or None.
+    Returns the validated counsellor_id or None.
     """
-    if doctor_id is None:
+    if counsellor_id is None:
         return None
 
-    if not client.can_access_doctor(doctor_id):
+    if not client.can_access_counsellor(counsellor_id):
         raise HTTPException(
             status_code=403,
-            detail="Access denied to this doctor's data",
+            detail="Access denied to this counsellor's data",
         )
 
-    await validate_doctor_exists(doctor_id)
+    await validate_counsellor_exists(counsellor_id)
 
-    return doctor_id
+    return counsellor_id

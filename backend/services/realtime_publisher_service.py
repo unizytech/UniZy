@@ -18,40 +18,40 @@ from services.supabase_service import supabase
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# Cache for Hospital Realtime Subscription Setting
+# Cache for School Realtime Subscription Setting
 # ============================================================================
 
-# Cache for hospital realtime subscription status
-# Key: hospital_id (str), Value: bool (enable_realtime_subscription)
+# Cache for school realtime subscription status
+# Key: school_id (str), Value: bool (enable_realtime_subscription)
 _hospital_realtime_cache: Dict[str, bool] = {}
 _hospital_realtime_lock = ThreadLock()
 
 
-def is_realtime_enabled_for_hospital(hospital_id: str) -> bool:
+def is_realtime_enabled_for_school(school_id: str) -> bool:
     """
-    Check if realtime subscription is enabled for a hospital.
+    Check if realtime subscription is enabled for a school.
 
     Uses in-memory cache with infinite TTL (invalidated on settings update).
 
     Args:
-        hospital_id: Hospital UUID string
+        school_id: School UUID string
 
     Returns:
         True if realtime subscription is enabled, False otherwise
     """
-    if not hospital_id:
+    if not school_id:
         return False
 
     # Check cache first (thread-safe read)
     with _hospital_realtime_lock:
-        if hospital_id in _hospital_realtime_cache:
-            return _hospital_realtime_cache[hospital_id]
+        if school_id in _hospital_realtime_cache:
+            return _hospital_realtime_cache[school_id]
 
     # Cache miss - fetch from DB
     try:
-        result = supabase.table("hospitals").select(
+        result = supabase.table("schools").select(
             "enable_realtime_subscription"
-        ).eq("id", hospital_id).single().execute()
+        ).eq("id", school_id).single().execute()
 
         if result.data:
             enabled = result.data.get("enable_realtime_subscription", False) or False
@@ -60,24 +60,24 @@ def is_realtime_enabled_for_hospital(hospital_id: str) -> bool:
 
         # Store in cache (thread-safe write)
         with _hospital_realtime_lock:
-            _hospital_realtime_cache[hospital_id] = enabled
+            _hospital_realtime_cache[school_id] = enabled
 
-        logger.info(f"[REALTIME_CACHE] Cached realtime subscription status for hospital {hospital_id[:8]}...: {enabled}")
+        logger.info(f"[REALTIME_CACHE] Cached realtime subscription status for school {school_id[:8]}...: {enabled}")
         return enabled
 
     except Exception as e:
-        logger.warning(f"[REALTIME_CACHE] Failed to fetch realtime subscription status for {hospital_id}: {e}")
+        logger.warning(f"[REALTIME_CACHE] Failed to fetch realtime subscription status for {school_id}: {e}")
         return False
 
 
-def invalidate_hospital_realtime_cache(hospital_id: Optional[str] = None) -> int:
+def invalidate_school_realtime_cache(school_id: Optional[str] = None) -> int:
     """
-    Invalidate cached realtime subscription status for a hospital.
+    Invalidate cached realtime subscription status for a school.
 
-    Call this when hospital settings are updated via the API.
+    Call this when school settings are updated via the API.
 
     Args:
-        hospital_id: Specific hospital to invalidate, or None to clear all
+        school_id: Specific school to invalidate, or None to clear all
 
     Returns:
         Number of entries invalidated
@@ -85,10 +85,10 @@ def invalidate_hospital_realtime_cache(hospital_id: Optional[str] = None) -> int
     global _hospital_realtime_cache
 
     with _hospital_realtime_lock:
-        if hospital_id:
-            if hospital_id in _hospital_realtime_cache:
-                del _hospital_realtime_cache[hospital_id]
-                logger.info(f"[CACHE_INVALIDATE] Cleared realtime subscription cache for {hospital_id[:8]}...")
+        if school_id:
+            if school_id in _hospital_realtime_cache:
+                del _hospital_realtime_cache[school_id]
+                logger.info(f"[CACHE_INVALIDATE] Cleared realtime subscription cache for {school_id[:8]}...")
                 return 1
             return 0
         else:
@@ -104,11 +104,11 @@ def invalidate_hospital_realtime_cache(hospital_id: Optional[str] = None) -> int
 
 async def publish_extraction_response(
     submission_id: str,
-    hospital_id: str,
-    doctor_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
     extraction_id: str,
     insights: Dict[str, Any],
-    hospital_code: Optional[str] = None,
+    school_code: Optional[str] = None,
     recording_metadata: Optional[Dict[str, Any]] = None,
     uhid: Optional[str] = None,
 ) -> bool:
@@ -121,19 +121,19 @@ async def publish_extraction_response(
 
     Args:
         submission_id: The unique submission ID for this extraction
-        hospital_id: Hospital UUID string
-        doctor_id: Doctor UUID string (optional)
+        school_id: School UUID string
+        counsellor_id: Counsellor UUID string (optional)
         extraction_id: Extraction UUID string
         insights: The extraction insights/results to publish
-        hospital_code: Hospital code for filtering (optional)
+        school_code: School code for filtering (optional)
 
     Returns:
         True if published successfully, False otherwise
     """
     try:
-        # Check if realtime is enabled for this hospital
-        if not is_realtime_enabled_for_hospital(hospital_id):
-            logger.debug(f"[REALTIME_PUBLISH] Realtime not enabled for hospital {hospital_id[:8]}..., skipping")
+        # Check if realtime is enabled for this school
+        if not is_realtime_enabled_for_school(school_id):
+            logger.debug(f"[REALTIME_PUBLISH] Realtime not enabled for school {school_id[:8]}..., skipping")
             return False
 
         # Build the response payload (matches EHR status API structure)
@@ -151,11 +151,11 @@ async def publish_extraction_response(
         # Prepare the row to insert
         insert_data = {
             "submission_id": submission_id,
-            "hospital_id": hospital_id,
-            "doctor_id": doctor_id,
+            "school_id": school_id,
+            "counsellor_id": counsellor_id,
             "extraction_id": extraction_id,
             "response": response_payload,
-            "hospital_code": hospital_code
+            "school_code": school_code
         }
 
         # Insert into realtime_extraction_responses table
@@ -165,7 +165,7 @@ async def publish_extraction_response(
         if result.data:
             logger.info(
                 f"[REALTIME_PUBLISH] Published extraction response for submission_id={submission_id[:8]}..., "
-                f"hospital={hospital_id[:8]}..., extraction_id={extraction_id[:8]}..."
+                f"school={school_id[:8]}..., extraction_id={extraction_id[:8]}..."
             )
             return True
         else:
@@ -180,11 +180,11 @@ async def publish_extraction_response(
 
 async def publish_error_response(
     submission_id: str,
-    hospital_id: str,
-    doctor_id: Optional[str] = None,
+    school_id: str,
+    counsellor_id: Optional[str] = None,
     error_message: str = "Processing failed",
     error_code: str = "PROCESSING_FAILED",
-    hospital_code: Optional[str] = None,
+    school_code: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> bool:
     """
@@ -195,20 +195,20 @@ async def publish_error_response(
 
     Args:
         submission_id: The unique submission ID for this extraction
-        hospital_id: Hospital UUID string
-        doctor_id: Doctor UUID string (optional)
+        school_id: School UUID string
+        counsellor_id: Counsellor UUID string (optional)
         error_message: Human-readable error description
         error_code: Machine-readable error code (e.g., VALIDATION_FAILED, PROCESSING_FAILED)
-        hospital_code: Hospital code for filtering (optional)
+        school_code: School code for filtering (optional)
         session_id: Recording session UUID string (optional)
 
     Returns:
         True if published successfully, False otherwise
     """
     try:
-        # Check if realtime is enabled for this hospital
-        if not is_realtime_enabled_for_hospital(hospital_id):
-            logger.debug(f"[REALTIME_PUBLISH] Realtime not enabled for hospital {hospital_id[:8]}..., skipping error publish")
+        # Check if realtime is enabled for this school
+        if not is_realtime_enabled_for_school(school_id):
+            logger.debug(f"[REALTIME_PUBLISH] Realtime not enabled for school {school_id[:8]}..., skipping error publish")
             return False
 
         # Build the error response payload
@@ -225,11 +225,11 @@ async def publish_error_response(
         # Prepare the row to insert
         insert_data = {
             "submission_id": submission_id,
-            "hospital_id": hospital_id,
-            "doctor_id": doctor_id,
+            "school_id": school_id,
+            "counsellor_id": counsellor_id,
             "extraction_id": None,
             "response": response_payload,
-            "hospital_code": hospital_code,
+            "school_code": school_code,
         }
 
         # Insert into realtime_extraction_responses table
@@ -239,7 +239,7 @@ async def publish_error_response(
         if result.data:
             logger.info(
                 f"[REALTIME_PUBLISH] Published ERROR response for submission_id={submission_id[:8]}..., "
-                f"hospital={hospital_id[:8]}..., error_code={error_code}"
+                f"school={school_id[:8]}..., error_code={error_code}"
             )
             return True
         else:
@@ -254,11 +254,11 @@ async def publish_error_response(
 
 async def publish_error_response_fire_and_forget(
     submission_id: str,
-    hospital_id: str,
-    doctor_id: Optional[str] = None,
+    school_id: str,
+    counsellor_id: Optional[str] = None,
     error_message: str = "Processing failed",
     error_code: str = "PROCESSING_FAILED",
-    hospital_code: Optional[str] = None,
+    school_code: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> None:
     """
@@ -270,11 +270,11 @@ async def publish_error_response_fire_and_forget(
     try:
         await publish_error_response(
             submission_id=submission_id,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
+            school_id=school_id,
+            counsellor_id=counsellor_id,
             error_message=error_message,
             error_code=error_code,
-            hospital_code=hospital_code,
+            school_code=school_code,
             session_id=session_id,
         )
     except Exception as e:
@@ -283,11 +283,11 @@ async def publish_error_response_fire_and_forget(
 
 async def publish_extraction_response_fire_and_forget(
     submission_id: str,
-    hospital_id: str,
-    doctor_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
     extraction_id: str,
     insights: Dict[str, Any],
-    hospital_code: Optional[str] = None,
+    school_code: Optional[str] = None,
     recording_metadata: Optional[Dict[str, Any]] = None,
     uhid: Optional[str] = None,
 ) -> None:
@@ -302,20 +302,20 @@ async def publish_extraction_response_fire_and_forget(
 
     Args:
         submission_id: The unique submission ID for this extraction
-        hospital_id: Hospital UUID string
-        doctor_id: Doctor UUID string (optional)
+        school_id: School UUID string
+        counsellor_id: Counsellor UUID string (optional)
         extraction_id: Extraction UUID string
         insights: The extraction insights/results to publish
-        hospital_code: Hospital code for filtering (optional)
+        school_code: School code for filtering (optional)
     """
     try:
         await publish_extraction_response(
             submission_id=submission_id,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
+            school_id=school_id,
+            counsellor_id=counsellor_id,
             extraction_id=extraction_id,
             insights=insights,
-            hospital_code=hospital_code,
+            school_code=school_code,
             recording_metadata=recording_metadata,
             uhid=uhid,
         )

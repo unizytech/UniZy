@@ -3,7 +3,7 @@ Query Classifier Service
 
 Uses Gemini Flash to classify user queries into:
 - SEMANTIC: Pattern detection, insights -> Narrative synthesis
-- HYBRID: Search with filters -> Patient table
+- HYBRID: Search with filters -> Student table
 - SQL: Analytics, counts -> Charts/stats
 
 Also extracts:
@@ -138,12 +138,12 @@ Your job is ONLY to classify the query - do NOT rephrase or modify it.
 
 Classify each query into one of three intents:
 1. SEMANTIC - Questions about patterns, insights, clinical observations
-   Example: "What are common comorbidities in diabetic patients?"
+   Example: "What are common comorbidities in diabetic students?"
    Response format: narrative (natural language summary)
 
-2. HYBRID - Search queries that need specific patient/extraction results
-   Example: "Show me patients with hypertension from last month"
-   Response format: table (list of patients/extractions)
+2. HYBRID - Search queries that need specific student/extraction results
+   Example: "Show me students with hypertension from last month"
+   Response format: table (list of students/extractions)
 
 3. SQL - Analytics and counting queries
    Example: "How many extractions were done this week?"
@@ -166,7 +166,7 @@ IMPORTANT - search_level decision:
   * Summaries → segment_codes: ["summary"]
 
 - Use "document" when the query needs broader context:
-  * Patient overview questions
+  * Student overview questions
   * Questions spanning multiple segments
   * General consultation content
 
@@ -177,17 +177,17 @@ TEMPORAL REFERENCES - Extract any time-based references:
 - visit_number: "first visit", "visit 3", "initial consultation"
 - comparison: "compare with previous", "changes since last time"
 
-Set requires_patient_history=true when query needs patient's visit history.
+Set requires_patient_history=true when query needs student's visit history.
 Set comparison_mode=true when comparing visits or tracking changes.
 
 Examples:
 - "What medications are prescribed?" → search_level: "segment", segment_codes: ["prescription"]
-- "Common diagnoses in diabetic patients" → search_level: "segment", segment_codes: ["diagnosis"]
+- "Common diagnoses in diabetic students" → search_level: "segment", segment_codes: ["diagnosis"]
 - "What are the chief complaints?" → search_level: "segment", segment_codes: ["chiefComplaints"]
 - "Show vital signs" → search_level: "segment", segment_codes: ["vitals"]
 - "Any allergies?" → search_level: "segment", segment_codes: ["allergy"]
 - "What referrals were made?" → search_level: "segment", segment_codes: ["referralDetails"]
-- "Show patient history" → search_level: "document"
+- "Show student history" → search_level: "document"
 - "What changed since last visit?" → comparison_mode: true, temporal_references: [{"type": "relative_visit", "raw_text": "last visit", "visit_offset": -1}]
 - "Compare diagnoses with previous consultation" → comparison_mode: true, requires_patient_history: true
 - "What was prescribed on January 15th?" → temporal_references: [{"type": "absolute_date", "raw_text": "January 15th"}]
@@ -208,7 +208,7 @@ Respond with JSON in this exact format:
     "date_from": "YYYY-MM-DD" or null,
     "date_to": "YYYY-MM-DD" or null,
     "patient_name": "string" or null,
-    "doctor_name": "string" or null,
+    "counsellor_name": "string" or null,
     "diagnosis": "string" or null
   }},
   "temporal_references": [
@@ -232,8 +232,8 @@ class QueryClassifierService:
         service = QueryClassifierService()
 
         classified = await service.classify(
-            query="What are the most common diagnoses in elderly patients?",
-            hospital_id=hospital_uuid
+            query="What are the most common diagnoses in elderly students?",
+            school_id=school_uuid
         )
 
         print(classified.intent)  # QueryIntent.SEMANTIC
@@ -253,7 +253,7 @@ class QueryClassifierService:
     async def classify(
         self,
         query: str,
-        hospital_id: Optional[UUID] = None,
+        school_id: Optional[UUID] = None,
         prior_context: Optional[QAPriorContext] = None
     ) -> ClassifiedQuery:
         """
@@ -261,7 +261,7 @@ class QueryClassifierService:
 
         Args:
             query: The user's natural language query
-            hospital_id: Optional hospital context
+            school_id: Optional school context
             prior_context: Previous Q&A exchange for follow-up classification
 
         Returns:
@@ -368,7 +368,7 @@ class QueryClassifierService:
             )
 
         # Hybrid/table indicators
-        table_keywords = ["show me", "list", "find patients", "find extractions", "which patients", "search for"]
+        table_keywords = ["show me", "list", "find students", "find extractions", "which students", "search for"]
         if any(kw in query_lower for kw in table_keywords):
             return ClassifiedQuery(
                 original_query=query,

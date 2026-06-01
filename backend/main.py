@@ -36,26 +36,26 @@ from routers import compare_transcripts
 from routers import recording_session
 from routers import ephemeral_token
 from routers import summary
-from routers import doctors
+from routers import counsellors
 from routers import extractions
 from routers import extraction_photos
 from routers import merge
 from routers import admin
 from routers import processing_modes
-from routers import doctor_templates
+from routers import counsellor_templates
 from routers import system_prompts
 from routers import medicines
 from routers import investigations
-from routers import patient_history
+from routers import student_history
 from routers import triage
 from routers import recordings
-from routers import hospitals
-from routers import nurses
-from routers import nurse_templates
+from routers import schools
+from routers import assistants
+from routers import assistant_templates
 from routers import clinical_severity
 from routers import other_clinical_needs
 from routers import allied_health_needs
-from routers import patient_dropoff
+from routers import student_dropoff
 from routers import care_quality
 from routers import ehr_integration
 from routers import dashboard_router
@@ -67,7 +67,7 @@ from routers import metrics
 from routers import poc_metrics
 from routers import billing
 from routers import procedure_fees
-from routers import doctor_sharing
+from routers import counsellor_sharing
 from routers import radiology_config
 from config import validate_settings
 
@@ -95,9 +95,9 @@ async def lifespan(app: FastAPI):
     # Check FFmpeg availability for audio stitching
     from services.audio_stitcher import is_ffmpeg_available
     if is_ffmpeg_available():
-        logger.info("✅ FFmpeg found - FFmpeg stitching available for hospitals with it enabled")
+        logger.info("✅ FFmpeg found - FFmpeg stitching available for schools with it enabled")
     else:
-        logger.warning("⚠️  FFmpeg not found - hospitals with FFmpeg stitching enabled will fall back to simple concatenation")
+        logger.warning("⚠️  FFmpeg not found - schools with FFmpeg stitching enabled will fall back to simple concatenation")
 
     # Load LLM pricing from DB into memory cache
     try:
@@ -193,15 +193,15 @@ app = FastAPI(
     - `/api/v1/summary/segments/{type}/move` - Move segments between CORE/ADDITIONAL
     - `/api/v1/summary/segments/{type}/reset` - Reset configuration to defaults
 
-    ## Doctor Management
-    - `/api/v1/doctors` - List/create doctors
-    - `/api/v1/doctors/{id}` - Get/update/delete doctor
-    - `/api/v1/doctors/{id}/configurations` - Get doctor's segment configurations (global + consultation-specific)
+    ## Counsellor Management
+    - `/api/v1/counsellors` - List/create counsellors
+    - `/api/v1/counsellors/{id}` - Get/update/delete counsellor
+    - `/api/v1/counsellors/{id}/configurations` - Get counsellor's segment configurations (global + consultation-specific)
 
     ## Extraction Merge (NEW)
     - `/api/v1/extractions/merge` - Merge multiple extractions into consolidated output
     - `/api/v1/extractions/merge/preview` - Preview merge without saving
-    - `/api/v1/extractions/patient/{patient_id}/timeline` - Get patient extraction timeline
+    - `/api/v1/extractions/student/{student_id}/timeline` - Get student extraction timeline
     - `/api/v1/extractions/{extraction_id}/merge-info` - Get merge lineage information
     """,
     version="3.3.0",
@@ -264,8 +264,8 @@ app.include_router(compare_transcripts.router, tags=["Transcript Comparison"])
 # Include routers - Multi-Consultation Type Summary
 app.include_router(summary.router, tags=["Medical Summary - Multi-Type"])
 
-# Include routers - Doctor Management
-app.include_router(doctors.router, tags=["Doctor Management"])
+# Include routers - Counsellor Management
+app.include_router(counsellors.router, tags=["Counsellor Management"])
 
 # Include routers - Admin Operations
 app.include_router(admin.router, tags=["Admin Operations"])
@@ -273,16 +273,16 @@ app.include_router(admin.router, tags=["Admin Operations"])
 # Include routers - Processing Modes Admin
 app.include_router(processing_modes.router, prefix="/api/v1/admin", tags=["Processing Modes Admin"])
 
-# Include routers - Doctor Templates (Template Sharing & Activation)
-app.include_router(doctor_templates.router, tags=["Doctor Templates"])
+# Include routers - Counsellor Templates (Template Sharing & Activation)
+app.include_router(counsellor_templates.router, tags=["Counsellor Templates"])
 
 # Include routers - System Prompts (Dynamic Prompt Management)
 app.include_router(system_prompts.router, tags=["System Prompts"])
 
-# Include routers - Medicine Lists (Doctor & Hospital Medicine Management)
+# Include routers - Medicine Lists (Counsellor & School Medicine Management)
 app.include_router(medicines.router, tags=["Medicine Lists"])
 
-# Include routers - Investigation Lists (Doctor & Hospital Investigation Management)
+# Include routers - Investigation Lists (Counsellor & School Investigation Management)
 app.include_router(investigations.router, tags=["Investigation Lists"])
 
 # Include routers - Extraction Management (Edit Tracking)
@@ -298,8 +298,8 @@ app.include_router(usage.models_router, tags=["Model Pricing"])
 # Include routers - Extraction Merge
 app.include_router(merge.router, tags=["Extraction Merge"])
 
-# Include routers - Patient History
-app.include_router(patient_history.router, tags=["Patient History"])
+# Include routers - Student History
+app.include_router(student_history.router, tags=["Student History"])
 
 # Include routers - Clinical Triage Suggestions
 app.include_router(triage.router, tags=["Clinical Triage"])
@@ -307,14 +307,14 @@ app.include_router(triage.router, tags=["Clinical Triage"])
 # Include routers - Recording Management (List & Reprocess)
 app.include_router(recordings.router, tags=["Recording Management"])
 
-# Include routers - Hospital Management
-app.include_router(hospitals.router, tags=["Hospital Management"])
+# Include routers - School Management
+app.include_router(schools.router, tags=["School Management"])
 
-# Include routers - Nurse Management
-app.include_router(nurses.router, tags=["Nurse Management"])
+# Include routers - Assistant Management
+app.include_router(assistants.router, tags=["Assistant Management"])
 
-# Include routers - Nurse Templates
-app.include_router(nurse_templates.router, tags=["Nurse Templates"])
+# Include routers - Assistant Templates
+app.include_router(assistant_templates.router, tags=["Assistant Templates"])
 
 # Include routers - Clinical Severity Assessment
 app.include_router(clinical_severity.router, tags=["Clinical Severity"])
@@ -325,8 +325,8 @@ app.include_router(other_clinical_needs.router, tags=["Other Clinical Needs"])
 # Include routers - Allied Health Needs Assessment
 app.include_router(allied_health_needs.router, tags=["Allied Health Needs"])
 
-# Include routers - Patient Dropoff Risk Assessment
-app.include_router(patient_dropoff.router, tags=["Patient Dropoff Risk"])
+# Include routers - Student Dropoff Risk Assessment
+app.include_router(student_dropoff.router, tags=["Student Dropoff Risk"])
 
 # Include routers - Care Quality Risk Assessment
 app.include_router(care_quality.router, tags=["Care Quality Risk"])
@@ -344,7 +344,7 @@ app.include_router(qa_settings.router, tags=["Q&A Settings"])
 # Include routers - Auth Proxy (Login/Refresh for external webapps)
 app.include_router(auth_router.router, tags=["Auth"])
 
-# Include routers - Quality Metrics (Hospital-scoped AI quality & performance)
+# Include routers - Quality Metrics (School-scoped AI quality & performance)
 app.include_router(metrics.router, tags=["Quality Metrics"])
 
 # Include routers - POC Metrics (Admin screen: tracker + aggregate + timings + xlsx export)
@@ -353,11 +353,11 @@ app.include_router(poc_metrics.router, tags=["POC Metrics"])
 # Include routers - Billing (Automated bill generation from extractions)
 app.include_router(billing.router, tags=["Billing"])
 
-# Include routers - Procedure Fees (Hospital procedure fee master)
+# Include routers - Procedure Fees (School procedure fee master)
 app.include_router(procedure_fees.router, tags=["Procedure Fees"])
 
-# Include routers - Doctor Sharing (Cross-doctor patient sharing)
-app.include_router(doctor_sharing.router, tags=["Doctor Sharing"])
+# Include routers - Counsellor Sharing (Cross-counsellor student sharing)
+app.include_router(counsellor_sharing.router, tags=["Counsellor Sharing"])
 
 app.include_router(radiology_config.router, tags=["Radiology Config"])
 
@@ -392,7 +392,7 @@ async def root():
             "merge": {
                 "merge": "/api/v1/extractions/merge - Merge multiple extractions with AI-powered contextual merging",
                 "preview": "/api/v1/extractions/merge/preview - Preview merge without saving",
-                "timeline": "/api/v1/extractions/patient/{patient_id}/timeline - Get patient extraction timeline",
+                "timeline": "/api/v1/extractions/student/{student_id}/timeline - Get student extraction timeline",
                 "lineage": "/api/v1/extractions/{extraction_id}/merge-info - Get merge lineage information"
             }
         },

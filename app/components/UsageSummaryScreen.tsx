@@ -3,9 +3,9 @@
 /**
  * Usage Summary Screen
  *
- * Displays aggregated LLM usage analytics by API client, hospital, or doctor.
+ * Displays aggregated LLM usage analytics by API client, school, or counsellor.
  * Features:
- * - Group by: API client, hospital, or doctor
+ * - Group by: API client, school, or counsellor
  * - Date range filtering
  * - Summary cards: Total cost, recording hours, API calls
  * - Sortable data table
@@ -22,8 +22,8 @@ interface UsageSummaryItem {
   group_id: string;
   group_name: string;
   group_type: string;
-  hospital_id?: string;
-  hospital_name?: string;
+  school_id?: string;
+  school_name?: string;
   total_api_calls: number;
   total_sessions: number;
   total_cost_usd: number;
@@ -47,8 +47,8 @@ interface UsageTotals {
   total_input_tokens: number;
   total_output_tokens: number;
   total_recording_hours: number;
-  unique_doctors: number;
-  unique_hospitals: number;
+  unique_counsellors: number;
+  unique_schools: number;
   unique_api_clients: number;
 }
 
@@ -56,7 +56,7 @@ interface FilterOption {
   id: string;
   name: string;
   type?: string;
-  hospital_name?: string;
+  school_name?: string;
 }
 
 type GroupByOption = 'api_client' | 'hospital' | 'doctor';
@@ -73,13 +73,13 @@ export function UsageSummaryScreen() {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [selectedApiClientId, setSelectedApiClientId] = useState<string>('');
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [selectedCounsellorId, setSelectedCounsellorId] = useState<string>('');
 
   // Filter options
   const [apiClients, setApiClients] = useState<FilterOption[]>([]);
-  const [hospitals, setHospitals] = useState<FilterOption[]>([]);
-  const [doctors, setDoctors] = useState<FilterOption[]>([]);
+  const [hospitals, setSchools] = useState<FilterOption[]>([]);
+  const [doctors, setCounsellors] = useState<FilterOption[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(true);
 
   // Export state
@@ -96,7 +96,7 @@ export function UsageSummaryScreen() {
   // Load data when filters change
   useEffect(() => {
     loadUsageData();
-  }, [groupBy, dateFrom, dateTo, selectedApiClientId, selectedHospitalId, selectedDoctorId]);
+  }, [groupBy, dateFrom, dateTo, selectedApiClientId, selectedSchoolId, selectedCounsellorId]);
 
   const loadFilterOptions = async () => {
     setLoadingFilters(true);
@@ -111,24 +111,24 @@ export function UsageSummaryScreen() {
 
       const data = await res.json();
       setApiClients(
-        (data.api_clients || []).map((c: { id: string; client_name: string; client_type: string; hospital_name?: string }) => ({
+        (data.api_clients || []).map((c: { id: string; client_name: string; client_type: string; school_name?: string }) => ({
           id: c.id,
           name: `${c.client_name} (${c.client_type})`,
           type: c.client_type,
-          hospital_name: c.hospital_name,
+          school_name: c.school_name,
         }))
       );
-      setHospitals(
-        (data.hospitals || []).map((h: { id: string; hospital_name: string }) => ({
+      setSchools(
+        (data.schools || []).map((h: { id: string; school_name: string }) => ({
           id: h.id,
-          name: h.hospital_name,
+          name: h.school_name,
         }))
       );
-      setDoctors(
-        (data.doctors || []).map((d: { id: string; full_name: string; specialization?: string; hospital_name?: string }) => ({
+      setCounsellors(
+        (data.counsellors || []).map((d: { id: string; full_name: string; specialization?: string; school_name?: string }) => ({
           id: d.id,
           name: d.full_name + (d.specialization ? ` (${d.specialization})` : ''),
-          hospital_name: d.hospital_name,
+          school_name: d.school_name,
         }))
       );
     } catch (err) {
@@ -148,8 +148,8 @@ export function UsageSummaryScreen() {
       if (dateFrom) params.append('date_from', new Date(dateFrom).toISOString());
       if (dateTo) params.append('date_to', new Date(dateTo).toISOString());
       if (selectedApiClientId) params.append('api_client_id', selectedApiClientId);
-      if (selectedHospitalId) params.append('hospital_id', selectedHospitalId);
-      if (selectedDoctorId) params.append('doctor_id', selectedDoctorId);
+      if (selectedSchoolId) params.append('school_id', selectedSchoolId);
+      if (selectedCounsellorId) params.append('counsellor_id', selectedCounsellorId);
 
       const res = await authGet(`/api/v1/usage/summary?${params}`, getAccessToken());
 
@@ -165,7 +165,7 @@ export function UsageSummaryScreen() {
     } finally {
       setLoading(false);
     }
-  }, [groupBy, dateFrom, dateTo, selectedApiClientId, selectedHospitalId, selectedDoctorId, getAccessToken]);
+  }, [groupBy, dateFrom, dateTo, selectedApiClientId, selectedSchoolId, selectedCounsellorId, getAccessToken]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -175,8 +175,8 @@ export function UsageSummaryScreen() {
       if (dateFrom) params.append('date_from', new Date(dateFrom).toISOString());
       if (dateTo) params.append('date_to', new Date(dateTo).toISOString());
       if (selectedApiClientId) params.append('api_client_id', selectedApiClientId);
-      if (selectedHospitalId) params.append('hospital_id', selectedHospitalId);
-      if (selectedDoctorId) params.append('doctor_id', selectedDoctorId);
+      if (selectedSchoolId) params.append('school_id', selectedSchoolId);
+      if (selectedCounsellorId) params.append('counsellor_id', selectedCounsellorId);
 
       const res = await authGet(`/api/v1/usage/export?${params}`, getAccessToken());
 
@@ -339,12 +339,12 @@ export function UsageSummaryScreen() {
             </select>
           </div>
 
-          {/* Hospital Filter */}
+          {/* School Filter */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">School</label>
             <select
-              value={selectedHospitalId}
-              onChange={(e) => setSelectedHospitalId(e.target.value)}
+              value={selectedSchoolId}
+              onChange={(e) => setSelectedSchoolId(e.target.value)}
               disabled={loadingFilters}
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -357,12 +357,12 @@ export function UsageSummaryScreen() {
             </select>
           </div>
 
-          {/* Doctor Filter */}
+          {/* Counsellor Filter */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Counsellor</label>
             <select
-              value={selectedDoctorId}
-              onChange={(e) => setSelectedDoctorId(e.target.value)}
+              value={selectedCounsellorId}
+              onChange={(e) => setSelectedCounsellorId(e.target.value)}
               disabled={loadingFilters}
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -406,9 +406,9 @@ export function UsageSummaryScreen() {
             </div>
             <div className="text-2xl font-bold text-white">
               {groupBy === 'doctor'
-                ? totals.unique_doctors
+                ? totals.unique_counsellors
                 : groupBy === 'hospital'
-                ? totals.unique_hospitals
+                ? totals.unique_schools
                 : totals.unique_api_clients}
             </div>
           </div>
@@ -491,7 +491,7 @@ export function UsageSummaryScreen() {
                       <div className="text-sm text-slate-400">{item.group_type}</div>
                     </td>
                     {groupBy !== 'hospital' && (
-                      <td className="px-4 py-3 text-sm text-slate-300">{item.hospital_name || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-300">{item.school_name || '-'}</td>
                     )}
                     <td className="px-4 py-3 text-right font-medium text-white">
                       {formatCurrency(item.total_cost_usd)}

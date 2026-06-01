@@ -21,7 +21,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
-from .structured_insights import StructuredInsights, map_extraction_with_patient_history
+from .structured_insights import StructuredInsights, map_extraction_with_student_history
 from .differential_trees import (
     get_differential,
     match_presentations,
@@ -152,20 +152,20 @@ class TriageSuggestions:
 
 
 # =============================================================================
-# Doctor Preferences (Learned from Feedback)
+# Counsellor Preferences (Learned from Feedback)
 # =============================================================================
 
 @dataclass
-class DoctorPreferences:
+class CounsellorPreferences:
     """
-    Learned preferences from doctor feedback on triage suggestions.
+    Learned preferences from counsellor feedback on triage suggestions.
 
     Used to personalize suggestions:
     - Filter out frequently rejected suggestions
     - Boost frequently accepted suggestions
     - Apply modified text patterns
     """
-    doctor_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
 
     # Patterns to filter (rejected 2+ times)
     rejection_patterns: List[Dict[str, Any]] = field(default_factory=list)
@@ -215,62 +215,62 @@ class DoctorPreferences:
         return 0
 
 
-async def fetch_doctor_preferences(doctor_id: str, supabase_client) -> DoctorPreferences:
+async def fetch_counsellor_preferences(counsellor_id: str, supabase_client) -> CounsellorPreferences:
     """
-    Fetch learned preferences for a doctor from feedback history.
+    Fetch learned preferences for a counsellor from feedback history.
 
     Calls database functions:
-    - get_doctor_rejection_patterns: Suggestions rejected 2+ times
-    - get_doctor_preference_patterns: Suggestions accepted 3+ times
-    - get_doctor_feedback_patterns: Full feedback history
+    - get_counsellor_rejection_patterns: Suggestions rejected 2+ times
+    - get_counsellor_preference_patterns: Suggestions accepted 3+ times
+    - get_counsellor_feedback_patterns: Full feedback history
 
     Args:
-        doctor_id: UUID of the doctor
+        counsellor_id: UUID of the counsellor
         supabase_client: Supabase client for DB operations
 
     Returns:
-        DoctorPreferences object with learned patterns
+        CounsellorPreferences object with learned patterns
     """
-    preferences = DoctorPreferences(doctor_id=doctor_id)
+    preferences = CounsellorPreferences(counsellor_id=counsellor_id)
 
-    if not doctor_id or not supabase_client:
+    if not counsellor_id or not supabase_client:
         return preferences
 
     try:
         # Fetch rejection patterns (suggestions to filter)
         rejection_result = supabase_client.rpc(
-            'get_doctor_rejection_patterns',
-            {'p_doctor_id': doctor_id}
+            'get_counsellor_rejection_patterns',
+            {'p_counsellor_id': counsellor_id}
         ).execute()
 
         if rejection_result.data:
             preferences.rejection_patterns = rejection_result.data
-            logger.info(f"[TRIAGE_LEARN] Loaded {len(rejection_result.data)} rejection patterns for doctor {doctor_id}")
+            logger.info(f"[TRIAGE_LEARN] Loaded {len(rejection_result.data)} rejection patterns for counsellor {counsellor_id}")
 
         # Fetch preference patterns (suggestions to boost)
         preference_result = supabase_client.rpc(
-            'get_doctor_preference_patterns',
-            {'p_doctor_id': doctor_id}
+            'get_counsellor_preference_patterns',
+            {'p_counsellor_id': counsellor_id}
         ).execute()
 
         if preference_result.data:
             preferences.preference_patterns = preference_result.data
-            logger.info(f"[TRIAGE_LEARN] Loaded {len(preference_result.data)} preference patterns for doctor {doctor_id}")
+            logger.info(f"[TRIAGE_LEARN] Loaded {len(preference_result.data)} preference patterns for counsellor {counsellor_id}")
 
         # Fetch full feedback history for stats
         feedback_result = supabase_client.rpc(
-            'get_doctor_feedback_patterns',
-            {'p_doctor_id': doctor_id}
+            'get_counsellor_feedback_patterns',
+            {'p_counsellor_id': counsellor_id}
         ).execute()
 
         if feedback_result.data:
             preferences.feedback_history = feedback_result.data
             preferences.total_feedback_count = len(feedback_result.data)
             preferences.has_sufficient_data = preferences.total_feedback_count >= 10
-            logger.info(f"[TRIAGE_LEARN] Doctor {doctor_id} has {preferences.total_feedback_count} feedback entries")
+            logger.info(f"[TRIAGE_LEARN] Counsellor {counsellor_id} has {preferences.total_feedback_count} feedback entries")
 
     except Exception as e:
-        logger.warning(f"[TRIAGE_LEARN] Failed to fetch doctor preferences: {e}")
+        logger.warning(f"[TRIAGE_LEARN] Failed to fetch counsellor preferences: {e}")
 
     return preferences
 
@@ -366,13 +366,13 @@ class TriageSuggestionEngine:
         identified_red_flags = self._check_red_flags(insights, all_red_flags)
         suggestions.identified_red_flags = identified_red_flags
 
-        # Build patient context string for rationales
-        patient_context_parts = []
+        # Build student context string for rationales
+        student_context_parts = []
         if insights.patient_age:
-            patient_context_parts.append(f"{insights.patient_age}")
+            student_context_parts.append(f"{insights.patient_age}")
         if insights.patient_gender:
-            patient_context_parts.append(insights.patient_gender.lower())
-        patient_desc = " ".join(patient_context_parts) if patient_context_parts else "patient"
+            student_context_parts.append(insights.patient_gender.lower())
+        student_desc = " ".join(student_context_parts) if student_context_parts else "patient"
 
         cc_summary = ", ".join(insights.chief_complaints[:2]) if insights.chief_complaints else "current symptoms"
         diagnoses_summary = ", ".join([
@@ -382,7 +382,7 @@ class TriageSuggestionEngine:
 
         # Add critical actions for identified red flags
         for red_flag in identified_red_flags:
-            rationale = f"Red flag in {patient_desc} with {cc_summary}. Immediate assessment needed."
+            rationale = f"Red flag in {student_desc} with {cc_summary}. Immediate assessment needed."
             suggestions.critical_actions.append(TriageSuggestion(
                 category="red_flag",
                 suggestion=f"RED FLAG DETECTED: {red_flag}",
@@ -402,7 +402,7 @@ class TriageSuggestionEngine:
             base_rationale = inv.get("rationale", "")
             presentation = inv.get("presentation", "").replace("_", " ")
             if base_rationale:
-                rationale = f"{patient_desc} with {cc_summary}: {base_rationale}"
+                rationale = f"{student_desc} with {cc_summary}: {base_rationale}"
             elif presentation:
                 rationale = f"Evaluate differentials for {presentation}"
             else:
@@ -445,7 +445,7 @@ class TriageSuggestionEngine:
         insights: StructuredInsights,
         include_gemini_analysis: bool = True,
         extraction_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         skip_trees: bool = False,
         rag_context: Optional[Dict[str, Any]] = None,
     ) -> TriageSuggestions:
@@ -456,7 +456,7 @@ class TriageSuggestionEngine:
             insights: StructuredInsights object from extraction
             include_gemini_analysis: Whether to use Gemini for gap analysis (default True)
             extraction_id: Optional extraction UUID for usage logging
-            doctor_id: Optional doctor UUID for usage logging
+            counsellor_id: Optional counsellor UUID for usage logging
             skip_trees: If True, skip tree-based suggestions (used when orchestrator handles trees separately)
             rag_context: Optional RAG matches to pass to Gemini for context-aware analysis
 
@@ -505,7 +505,7 @@ class TriageSuggestionEngine:
                 gemini_suggestions = await self._llm_gap_analysis(
                     insights, suggestions.differential_context, suggestions.matched_presentations,
                     extraction_id=extraction_id,
-                    doctor_id=doctor_id,
+                    counsellor_id=counsellor_id,
                     triage_model=triage_model,
                     rag_context=rag_context,
                 )
@@ -530,8 +530,8 @@ class TriageSuggestionEngine:
     async def generate_suggestions_v2(
         self,
         extraction: Dict[str, Any],
-        patient_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
+        student_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         consultation_type_code: Optional[str] = None,
         include_gemini_analysis: bool = True,
         log_suggestions: bool = True,
@@ -541,20 +541,20 @@ class TriageSuggestionEngine:
         pre_mapped_insights=None,
     ) -> TriageSuggestions:
         """
-        Enhanced triage with patient context awareness and doctor preference learning.
+        Enhanced triage with student context awareness and counsellor preference learning.
 
         This method:
-        1. Fetches doctor preferences learned from past feedback
-        2. Fetches patient historical context (allergies, chronic conditions, etc.)
+        1. Fetches counsellor preferences learned from past feedback
+        2. Fetches student historical context (allergies, chronic conditions, etc.)
         3. Generates base suggestions using existing MVP logic (or skips if orchestrator handles)
-        4. Applies patient-specific filters (allergy vetos, cost sensitivity, etc.)
-        5. Applies doctor preference filters (removes rejected, boosts accepted)
+        4. Applies student-specific filters (allergy vetos, cost sensitivity, etc.)
+        5. Applies counsellor preference filters (removes rejected, boosts accepted)
         6. Optionally logs suggestions to database for learning
 
         Args:
             extraction: Extraction record from database
-            patient_id: Optional patient UUID for historical context
-            doctor_id: Optional doctor UUID for suggestion logging and learning
+            student_id: Optional student UUID for historical context
+            counsellor_id: Optional counsellor UUID for suggestion logging and learning
             consultation_type_code: Optional consultation type code
             include_gemini_analysis: Whether to use Gemini AI for gap analysis
             log_suggestions: Whether to log suggestions to triage_suggestion_log
@@ -562,58 +562,58 @@ class TriageSuggestionEngine:
             skip_trees: If True, skip tree-based suggestions (orchestrator handles separately)
             rag_context: Optional RAG matches to pass to Gemini for context-aware analysis
             pre_mapped_insights: Optional pre-computed StructuredInsights (avoids duplicate DB call
-                when orchestrator already fetched patient history in fast cache layer)
+                when orchestrator already fetched student history in fast cache layer)
 
         Returns:
-            TriageSuggestions with patient context and doctor preferences applied
+            TriageSuggestions with student context and counsellor preferences applied
         """
         import time
         start_time = time.time()
 
-        # Step 0: Fetch doctor preferences (learned from feedback)
-        doctor_preferences = None
-        if doctor_id and supabase_client:
-            doctor_preferences = await fetch_doctor_preferences(doctor_id, supabase_client)
-            if doctor_preferences.has_sufficient_data:
-                logger.info(f"[TRIAGE_V2] Using learned preferences for doctor {doctor_id} "
-                           f"({doctor_preferences.total_feedback_count} feedback entries)")
+        # Step 0: Fetch counsellor preferences (learned from feedback)
+        counsellor_preferences = None
+        if counsellor_id and supabase_client:
+            counsellor_preferences = await fetch_counsellor_preferences(counsellor_id, supabase_client)
+            if counsellor_preferences.has_sufficient_data:
+                logger.info(f"[TRIAGE_V2] Using learned preferences for counsellor {counsellor_id} "
+                           f"({counsellor_preferences.total_feedback_count} feedback entries)")
 
         # Use pre-mapped insights if provided (from orchestrator's fast cache layer)
         if pre_mapped_insights is not None:
             insights = pre_mapped_insights
             logger.info(f"[TRIAGE_V2] Using pre-mapped insights (cached from fast cache layer)")
-        elif patient_id and supabase_client:
-            insights = await map_extraction_with_patient_history(
+        elif student_id and supabase_client:
+            insights = await map_extraction_with_student_history(
                 extraction=extraction,
-                patient_id=patient_id,
+                student_id=student_id,
                 supabase_client=supabase_client,
                 consultation_type_code=consultation_type_code
             )
-            logger.info(f"[TRIAGE_V2] Using patient history context for {patient_id}")
+            logger.info(f"[TRIAGE_V2] Using student history context for {student_id}")
         else:
             # Fall back to basic mapping
             from .structured_insights import StructuredInsightsMapper
             mapper = StructuredInsightsMapper()
             insights = mapper.map_extraction(extraction, consultation_type_code)
-            logger.info("[TRIAGE_V2] No patient_id provided, using basic insights")
+            logger.info("[TRIAGE_V2] No student_id provided, using basic insights")
 
         # Generate base suggestions using existing MVP logic
         suggestions = await self.generate_suggestions(
             insights=insights,
             include_gemini_analysis=include_gemini_analysis,
             extraction_id=extraction.get('id'),
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             skip_trees=skip_trees,
             rag_context=rag_context,
         )
 
-        # Apply patient context filters
-        if patient_id and insights.patient_id:
-            suggestions = self._apply_patient_context_filters(suggestions, insights)
+        # Apply student context filters
+        if student_id and insights.student_id:
+            suggestions = self._apply_student_context_filters(suggestions, insights)
 
-        # Apply doctor preference learning (filter rejected, boost accepted)
-        if doctor_preferences and doctor_preferences.has_sufficient_data:
-            suggestions = self._apply_doctor_preferences(suggestions, doctor_preferences)
+        # Apply counsellor preference learning (filter rejected, boost accepted)
+        if counsellor_preferences and counsellor_preferences.has_sufficient_data:
+            suggestions = self._apply_counsellor_preferences(suggestions, counsellor_preferences)
 
         # Update processing time
         suggestions.processing_time_ms = int((time.time() - start_time) * 1000)
@@ -623,26 +623,26 @@ class TriageSuggestionEngine:
             await self._log_suggestions_to_db(
                 suggestions=suggestions,
                 extraction_id=extraction.get('id'),
-                doctor_id=doctor_id,
-                patient_context=insights.to_dict() if insights.patient_id else {},
+                counsellor_id=counsellor_id,
+                patient_context=insights.to_dict() if insights.student_id else {},
                 supabase_client=supabase_client
             )
 
         return suggestions
 
-    def _apply_patient_context_filters(
+    def _apply_student_context_filters(
         self,
         suggestions: TriageSuggestions,
         insights: StructuredInsights
     ) -> TriageSuggestions:
         """
-        Filter/modify suggestions based on patient context.
+        Filter/modify suggestions based on student context.
 
         Applies:
-        1. VETO: Skip suggestions mentioning drugs patient is allergic to
-        2. Cost sensitivity notes for patients with financial concerns
-        3. Anxiety-aware notes for patients with concerning anxiety patterns
-        4. Compliance notes for patients with low compliance history
+        1. VETO: Skip suggestions mentioning drugs student is allergic to
+        2. Cost sensitivity notes for students with financial concerns
+        3. Anxiety-aware notes for students with concerning anxiety patterns
+        4. Compliance notes for students with low compliance history
         5. Flag prior ineffective interventions
         """
         # Process each suggestion list
@@ -656,29 +656,29 @@ class TriageSuggestionEngine:
             suggestions.nice_to_have, insights, "consider"
         )
 
-        # Add psychosocial recommendations based on patient context
+        # Add psychosocial recommendations based on student context
         psychosocial = self._generate_psychosocial_suggestions(insights)
         if psychosocial:
             suggestions.nice_to_have.extend(psychosocial)
 
         return suggestions
 
-    def _apply_doctor_preferences(
+    def _apply_counsellor_preferences(
         self,
         suggestions: TriageSuggestions,
-        preferences: DoctorPreferences
+        preferences: CounsellorPreferences
     ) -> TriageSuggestions:
         """
-        Apply learned doctor preferences to filter and prioritize suggestions.
+        Apply learned counsellor preferences to filter and prioritize suggestions.
 
         Learning logic:
-        1. FILTER: Remove suggestions the doctor has rejected 3+ times
-        2. BOOST: Promote suggestions the doctor frequently accepts to higher priority
+        1. FILTER: Remove suggestions the counsellor has rejected 3+ times
+        2. BOOST: Promote suggestions the counsellor frequently accepts to higher priority
         3. REORDER: Sort within each priority level by acceptance history
 
         Args:
             suggestions: Generated triage suggestions
-            preferences: Doctor's learned preferences from feedback
+            preferences: Counsellor's learned preferences from feedback
 
         Returns:
             TriageSuggestions with preferences applied
@@ -706,8 +706,8 @@ class TriageSuggestionEngine:
                 # Check if this suggestion should be boosted
                 boost_score = preferences.get_boost_score(suggestion.suggestion)
                 if boost_score > 0:
-                    # Add note about doctor preference
-                    suggestion.rationale += f" [Doctor frequently accepts similar suggestions]"
+                    # Add note about counsellor preference
+                    suggestion.rationale += f" [Counsellor frequently accepts similar suggestions]"
                     boosted_count += 1
 
                 filtered.append(suggestion)
@@ -724,7 +724,7 @@ class TriageSuggestionEngine:
             if boost_score >= 10:  # Strong preference - promote to important
                 suggestion.priority = "important"
                 promoted.append(suggestion)
-                logger.info(f"[TRIAGE_LEARN] Promoted suggestion (doctor preference): {suggestion.suggestion[:50]}...")
+                logger.info(f"[TRIAGE_LEARN] Promoted suggestion (counsellor preference): {suggestion.suggestion[:50]}...")
             else:
                 remaining_nice_to_have.append(suggestion)
 
@@ -742,25 +742,25 @@ class TriageSuggestionEngine:
         insights: StructuredInsights,
         priority: str
     ) -> List[TriageSuggestion]:
-        """Filter a list of suggestions based on patient context."""
+        """Filter a list of suggestions based on student context."""
         filtered = []
 
         for suggestion in suggestion_list:
-            # VETO: Skip if drug mentioned and patient has allergy
+            # VETO: Skip if drug mentioned and student has allergy
             if self._conflicts_with_allergy(suggestion.suggestion, insights.known_allergies):
                 logger.info(f"[TRIAGE_V2] VETOED suggestion due to allergy conflict: {suggestion.suggestion[:50]}...")
                 continue
 
-            # Modify: Add cost note if patient has recurring financial concerns
+            # Modify: Add cost note if student has recurring financial concerns
             if insights.financial_concerns_history == 'recurring':
                 suggestion = self._add_cost_sensitivity_note(suggestion)
 
-            # Modify: Add anxiety-aware note if patient has concerning anxiety pattern
+            # Modify: Add anxiety-aware note if student has concerning anxiety pattern
             if (insights.historical_anxiety_pattern and
                 insights.historical_anxiety_pattern.get('trend') == 'concerning'):
                 suggestion = self._add_anxiety_aware_note(suggestion)
 
-            # Modify: Add compliance note if patient has low compliance history
+            # Modify: Add compliance note if student has low compliance history
             if insights.compliance_history and 'low' in insights.compliance_history.lower():
                 suggestion = self._add_compliance_note(suggestion)
 
@@ -769,7 +769,7 @@ class TriageSuggestionEngine:
         return filtered
 
     def _conflicts_with_allergy(self, suggestion_text: str, known_allergies: List[str]) -> bool:
-        """Check if suggestion mentions a drug the patient is allergic to."""
+        """Check if suggestion mentions a drug the student is allergic to."""
         if not known_allergies:
             return False
 
@@ -803,11 +803,11 @@ class TriageSuggestionEngine:
     def _add_cost_sensitivity_note(self, suggestion: TriageSuggestion) -> TriageSuggestion:
         """Add note about cost-conscious alternatives."""
         if 'investigation' in suggestion.category.lower():
-            suggestion.rationale += " [Cost-sensitive patient]"
+            suggestion.rationale += " [Cost-sensitive student]"
         return suggestion
 
     def _add_anxiety_aware_note(self, suggestion: TriageSuggestion) -> TriageSuggestion:
-        """Add note about patient anxiety."""
+        """Add note about student anxiety."""
         suggestion.rationale += " [Anxiety trend noted]"
         return suggestion
 
@@ -817,7 +817,7 @@ class TriageSuggestionEngine:
         return suggestion
 
     def _generate_psychosocial_suggestions(self, insights: StructuredInsights) -> List[TriageSuggestion]:
-        """Generate psychosocial recommendations based on patient context."""
+        """Generate psychosocial recommendations based on student context."""
         suggestions = []
 
         # Anxiety-related
@@ -825,7 +825,7 @@ class TriageSuggestionEngine:
             insights.historical_anxiety_pattern.get('trend') == 'concerning'):
             suggestions.append(TriageSuggestion(
                 category="psychosocial",
-                suggestion="Consider anxiety assessment - patient shows concerning anxiety trend across consultations",
+                suggestion="Consider anxiety assessment - student shows concerning anxiety trend across consultations",
                 priority="consider",
                 rationale="Historical data shows worsening anxiety pattern",
                 source="patient_context",
@@ -835,7 +835,7 @@ class TriageSuggestionEngine:
         if insights.financial_concerns_history == 'recurring':
             suggestions.append(TriageSuggestion(
                 category="psychosocial",
-                suggestion="Financial counseling may be beneficial - patient has recurring financial concerns",
+                suggestion="Financial counseling may be beneficial - student has recurring financial concerns",
                 priority="consider",
                 rationale="Multiple consultations have flagged financial concerns",
                 source="patient_context",
@@ -845,7 +845,7 @@ class TriageSuggestionEngine:
         if insights.compliance_history and 'low' in insights.compliance_history.lower():
             suggestions.append(TriageSuggestion(
                 category="psychosocial",
-                suggestion="Consider treatment adherence support - patient has history of low compliance",
+                suggestion="Consider treatment adherence support - student has history of low compliance",
                 priority="consider",
                 rationale="Historical compliance likelihood is low - may benefit from simplified regimens or support",
                 source="patient_context",
@@ -870,7 +870,7 @@ class TriageSuggestionEngine:
         self,
         suggestions: TriageSuggestions,
         extraction_id: str,
-        doctor_id: Optional[str],
+        counsellor_id: Optional[str],
         patient_context: Dict[str, Any],
         supabase_client
     ):
@@ -893,7 +893,7 @@ class TriageSuggestionEngine:
                         'source': suggestion.source,
                         'confidence': None,  # Will be populated by Gemini in future
                         'priority': priority,
-                        'rationale': suggestion.rationale,  # Store patient-specific rationale
+                        'rationale': suggestion.rationale,  # Store student-specific rationale
                     })
 
             if not suggestion_records:
@@ -905,9 +905,9 @@ class TriageSuggestionEngine:
                 'save_triage_suggestions',
                 {
                     'p_extraction_id': extraction_id,
-                    'p_doctor_id': doctor_id,
+                    'p_counsellor_id': counsellor_id,
                     'p_suggestions': suggestion_records,
-                    'p_patient_context': patient_context
+                    'p_student_context': patient_context
                 }
             ).execute()
 
@@ -1320,7 +1320,7 @@ class TriageSuggestionEngine:
         differential_context: Dict[str, Any],
         matched_presentations: List[str],
         extraction_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         triage_model: Optional[str] = None,
         rag_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -1373,7 +1373,7 @@ class TriageSuggestionEngine:
                 model=model,
                 api_duration_seconds=api_duration,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             asyncio.create_task(log_llm_usage(usage_data))
         except Exception as usage_err:
@@ -1393,13 +1393,13 @@ Your role is to:
 4. Prioritize suggestions by clinical importance
 
 Context:
-- You're reviewing extractions from doctor-patient consultations in India
+- You're reviewing extractions from counsellor-student consultations in India
 - Consider resource constraints and cost-effectiveness
 - Focus on must-not-miss diagnoses common in India (dengue, malaria, typhoid, TB, etc.)
 
 BREVITY RULES (CRITICAL - follow strictly):
 - Each "suggestion" field MUST be 30 words or fewer. Be direct and specific.
-- Each "rationale" field MUST be 1 short sentence (under 25 words). Reference the patient's key finding.
+- Each "rationale" field MUST be 1 short sentence (under 25 words). Reference the student's key finding.
 - Do NOT repeat the suggestion text in the rationale.
 - Do NOT list drug classes or parenthetical alternatives in suggestions. Name the single best action.
 - Limit: maximum 3 critical_suggestions and 4 additional_suggestions. Only include truly actionable items.
@@ -1419,14 +1419,14 @@ Output format (JSON):
             "type": "investigation|history|examination|referral",
             "suggestion": "specific action (max 30 words)",
             "urgency": "immediate|within_24h|routine",
-            "rationale": "one short patient-specific sentence (max 25 words)"
+            "rationale": "one short student-specific sentence (max 25 words)"
         }
     ],
     "additional_suggestions": [
         {
             "type": "investigation|history|examination|follow_up",
             "suggestion": "specific action (max 30 words)",
-            "rationale": "one short patient-specific sentence (max 25 words)"
+            "rationale": "one short student-specific sentence (max 25 words)"
         }
     ],
     "differential_considerations": ["diagnoses to keep in mind"],
@@ -1484,14 +1484,14 @@ Output format (JSON):
 IMPORTANT: The above guidelines have ALREADY been used to generate suggestions.
 Your role is to:
 1. DO NOT duplicate suggestions already covered by the guidelines above
-2. FILL GAPS: Identify what the guidelines missed for this specific patient
-3. SYNTHESIZE: Combine guideline knowledge with patient-specific factors
-4. PRIORITIZE: Help rank suggestions based on this patient's context
+2. FILL GAPS: Identify what the guidelines missed for this specific student
+3. SYNTHESIZE: Combine guideline knowledge with student-specific factors
+4. PRIORITIZE: Help rank suggestions based on this student's context
 """
 
         return f"""Analyze this consultation and provide triage suggestions:
 
-**Patient Profile:**
+**Student Profile:**
 - Age: {insights.patient_age or 'Unknown'}
 - Gender: {insights.patient_gender or 'Unknown'}
 - Age Group: {insights.age_group}
@@ -1635,33 +1635,33 @@ async def generate_triage_from_extraction(
 
 async def generate_triage_from_extraction_v2(
     extraction: Dict[str, Any],
-    patient_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     consultation_type_code: Optional[str] = None,
     include_gemini: bool = True,
     log_suggestions: bool = True,
     supabase_client=None
 ) -> TriageSuggestions:
     """
-    Generate triage suggestions with patient context (Phase 0.5).
+    Generate triage suggestions with student context (Phase 0.5).
 
     Args:
         extraction: Extraction record from database
-        patient_id: Optional patient UUID for historical context
-        doctor_id: Optional doctor UUID for suggestion logging
+        student_id: Optional student UUID for historical context
+        counsellor_id: Optional counsellor UUID for suggestion logging
         consultation_type_code: Optional consultation type code
         include_gemini: Whether to use Gemini AI analysis
         log_suggestions: Whether to log suggestions to database
         supabase_client: Supabase client for DB operations
 
     Returns:
-        TriageSuggestions object with patient context applied
+        TriageSuggestions object with student context applied
     """
     engine = TriageSuggestionEngine()
     return await engine.generate_suggestions_v2(
         extraction=extraction,
-        patient_id=patient_id,
-        doctor_id=doctor_id,
+        student_id=student_id,
+        counsellor_id=counsellor_id,
         consultation_type_code=consultation_type_code,
         include_gemini_analysis=include_gemini,
         log_suggestions=log_suggestions,

@@ -22,8 +22,6 @@ from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
 from services.raster_lookups import (
-    apply_raster_lookups_to_neo_daily,
-    apply_raster_lookups_to_neo_op,
     normalize_medication_route,
 )
 from services.drug_lookups import lookup_drug_id_fuzzy, lookup_drug_id_with_fallback
@@ -211,652 +209,6 @@ def _sanitize_escaped_slashes(obj: Any) -> Any:
 
 
 # ============================================================================
-# PRE-PROCESSING VALIDATION FOR RASTER API PAYLOADS
-# ============================================================================
-
-def _validate_and_fix_neo_daily_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validate and fix NEO_DAILY payload before sending to Raster API.
-
-    Fixes common issues:
-    - Ensures antibiotics/transfusions/fluids have correct structure
-    - Converts empty objects {} to None to prevent "Array to string conversion"
-    - Ensures all required fields have default values
-
-    Args:
-        payload: The extraction payload to validate
-
-    Returns:
-        Fixed payload ready for Raster API
-    """
-    fixed = payload.copy()
-    issues_found = []
-
-    # Fix antibiotics array
-    if "antibiotics" in fixed:
-        antibiotics = fixed.get("antibiotics", [])
-        if isinstance(antibiotics, list):
-            fixed_antibiotics = []
-            for idx, ab in enumerate(antibiotics):
-                if isinstance(ab, dict):
-                    fixed_ab = {
-                        "drugId": ab.get("drugId") or idx + 1,
-                        "drugName": ab.get("drugName", ""),
-                        "dose": ab.get("dose", ""),
-                        "frequency": ab.get("frequency", ""),
-                        "route": ab.get("route", "IV"),
-                    }
-                    fixed_antibiotics.append(fixed_ab)
-                    if not ab.get("dose"):
-                        issues_found.append(f"antibiotics[{idx}].dose missing")
-            fixed["antibiotics"] = fixed_antibiotics
-
-    # Fix transfusions array
-    if "transfusions" in fixed:
-        transfusions = fixed.get("transfusions", [])
-        if isinstance(transfusions, list):
-            fixed_transfusions = []
-            for idx, tr in enumerate(transfusions):
-                if isinstance(tr, dict):
-                    fixed_tr = {
-                        "product": tr.get("product", ""),
-                        "volume": tr.get("volume"),
-                    }
-                    fixed_transfusions.append(fixed_tr)
-            fixed["transfusions"] = fixed_transfusions
-
-    # Fix fluids array
-    if "fluids" in fixed:
-        fluids = fixed.get("fluids", [])
-        if isinstance(fluids, list):
-            fixed_fluids = []
-            for idx, fl in enumerate(fluids):
-                if isinstance(fl, dict):
-                    fixed_fl = {
-                        "fluidId": fl.get("fluidId") or idx + 1,
-                        "fluidName": fl.get("fluidName", ""),
-                        "rate": fl.get("rate", ""),
-                        "duration": fl.get("duration", ""),
-                    }
-                    fixed_fluids.append(fixed_fl)
-            fixed["fluids"] = fixed_fluids
-
-    # Fix empty nested objects in dailyLog
-    if "dailyLog" in fixed and isinstance(fixed["dailyLog"], dict):
-        fixed["dailyLog"] = _fix_empty_objects_recursive(fixed["dailyLog"])
-
-    if issues_found:
-        logger.warning(f"[RASTER_API] Payload validation issues: {issues_found}")
-
-    return fixed
-
-
-def _fix_empty_objects_recursive(obj: Any) -> Any:
-    """
-    Recursively fix empty objects {} by converting to None.
-
-    Empty objects can cause "Array to string conversion" errors in Laravel.
-    """
-    if isinstance(obj, dict):
-        if not obj:  # Empty dict
-            return None
-        return {k: _fix_empty_objects_recursive(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_fix_empty_objects_recursive(item) for item in obj]
-    else:
-        return obj
-
-
-def _validate_and_fix_neo_proforma_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validate and fix NEO_PROFORMA payload before sending to Raster API.
-
-    Fixes common issues:
-    - Ensures all required top-level fields have default values
-    - Ensures liveBirthBabyDetails has all required fields (birthYear, place, etc.)
-    - Ensures pregnancyComplicationsDetails has all required fields
-    - Ensures scan details have all required fields
-    - Converts empty objects {} to objects with empty string values
-
-    Args:
-        payload: The extraction payload to validate
-
-    Returns:
-        Fixed payload ready for Raster API
-    """
-    fixed = payload.copy()
-    issues_found = []
-
-    # All required top-level string fields per Raster schema
-    required_string_fields = [
-        "uhid", "dateTime", "babyName", "dob", "tob", "sex", "birthStatus",
-        "birthWeight", "birthLength", "birthHeadCircunference", "birthOrder",
-        "babyBloodGroup", "gestationWeeks", "gestationDays", "transferStatus",
-        "consanguinity", "gravida", "para", "liveBirth", "abortion", "conception",
-        "lmp", "EDDByUSG", "EDDByDate", "motherBloodGroup", "HIV", "HepatitisB",
-        "VDRL", "booked", "bookedPlace", "pleaceOfBooking", "supervised",
-        "pleaceOfSupervision", "multiplePregnancy", "pregnancyComplications",
-        "antenatalSteroids", "typeOfSteriods", "steroidCourse", "timeOfLastDose",
-        "lastDoseDeliveryInterval", "antenatalMgSO4ForNeuroprotection",
-        "labour", "natureofLabour", "commentOnLiquor", "riskFactorsForSepsisInMothers",
-        "maternalPyrexia", "maternalPyrexiaTemperatureFahrenheit", "PROM",
-        "durationOfPROM", "maternalAntibiotics", "modeOfDelivery", "presentation",
-        "fetalDistress", "CTG", "CTGDetails", "cordBloodGas", "cordPH", "cordBE",
-        "cordHCO3", "typeofAnesthesia", "delayedCordClamping",
-        "delayedCordClampingduration", "reasonForNoDCC", "umbilicalCordMilking",
-        "cutCordMilking", "resuscitation", "initialSteps", "facialOxygen",
-        "durationOfFacialOxygen", "bagMaskVentilation", "bagMaskVentilationDuration",
-        "bagMaskVentilationDurationMin", "maximumFio2Rquired", "deliveryRoomCPAP",
-        "intubation", "ETTSizeInMM", "depthOfInsertion", "depthOfInsertionLengthInCM",
-        "PPV", "durationOfPTV", "durationOfPTVMinutes", "CPR", "durationOfCPR",
-        "durationOfCPRMinutes", "drugs", "timeOf1stGasp", "timeOf1stGaspInMinutes",
-        "regularRespiration", "regularRespirationMinutes", "gastricAspirate",
-        "vitaminK", "vitaminKDose", "vitaminKRoute", "DCT", "ICT",
-        "initialExaminationSummary", "malformation", "backgroundDetails", "plan",
-        "adjustedRiskForTrisomiesAvailable", "adjustedRiskForTrisomy21",
-        "adjustedRiskForTrisomy18", "adjustedRiskForTrisomy13", "otherInvestigations"
-    ]
-
-    # Ensure all required string fields have at least empty string
-    for field in required_string_fields:
-        if field not in fixed or fixed[field] is None:
-            fixed[field] = ""
-            issues_found.append(f"Added missing field: {field}")
-
-    # Ensure required array fields exist
-    required_array_fields = [
-        "medicalProblem", "riskFactors", "indication",
-        "maternalAntibioticsDetails", "drugDetails"
-    ]
-    for field in required_array_fields:
-        if field not in fixed or not isinstance(fixed[field], list):
-            fixed[field] = []
-            issues_found.append(f"Fixed array field: {field}")
-
-    # Fix medicalProblem array - ensure each item has problemsId and medications fields
-    # Note: These are MATERNAL medical problems per Raster schema
-    if "medicalProblem" in fixed and isinstance(fixed["medicalProblem"], list):
-        fixed_problems = []
-        for idx, problem in enumerate(fixed["medicalProblem"]):
-            if isinstance(problem, dict):
-                # Support both old (problem/medication) and new (problemsId/medications) field names
-                fixed_problem = {
-                    "problemsId": problem.get("problemsId", problem.get("problem", "")),
-                    "medications": problem.get("medications", problem.get("medication", ""))
-                }
-                fixed_problems.append(fixed_problem)
-            elif isinstance(problem, (str, int)):
-                # If it's just a string/int, convert to proper structure
-                fixed_problems.append({"problemsId": problem, "medications": ""})
-            else:
-                fixed_problems.append({"problemsId": "", "medications": ""})
-        fixed["medicalProblem"] = fixed_problems
-
-    # Template for liveBirthBabyDetails - all required fields per Raster schema
-    live_birth_template = {
-        "place": "",
-        "gender": "",
-        "health": "",
-        "details": "",
-        "birthYear": "",
-        "gestation": "",
-        "birthWeight": "",
-        "complications": "",
-        "typeOfDelivery": ""
-    }
-
-    # Fix liveBirthBabyDetails array
-    if "liveBirthBabyDetails" in fixed:
-        live_births = fixed.get("liveBirthBabyDetails", [])
-        if isinstance(live_births, list):
-            fixed_births = []
-            for idx, birth in enumerate(live_births):
-                if isinstance(birth, dict):
-                    # Merge with template to ensure all fields present
-                    fixed_birth = {**live_birth_template}
-                    for key in live_birth_template:
-                        if key in birth and birth[key]:
-                            fixed_birth[key] = birth[key]
-                    fixed_births.append(fixed_birth)
-                    # Check for completely empty births
-                    if not any(birth.get(k) for k in live_birth_template):
-                        issues_found.append(f"liveBirthBabyDetails[{idx}] empty")
-                else:
-                    # Not a dict, add template
-                    fixed_births.append({**live_birth_template})
-                    issues_found.append(f"liveBirthBabyDetails[{idx}] was not dict")
-            fixed["liveBirthBabyDetails"] = fixed_births
-        else:
-            # Not a list, create default
-            fixed["liveBirthBabyDetails"] = [{**live_birth_template}, {**live_birth_template}]
-            issues_found.append("liveBirthBabyDetails was not a list")
-
-    # Template for pregnancyComplicationsDetails
-    # Note: Field is "complicationId" (integer) per reference file
-    complication_template = {
-        "duration": "",
-        "treatment": "",
-        "complicationId": "",
-        "durationType": ""
-    }
-
-    # Fix pregnancyComplicationsDetails array
-    if "pregnancyComplicationsDetails" in fixed:
-        complications = fixed.get("pregnancyComplicationsDetails", [])
-        if isinstance(complications, list):
-            fixed_complications = []
-            for idx, comp in enumerate(complications):
-                if isinstance(comp, dict):
-                    fixed_comp = {**complication_template}
-                    for key in complication_template:
-                        if key in comp and comp[key]:
-                            fixed_comp[key] = comp[key]
-                    # Support old field name "complication" -> "complicationId"
-                    if "complication" in comp and comp["complication"] and not fixed_comp["complicationId"]:
-                        fixed_comp["complicationId"] = comp["complication"]
-                    fixed_complications.append(fixed_comp)
-                else:
-                    fixed_complications.append({**complication_template})
-            fixed["pregnancyComplicationsDetails"] = fixed_complications
-
-    # Template for scan details (dating, anomaly, other, doppler)
-    scan_template = {
-        "date": "",
-        "findings": "",
-        "gestation": ""
-    }
-
-    # Fix datingScanDetails
-    if "datingScanDetails" in fixed:
-        scan = fixed.get("datingScanDetails", {})
-        if isinstance(scan, dict):
-            fixed_scan = {**scan_template}
-            for key in scan_template:
-                if key in scan and scan[key]:
-                    fixed_scan[key] = scan[key]
-            fixed["datingScanDetails"] = fixed_scan
-        else:
-            fixed["datingScanDetails"] = {**scan_template}
-
-    # Fix anomalyScanDetails
-    if "anomalyScanDetails" in fixed:
-        scan = fixed.get("anomalyScanDetails", {})
-        if isinstance(scan, dict):
-            fixed_scan = {**scan_template}
-            for key in scan_template:
-                if key in scan and scan[key]:
-                    fixed_scan[key] = scan[key]
-            fixed["anomalyScanDetails"] = fixed_scan
-        else:
-            fixed["anomalyScanDetails"] = {**scan_template}
-
-    # Fix otherScanDetails array
-    if "otherScanDetails" in fixed:
-        scans = fixed.get("otherScanDetails", [])
-        if isinstance(scans, list):
-            fixed_scans = []
-            for scan in scans:
-                if isinstance(scan, dict):
-                    fixed_scan = {**scan_template}
-                    for key in scan_template:
-                        if key in scan and scan[key]:
-                            fixed_scan[key] = scan[key]
-                    fixed_scans.append(fixed_scan)
-                else:
-                    fixed_scans.append({**scan_template})
-            fixed["otherScanDetails"] = fixed_scans
-
-    # Fix dopplerScanDetails array
-    if "dopplerScanDetails" in fixed:
-        scans = fixed.get("dopplerScanDetails", [])
-        if isinstance(scans, list):
-            fixed_scans = []
-            for scan in scans:
-                if isinstance(scan, dict):
-                    fixed_scan = {**scan_template}
-                    for key in scan_template:
-                        if key in scan and scan[key]:
-                            fixed_scan[key] = scan[key]
-                    fixed_scans.append(fixed_scan)
-                else:
-                    fixed_scans.append({**scan_template})
-            fixed["dopplerScanDetails"] = fixed_scans
-
-    # Fix maternalAntibioticsDetails array if present
-    if "maternalAntibioticsDetails" in fixed:
-        antibiotics = fixed.get("maternalAntibioticsDetails", [])
-        if not isinstance(antibiotics, list):
-            fixed["maternalAntibioticsDetails"] = []
-
-    # Fix drugDetails array if present
-    if "drugDetails" in fixed:
-        drugs = fixed.get("drugDetails", [])
-        if not isinstance(drugs, list):
-            fixed["drugDetails"] = []
-
-    # Fix apgar nested object - ensure all minute structures exist
-    apgar_minute_template = {
-        "tone": None,
-        "color": None,
-        "total": None,
-        "reflex": None,
-        "heartRate": None,
-        "respiration": None
-    }
-
-    if "apgar" not in fixed or not isinstance(fixed.get("apgar"), dict):
-        fixed["apgar"] = {
-            "status": "unknown",
-            "minute1": {**apgar_minute_template},
-            "minute5": {**apgar_minute_template},
-            "minute10": {**apgar_minute_template},
-            "minute15": {**apgar_minute_template},
-            "minute20": {**apgar_minute_template}
-        }
-        issues_found.append("Added missing apgar object")
-    else:
-        apgar = fixed["apgar"]
-        if "status" not in apgar:
-            apgar["status"] = "unknown"
-        for minute in ["minute1", "minute5", "minute10", "minute15", "minute20"]:
-            if minute not in apgar or not isinstance(apgar.get(minute), dict):
-                apgar[minute] = {**apgar_minute_template}
-            else:
-                # Ensure all fields in minute object exist
-                for field in apgar_minute_template:
-                    if field not in apgar[minute]:
-                        apgar[minute][field] = None
-
-    if issues_found:
-        logger.warning(f"[RASTER_API] NEO_PROFORMA payload validation issues: {issues_found[:10]}...")
-
-    return fixed
-
-
-def _clean_medication_metadata(med: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Remove lookup metadata fields from a medication object.
-
-    Strips underscore-prefixed metadata fields (e.g., _external_id)
-    that are added by post-processing but should not be sent to Raster API.
-
-    Args:
-        med: Medication dict that may contain metadata fields
-
-    Returns:
-        Cleaned medication dict with only API-expected fields
-    """
-    # Fields to keep (per Raster API schema)
-    allowed_fields = {"drugId", "route", "dosage", "additionalInstruction"}
-
-    cleaned = {}
-    for key, value in med.items():
-        # Skip all underscore-prefixed metadata fields
-        if key.startswith("_"):
-            continue
-        # Keep only allowed fields
-        if key in allowed_fields:
-            cleaned[key] = value
-
-    return cleaned
-
-
-def _validate_and_fix_neo_discharge_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validate and fix NEO_DISCHARGE payload before sending to Raster API.
-
-    Fixes common issues:
-    - Cleans medications array (removes lookup metadata, ensures drugId is numeric)
-    - Ensures required nested structures exist
-
-    Args:
-        payload: The extraction payload to validate
-
-    Returns:
-        Fixed payload ready for Raster API
-    """
-    fixed = payload.copy()
-    issues_found = []
-
-    # Fix medications inside discharge object
-    discharge = fixed.get("discharge")
-    if isinstance(discharge, dict) and "medications" in discharge:
-        medications = discharge.get("medications", [])
-        if isinstance(medications, list):
-            fixed_medications = []
-            for idx, med in enumerate(medications):
-                if isinstance(med, dict):
-                    drug_id = med.get("drugId", "")
-
-                    # Check if drugId is a valid numeric ID
-                    if isinstance(drug_id, str) and drug_id.isdigit():
-                        drug_id_str = drug_id
-                    elif isinstance(drug_id, int):
-                        drug_id_str = str(drug_id)
-                    elif isinstance(drug_id, str) and drug_id and not drug_id.isdigit():
-                        # It's a drug NAME - try to look up
-                        drug_name = drug_id
-                        looked_up_id = lookup_drug_id_fuzzy(drug_name)
-                        if looked_up_id is not None:
-                            drug_id_str = str(looked_up_id)
-                            logger.debug(f"[RASTER_API] NEO_DISCHARGE medication {idx}: drugName='{drug_name}' -> drugId={drug_id_str}")
-                        else:
-                            # Fallback to sequential ID if not found (like NEO_OP)
-                            drug_id_str = str(idx + 1)
-                            issues_found.append(f"medications[{idx}].drugId '{drug_name}' not found in drug DB, using fallback ID {drug_id_str}")
-                            logger.warning(f"[RASTER_API] NEO_DISCHARGE medication {idx}: drugName='{drug_name}' NOT FOUND, using fallback ID {drug_id_str}")
-                    else:
-                        drug_id_str = str(idx + 1)
-
-                    # Clean dosage array (handle both array and single dict)
-                    dosage_data = med.get("dosage", [])
-                    fixed_dosage = []
-                    if isinstance(dosage_data, list):
-                        for d in dosage_data:
-                            if isinstance(d, dict):
-                                fixed_dosage.append({
-                                    "dose": d.get("dose", ""),
-                                    "frequency": d.get("frequency", ""),
-                                    "duration": d.get("duration", ""),
-                                    "additionalInstruction": d.get("additionalInstruction", "")
-                                })
-                    elif isinstance(dosage_data, dict):
-                        # Single dosage object - wrap in array
-                        fixed_dosage.append({
-                            "dose": dosage_data.get("dose", ""),
-                            "frequency": dosage_data.get("frequency", ""),
-                            "duration": dosage_data.get("duration", ""),
-                            "additionalInstruction": dosage_data.get("additionalInstruction", "")
-                        })
-
-                    if not fixed_dosage:
-                        fixed_dosage = [{"dose": "", "frequency": "", "duration": "", "additionalInstruction": ""}]
-
-                    # Build clean medication object (no metadata fields)
-                    fixed_med = {
-                        "drugId": drug_id_str,
-                        "route": normalize_medication_route(med.get("route")),
-                        "dosage": fixed_dosage
-                    }
-
-                    fixed_medications.append(fixed_med)
-
-            discharge["medications"] = fixed_medications
-
-    if issues_found:
-        logger.warning(f"[RASTER_API] NEO_DISCHARGE payload validation issues: {issues_found[:10]}...")
-
-    return fixed
-
-
-def _validate_and_fix_neo_op_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validate and fix NEO_OP payload before sending to Raster API.
-
-    Fixes common issues:
-    - Restructures baby.chronologicalAge and baby.correctedAge to Raster's expected nested format
-    - Ensures medications have integer drugId (not drug names)
-    - Ensures immunization vaccineIds are integers
-    - Ensures required fields have default values
-
-    Args:
-        payload: The extraction payload to validate
-
-    Returns:
-        Fixed payload ready for Raster API
-    """
-    fixed = payload.copy()
-    issues_found = []
-
-    # ========== FIX BABY AGE STRUCTURES ==========
-    # Raster expects nested structure: {yearMonthDays: {...}, weeksDays: {...}}
-    # But our extraction returns flat structure: {years, months, days, weeks, weeksDays}
-    def _restructure_age(flat_age: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert flat age dict to Raster's nested format."""
-        if not flat_age or not isinstance(flat_age, dict):
-            return {
-                "yearMonthDays": {"years": 0, "months": 0, "days": 0},
-                "weeksDays": {"weeks": 0, "days": 0}
-            }
-        # Check if already in correct nested format
-        if "yearMonthDays" in flat_age and "weeksDays" in flat_age:
-            return flat_age
-        # Convert from flat format
-        return {
-            "yearMonthDays": {
-                "years": flat_age.get("years", 0) or 0,
-                "months": flat_age.get("months", 0) or 0,
-                "days": flat_age.get("days", 0) or 0
-            },
-            "weeksDays": {
-                "weeks": flat_age.get("weeks", 0) or 0,
-                "days": flat_age.get("weeksDays", 0) or 0
-            }
-        }
-
-    if "baby" in fixed and isinstance(fixed["baby"], dict):
-        baby = fixed["baby"]
-
-        # Fix chronologicalAge structure
-        if "chronologicalAge" in baby:
-            original_chrono = baby["chronologicalAge"]
-            baby["chronologicalAge"] = _restructure_age(original_chrono)
-            if original_chrono != baby["chronologicalAge"]:
-                issues_found.append("Restructured baby.chronologicalAge to nested format")
-                logger.debug(f"[RASTER_API] Fixed chronologicalAge: {original_chrono} -> {baby['chronologicalAge']}")
-
-        # Fix correctedAge structure
-        if "correctedAge" in baby:
-            original_corrected = baby["correctedAge"]
-            baby["correctedAge"] = _restructure_age(original_corrected)
-            if original_corrected != baby["correctedAge"]:
-                issues_found.append("Restructured baby.correctedAge to nested format")
-                logger.debug(f"[RASTER_API] Fixed correctedAge: {original_corrected} -> {baby['correctedAge']}")
-
-    # Fix medications array - drugId must be numeric string referencing mas_drugivfluid.id
-    # Uses drug_lookups.py to convert drug names to actual Raster database IDs
-    if "medications" in fixed and isinstance(fixed["medications"], list):
-        fixed_medications = []
-        for idx, med in enumerate(fixed["medications"]):
-            if isinstance(med, dict):
-                drug_id = med.get("drugId", "")
-                drug_name = ""
-
-                # Check if drugId is a valid numeric ID
-                if isinstance(drug_id, str) and drug_id.isdigit():
-                    # Valid numeric ID - use as-is (as string per Raster schema)
-                    drug_id_str = drug_id
-                elif isinstance(drug_id, int):
-                    drug_id_str = str(drug_id)
-                elif isinstance(drug_id, str) and drug_id and not drug_id.isdigit():
-                    # It's a drug NAME - look up in Raster drug database
-                    drug_name = drug_id
-                    looked_up_id = lookup_drug_id_fuzzy(drug_name)
-                    if looked_up_id is not None:
-                        drug_id_str = str(looked_up_id)
-                        logger.debug(f"[RASTER_API] Medication {idx}: drugName='{drug_name}' -> drugId={drug_id_str} (from drug lookup)")
-                    else:
-                        # Fallback to sequential ID if not found in database
-                        drug_id_str = str(idx + 1)
-                        issues_found.append(f"medications[{idx}].drugId '{drug_name}' not found in drug DB, using fallback ID {drug_id_str}")
-                        logger.warning(f"[RASTER_API] Medication {idx}: drugName='{drug_name}' NOT FOUND in drug DB, using fallback ID {drug_id_str}")
-                else:
-                    drug_id_str = str(idx + 1)  # Use sequential IDs for empty values
-
-                # Raster expects dosage as array of {dose, frequency, duration} objects
-                dosage_data = med.get("dosage", [])
-
-                # Ensure dosage is a properly formatted array
-                fixed_dosage = []
-                if isinstance(dosage_data, list):
-                    for d in dosage_data:
-                        if isinstance(d, dict):
-                            fixed_dosage.append({
-                                "dose": d.get("dose", ""),
-                                "frequency": d.get("frequency", ""),
-                                "duration": d.get("duration", "")
-                            })
-                elif isinstance(dosage_data, dict):
-                    # Single dosage object - wrap in array
-                    fixed_dosage.append({
-                        "dose": dosage_data.get("dose", ""),
-                        "frequency": dosage_data.get("frequency", ""),
-                        "duration": dosage_data.get("duration", "")
-                    })
-
-                # If no dosage data, add empty dosage entry to prevent "Undefined index: dose" error
-                if not fixed_dosage:
-                    fixed_dosage = [{"dose": "", "frequency": "", "duration": ""}]
-
-                fixed_med = {
-                    "drugId": drug_id_str,
-                    "route": normalize_medication_route(med.get("route")),  # Convert route text to ID
-                    "dosage": fixed_dosage
-                }
-
-                fixed_medications.append(fixed_med)
-        fixed["medications"] = fixed_medications
-
-    # Fix immunization - vaccineIds must be integers referencing Raster's vaccine table
-    # TODO: Implement Raster DB vaccine lookup to convert vaccine names to actual IDs
-    if "immunization" in fixed and isinstance(fixed["immunization"], dict):
-        immunization = fixed["immunization"]
-        # Check both "vaccineList" (Raster schema) and "vaccines" (possible extraction key)
-        vaccine_key = "vaccineList" if "vaccineList" in immunization else "vaccines"
-        if vaccine_key in immunization and isinstance(immunization[vaccine_key], list):
-            fixed_vaccines = []
-            for idx, vac in enumerate(immunization[vaccine_key]):
-                if isinstance(vac, dict):
-                    vaccine_id = vac.get("vaccineId", "")
-                    if isinstance(vaccine_id, str) and vaccine_id.isdigit():
-                        vaccine_id = int(vaccine_id)
-                    elif isinstance(vaccine_id, int):
-                        pass  # Already an int
-                    elif isinstance(vaccine_id, str) and vaccine_id and not vaccine_id.isdigit():
-                        # Vaccine NAME, not ID - use placeholder
-                        # TODO: Replace with Raster DB lookup for vaccine ID
-                        issues_found.append(f"immunization.{vaccine_key}[{idx}].vaccineId '{vaccine_id}' is name, using placeholder")
-                        logger.debug(f"[RASTER_API] Vaccine {idx}: name='{vaccine_id}' -> placeholder ID (TODO: implement Raster DB lookup)")
-                        vaccine_id = idx + 1  # Use sequential IDs (1, 2, 3...) that exist in Raster DB
-                    else:
-                        vaccine_id = idx + 1  # Use sequential IDs for empty values
-                    fixed_vaccines.append({"vaccineId": vaccine_id})
-            immunization["vaccineList"] = fixed_vaccines  # Always use Raster's expected key
-
-    # Ensure required string fields exist
-    required_fields = ["uhid", "opDateTime"]
-    for field in required_fields:
-        if field not in fixed or fixed[field] is None:
-            fixed[field] = ""
-            issues_found.append(f"Added missing field: {field}")
-
-    if issues_found:
-        logger.warning(f"[RASTER_API] NEO_OP payload validation issues: {issues_found[:10]}...")
-
-    return fixed
-
-
-# ============================================================================
 # Raster General EMR Integration (RASTER_OP template)
 # ============================================================================
 
@@ -887,12 +239,12 @@ def format_for_raster(
 
     Args:
         extraction_insights: The extraction insights dict from RASTER_OP template
-        uhid: Patient UHID (e.g., "HRD35553")
+        uhid: Student UHID (e.g., "HRD35553")
         visit_number: Visit number (e.g., "OP/25000973")
-        consultant_id: Consultant/Doctor ID in Raster system (from patient add_info)
-        modified_user_id: User ID for audit trail (from patient add_info)
+        consultant_id: Consultant/Counsellor ID in Raster system (from student add_info)
+        modified_user_id: User ID for audit trail (from student add_info)
         created_user_id: User ID who created the record (from add_info, defaults to modified_user_id)
-        sex: Patient sex (from add_info, e.g., "Male", "Female")
+        sex: Student sex (from add_info, e.g., "Male", "Female")
 
     Returns:
         Dict formatted for Raster General EMR API
@@ -1049,7 +401,7 @@ def format_for_raster(
             investigation_names.append(test)
     investigations = ", ".join(investigation_names) if investigation_names else ""
 
-    # Doctor advice - combine treatment_plan and follow_up
+    # Counsellor advice - combine treatment_plan and follow_up
     treatment_plan = extraction_insights.get("treatmentPlan", {})
     follow_up = extraction_insights.get("followUp", {})
     advice_parts = []
@@ -1082,12 +434,12 @@ def format_for_raster(
         if raw_date and str(raw_date).strip().upper() != "N/A":
             next_followup_date = raw_date
 
-    # Extract referred doctor from referralDetails segment
+    # Extract referred counsellor from referralDetails segment
     referral_details = extraction_insights.get("referralDetails", {})
     if isinstance(referral_details, dict):
-        referred_doctor = referral_details.get("referred_to") or "None"
+        referred_counsellor = referral_details.get("referred_to") or "None"
     else:
-        referred_doctor = "None"
+        referred_counsellor = "None"
 
     # ===== Build prescription block from extraction medicines =====
     prescription_items = []
@@ -1175,7 +527,7 @@ def format_for_raster(
         "created_user_id": created_user_id,
         "patient_visit_number": visit_number,
         "patient_number": uhid,
-        "doctor_id": consultant_id,
+        "counsellor_id": consultant_id,
         "third_party": "One_Health",
         "pharmacy_prescription_item": prescription_items
     }
@@ -1212,7 +564,7 @@ def format_for_raster(
             "price": 0,
             "item_value": 0,
             "modified_user_id": created_user_id,
-            "doctor_id": consultant_id,
+            "counsellor_id": consultant_id,
             "department_id": dept_id,
             "alied_name": test_name,
             "material_type": 5,
@@ -1252,7 +604,7 @@ def format_for_raster(
             "investigations": investigations,
             "doctor_advice": doctor_advice,
             "visit_notes": visit_notes,
-            "emr_referred_doctor": referred_doctor
+            "emr_referred_doctor": referred_counsellor
         },
         "prescription": prescription_block,
         "request": request_block
@@ -1340,11 +692,11 @@ def format_for_raster_new_op(
 
     Args:
         extraction_insights: The extraction insights dict from RASTER_NEW_OP template
-        uhid: Patient UHID
+        uhid: Student UHID
         visit_number: Visit number (e.g., "OP/25148074")
         consultant_id: Consultant ID in Raster system
         modified_user_id: User ID for audit trail
-        sex: Patient sex
+        sex: Student sex
         template_id_raster: Template ID in Raster system (for patientDetail)
 
     Returns:
@@ -1366,7 +718,7 @@ def format_for_raster_new_op(
         except (ValueError, TypeError):
             _tid = None
 
-    patient_detail = {
+    student_detail = {
         "uhid": uhid,
         "visitNumber": visit_number,
         "templateId": _tid if _tid is not None else 53,
@@ -1661,7 +1013,7 @@ def format_for_raster_new_op(
 
     # === Build final payload ===
     payload = {
-        "patientDetail": patient_detail,
+        "patientDetail": student_detail,
         "vitals": vitals,
         "clinicalHistory": clinical_history,
         "familyHistory": family_history,
@@ -1780,21 +1132,21 @@ async def send_to_raster_emr(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ============================================================================
-# NICU Inpatient List - Fetch patients from Raster/Neopaed system
+# NICU Inpatient List - Fetch students from Raster/Neopaed system
 # ============================================================================
 
-async def fetch_nicu_inpatient_list() -> Dict[str, Any]:
+async def fetch_nicu_instudent_list() -> Dict[str, Any]:
     """
-    Fetch NICU inpatient list from Raster/Neopaed hospital API and sync to database.
+    Fetch NICU inpatient list from Raster/Neopaed school API and sync to database.
 
-    Calls the NICU inpatient list API and syncs patients to the database:
-    - uhid -> patient_id
+    Calls the NICU inpatient list API and syncs students to the database:
+    - uhid -> student_id
     - All other fields stored in add_info JSONB column
-    - If patient exists (by uhid), only updates add_info
-    - If patient doesn't exist, creates new patient record
+    - If student exists (by uhid), only updates add_info
+    - If student doesn't exist, creates new student record
 
     Returns:
-        Dict with success status, counts of created/updated patients, and any errors
+        Dict with success status, counts of created/updated students, and any errors
     """
     # Import here to avoid circular dependency
     from services.supabase_service import supabase, retry_on_network_error
@@ -1818,15 +1170,15 @@ async def fetch_nicu_inpatient_list() -> Dict[str, Any]:
     errors: List[Dict[str, Any]] = []
 
     try:
-        # Fetch data from external hospital API
+        # Fetch data from external school API
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(nicu_api_url)
             response.raise_for_status()
-            patients_data = response.json()
+            students_data = response.json()
 
-        logger.info(f"[RASTER_API:NICU] Fetched {len(patients_data)} patients from Neopaed API")
+        logger.info(f"[RASTER_API:NICU] Fetched {len(students_data)} students from Neopaed API")
 
-        for patient in patients_data:
+        for patient in students_data:
             try:
                 uhid = patient.get("uhid")
                 if not uhid:
@@ -1846,29 +1198,29 @@ async def fetch_nicu_inpatient_list() -> Dict[str, Any]:
                     "synced_at": datetime.now(timezone.utc).isoformat()
                 }
 
-                # Check if patient exists by uhid (patient_id)
-                def _check_patient():
-                    return supabase.table("patients").select("id, patient_id").eq("patient_id", uhid).execute()
+                # Check if student exists by uhid (student_id)
+                def _check_student():
+                    return supabase.table("students").select("id, student_id").eq("student_id", uhid).execute()
 
-                existing = retry_on_network_error(_check_patient)
+                existing = retry_on_network_error(_check_student)
 
                 if existing.data:
-                    # Patient exists - update add_info only
+                    # Student exists - update add_info only
                     patient_uuid = existing.data[0]["id"]
 
-                    def _update_patient():
-                        return supabase.table("patients").update({
+                    def _update_student():
+                        return supabase.table("students").update({
                             "add_info": add_info,
                             "updated_at": datetime.now(timezone.utc).isoformat()
                         }).eq("id", patient_uuid).execute()
 
-                    retry_on_network_error(_update_patient)
+                    retry_on_network_error(_update_student)
                     updated_count += 1
-                    logger.debug(f"[RASTER_API:NICU] Updated patient {uhid}")
+                    logger.debug(f"[RASTER_API:NICU] Updated student {uhid}")
                 else:
-                    # Patient doesn't exist - create new record
-                    new_patient = {
-                        "patient_id": uhid,
+                    # Student doesn't exist - create new record
+                    new_student = {
+                        "student_id": uhid,
                         "full_name": patient.get("babyName"),
                         "gender": patient.get("gender"),
                         "date_of_birth": patient.get("birthDate"),
@@ -1876,15 +1228,15 @@ async def fetch_nicu_inpatient_list() -> Dict[str, Any]:
                         "is_anonymized": False
                     }
 
-                    def _create_patient():
-                        return supabase.table("patients").insert(new_patient).execute()
+                    def _create_student():
+                        return supabase.table("students").insert(new_student).execute()
 
-                    retry_on_network_error(_create_patient)
+                    retry_on_network_error(_create_student)
                     created_count += 1
-                    logger.debug(f"[RASTER_API:NICU] Created patient {uhid}")
+                    logger.debug(f"[RASTER_API:NICU] Created student {uhid}")
 
             except Exception as e:
-                error_msg = f"Failed to process patient {patient.get('uhid', 'unknown')}: {str(e)}"
+                error_msg = f"Failed to process student {patient.get('uhid', 'unknown')}: {str(e)}"
                 logger.error(f"[RASTER_API:NICU] {error_msg}")
                 errors.append({"uhid": patient.get("uhid"), "error": str(e)})
 
@@ -1909,7 +1261,7 @@ async def fetch_nicu_inpatient_list() -> Dict[str, Any]:
             "updated": updated_count
         }
     except Exception as e:
-        error_msg = f"Unexpected error during NICU patient fetch: {str(e)}"
+        error_msg = f"Unexpected error during NICU student fetch: {str(e)}"
         logger.error(f"[RASTER_API:NICU] {error_msg}")
         return {
             "success": False,
@@ -1925,16 +1277,16 @@ async def fetch_nicu_inpatient_list() -> Dict[str, Any]:
 
 async def fetch_op_baby_list() -> Dict[str, Any]:
     """
-    Fetch today's OP (outpatient) baby list from Raster/Neopaed hospital API and sync to database.
+    Fetch today's OP (outpatient) baby list from Raster/Neopaed school API and sync to database.
 
-    Calls the OP baby list API and syncs patients to the database:
-    - uhid -> patient_id
+    Calls the OP baby list API and syncs students to the database:
+    - uhid -> student_id
     - All other fields stored in add_info JSONB column
-    - If patient exists (by uhid), only updates add_info
-    - If patient doesn't exist, creates new patient record
+    - If student exists (by uhid), only updates add_info
+    - If student doesn't exist, creates new student record
 
     Returns:
-        Dict with success status, counts of created/updated patients, and any errors
+        Dict with success status, counts of created/updated students, and any errors
     """
     # Import here to avoid circular dependency
     from services.supabase_service import supabase, retry_on_network_error
@@ -1958,15 +1310,15 @@ async def fetch_op_baby_list() -> Dict[str, Any]:
     errors: List[Dict[str, Any]] = []
 
     try:
-        # Fetch data from external hospital API
+        # Fetch data from external school API
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(op_api_url)
             response.raise_for_status()
-            patients_data = response.json()
+            students_data = response.json()
 
-        logger.info(f"[RASTER_API:OP] Fetched {len(patients_data)} patients from Neopaed OP API")
+        logger.info(f"[RASTER_API:OP] Fetched {len(students_data)} students from Neopaed OP API")
 
-        for patient in patients_data:
+        for patient in students_data:
             try:
                 uhid = patient.get("uhid")
                 if not uhid:
@@ -1985,29 +1337,29 @@ async def fetch_op_baby_list() -> Dict[str, Any]:
                     "synced_at": datetime.now(timezone.utc).isoformat()
                 }
 
-                # Check if patient exists by uhid (patient_id)
-                def _check_patient():
-                    return supabase.table("patients").select("id, patient_id").eq("patient_id", uhid).execute()
+                # Check if student exists by uhid (student_id)
+                def _check_student():
+                    return supabase.table("students").select("id, student_id").eq("student_id", uhid).execute()
 
-                existing = retry_on_network_error(_check_patient)
+                existing = retry_on_network_error(_check_student)
 
                 if existing.data:
-                    # Patient exists - update add_info only
+                    # Student exists - update add_info only
                     patient_uuid = existing.data[0]["id"]
 
-                    def _update_patient():
-                        return supabase.table("patients").update({
+                    def _update_student():
+                        return supabase.table("students").update({
                             "add_info": add_info,
                             "updated_at": datetime.now(timezone.utc).isoformat()
                         }).eq("id", patient_uuid).execute()
 
-                    retry_on_network_error(_update_patient)
+                    retry_on_network_error(_update_student)
                     updated_count += 1
-                    logger.debug(f"[RASTER_API:OP] Updated patient {uhid}")
+                    logger.debug(f"[RASTER_API:OP] Updated student {uhid}")
                 else:
-                    # Patient doesn't exist - create new record
-                    new_patient = {
-                        "patient_id": uhid,
+                    # Student doesn't exist - create new record
+                    new_student = {
+                        "student_id": uhid,
                         "full_name": patient.get("babyName"),
                         "gender": patient.get("gender"),
                         "date_of_birth": patient.get("birthDate"),
@@ -2015,15 +1367,15 @@ async def fetch_op_baby_list() -> Dict[str, Any]:
                         "is_anonymized": False
                     }
 
-                    def _create_patient():
-                        return supabase.table("patients").insert(new_patient).execute()
+                    def _create_student():
+                        return supabase.table("students").insert(new_student).execute()
 
-                    retry_on_network_error(_create_patient)
+                    retry_on_network_error(_create_student)
                     created_count += 1
-                    logger.debug(f"[RASTER_API:OP] Created patient {uhid}")
+                    logger.debug(f"[RASTER_API:OP] Created student {uhid}")
 
             except Exception as e:
-                error_msg = f"Failed to process patient {patient.get('uhid', 'unknown')}: {str(e)}"
+                error_msg = f"Failed to process student {patient.get('uhid', 'unknown')}: {str(e)}"
                 logger.error(f"[RASTER_API:OP] {error_msg}")
                 errors.append({"uhid": patient.get("uhid"), "error": str(e)})
 
@@ -2059,12 +1411,12 @@ async def fetch_op_baby_list() -> Dict[str, Any]:
 
 
 # ============================================================================
-# Combined Neopaed Patient Sync - Fetches both NICU and OP patients
+# Combined Neopaed Student Sync - Fetches both NICU and OP students
 # ============================================================================
 
-async def fetch_all_neopaed_patients() -> Dict[str, Any]:
+async def fetch_all_neopaed_students() -> Dict[str, Any]:
     """
-    Fetch all patients from Neopaed system (both NICU inpatients and OP babies).
+    Fetch all students from Neopaed system (both NICU inpatients and OP babies).
 
     Calls both APIs and aggregates results:
     - NICU inpatient list (get-nicu-inpatient-list)
@@ -2073,10 +1425,10 @@ async def fetch_all_neopaed_patients() -> Dict[str, Any]:
     Returns:
         Dict with combined success status, counts, and breakdown by source
     """
-    logger.info("[RASTER_API:ALL] Starting combined Neopaed patient sync")
+    logger.info("[RASTER_API:ALL] Starting combined Neopaed student sync")
 
     # Fetch from both sources
-    nicu_result = await fetch_nicu_inpatient_list()
+    nicu_result = await fetch_nicu_instudent_list()
     op_result = await fetch_op_baby_list()
 
     # Aggregate results
@@ -2121,4 +1473,4 @@ async def fetch_all_neopaed_patients() -> Dict[str, Any]:
 
 
 # Alias for backward compatibility
-initialize_patients_neopaed = fetch_nicu_inpatient_list
+initialize_students_neopaed = fetch_nicu_instudent_list

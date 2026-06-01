@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  getAllDoctorsForSharing,
-  getHospitals,
+  getAllCounsellorsForSharing,
+  getSchools,
   getSpecializations,
-  DoctorListItem,
-  Hospital
-} from "@/services/doctorApi";
+  CounsellorListItem,
+  School
+} from "@/services/counsellorApi";
 import { handleApiError } from "@lib/summaryApi";
 import { useAuth } from '@lib/auth';
 import { authPatch } from '@lib/apiClient';
@@ -19,7 +19,7 @@ interface EditConsultationTypeVisibilityModalProps {
   onSaveComplete?: () => void;
 }
 
-type VisibilityTab = 'doctors' | 'hospitals' | 'specializations';
+type VisibilityTab = 'counsellors' | 'schools' | 'specializations';
 
 export function EditConsultationTypeVisibilityModal({
   consultationType,
@@ -28,9 +28,9 @@ export function EditConsultationTypeVisibilityModal({
   onSaveComplete
 }: EditConsultationTypeVisibilityModalProps) {
   const { getAccessToken } = useAuth();
-  const [activeTab, setActiveTab] = useState<VisibilityTab>('doctors');
-  const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);
-  const [selectedHospitals, setSelectedHospitals] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<VisibilityTab>('counsellors');
+  const [selectedCounsellors, setSelectedCounsellors] = useState<string[]>([]);
+  const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
   const [visibleToAll, setVisibleToAll] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,8 +38,8 @@ export function EditConsultationTypeVisibilityModal({
   const [success, setSuccess] = useState<string | null>(null);
 
   // Data fetching states
-  const [doctors, setDoctors] = useState<DoctorListItem[]>([]);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [doctors, setCounsellors] = useState<CounsellorListItem[]>([]);
+  const [hospitals, setSchools] = useState<School[]>([]);
   const [specializations, setSpecializations] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,12 +57,12 @@ export function EditConsultationTypeVisibilityModal({
       setLoading(true);
       const token = getAccessToken();
       const [doctorsData, hospitalsData, specializationsData] = await Promise.all([
-        getAllDoctorsForSharing(token),
-        getHospitals(token),
+        getAllCounsellorsForSharing(token),
+        getSchools(token),
         getSpecializations(token)
       ]);
-      setDoctors(doctorsData);
-      setHospitals(hospitalsData);
+      setCounsellors(doctorsData);
+      setSchools(hospitalsData);
       setSpecializations(specializationsData);
     } catch (err) {
       setError('Failed to load data: ' + (err as Error).message);
@@ -74,19 +74,19 @@ export function EditConsultationTypeVisibilityModal({
   const loadCurrentVisibility = () => {
     // Check if consultation type has restricted visibility
     const hasRestrictions =
-      (consultationType.visible_to_doctors && consultationType.visible_to_doctors.length > 0) ||
-      (consultationType.visible_to_hospitals && consultationType.visible_to_hospitals.length > 0) ||
+      (consultationType.visible_to_counsellors && consultationType.visible_to_counsellors.length > 0) ||
+      (consultationType.visible_to_schools && consultationType.visible_to_schools.length > 0) ||
       (consultationType.visible_to_specializations && consultationType.visible_to_specializations.length > 0);
 
     setVisibleToAll(!hasRestrictions);
 
     if (hasRestrictions) {
-      setSelectedDoctors(consultationType.visible_to_doctors || []);
-      setSelectedHospitals(consultationType.visible_to_hospitals || []);
+      setSelectedCounsellors(consultationType.visible_to_counsellors || []);
+      setSelectedSchools(consultationType.visible_to_schools || []);
       setSelectedSpecializations(consultationType.visible_to_specializations || []);
     } else {
-      setSelectedDoctors([]);
-      setSelectedHospitals([]);
+      setSelectedCounsellors([]);
+      setSelectedSchools([]);
       setSelectedSpecializations([]);
     }
   };
@@ -102,13 +102,13 @@ export function EditConsultationTypeVisibilityModal({
       // Prepare payload
       const payload = visibleToAll ? {
         visible_to_all: true,
-        visible_to_doctors: [],
-        visible_to_hospitals: [],
+        visible_to_counsellors: [],
+        visible_to_schools: [],
         visible_to_specializations: []
       } : {
         visible_to_all: false,
-        visible_to_doctors: selectedDoctors,
-        visible_to_hospitals: selectedHospitals,
+        visible_to_counsellors: selectedCounsellors,
+        visible_to_schools: selectedSchools,
         visible_to_specializations: selectedSpecializations
       };
 
@@ -145,16 +145,16 @@ export function EditConsultationTypeVisibilityModal({
     onClose();
   };
 
-  const toggleDoctor = (doctorId: string) => {
-    setSelectedDoctors(prev =>
+  const toggleCounsellor = (doctorId: string) => {
+    setSelectedCounsellors(prev =>
       prev.includes(doctorId)
         ? prev.filter(id => id !== doctorId)
         : [...prev, doctorId]
     );
   };
 
-  const toggleHospital = (hospitalId: string) => {
-    setSelectedHospitals(prev =>
+  const toggleSchool = (hospitalId: string) => {
+    setSelectedSchools(prev =>
       prev.includes(hospitalId)
         ? prev.filter(id => id !== hospitalId)
         : [...prev, hospitalId]
@@ -170,7 +170,7 @@ export function EditConsultationTypeVisibilityModal({
   };
 
   // Filter doctors based on search query
-  const filteredDoctors = doctors.filter(doc =>
+  const filteredCounsellors = doctors.filter(doc =>
     doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     doc.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (doc.specialization && doc.specialization.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -262,24 +262,24 @@ export function EditConsultationTypeVisibilityModal({
               <div className="border-b border-gray-200">
                 <nav className="flex space-x-8">
                   <button
-                    onClick={() => setActiveTab('doctors')}
+                    onClick={() => setActiveTab('counsellors')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === 'doctors'
+                      activeTab === 'counsellors'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    👨‍⚕️ Counsellors ({selectedDoctors.length})
+                    👨‍⚕️ Counsellors ({selectedCounsellors.length})
                   </button>
                   <button
-                    onClick={() => setActiveTab('hospitals')}
+                    onClick={() => setActiveTab('schools')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === 'hospitals'
+                      activeTab === 'schools'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    🏥 Schools ({selectedHospitals.length})
+                    🏥 Schools ({selectedSchools.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('specializations')}
@@ -296,7 +296,7 @@ export function EditConsultationTypeVisibilityModal({
 
               {/* Tab Content */}
               <div className="space-y-4">
-                {activeTab === 'doctors' && (
+                {activeTab === 'counsellors' && (
                   <div className="space-y-4">
                     {/* Search Bar */}
                     <div>
@@ -311,21 +311,21 @@ export function EditConsultationTypeVisibilityModal({
 
                     {/* Doctors List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-                      {filteredDoctors.length === 0 ? (
+                      {filteredCounsellors.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
                           {searchQuery ? 'No counsellors found matching your search.' : 'No counsellors available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {filteredDoctors.map((doctor) => (
+                          {filteredCounsellors.map((doctor) => (
                             <label
                               key={doctor.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedDoctors.includes(doctor.id)}
-                                onChange={() => toggleDoctor(doctor.id)}
+                                checked={selectedCounsellors.includes(doctor.id)}
+                                onChange={() => toggleCounsellor(doctor.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
@@ -343,7 +343,7 @@ export function EditConsultationTypeVisibilityModal({
                   </div>
                 )}
 
-                {activeTab === 'hospitals' && (
+                {activeTab === 'schools' && (
                   <div className="space-y-4">
                     {/* Hospitals List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
@@ -358,12 +358,12 @@ export function EditConsultationTypeVisibilityModal({
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedHospitals.includes(hospital.id)}
-                                onChange={() => toggleHospital(hospital.id)}
+                                checked={selectedSchools.includes(hospital.id)}
+                                onChange={() => toggleSchool(hospital.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{hospital.hospital_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{hospital.school_name}</div>
                                 <div className="text-xs text-gray-500">
                                   {hospital.city && hospital.state
                                     ? `${hospital.city}, ${hospital.state}`

@@ -23,12 +23,6 @@ from google.genai import types
 
 from .supabase_service import get_segment_definitions, validate_segment_configuration, get_consultation_type_by_code, get_template_by_code
 from .system_prompt_service import get_active_config_for_consultation_type
-# Neonatal Daily (non-split extraction)
-from .neonatal_prompts import (
-    NEO_DAILY_PROMPT_SYSTEM,
-    NEO_DAILY_PROMPT_USER,
-    NEO_DAILY_PARAMETERS_SCHEMA,
-)
 # Optometry (non-split extraction)
 from .optometrist_prompt import (
     OPTO_SYSTEM_PROMPT,
@@ -51,15 +45,15 @@ from .ophthal_postop_rx_prompt import (
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Consultation types that do NOT benefit from doctor/hospital medicine + investigation
-# lists or from the OP-shaped patient context block (past prescriptions, summaries,
+# Consultation types that do NOT benefit from counsellor/school medicine + investigation
+# lists or from the OP-shaped student context block (past prescriptions, summaries,
 # merge principles). Skipping keeps the prompt lean and prevents priming the LLM
 # toward OP-style segments that don't exist in these templates. Continuation merge
 # for these types is handled post-extraction in extraction_service._smart_merge_continuation.
 _SKIP_DOCTOR_LISTS_AND_CONTEXT_TYPES = {"RADIOLOGY"}
 
 
-def _should_skip_doctor_lists_and_context(consultation_type_code: Optional[str]) -> bool:
+def _should_skip_counsellor_lists_and_context(consultation_type_code: Optional[str]) -> bool:
     return (consultation_type_code or "").upper() in _SKIP_DOCTOR_LISTS_AND_CONTEXT_TYPES
 
 
@@ -71,11 +65,11 @@ def _build_radiology_continuation_context(
     """Compact prior-visit snapshot for RADIOLOGY continuations.
 
     Surfaces just enough parent context (PLAN identity + additional_phases +
-    patient-specific modifications + toxicity library_ids) so the LLM
+    student-specific modifications + toxicity library_ids) so the LLM
     re-emits prior phases rather than dropping them, and treats a
     plan_template_id change as a deliberate full replacement instead of a
     field-level refinement. Returns "" when not applicable. Stays small
-    (typically <1 KB) to avoid the prompt bloat that the OP-style patient
+    (typically <1 KB) to avoid the prompt bloat that the OP-style student
     context block would have introduced.
     """
     if (consultation_type_code or "").upper() != "RADIOLOGY":
@@ -88,7 +82,7 @@ def _build_radiology_continuation_context(
         from .history_extraction_utils import get_extraction_data
 
         result = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select("id, original_extraction_json, edited_extraction_json")
             .in_("id", list(parent_extraction_ids))
             .order("created_at", desc=True)
@@ -151,11 +145,11 @@ Prior TOXICITY library ids:
 - late:  {late_repr}
 
 CARRY-FORWARD INSTRUCTIONS:
-1. PLAN.additional_phases — RE-EMIT all prior phases verbatim unless the doctor explicitly cancels, replaces, or completes a phase. Adding new phases is allowed.
-2. PLAN.patient_specific_modifications — carry forward unless the doctor revokes it.
+1. PLAN.additional_phases — RE-EMIT all prior phases verbatim unless the counsellor explicitly cancels, replaces, or completes a phase. Adding new phases is allowed.
+2. PLAN.patient_specific_modifications — carry forward unless the counsellor revokes it.
 3. PLAN.plan_template_id — if you change this, treat it as a deliberate swap. Emit the NEW plan's full parameters from scratch (rt_intent, rt_dose_gy, rt_fractions, rt_dose_per_fraction_gy, rt_weeks, rt_technique, concurrent_systemic_therapy). Do NOT carry over dose/fractions from the prior plan.
-4. TOXICITY — prior toxicity library_ids will be carried forward by the post-extraction merge. Emit only NEW toxicities the doctor mentioned, or omit ids the doctor explicitly disclaimed.
-5. Conditional toxicities (id prefixes GY_BR_, BR_SCF_, BR_LH_) — omit prior items if their trigger condition (brachytherapy planned, SCF/IMC field, left-sided RT) is no longer present in this visit. The doctor saying "skipping brachy" or "no longer including SCF" is a deliberate removal.
+4. TOXICITY — prior toxicity library_ids will be carried forward by the post-extraction merge. Emit only NEW toxicities the counsellor mentioned, or omit ids the counsellor explicitly disclaimed.
+5. Conditional toxicities (id prefixes GY_BR_, BR_SCF_, BR_LH_) — omit prior items if their trigger condition (brachytherapy planned, SCF/IMC field, left-sided RT) is no longer present in this visit. The counsellor saying "skipping brachy" or "no longer including SCF" is a deliberate removal.
 """
     except Exception as e:
         logger.warning(f"[RADIOLOGY_CONTINUATION_CONTEXT] Failed to build snapshot: {e}")
@@ -168,7 +162,7 @@ CARRY-FORWARD INSTRUCTIONS:
 
 # Base prompt for OP (Outpatient) consultations
 # Preserves unique design: selective verbosity, consultation type detection, adaptive behavior
-BASE_SYSTEM_PROMPT_OP_CONCISE = """You are a specialized medical documentation AI assistant extracting structured clinical information from doctor-patient conversation transcripts.
+BASE_SYSTEM_PROMPT_OP_CONCISE = """You are a specialized medical documentation AI assistant extracting structured clinical information from counsellor-student conversation transcripts.
 
 **ROLE:** Extract outpatient consultation data into standardized JSON with CONCISE LANGUAGE.
 
@@ -178,7 +172,7 @@ BASE_SYSTEM_PROMPT_OP_CONCISE = """You are a specialized medical documentation A
 1. ❌ NEVER fabricate clinical information
 2. ✅ "" (empty string) for unavailable fields | [] for empty lists
 3. ✅ Flag abnormal vitals | Generate conservative assessments
-4. ✅ NO information duplication across segments, except in Diagnosis and Chief Complaints where the same information can be repeated if chief complaint is the diagnosis by doctor
+4. ✅ NO information duplication across segments, except in Diagnosis and Chief Complaints where the same information can be repeated if chief complaint is the diagnosis by counsellor
 5. ✅ Use most recent mention for contradictions
 6. ✅ Distinguish subjective symptoms from objective findings
 7. ❌ NEVER include any sensitive non-clinical information such as passwords, phone numbers, addresses, etc.
@@ -189,7 +183,7 @@ BASE_SYSTEM_PROMPT_OP_CONCISE = """You are a specialized medical documentation A
 
 Information falls into these structural patterns:
 
-**Type 1: Simple Fields** (Patient Information, Report Metadata)
+**Type 1: Simple Fields** (Student Information, Report Metadata)
 - Direct extraction, no categorization required
 
 **Type 2: Categorized Segments** (Chief Complaints → HPI → History → Physical Exam → Clinical Assessment)
@@ -203,7 +197,7 @@ Information falls into these structural patterns:
 **1. Field Type Handling:**
 - **Strings** → "" (empty string) if missing. Use comma-separated format for multiple items
 - **Arrays** → ONLY for: chief_complaints, current_medications, medications, timestamped_transcription, icd10_codes, when_to_seek_care, contact_numbers (array of objects)
-- **Objects** → Nested structures: patient_factors
+- **Objects** → Nested structures: student_factors
 - **Dates** → Convert to DD-MM-YYYY format
 
 **2. Language Handling:**
@@ -212,17 +206,17 @@ Information falls into these structural patterns:
 - Use ICD-10 codes and international medical nomenclature
 
 **3. Categorization Logic:**
-- Use explicit segment names from transcript when available. If doctor says "The Diagnosis is Diabetes", use "Diagnosis" segment
+- Use explicit segment names from transcript when available. If counsellor says "The Diagnosis is Diabetes", use "Diagnosis" segment
 - For ambiguous statements, use Decision Tree below
 - Split compound information: "Diabetes for 5 years, on Metformin" → Past Medical History + Current Medications
 
 **4. Decision Tree:**
 ```
 WHAT was diagnosed, observed or concluded? → Diagnosis (include ICD-10 coding where it is clear) - Diagnosis could be the chief complaint itself. 
-WHAT does the patient complain of? → Chief Complaints | History
-WHAT medicines should the patient take? → Prescription
-WHAT should the patient do next (non-medicine plans)? → Treatment Plan & Advice | Follow-up
-WHAT was the doctor's assessment? -> Examination | Clinical Assessment
+WHAT does the student complain of? → Chief Complaints | History
+WHAT medicines should the student take? → Prescription
+WHAT should the student do next (non-medicine plans)? → Treatment Plan & Advice | Follow-up
+WHAT was the counsellor's assessment? -> Examination | Clinical Assessment
 ```
 
 **5. Elimination of Redundancy:**
@@ -232,7 +226,7 @@ WHAT was the doctor's assessment? -> Examination | Clinical Assessment
 ---
 """
 
-BASE_SYSTEM_PROMPT_OP = """You are a specialized medical documentation AI assistant extracting structured clinical information from doctor-patient conversation transcripts.
+BASE_SYSTEM_PROMPT_OP = """You are a specialized medical documentation AI assistant extracting structured clinical information from counsellor-student conversation transcripts.
 
 **ROLE:** Extract outpatient consultation data into standardized JSON with SELECTIVE VERBOSITY: ultra-concise for routine data, detailed for critical clinical decisions.
 
@@ -242,7 +236,7 @@ BASE_SYSTEM_PROMPT_OP = """You are a specialized medical documentation AI assist
 1. ❌ NEVER fabricate clinical information
 2. ✅ "" (empty string) for unavailable fields | [] for empty lists
 3. ✅ Flag abnormal vitals | Generate conservative assessments
-4. ✅ NO information duplication across segments, except in Diagnosis and Chief Complaints where the same information can be repeated if chief complaint is the diagnosis by doctor
+4. ✅ NO information duplication across segments, except in Diagnosis and Chief Complaints where the same information can be repeated if chief complaint is the diagnosis by counsellor
 5. ✅ Use most recent mention for contradictions
 6. ✅ Distinguish subjective symptoms from objective findings
 7. ❌ NEVER include any sensitive non-clinical information such as passwords, phone numbers, addresses, etc.
@@ -273,7 +267,7 @@ Analyze the transcript to determine consultation type:
 
 Information falls into these structural patterns:
 
-**Type 1: Simple Fields** (Patient Information, Report Metadata)
+**Type 1: Simple Fields** (Student Information, Report Metadata)
 - Direct extraction, no categorization required
 - Use "" (empty string) for missing values, [] for empty lists
 
@@ -288,7 +282,7 @@ Information falls into these structural patterns:
 **1. Field Type Handling:**
 - **Strings** → "" (empty string) if missing. Use comma-separated format for multiple items
 - **Arrays** → ONLY for: chief_complaints, current_medications, medications, timestamped_transcription, icd10_codes, when_to_seek_care, contact_numbers (array of objects)
-- **Objects** → Nested structures: patient_factors
+- **Objects** → Nested structures: student_factors
 - **Dates** → Convert to DD-MM-YYYY format
 
 **2. Categorization Logic:**
@@ -303,13 +297,13 @@ Information falls into these structural patterns:
 
 **4. Decision Tree:**
 ```
-WHAT patient complains of? → Chief Complaints | Diagnosis (if chief complaint is the diagnosis by doctor)
+WHAT student complains of? → Chief Complaints | Diagnosis (if chief complaint is the diagnosis by counsellor)
 HOW symptoms developed/changed? → History of Present Illness
-WHAT patient HAS (background)? → History (past medical, surgical, family)
+WHAT student HAS (background)? → History (past medical, surgical, family)
 WHAT was OBSERVED? → Physical Examination
 WHAT tests ordered/results? → Investigations
-DOCTOR'S assessment/conclusion? → Clinical Assessment
-WHAT was diagnosed? → Diagnosis (or pick up from Chief Complaints if it is the diagnosis by doctor)
+COUNSELLOR'S assessment/conclusion? → Clinical Assessment
+WHAT was diagnosed? → Diagnosis (or pick up from Chief Complaints if it is the diagnosis by counsellor)
 WHAT medicines to take? -> Prescription
 What instructions to follow(treatment)? → Treatment Plan & Advice
 WHAT to do NEXT? → Follow-up
@@ -323,7 +317,7 @@ WHAT to do NEXT? → Follow-up
 
 ### **SPECIAL SCENARIO:**
 
-**Medication in Multiple Contexts:** "Patient on Amlodipine 5mg for 2 years but stopped last week. Restarting today."
+**Medication in Multiple Contexts:** "Student on Amlodipine 5mg for 2 years but stopped last week. Restarting today."
 
 → **History** → past_medical_history: "Hypertension (previously on Amlodipine 5mg, discontinued 1 week ago)"
 → **History** → current_medications: [] (stopped, so not current)
@@ -350,7 +344,7 @@ Extract structured information from medical discharge summary transcriptions and
 6. ✅ Convert all dates to DD-MM-YYYY format
 7. ✅ If contradictory information exists, use the most recent or final mention
 8. ✅ Use concise medical terminology (e.g., "sleepless nights" → "Insomnia")
-9. ✅ Distinguish between subjective symptoms (patient-reported) and objective findings (examination-based)
+9. ✅ Distinguish between subjective symptoms (student-reported) and objective findings (examination-based)
 10. ✅ Translate all dialogue to English in Timestamped Transcription segment
 11. ✅ NO information duplication across segments - distribute information appropriately
 12. ✅ NEVER include any sensitive non-clinical information such as passwords, phone numbers, addresses, etc.
@@ -366,7 +360,7 @@ Extract structured information from medical discharge summary transcriptions and
 1. **Chief Complaints** → Ultra-brief symptom names only (e.g., "Chest pain, Shortness of breath")
 2. **History of Present Illness** → Details about symptom characteristics (onset, duration, progression) - do NOT repeat the complaint itself
 3. **Treatment Summary** → What was DONE, not what the problem WAS (e.g., "Managed with medications X, Y, Z")
-4. **Hospital Course** → Daily progression, not diagnosis repetition (e.g., "POD 1: Stable, pain improved")
+4. **School Course** → Daily progression, not diagnosis repetition (e.g., "POD 1: Stable, pain improved")
 5. **Discharge Condition** → Current state, not admission diagnosis (e.g., "Stable, pain-free, ambulatory")
 
 ### **COMMON REDUNDANCY PATTERNS TO AVOID:**
@@ -376,7 +370,7 @@ Extract structured information from medical discharge summary transcriptions and
 | Repeating diagnosis | State diagnosis once in Diagnosis, refer to it as "the condition" elsewhere |
 | Repeating chief complaint | State complaint once, expand details in HPI |
 | Repeating procedure name | State procedure once in Treatment Details, use "the procedure" elsewhere |
-| Repeating vital signs | Full vitals in Physical Exam, only changes in Hospital Course |
+| Repeating vital signs | Full vitals in Physical Exam, only changes in School Course |
 
 ---
 
@@ -384,7 +378,7 @@ Extract structured information from medical discharge summary transcriptions and
 
 The segments have 3 structural types:
 
-**Type 1: Simple Segments** (Patient Information, Medical Team, Report Metadata)
+**Type 1: Simple Segments** (Student Information, Medical Team, Report Metadata)
 - Direct field extraction, no sub-categorization required
 - Use "" (empty string) for missing single values, empty arrays [] for missing lists
 
@@ -403,7 +397,7 @@ The segments have 3 structural types:
 **1. Field Type Handling:**
 - **Strings** → "" (empty string) if missing. Use comma-separated format for multiple items
 - **Arrays** → ONLY for: medications, current_medications, chief_complaints. All other multi-value fields are comma-separated STRINGS
-- **Objects** → Extract nested fields (e.g., patient_factors)
+- **Objects** → Extract nested fields (e.g., student_factors)
 - **Dates** → Convert to DD-MM-YYYY
 
 **2. Categorization Logic:**
@@ -418,9 +412,9 @@ The segments have 3 structural types:
 
 **4. Decision Tree:**
 ```
-WHAT the patient has? → Past Medical History / Diagnosis
+WHAT the student has? → Past Medical History / Diagnosis
 WHAT was DONE? → Treatment Details / Procedures
-HOW the patient FEELS? → Complaints / History of Present Illness
+HOW the student FEELS? → Complaints / History of Present Illness
 WHAT was OBSERVED? → Physical Examination / Investigations
 WHAT to DO NEXT? → Treatment Plan & Advice / Prescription / Follow-up
 ```
@@ -439,7 +433,7 @@ Medication in multiple contexts: "Had hypertension, was on Amlodipine but stoppe
 
 def load_segments_for_mode(
     consultation_type_id: uuid.UUID,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     template_code: Optional[str] = None,
     mode: str = "full",
 ) -> List[Dict[str, Any]]:
@@ -448,7 +442,7 @@ def load_segments_for_mode(
 
     Args:
         consultation_type_id: Consultation type ID (OP, DISCHARGE, etc.)
-        doctor_id: Doctor ID for personalized configuration (None = default)
+        counsellor_id: Counsellor ID for personalized configuration (None = default)
         template_code: Template code for template-specific configuration (optional, unique identifier)
         mode: 'core' | 'additional' | 'full'
 
@@ -457,7 +451,7 @@ def load_segments_for_mode(
     """
     result = get_segment_definitions(
         consultation_type_id=consultation_type_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         template_code=template_code,
         mode=mode
     )
@@ -543,11 +537,11 @@ def apply_terminology_modifier(
         return f"""
 {prompt_text}
 
-**TERMINOLOGY OVERRIDE (USER PREFERENCE): SIMPLE/PATIENT-FRIENDLY TERMS**
-- Use simple, patient-friendly language instead of medical jargon
+**TERMINOLOGY OVERRIDE (USER PREFERENCE): SIMPLE/STUDENT-FRIENDLY TERMS**
+- Use simple, student-friendly language instead of medical jargon
 - Examples: "stomach pain" instead of "abdominal pain", "breathlessness" instead of "dyspnea"
 - Avoid complex medical abbreviations (explain them if used)
-- This segment should be easily understandable by patients
+- This segment should be easily understandable by students
 """
     elif terminology_style == "as_spoken":
         return f"""
@@ -556,7 +550,7 @@ def apply_terminology_modifier(
 **TERMINOLOGY OVERRIDE (USER PREFERENCE): AS SPOKEN IN TRANSCRIPT**
 - Report terms exactly as spoken in the conversation
 - Do NOT translate lay terms to medical terminology
-- Examples: If patient says "stomach", write "stomach" (not "abdomen")
+- Examples: If student says "stomach", write "stomach" (not "abdomen")
 - Preserve the original language style and phrasing
 """
     else:  # medical_terms (default)
@@ -658,8 +652,8 @@ def generate_user_prompt(
     segments: List[Dict[str, Any]],
     consultation_type_code: str,
     transcript: str,
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[str] = None,
     has_medicine_list: bool = True,
     has_investigation_list: bool = True,
     is_continuation: bool = False,
@@ -672,10 +666,10 @@ def generate_user_prompt(
         segments: List of segment configurations
         consultation_type_code: Consultation type code ('OP', 'DISCHARGE', 'RESPIRATORY')
         transcript: Consultation transcript text
-        doctor_id: Doctor ID for medicine list injection (optional)
-        patient_id: Patient ID for history context injection (optional)
-        has_medicine_list: Whether doctor/hospital has medicine lists (skip injection if False)
-        has_investigation_list: Whether doctor/hospital has investigation lists (skip injection if False)
+        counsellor_id: Counsellor ID for medicine list injection (optional)
+        student_id: Student ID for history context injection (optional)
+        has_medicine_list: Whether counsellor/school has medicine lists (skip injection if False)
+        has_investigation_list: Whether counsellor/school has investigation lists (skip injection if False)
 
     Returns:
         Complete user prompt string with transcript and required JSON structure
@@ -713,73 +707,73 @@ def generate_user_prompt(
     extract_instruction = "Extract structured information from the consultation transcript below."
     special_instructions = "9. Follow the segment structure defined in the system prompt carefully"
 
-    # Some consultation types (e.g. RADIOLOGY) skip doctor/hospital list injection
-    # and the OP-shaped patient context block — see _SKIP_DOCTOR_LISTS_AND_CONTEXT_TYPES.
-    _skip_doctor_artifacts = _should_skip_doctor_lists_and_context(consultation_type_code)
+    # Some consultation types (e.g. RADIOLOGY) skip counsellor/school list injection
+    # and the OP-shaped student context block — see _SKIP_DOCTOR_LISTS_AND_CONTEXT_TYPES.
+    _skip_doctor_artifacts = _should_skip_counsellor_lists_and_context(consultation_type_code)
     if _skip_doctor_artifacts:
         logger.debug(
-            f"[USER_PROMPT] Skipping medicine/investigation list + patient context "
+            f"[USER_PROMPT] Skipping medicine/investigation list + student context "
             f"for consultation_type_code={consultation_type_code}"
         )
 
     # Medicine list injection for prescription matching (only if lists exist)
     medicine_list_section = ""
-    if doctor_id and has_medicine_list and not _skip_doctor_artifacts:
+    if counsellor_id and has_medicine_list and not _skip_doctor_artifacts:
         try:
             from .medicine_service import get_medicine_list_for_prompt
-            medicine_list = get_medicine_list_for_prompt(doctor_id, transcript_text=transcript)
+            medicine_list = get_medicine_list_for_prompt(counsellor_id, transcript_text=transcript)
             if medicine_list:
                 medicine_list_section = f"""
 
 **MEDICINE MATCHING (CRITICAL):**
 When extracting medicines for the prescription segment, follow these rules:
 
-1. **MATCH FROM LIST FIRST**: For each medicine mentioned, find the closest match from the doctor's medicine list below. Account for:
+1. **MATCH FROM LIST FIRST**: For each medicine mentioned, find the closest match from the counsellor's medicine list below. Account for:
    - Pronunciation variations (e.g., "amlo" → "AMLODIPINE", "glycomet" → "METFORMIN")
    - Abbreviated names (e.g., "telmi 40" → "TELMISARTAN 40MG")
    - Brand vs generic names (listed as "also:" alternatives)
    - Phonetic similarities (e.g., "azithro" → "AZITHROMYCIN")
 
-2. **MATCH BOTH BRAND NAME AND FORM**: Each medicine entry has a `[Form]` tag (e.g., `[Tablet]`, `[Syrup]`, `[Capsule]`) indicating its dosage form. You MUST match based on BOTH the brand name AND the form mentioned by the doctor. Use the `[Form]` tag to disambiguate entries with the same brand. For example:
-   - Doctor says "Dolo 650 tablet" → pick "DOLO 650 [Tablet]", NOT "DOLO 100 ML SYRUP [Syrup]"
-   - Doctor says "Crocin syrup" → if no entry has a matching `[Syrup]` form for Crocin, output the spoken name "Crocin Syrup" verbatim. Do NOT pick "CROCIN 500 MG TABLETS [Tablet]" when the doctor clearly said syrup.
-   - The form spoken by the doctor MUST match the `[Form]` tag of the selected entry. NEVER substitute a tablet for a syrup or vice versa.
+2. **MATCH BOTH BRAND NAME AND FORM**: Each medicine entry has a `[Form]` tag (e.g., `[Tablet]`, `[Syrup]`, `[Capsule]`) indicating its dosage form. You MUST match based on BOTH the brand name AND the form mentioned by the counsellor. Use the `[Form]` tag to disambiguate entries with the same brand. For example:
+   - Counsellor says "Dolo 650 tablet" → pick "DOLO 650 [Tablet]", NOT "DOLO 100 ML SYRUP [Syrup]"
+   - Counsellor says "Crocin syrup" → if no entry has a matching `[Syrup]` form for Crocin, output the spoken name "Crocin Syrup" verbatim. Do NOT pick "CROCIN 500 MG TABLETS [Tablet]" when the counsellor clearly said syrup.
+   - The form spoken by the counsellor MUST match the `[Form]` tag of the selected entry. NEVER substitute a tablet for a syrup or vice versa.
 
 3. **USE EXACT NAME FROM LIST**: If a close match is found, copy the COMPLETE medicine name exactly as it appears in the list — include everything before the `[Form]` tag and "(also:" part. Do NOT include the `[Form]` tag in the output. Do NOT truncate or remove any suffixes like "Kg TABLET" or "ML LIQUID". For example, if the list shows "T - CALPOL 650MG TAB  Kg TABLET [Tablet] (also: CALPOL, ...)", output exactly: "T - CALPOL 650MG TAB  Kg TABLET"
 
-4. **NEW MEDICINES ONLY IF NO MATCH**: Only use the spoken medicine name verbatim if there is NO reasonable match in the list below. This includes cases where the brand exists but the form does not match (e.g., doctor says "syrup" but only a `[Tablet]` entry exists).
+4. **NEW MEDICINES ONLY IF NO MATCH**: Only use the spoken medicine name verbatim if there is NO reasonable match in the list below. This includes cases where the brand exists but the form does not match (e.g., counsellor says "syrup" but only a `[Tablet]` entry exists).
 
-5. **FORM SELF-CHECK (MANDATORY)**: After selecting a medicine from the list, verify the `[Form]` tag matches what the doctor said:
-   - Doctor said "syrup" but you picked a `[Tablet]` entry? WRONG — output the spoken name verbatim instead.
-   - Doctor said "tablet" but you picked a `[Syrup]` entry? WRONG — output the spoken name verbatim instead.
+5. **FORM SELF-CHECK (MANDATORY)**: After selecting a medicine from the list, verify the `[Form]` tag matches what the counsellor said:
+   - Counsellor said "syrup" but you picked a `[Tablet]` entry? WRONG — output the spoken name verbatim instead.
+   - Counsellor said "tablet" but you picked a `[Syrup]` entry? WRONG — output the spoken name verbatim instead.
    - If the form doesn't match ANY entry for that brand, output the spoken name verbatim.
-   Also set the `dosage_form` field to what the doctor ACTUALLY SAID (e.g., "Syrup"), regardless of which list entry you matched.
+   Also set the `dosage_form` field to what the counsellor ACTUALLY SAID (e.g., "Syrup"), regardless of which list entry you matched.
 
 {medicine_list}
 
-**FORM REMINDER: A syrup is NEVER a tablet. A tablet is NEVER a syrup. The [Form] tag MUST match the form the doctor said. If in doubt, output the spoken name verbatim.**
+**FORM REMINDER: A syrup is NEVER a tablet. A tablet is NEVER a syrup. The [Form] tag MUST match the form the counsellor said. If in doubt, output the spoken name verbatim.**
 """
-                logger.debug(f"[USER_PROMPT] Injected medicine list for doctor {doctor_id} ({len(medicine_list)} chars)")
+                logger.debug(f"[USER_PROMPT] Injected medicine list for counsellor {counsellor_id} ({len(medicine_list)} chars)")
             else:
-                logger.debug(f"[USER_PROMPT] No medicine list found for doctor {doctor_id}")
+                logger.debug(f"[USER_PROMPT] No medicine list found for counsellor {counsellor_id}")
         except Exception as e:
-            logger.warning(f"[USER_PROMPT] Failed to get medicine list for doctor {doctor_id}: {e}")
-    elif doctor_id and not has_medicine_list:
-        logger.debug(f"[USER_PROMPT] Skipping medicine list injection - no lists for doctor {doctor_id}")
+            logger.warning(f"[USER_PROMPT] Failed to get medicine list for counsellor {counsellor_id}: {e}")
+    elif counsellor_id and not has_medicine_list:
+        logger.debug(f"[USER_PROMPT] Skipping medicine list injection - no lists for counsellor {counsellor_id}")
 
     # Investigation list injection for investigation matching (only if lists exist)
     investigation_list_section = ""
-    if doctor_id and has_investigation_list and not _skip_doctor_artifacts:
+    if counsellor_id and has_investigation_list and not _skip_doctor_artifacts:
         try:
             from .investigation_service import get_investigation_list_for_prompt
-            investigation_list = get_investigation_list_for_prompt(doctor_id)
+            investigation_list = get_investigation_list_for_prompt(counsellor_id)
             if investigation_list:
                 investigation_list_section = f"""
 
 **INVESTIGATION MATCHING (CRITICAL):**
 When extracting investigations, follow these rules:
 
-1. **MATCH FROM LIST FIRST**: For each investigation mentioned, find the closest match from the doctor's investigation list below. Account for:
+1. **MATCH FROM LIST FIRST**: For each investigation mentioned, find the closest match from the counsellor's investigation list below. Account for:
    - Abbreviations (e.g., "CBC" → "Complete Blood Count", "LFT" → "Liver Function Test")
    - Common names (e.g., "blood count" → "Complete Blood Count", "chest x-ray" → "X-Ray Chest PA View")
    - Phonetic similarities (e.g., "hemogram" → "Complete Blood Count")
@@ -790,45 +784,45 @@ When extracting investigations, follow these rules:
 
 {investigation_list}
 """
-                logger.debug(f"[USER_PROMPT] Injected investigation list for doctor {doctor_id} ({len(investigation_list)} chars)")
+                logger.debug(f"[USER_PROMPT] Injected investigation list for counsellor {counsellor_id} ({len(investigation_list)} chars)")
             else:
-                logger.debug(f"[USER_PROMPT] No investigation list found for doctor {doctor_id}")
+                logger.debug(f"[USER_PROMPT] No investigation list found for counsellor {counsellor_id}")
         except Exception as e:
-            logger.warning(f"[USER_PROMPT] Failed to get investigation list for doctor {doctor_id}: {e}")
-    elif doctor_id and not has_investigation_list:
-        logger.debug(f"[USER_PROMPT] Skipping investigation list injection - no lists for doctor {doctor_id}")
+            logger.warning(f"[USER_PROMPT] Failed to get investigation list for counsellor {counsellor_id}: {e}")
+    elif counsellor_id and not has_investigation_list:
+        logger.debug(f"[USER_PROMPT] Skipping investigation list injection - no lists for counsellor {counsellor_id}")
 
-    # Patient history context injection (prescriptions, summaries, caution)
-    patient_context_section = ""
-    if patient_id and not _skip_doctor_artifacts:
+    # Student history context injection (prescriptions, summaries, caution)
+    student_context_section = ""
+    if student_id and not _skip_doctor_artifacts:
         try:
-            from .patient_context_service import (
-                get_patient_context_for_extraction,
-                format_patient_context_for_prompt
+            from .student_context_service import (
+                get_student_context_for_extraction,
+                format_student_context_for_prompt
             )
-            doctor_id_str = str(doctor_id) if doctor_id else None
-            patient_context = get_patient_context_for_extraction(
-                patient_id=patient_id,
-                doctor_id=doctor_id_str,
+            counsellor_id_str = str(counsellor_id) if counsellor_id else None
+            patient_context = get_student_context_for_extraction(
+                student_id=student_id,
+                counsellor_id=counsellor_id_str,
                 num_past_consultations=3,
                 is_continuation=is_continuation,
                 parent_extraction_ids=parent_extraction_ids,
             )
             if patient_context.get("has_context"):
-                patient_context_section = format_patient_context_for_prompt(patient_context, is_continuation=is_continuation)
+                student_context_section = format_student_context_for_prompt(patient_context, is_continuation=is_continuation)
                 caution_agg = patient_context.get('caution_aggregated')
                 caution_info = f"Yes ({caution_agg.get('source_count', 0)} sources)" if caution_agg else 'No'
                 logger.debug(
-                    f"[USER_PROMPT] Injected patient context for patient {patient_id}: "
+                    f"[USER_PROMPT] Injected student context for student {student_id}: "
                     f"prescriptions={len(patient_context.get('past_prescriptions', []))}, "
                     f"summaries={len(patient_context.get('past_summaries', []))}, "
                     f"caution_aggregated={caution_info}, "
                     f"is_continuation={is_continuation}"
                 )
             else:
-                logger.debug(f"[USER_PROMPT] No patient context found for patient {patient_id}")
+                logger.debug(f"[USER_PROMPT] No student context found for student {student_id}")
         except Exception as e:
-            logger.warning(f"[USER_PROMPT] Failed to get patient context for patient {patient_id}: {e}")
+            logger.warning(f"[USER_PROMPT] Failed to get student context for student {student_id}: {e}")
 
     # Radiology-specific continuation snapshot — injected only for RADIOLOGY
     # is_continuation visits to keep prior PLAN phases / toxicity ids in the
@@ -861,7 +855,7 @@ When extracting investigations, follow these rules:
 {special_instructions}
 {medicine_list_section}
 {investigation_list_section}
-{patient_context_section}
+{student_context_section}
 {radiology_continuation_section}
 Return ONLY the JSON object. No markdown, no explanations, no additional text.
 """
@@ -1228,14 +1222,14 @@ def _json_schema_to_gemini_schema(json_schema: Dict[str, Any]) -> types.Schema:
 
 def validate_segments_for_extraction(
     segments: List[Dict[str, Any]],
-    doctor_id: Optional[uuid.UUID] = None
+    counsellor_id: Optional[uuid.UUID] = None
 ) -> Dict[str, Any]:
     """
     Validate segment configuration before extraction.
 
     Args:
         segments: List of segment configurations
-        doctor_id: Doctor ID for database validation (optional)
+        counsellor_id: Counsellor ID for database validation (optional)
 
     Returns:
         Dict with 'is_valid' (bool), 'error_message' (str or None), 'warnings' (list)
@@ -1252,9 +1246,9 @@ def validate_segments_for_extraction(
     if len(segments) == 0:
         errors.append("No segments configured for extraction")
 
-    # Validate with database if doctor_id provided
-    if doctor_id:
-        db_validation = validate_segment_configuration(doctor_id)
+    # Validate with database if counsellor_id provided
+    if counsellor_id:
+        db_validation = validate_segment_configuration(counsellor_id)
         if not db_validation.get("is_valid", False):
             errors.append(db_validation.get("error_message", "Database validation failed"))
 
@@ -1271,11 +1265,11 @@ def validate_segments_for_extraction(
 
 def generate_extraction_artifacts(
     consultation_type_id: uuid.UUID,
-    doctor_id: Optional[uuid.UUID],
+    counsellor_id: Optional[uuid.UUID],
     template_code: Optional[str],
     mode: str,
     transcript: str,
-    patient_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     has_medicine_list: bool = True,
     has_investigation_list: bool = True,
     is_continuation: bool = False,
@@ -1286,13 +1280,13 @@ def generate_extraction_artifacts(
 
     Args:
         consultation_type_id: Consultation type ID (OP, DISCHARGE, etc.)
-        doctor_id: Doctor ID for personalized configuration
+        counsellor_id: Counsellor ID for personalized configuration
         template_code: Template code for template-specific configuration (optional, unique identifier)
         mode: 'core' | 'additional' | 'full'
         transcript: Consultation transcript
-        patient_id: Patient ID for history context injection (optional)
-        has_medicine_list: Whether doctor/hospital has medicine lists (skip injection if False)
-        has_investigation_list: Whether doctor/hospital has investigation lists (skip injection if False)
+        student_id: Student ID for history context injection (optional)
+        has_medicine_list: Whether counsellor/school has medicine lists (skip injection if False)
+        has_investigation_list: Whether counsellor/school has investigation lists (skip injection if False)
 
     Returns:
         Dict with keys: system_prompt, user_prompt, schema, segments, validation
@@ -1308,7 +1302,7 @@ def generate_extraction_artifacts(
     consultation_type_code = ct_data["type_code"] if ct_data else template_code
     lookup_duration = 0.0
 
-    logger.debug(f"[EXTRACTION_ARTIFACTS] Starting generation for template_code={template_code}, consultation_type_code={consultation_type_code}, mode={mode}, doctor_id={doctor_id}")
+    logger.debug(f"[EXTRACTION_ARTIFACTS] Starting generation for template_code={template_code}, consultation_type_code={consultation_type_code}, mode={mode}, counsellor_id={counsellor_id}")
 
     # =========================================================================
     # OPTIMIZATION: Check for pre-assembled content FIRST (before loading segments)
@@ -1336,9 +1330,9 @@ def generate_extraction_artifacts(
                     schema_convert_duration = time.time() - schema_convert_start
                     logger.info(f"[TIMING_ARTIFACTS] schema conversion: {schema_convert_duration:.3f}s")
 
-                    # Generate user prompt with medicine list and patient context injection
+                    # Generate user prompt with medicine list and student context injection
                     user_prompt_start = time.time()
-                    user_prompt = generate_user_prompt([], consultation_type_code, transcript, doctor_id=doctor_id, patient_id=patient_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
+                    user_prompt = generate_user_prompt([], consultation_type_code, transcript, counsellor_id=counsellor_id, student_id=student_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
                     user_prompt_duration = time.time() - user_prompt_start
                     logger.info(f"[TIMING_ARTIFACTS] user_prompt generation: {user_prompt_duration:.3f}s")
 
@@ -1374,22 +1368,8 @@ def generate_extraction_artifacts(
     # HARDCODED SCHEMAS (for non-split specialized consultation types)
     # Note: Split extraction types are handled by gemini_service BEFORE calling this function
     # =========================================================================
-    if template_code in ["NEO_DAILY", "OPTOMETRY", "OPHTHAL_RX", "OPHTHAL_POSTOP_RX"]:
+    if template_code in ["OPTOMETRY", "OPHTHAL_RX", "OPHTHAL_POSTOP_RX"]:
         match template_code:
-            case "NEO_DAILY":
-                logger.debug(f"[NEONATAL_SCHEMA] ✅ Using hardcoded NEO_DAILY schema for {template_code}")
-                return {
-                    "system_prompt": NEO_DAILY_PROMPT_SYSTEM,
-                    "user_prompt": NEO_DAILY_PROMPT_USER.format(transcript=transcript),
-                    "schema": NEO_DAILY_PARAMETERS_SCHEMA,
-                    "json_schema": _gemini_schema_to_json_schema(NEO_DAILY_PARAMETERS_SCHEMA),
-                    "segments": [],
-                    "validation": {"is_valid": True, "error_message": None, "warnings": []},
-                    "segment_count": 1,
-                    "mode": mode,
-                    "consultation_type_id": str(consultation_type_id),
-                    "template_code": template_code
-                }
             case "OPTOMETRY":
                 logger.debug(f"[OPTOMETRY_SCHEMA] ✅ Using hardcoded NESTED OPTOMETRY schema for {template_code}")
                 schema_fields = list(OPTO_PARAMETERS_SCHEMA.properties.keys())[:5]
@@ -1455,7 +1435,7 @@ def generate_extraction_artifacts(
     # Load segments for this consultation type
     segment_result = load_segments_for_mode(
         consultation_type_id=consultation_type_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         template_code=template_code,
         mode=mode
     )
@@ -1477,7 +1457,7 @@ def generate_extraction_artifacts(
         }
 
     # Validate
-    validation = validate_segments_for_extraction(segments, doctor_id=doctor_id)
+    validation = validate_segments_for_extraction(segments, counsellor_id=counsellor_id)
 
     if not validation["is_valid"]:
         raise ValueError(f"Invalid segment configuration: {validation['error_message']}")
@@ -1494,7 +1474,7 @@ def generate_extraction_artifacts(
     # Generate prompts and schema with consultation-type-specific prompts
     # Pass template_id to use pre-assembled content when available
     system_prompt = generate_system_prompt(segments, consultation_type_code, template_id=template_id)
-    user_prompt = generate_user_prompt(segments, consultation_type_code, transcript, doctor_id=doctor_id, patient_id=patient_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
+    user_prompt = generate_user_prompt(segments, consultation_type_code, transcript, counsellor_id=counsellor_id, student_id=student_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
     schema = generate_gemini_schema(segments, template_id=template_id)
 
     # Build raw JSON schema for non-Gemini providers (Claude/OpenAI)
@@ -1521,10 +1501,10 @@ def generate_extraction_artifacts(
 
 def generate_extraction_artifacts_without_transcript(
     consultation_type_id: uuid.UUID,
-    doctor_id: Optional[uuid.UUID],
+    counsellor_id: Optional[uuid.UUID],
     template_code: Optional[str],
     mode: str,
-    patient_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     has_medicine_list: bool = True,
     has_investigation_list: bool = True,
     is_continuation: bool = False,
@@ -1543,12 +1523,12 @@ def generate_extraction_artifacts_without_transcript(
 
     Args:
         consultation_type_id: Consultation type ID (OP, DISCHARGE, etc.)
-        doctor_id: Doctor ID for personalized configuration
+        counsellor_id: Counsellor ID for personalized configuration
         template_code: Template code for template-specific configuration (optional, unique identifier)
         mode: 'core' | 'additional' | 'full'
-        patient_id: Patient ID for history context injection (optional)
-        has_medicine_list: Whether doctor/hospital has medicine lists (skip injection if False)
-        has_investigation_list: Whether doctor/hospital has investigation lists (skip injection if False)
+        student_id: Student ID for history context injection (optional)
+        has_medicine_list: Whether counsellor/school has medicine lists (skip injection if False)
+        has_investigation_list: Whether counsellor/school has investigation lists (skip injection if False)
 
     Returns:
         Dict with keys: system_prompt, user_prompt_template, schema, segments, validation
@@ -1590,8 +1570,8 @@ def generate_extraction_artifacts_without_transcript(
                     # Convert pre-assembled schema JSON to Gemini Schema
                     assembled_schema = _json_schema_to_gemini_schema(template_full["assembled_schema_json"])
 
-                    # Generate user prompt TEMPLATE with medicine list and patient context injection
-                    user_prompt_template = _generate_user_prompt_template([], consultation_type_code, doctor_id=doctor_id, patient_id=patient_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
+                    # Generate user prompt TEMPLATE with medicine list and student context injection
+                    user_prompt_template = _generate_user_prompt_template([], consultation_type_code, counsellor_id=counsellor_id, student_id=student_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
 
                     # Derive segment_count from schema properties
                     schema_segment_count = len(assembled_schema.properties) if hasattr(assembled_schema, 'properties') else 0
@@ -1628,10 +1608,6 @@ def generate_extraction_artifacts_without_transcript(
     # =========================================================================
     SPLIT_EXTRACTION_TYPES = {
         "OPHTHAL_CONSULT_BRIEF", "OPHTHA_DISCHARGE", "OPHTHAL_FULL_CONSULT",
-        "NEO_OP", "NEO_PROFORMA", "NEO_DISCHARGE",
-        "NEO_ADMISSION", "NEO_DAILY", "NEO_DAILY_FREE",
-        "NEO_PROFORMA_FREE", "NEO_DISCHARGE_FREE",
-        "NEO_POSTNATAL_DAY_FREE", "NEO_POSTNATAL_DISCHARGE_FREE",
     }
     if template_code in SPLIT_EXTRACTION_TYPES:
         logger.debug(f"[OPTIMIZATION] ⚡ SPLIT EXTRACTION TYPE: {template_code} - skipping parallel prompt generation")
@@ -1653,22 +1629,8 @@ def generate_extraction_artifacts_without_transcript(
     # HARDCODED SCHEMAS (for non-split specialized consultation types)
     # These types have hardcoded prompts/schemas but use single-call extraction.
     # =========================================================================
-    if template_code in ["NEO_DAILY", "OPTOMETRY", "OPHTHAL_RX", "OPHTHAL_POSTOP_RX"]:
+    if template_code in ["OPTOMETRY", "OPHTHAL_RX", "OPHTHAL_POSTOP_RX"]:
         match template_code:
-            case "NEO_DAILY":
-                logger.debug(f"[OPTIMIZATION] [NEONATAL_SCHEMA] ✅ Using hardcoded NEO_DAILY schema for {template_code}")
-                return {
-                    "system_prompt": NEO_DAILY_PROMPT_SYSTEM,
-                    "user_prompt_template": NEO_DAILY_PROMPT_USER,
-                    "schema": NEO_DAILY_PARAMETERS_SCHEMA,
-                    "json_schema": _gemini_schema_to_json_schema(NEO_DAILY_PARAMETERS_SCHEMA),
-                    "segments": [],
-                    "validation": {"is_valid": True, "error_message": None, "warnings": []},
-                    "segment_count": 1,
-                    "mode": mode,
-                    "consultation_type_id": str(consultation_type_id),
-                    "template_code": template_code
-                }
             case "OPTOMETRY":
                 logger.debug(f"[OPTIMIZATION] [OPTOMETRY_SCHEMA] ✅ Using hardcoded NESTED OPTOMETRY schema for {template_code}")
                 schema_fields = list(OPTO_PARAMETERS_SCHEMA.properties.keys())[:5]
@@ -1731,7 +1693,7 @@ def generate_extraction_artifacts_without_transcript(
     # Load segments for this consultation type
     segment_result = load_segments_for_mode(
         consultation_type_id=consultation_type_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         template_code=template_code,
         mode=mode
     )
@@ -1739,7 +1701,7 @@ def generate_extraction_artifacts_without_transcript(
     excluded_segment_codes = segment_result.get("excluded_segment_codes", set())
 
     # Validate
-    validation = validate_segments_for_extraction(segments, doctor_id=doctor_id)
+    validation = validate_segments_for_extraction(segments, counsellor_id=counsellor_id)
 
     if not validation["is_valid"]:
         raise ValueError(f"Invalid segment configuration: {validation['error_message']}")
@@ -1761,8 +1723,8 @@ def generate_extraction_artifacts_without_transcript(
     # Build raw JSON schema for non-Gemini providers (Claude/OpenAI)
     json_schema = _build_combined_json_schema(segments)
 
-    # Generate user prompt TEMPLATE with placeholder, medicine list, and patient context injection
-    user_prompt_template = _generate_user_prompt_template(segments, consultation_type_code, doctor_id=doctor_id, patient_id=patient_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
+    # Generate user prompt TEMPLATE with placeholder, medicine list, and student context injection
+    user_prompt_template = _generate_user_prompt_template(segments, consultation_type_code, counsellor_id=counsellor_id, student_id=student_id, has_medicine_list=has_medicine_list, has_investigation_list=has_investigation_list, is_continuation=is_continuation, parent_extraction_ids=parent_extraction_ids)
 
     return {
         "system_prompt": system_prompt,
@@ -1782,8 +1744,8 @@ def generate_extraction_artifacts_without_transcript(
 def _generate_user_prompt_template(
     segments: List[Dict[str, Any]],
     consultation_type_code: str,
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[str] = None,
     has_medicine_list: bool = True,
     has_investigation_list: bool = True,
     is_continuation: bool = False,
@@ -1798,10 +1760,10 @@ def _generate_user_prompt_template(
     Args:
         segments: List of segment configurations
         consultation_type_code: Consultation type code
-        doctor_id: Doctor ID for medicine list injection (optional)
-        patient_id: Patient ID for history context injection (optional)
-        has_medicine_list: Whether doctor/hospital has medicine lists (skip injection if False)
-        has_investigation_list: Whether doctor/hospital has investigation lists (skip injection if False)
+        counsellor_id: Counsellor ID for medicine list injection (optional)
+        student_id: Student ID for history context injection (optional)
+        has_medicine_list: Whether counsellor/school has medicine lists (skip injection if False)
+        has_investigation_list: Whether counsellor/school has investigation lists (skip injection if False)
 
     Returns:
         User prompt template string with {transcript} placeholder
@@ -1860,73 +1822,73 @@ def _generate_user_prompt_template(
     extract_instruction = "Extract structured information from the consultation transcript below."
     special_instructions = "9. Follow the segment structure defined in the system prompt carefully"
 
-    # Some consultation types (e.g. RADIOLOGY) skip doctor/hospital list injection
-    # and the OP-shaped patient context block — see _SKIP_DOCTOR_LISTS_AND_CONTEXT_TYPES.
-    _skip_doctor_artifacts = _should_skip_doctor_lists_and_context(consultation_type_code)
+    # Some consultation types (e.g. RADIOLOGY) skip counsellor/school list injection
+    # and the OP-shaped student context block — see _SKIP_DOCTOR_LISTS_AND_CONTEXT_TYPES.
+    _skip_doctor_artifacts = _should_skip_counsellor_lists_and_context(consultation_type_code)
     if _skip_doctor_artifacts:
         logger.debug(
-            f"[USER_PROMPT_TEMPLATE] Skipping medicine/investigation list + patient context "
+            f"[USER_PROMPT_TEMPLATE] Skipping medicine/investigation list + student context "
             f"for consultation_type_code={consultation_type_code}"
         )
 
     # Medicine list injection for prescription matching (only if lists exist)
     medicine_list_section = ""
-    if doctor_id and has_medicine_list and not _skip_doctor_artifacts:
+    if counsellor_id and has_medicine_list and not _skip_doctor_artifacts:
         try:
             from .medicine_service import get_medicine_list_for_prompt
-            medicine_list = get_medicine_list_for_prompt(doctor_id)
+            medicine_list = get_medicine_list_for_prompt(counsellor_id)
             if medicine_list:
                 medicine_list_section = f"""
 
 **MEDICINE MATCHING (CRITICAL):**
 When extracting medicines for the prescription segment, follow these rules:
 
-1. **MATCH FROM LIST FIRST**: For each medicine mentioned, find the closest match from the doctor's medicine list below. Account for:
+1. **MATCH FROM LIST FIRST**: For each medicine mentioned, find the closest match from the counsellor's medicine list below. Account for:
    - Pronunciation variations (e.g., "amlo" → "AMLODIPINE", "glycomet" → "METFORMIN")
    - Abbreviated names (e.g., "telmi 40" → "TELMISARTAN 40MG")
    - Brand vs generic names (listed as "also:" alternatives)
    - Phonetic similarities (e.g., "azithro" → "AZITHROMYCIN")
 
-2. **MATCH BOTH BRAND NAME AND FORM**: Each medicine entry has a `[Form]` tag (e.g., `[Tablet]`, `[Syrup]`, `[Capsule]`) indicating its dosage form. You MUST match based on BOTH the brand name AND the form mentioned by the doctor. Use the `[Form]` tag to disambiguate entries with the same brand. For example:
-   - Doctor says "Dolo 650 tablet" → pick "DOLO 650 [Tablet]", NOT "DOLO 100 ML SYRUP [Syrup]"
-   - Doctor says "Crocin syrup" → if no entry has a matching `[Syrup]` form for Crocin, output the spoken name "Crocin Syrup" verbatim. Do NOT pick "CROCIN 500 MG TABLETS [Tablet]" when the doctor clearly said syrup.
-   - The form spoken by the doctor MUST match the `[Form]` tag of the selected entry. NEVER substitute a tablet for a syrup or vice versa.
+2. **MATCH BOTH BRAND NAME AND FORM**: Each medicine entry has a `[Form]` tag (e.g., `[Tablet]`, `[Syrup]`, `[Capsule]`) indicating its dosage form. You MUST match based on BOTH the brand name AND the form mentioned by the counsellor. Use the `[Form]` tag to disambiguate entries with the same brand. For example:
+   - Counsellor says "Dolo 650 tablet" → pick "DOLO 650 [Tablet]", NOT "DOLO 100 ML SYRUP [Syrup]"
+   - Counsellor says "Crocin syrup" → if no entry has a matching `[Syrup]` form for Crocin, output the spoken name "Crocin Syrup" verbatim. Do NOT pick "CROCIN 500 MG TABLETS [Tablet]" when the counsellor clearly said syrup.
+   - The form spoken by the counsellor MUST match the `[Form]` tag of the selected entry. NEVER substitute a tablet for a syrup or vice versa.
 
 3. **USE EXACT NAME FROM LIST**: If a close match is found, copy the COMPLETE medicine name exactly as it appears in the list — include everything before the `[Form]` tag and "(also:" part. Do NOT include the `[Form]` tag in the output. Do NOT truncate or remove any suffixes like "Kg TABLET" or "ML LIQUID". For example, if the list shows "T - CALPOL 650MG TAB  Kg TABLET [Tablet] (also: CALPOL, ...)", output exactly: "T - CALPOL 650MG TAB  Kg TABLET"
 
-4. **NEW MEDICINES ONLY IF NO MATCH**: Only use the spoken medicine name verbatim if there is NO reasonable match in the list below. This includes cases where the brand exists but the form does not match (e.g., doctor says "syrup" but only a `[Tablet]` entry exists).
+4. **NEW MEDICINES ONLY IF NO MATCH**: Only use the spoken medicine name verbatim if there is NO reasonable match in the list below. This includes cases where the brand exists but the form does not match (e.g., counsellor says "syrup" but only a `[Tablet]` entry exists).
 
-5. **FORM SELF-CHECK (MANDATORY)**: After selecting a medicine from the list, verify the `[Form]` tag matches what the doctor said:
-   - Doctor said "syrup" but you picked a `[Tablet]` entry? WRONG — output the spoken name verbatim instead.
-   - Doctor said "tablet" but you picked a `[Syrup]` entry? WRONG — output the spoken name verbatim instead.
+5. **FORM SELF-CHECK (MANDATORY)**: After selecting a medicine from the list, verify the `[Form]` tag matches what the counsellor said:
+   - Counsellor said "syrup" but you picked a `[Tablet]` entry? WRONG — output the spoken name verbatim instead.
+   - Counsellor said "tablet" but you picked a `[Syrup]` entry? WRONG — output the spoken name verbatim instead.
    - If the form doesn't match ANY entry for that brand, output the spoken name verbatim.
-   Also set the `dosage_form` field to what the doctor ACTUALLY SAID (e.g., "Syrup"), regardless of which list entry you matched.
+   Also set the `dosage_form` field to what the counsellor ACTUALLY SAID (e.g., "Syrup"), regardless of which list entry you matched.
 
 {medicine_list}
 
-**FORM REMINDER: A syrup is NEVER a tablet. A tablet is NEVER a syrup. The [Form] tag MUST match the form the doctor said. If in doubt, output the spoken name verbatim.**
+**FORM REMINDER: A syrup is NEVER a tablet. A tablet is NEVER a syrup. The [Form] tag MUST match the form the counsellor said. If in doubt, output the spoken name verbatim.**
 """
-                logger.debug(f"[USER_PROMPT_TEMPLATE] Injected medicine list for doctor {doctor_id} ({len(medicine_list)} chars)")
+                logger.debug(f"[USER_PROMPT_TEMPLATE] Injected medicine list for counsellor {counsellor_id} ({len(medicine_list)} chars)")
             else:
-                logger.debug(f"[USER_PROMPT_TEMPLATE] No medicine list found for doctor {doctor_id}")
+                logger.debug(f"[USER_PROMPT_TEMPLATE] No medicine list found for counsellor {counsellor_id}")
         except Exception as e:
-            logger.warning(f"[USER_PROMPT_TEMPLATE] Failed to get medicine list for doctor {doctor_id}: {e}")
-    elif doctor_id and not has_medicine_list:
-        logger.debug(f"[USER_PROMPT_TEMPLATE] Skipping medicine list injection - no lists for doctor {doctor_id}")
+            logger.warning(f"[USER_PROMPT_TEMPLATE] Failed to get medicine list for counsellor {counsellor_id}: {e}")
+    elif counsellor_id and not has_medicine_list:
+        logger.debug(f"[USER_PROMPT_TEMPLATE] Skipping medicine list injection - no lists for counsellor {counsellor_id}")
 
     # Investigation list injection for investigation matching (only if lists exist)
     investigation_list_section = ""
-    if doctor_id and has_investigation_list and not _skip_doctor_artifacts:
+    if counsellor_id and has_investigation_list and not _skip_doctor_artifacts:
         try:
             from .investigation_service import get_investigation_list_for_prompt
-            investigation_list = get_investigation_list_for_prompt(doctor_id)
+            investigation_list = get_investigation_list_for_prompt(counsellor_id)
             if investigation_list:
                 investigation_list_section = f"""
 
 **INVESTIGATION MATCHING (CRITICAL):**
 When extracting investigations, follow these rules:
 
-1. **MATCH FROM LIST FIRST**: For each investigation mentioned, find the closest match from the doctor's investigation list below. Account for:
+1. **MATCH FROM LIST FIRST**: For each investigation mentioned, find the closest match from the counsellor's investigation list below. Account for:
    - Abbreviations (e.g., "CBC" → "Complete Blood Count", "LFT" → "Liver Function Test")
    - Common names (e.g., "blood count" → "Complete Blood Count", "chest x-ray" → "X-Ray Chest PA View")
    - Phonetic similarities (e.g., "hemogram" → "Complete Blood Count")
@@ -1937,45 +1899,45 @@ When extracting investigations, follow these rules:
 
 {investigation_list}
 """
-                logger.debug(f"[USER_PROMPT_TEMPLATE] Injected investigation list for doctor {doctor_id} ({len(investigation_list)} chars)")
+                logger.debug(f"[USER_PROMPT_TEMPLATE] Injected investigation list for counsellor {counsellor_id} ({len(investigation_list)} chars)")
             else:
-                logger.debug(f"[USER_PROMPT_TEMPLATE] No investigation list found for doctor {doctor_id}")
+                logger.debug(f"[USER_PROMPT_TEMPLATE] No investigation list found for counsellor {counsellor_id}")
         except Exception as e:
-            logger.warning(f"[USER_PROMPT_TEMPLATE] Failed to get investigation list for doctor {doctor_id}: {e}")
-    elif doctor_id and not has_investigation_list:
-        logger.debug(f"[USER_PROMPT_TEMPLATE] Skipping investigation list injection - no lists for doctor {doctor_id}")
+            logger.warning(f"[USER_PROMPT_TEMPLATE] Failed to get investigation list for counsellor {counsellor_id}: {e}")
+    elif counsellor_id and not has_investigation_list:
+        logger.debug(f"[USER_PROMPT_TEMPLATE] Skipping investigation list injection - no lists for counsellor {counsellor_id}")
 
-    # Patient history context injection (prescriptions, summaries, caution)
-    patient_context_section = ""
-    if patient_id and not _skip_doctor_artifacts:
+    # Student history context injection (prescriptions, summaries, caution)
+    student_context_section = ""
+    if student_id and not _skip_doctor_artifacts:
         try:
-            from .patient_context_service import (
-                get_patient_context_for_extraction,
-                format_patient_context_for_prompt
+            from .student_context_service import (
+                get_student_context_for_extraction,
+                format_student_context_for_prompt
             )
-            doctor_id_str = str(doctor_id) if doctor_id else None
-            patient_context = get_patient_context_for_extraction(
-                patient_id=patient_id,
-                doctor_id=doctor_id_str,
+            counsellor_id_str = str(counsellor_id) if counsellor_id else None
+            patient_context = get_student_context_for_extraction(
+                student_id=student_id,
+                counsellor_id=counsellor_id_str,
                 num_past_consultations=3,
                 is_continuation=is_continuation,
                 parent_extraction_ids=parent_extraction_ids,
             )
             if patient_context.get("has_context"):
-                patient_context_section = format_patient_context_for_prompt(patient_context, is_continuation=is_continuation)
+                student_context_section = format_student_context_for_prompt(patient_context, is_continuation=is_continuation)
                 caution_agg = patient_context.get('caution_aggregated')
                 caution_info = f"Yes ({caution_agg.get('source_count', 0)} sources)" if caution_agg else 'No'
                 logger.debug(
-                    f"[USER_PROMPT_TEMPLATE] Injected patient context for patient {patient_id}: "
+                    f"[USER_PROMPT_TEMPLATE] Injected student context for student {student_id}: "
                     f"prescriptions={len(patient_context.get('past_prescriptions', []))}, "
                     f"summaries={len(patient_context.get('past_summaries', []))}, "
                     f"caution_aggregated={caution_info}, "
                     f"is_continuation={is_continuation}"
                 )
             else:
-                logger.debug(f"[USER_PROMPT_TEMPLATE] No patient context found for patient {patient_id}")
+                logger.debug(f"[USER_PROMPT_TEMPLATE] No student context found for student {student_id}")
         except Exception as e:
-            logger.warning(f"[USER_PROMPT_TEMPLATE] Failed to get patient context for patient {patient_id}: {e}")
+            logger.warning(f"[USER_PROMPT_TEMPLATE] Failed to get student context for student {student_id}: {e}")
 
     # Radiology-specific continuation snapshot — injected only for RADIOLOGY
     # is_continuation visits to keep prior PLAN phases / toxicity ids in the
@@ -2005,7 +1967,7 @@ When extracting investigations, follow these rules:
 {special_instructions}
 {medicine_list_section}
 {investigation_list_section}
-{patient_context_section}
+{student_context_section}
 {radiology_continuation_section}
 Return ONLY the JSON object. No markdown, no explanations, no additional text.
 """
@@ -2019,7 +1981,7 @@ Return ONLY the JSON object. No markdown, no explanations, no additional text.
 
 async def generate_merge_artifacts(
     template_code: str,
-    doctor_id: str,
+    counsellor_id: str,
     consultation_type_code: Optional[str] = None,
     mode: str = 'full'
 ) -> tuple:
@@ -2027,7 +1989,7 @@ async def generate_merge_artifacts(
     Generate schema and segments for merge target type using template configuration.
 
     This function is specifically designed for the merge feature, where we need
-    to generate a target schema based on the doctor's template configuration.
+    to generate a target schema based on the counsellor's template configuration.
 
     Priority for segment configuration:
     1. template_segments table (template-specific category, brevity, etc.)
@@ -2037,7 +1999,7 @@ async def generate_merge_artifacts(
 
     Args:
         template_code: Target template code (e.g., "OP_GENERAL", "OP_SMITH_1225141530")
-        doctor_id: Doctor ID for template access validation
+        counsellor_id: Counsellor ID for template access validation
         consultation_type_code: Optional consultation type code (derived from template if not provided)
         mode: Extraction mode (default: 'full' for merges)
 
@@ -2049,11 +2011,11 @@ async def generate_merge_artifacts(
     Usage:
         schema, segments = await generate_merge_artifacts(
             template_code="OP_GENERAL",
-            doctor_id="abc-123",
+            counsellor_id="abc-123",
             mode="full"
         )
     """
-    logger.debug(f"[MergeSupport] Generating merge artifacts for template={template_code}, doctor={doctor_id} (mode={mode})")
+    logger.debug(f"[MergeSupport] Generating merge artifacts for template={template_code}, counsellor={counsellor_id} (mode={mode})")
 
     # Resolve consultation_type_code from template if not provided
     if not consultation_type_code:
@@ -2071,20 +2033,7 @@ async def generate_merge_artifacts(
         mode = 'full'
 
     # Split merge types - return None for schema since merge_service handles split schemas internally
-    # NEONATAL_DAILY is now a split type with ~125 fields
-    if consultation_type_code in ["NEO_DAILY", "NEONATAL_DAILY"]:
-        logger.debug(f"[MergeSupport] ⚡ SPLIT MERGE type: {consultation_type_code} - schema handled by merge_service")
-        return None, []
-
-    elif consultation_type_code in ["NEO_PROFORMA", "NEONATAL_PROFORMA"]:
-        logger.debug(f"[MergeSupport] ⚡ SPLIT MERGE type: {consultation_type_code} - schema handled by merge_service")
-        return None, []
-
-    elif consultation_type_code in ["NEO_OP", "NEONATAL_OP"]:
-        logger.debug(f"[MergeSupport] ⚡ SPLIT MERGE type: {consultation_type_code} - schema handled by merge_service")
-        return None, []
-
-    elif consultation_type_code == "OPHTHALMOLOGY":
+    if consultation_type_code == "OPHTHALMOLOGY":
         logger.debug(f"[MergeSupport] ⚡ SPLIT MERGE type: {consultation_type_code} - schema handled by merge_service")
         return None, []
 
@@ -2124,18 +2073,18 @@ async def generate_merge_artifacts(
         # Priority: template_segments table first, fallback to consultation_type_segments
         segment_result = load_segments_for_mode(
             consultation_type_id=consultation_type_id,
-            doctor_id=uuid.UUID(doctor_id),  # Enable template lookup
+            counsellor_id=uuid.UUID(counsellor_id),  # Enable template lookup
             template_code=template_code,      # Use template-specific config
             mode=mode
         )
         segments = segment_result.get("segments", [])
 
         if not segments:
-            # Fallback: try without doctor/template for consultation_type_segments
+            # Fallback: try without counsellor/template for consultation_type_segments
             logger.warning(f"[MergeSupport] No segments found with template config, falling back to consultation type defaults")
             segment_result = load_segments_for_mode(
                 consultation_type_id=consultation_type_id,
-                doctor_id=None,
+                counsellor_id=None,
                 template_code=None,
                 mode=mode
             )

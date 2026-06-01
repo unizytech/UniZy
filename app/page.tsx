@@ -5,7 +5,7 @@ import { useAuth } from '@lib/auth';
 import RecordTab from './components/RecordTab';
 import CompareTranscriptTab from './components/CompareTranscriptTab';
 import { VHRScreen } from './components/VHRScreen';
-import DoctorTemplateConfigScreen from './components/DoctorTemplateConfigScreen';
+import CounsellorTemplateConfigScreen from './components/CounsellorTemplateConfigScreen';
 import { TemplateAdminScreen } from './components/TemplateAdminScreen';
 import { SystemPromptAdminScreen } from './components/SystemPromptAdminScreen';
 import { MedicineListAdminScreen } from './components/MedicineListAdminScreen';
@@ -13,30 +13,30 @@ import { InvestigationListAdminScreen } from './components/InvestigationListAdmi
 import { ExtractionHistoryScreen } from './components/ExtractionHistoryScreen';
 import { UsageSummaryScreen } from './components/UsageSummaryScreen';
 import { PocMetricsScreen } from './components/PocMetricsScreen';
-import { PatientHistoryScreen } from './components/PatientHistoryScreen';
+import { StudentHistoryScreen } from './components/StudentHistoryScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { APIKeysScreen } from './components/APIKeysScreen';
 import { ProcessingModesAdminScreen } from './components/ProcessingModesAdminScreen';
 import ProvidersScreen from './components/ProvidersScreen';
-import { PatientCreateScreen } from './components/PatientCreateScreen';
+import { StudentCreateScreen } from './components/StudentCreateScreen';
 import DashboardScreen from './components/DashboardScreen';
-import { HospitalDefaultTemplateScreen } from './components/HospitalDefaultTemplateScreen';
+import { SchoolDefaultTemplateScreen } from './components/SchoolDefaultTemplateScreen';
 import QAEngineScreen from './components/QAEngineScreen';
 import { TriageLayersAdminScreen } from './components/TriageLayersAdminScreen';
-import DoctorSharingScreen from './components/DoctorSharingScreen';
+import CounsellorSharingScreen from './components/CounsellorSharingScreen';
 import { TemplateFieldConfigScreen } from './components/TemplateFieldConfigScreen';
 import { AppMode } from '@lib/types';
 
 export default function Home() {
-  const { user, adminUser, loading, signOut, isAdmin, isHospitalAdmin } = useAuth();
+  const { user, adminUser, loading, signOut, isAdmin, isSchoolAdmin } = useAuth();
   const [mode, setMode] = useState<AppMode>(AppMode.VHR);
 
-  // Force Dashboard mode for hospital admins once auth loads
+  // Force Dashboard mode for school admins once auth loads
   useEffect(() => {
-    if (isHospitalAdmin) {
+    if (isSchoolAdmin) {
       setMode(AppMode.Dashboard);
     }
-  }, [isHospitalAdmin]);
+  }, [isSchoolAdmin]);
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -92,8 +92,8 @@ export default function Home() {
 
         {/* Tab Navigation */}
         <div className="space-y-4 mb-8">
-          {/* Hospital Admin: Only Dashboard tab */}
-          {isHospitalAdmin ? (
+          {/* School Admin: Only Dashboard tab */}
+          {isSchoolAdmin ? (
             <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
               <div className="flex flex-wrap justify-center gap-2">
                 <button
@@ -361,7 +361,7 @@ export default function Home() {
             {mode === AppMode.Live && (
               <>
                 <strong className="text-green-400">Live:</strong> Real-time audio transcription and insights extraction.
-                Medical extraction happens via secure backend API after recording stops.
+                Extraction happens via secure backend API after recording stops.
               </>
             )}
             {mode === AppMode.PatientHistory && (
@@ -488,11 +488,11 @@ export default function Home() {
         <div className="bg-slate-800/30 rounded-xl p-4 sm:p-8 backdrop-blur-sm border border-slate-700">
           {mode === AppMode.VHR && <VHRScreen />}
           {mode === AppMode.Live && <RecordTab />}
-          {mode === AppMode.PatientHistory && <PatientHistoryScreen />}
-          {mode === AppMode.PatientCreate && <PatientCreateScreen />}
+          {mode === AppMode.PatientHistory && <StudentHistoryScreen />}
+          {mode === AppMode.PatientCreate && <StudentCreateScreen />}
           {mode === AppMode.Dashboard && <DashboardScreen />}
           {mode === AppMode.QAEngine && <QAEngineScreen />}
-          {mode === AppMode.DoctorConfig && <DoctorTemplateConfigScreen />}
+          {mode === AppMode.DoctorConfig && <CounsellorTemplateConfigScreen />}
           {mode === AppMode.TemplateAdmin && <TemplateAdminScreen userId={userId} />}
           {mode === AppMode.SystemPromptAdmin && <SystemPromptAdminScreen />}
           {mode === AppMode.MedicineAdmin && <MedicineListAdminScreen />}
@@ -504,9 +504,9 @@ export default function Home() {
           {mode === AppMode.APIKeys && <APIKeysScreen />}
           {mode === AppMode.Compare && <CompareTranscriptTab />}
           {mode === AppMode.Providers && <ProvidersScreen />}
-          {mode === AppMode.HospitalTemplates && <HospitalDefaultTemplateScreen />}
+          {mode === AppMode.HospitalTemplates && <SchoolDefaultTemplateScreen />}
           {mode === AppMode.TriageLayers && <TriageLayersAdminScreen />}
-          {mode === AppMode.DoctorSharing && <DoctorSharingScreen />}
+          {mode === AppMode.DoctorSharing && <CounsellorSharingScreen />}
           {mode === AppMode.TemplateFieldConfig && <TemplateFieldConfigScreen />}
         </div>
 

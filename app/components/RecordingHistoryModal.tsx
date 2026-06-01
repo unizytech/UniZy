@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  listDoctorRecordings,
-  listNurseRecordings,
+  listCounsellorRecordings,
+  listAssistantRecordings,
   reprocessRecording,
   RecordingInfo,
   ReprocessRequest,
 } from '../../lib/recordingsApi';
-import { searchPatients, PatientSearchResult } from '../../lib/patientHistoryApi';
+import { searchStudents, StudentSearchResult } from '../../lib/studentHistoryApi';
 import { ActivatedTemplate, ProcessingMode } from '../../lib/types';
 import { AudioPlayerModal } from './AudioPlayerModal';
 import { ExtractionViewerModal, type ExtractionViewerMode } from './ExtractionViewerModal';
@@ -53,16 +53,16 @@ export function RecordingHistoryModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [patientFilter, setPatientFilter] = useState('');
+  const [patientFilter, setStudentFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('SUBMITTED');  // SUBMITTED or RECORDING
   const [datePreset, setDatePreset] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const pageSize = 20;
 
-  // Patient dropdown state
-  const [patientsList, setPatientsList] = useState<PatientSearchResult[]>([]);
-  const [loadingPatients, setLoadingPatients] = useState(false);
+  // Student dropdown state
+  const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Reprocess form state
   const [selectedRecording, setSelectedRecording] = useState<RecordingInfo | null>(null);
@@ -82,10 +82,10 @@ export function RecordingHistoryModal({
   const [viewerRecording, setViewerRecording] = useState<RecordingInfo | null>(null);
   const [viewerMode, setViewerMode] = useState<ExtractionViewerMode>('extraction');
 
-  // Load patients for dropdown when modal opens
+  // Load students for dropdown when modal opens
   useEffect(() => {
     if (isOpen && entityId) {
-      loadPatients();
+      loadStudents();
     }
   }, [isOpen, entityId]);
 
@@ -103,20 +103,20 @@ export function RecordingHistoryModal({
     }
   }, [templates]);
 
-  const loadPatients = async () => {
+  const loadStudents = async () => {
     if (entityType === 'nurse') {
-      // For nurse mode, load patients from nurse's recordings (no patient search endpoint for nurses)
-      setLoadingPatients(true);
+      // For assistant mode, load students from assistant's recordings (no student search endpoint for assistants)
+      setLoadingStudents(true);
       try {
         const result = entityId
-          ? await listNurseRecordings(entityId, { limit: 200 }, accessToken)
+          ? await listAssistantRecordings(entityId, { limit: 200 }, accessToken)
           : { recordings: [] };
-        const seen = new Map<string, PatientSearchResult>();
+        const seen = new Map<string, StudentSearchResult>();
         for (const rec of result.recordings) {
-          if (rec.patient_id && !seen.has(rec.patient_id)) {
-            seen.set(rec.patient_id, {
-              id: rec.patient_id,
-              patient_id: rec.patient_identifier || '',
+          if (rec.student_id && !seen.has(rec.student_id)) {
+            seen.set(rec.student_id, {
+              id: rec.student_id,
+              student_id: rec.student_identifier || '',
               full_name: rec.patient_name || 'Unknown',
               date_of_birth: null,
               gender: null,
@@ -125,25 +125,25 @@ export function RecordingHistoryModal({
             });
           }
         }
-        setPatientsList(Array.from(seen.values()));
+        setStudentsList(Array.from(seen.values()));
       } catch (err: any) {
-        console.error('Failed to load nurse patients:', err);
-        setPatientsList([]);
+        console.error('Failed to load assistant students:', err);
+        setStudentsList([]);
       } finally {
-        setLoadingPatients(false);
+        setLoadingStudents(false);
       }
       return;
     }
 
-    setLoadingPatients(true);
+    setLoadingStudents(true);
     try {
-      const response = await searchPatients('', doctorId || undefined, 1, 100, accessToken);
-      setPatientsList(response.patients || []);
+      const response = await searchStudents('', doctorId || undefined, 1, 100, accessToken);
+      setStudentsList(response.students || []);
     } catch (err: any) {
-      console.error('Failed to load patients:', err);
-      setPatientsList([]);
+      console.error('Failed to load students:', err);
+      setStudentsList([]);
     } finally {
-      setLoadingPatients(false);
+      setLoadingStudents(false);
     }
   };
 
@@ -190,8 +190,8 @@ export function RecordingHistoryModal({
     try {
       const dateRange = getDateRangeFromPreset(datePreset);
       const params = {
-        patient_id: patientFilter && patientFilter.includes('-') ? patientFilter : undefined,
-        patient_identifier: patientFilter && !patientFilter.includes('-') ? patientFilter : undefined,
+        student_id: patientFilter && patientFilter.includes('-') ? patientFilter : undefined,
+        student_identifier: patientFilter && !patientFilter.includes('-') ? patientFilter : undefined,
         status: statusFilter,
         date_from: dateRange.from,
         date_to: dateRange.to,
@@ -199,8 +199,8 @@ export function RecordingHistoryModal({
         offset: page * pageSize,
       };
       const result = entityType === 'nurse'
-        ? await listNurseRecordings(entityId, params, accessToken)
-        : await listDoctorRecordings(entityId, params, accessToken);
+        ? await listAssistantRecordings(entityId, params, accessToken)
+        : await listCounsellorRecordings(entityId, params, accessToken);
       setRecordings(result.recordings);
       setTotalCount(result.total_count);
     } catch (err: any) {
@@ -241,7 +241,7 @@ export function RecordingHistoryModal({
         onReprocessStarted({
           submissionId: result.submission_id,
           sessionId: selectedRecording.session_id,
-          patientId: selectedRecording.patient_identifier || selectedRecording.patient_id || 'Unknown',
+          patientId: selectedRecording.student_identifier || selectedRecording.student_id || 'Unknown',
           patientName: selectedRecording.patient_name || 'Unknown Student',
           templateCode: reprocessTemplate,
           templateName: selectedTemplateInfo?.template_name || reprocessTemplate,
@@ -328,12 +328,12 @@ export function RecordingHistoryModal({
 
             {/* Filters */}
             <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-              {/* Patient Filter */}
+              {/* Student Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Filter by Student
                 </label>
-                {loadingPatients ? (
+                {loadingStudents ? (
                   <div className="flex items-center py-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                     <span className="text-gray-500 text-sm">Loading students...</span>
@@ -342,7 +342,7 @@ export function RecordingHistoryModal({
                   <select
                     value={patientFilter}
                     onChange={(e) => {
-                      setPatientFilter(e.target.value);
+                      setStudentFilter(e.target.value);
                       setPage(0);
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
@@ -350,9 +350,9 @@ export function RecordingHistoryModal({
                     <option value="">All students</option>
                     {patientsList.map((patient) => (
                       <option key={patient.id} value={patient.id}>
-                        {patient.patient_id}
+                        {patient.student_id}
                         {patient.full_name ? ` - ${patient.full_name}` : ''}
-                        {patient.hospital_name ? ` (${patient.hospital_name})` : ''}
+                        {patient.school_name ? ` (${patient.school_name})` : ''}
                       </option>
                     ))}
                   </select>
@@ -361,7 +361,7 @@ export function RecordingHistoryModal({
                     type="text"
                     value={patientFilter}
                     onChange={(e) => {
-                      setPatientFilter(e.target.value);
+                      setStudentFilter(e.target.value);
                       setPage(0);
                     }}
                     placeholder="Enter student ID or MRN"
@@ -534,7 +534,7 @@ export function RecordingHistoryModal({
                             {recording.patient_name || 'Unknown'}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {recording.patient_identifier || '-'}
+                            {recording.student_identifier || '-'}
                           </div>
                           <div className="text-xs text-gray-400 font-mono">
                             sessId: {recording.session_id.slice(0, 8)}...
@@ -723,7 +723,7 @@ export function RecordingHistoryModal({
                   Reprocess Recording
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Patient: {selectedRecording.patient_name || selectedRecording.patient_identifier || 'Unknown'} |
+                  Student: {selectedRecording.patient_name || selectedRecording.student_identifier || 'Unknown'} |
                   Date: {formatDate(selectedRecording.consultation_datetime)}
                 </p>
 
@@ -868,7 +868,7 @@ export function RecordingHistoryModal({
           isOpen={!!audioPlaybackRecording}
           onClose={() => { setAudioPlaybackRecording(null); setAudioPlaybackType('original'); }}
           submissionId={audioPlaybackRecording.last_submission_id}
-          patientName={audioPlaybackRecording.patient_name || audioPlaybackRecording.patient_identifier || 'Unknown Patient'}
+          patientName={audioPlaybackRecording.patient_name || audioPlaybackRecording.student_identifier || 'Unknown Student'}
           consultationDate={audioPlaybackRecording.consultation_datetime}
           accessToken={accessToken}
           audioType={audioPlaybackType}
@@ -882,7 +882,7 @@ export function RecordingHistoryModal({
         extractionId={viewerRecording?.last_extraction_id ?? null}
         mode={viewerMode}
         accessToken={accessToken}
-        patientName={viewerRecording?.patient_name ?? viewerRecording?.patient_identifier ?? null}
+        patientName={viewerRecording?.patient_name ?? viewerRecording?.student_identifier ?? null}
         consultationDatetime={viewerRecording?.consultation_datetime ?? null}
       />
     </div>

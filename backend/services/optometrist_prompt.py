@@ -54,22 +54,22 @@ Extract structured optometry examination data from voice transcripts and return 
 
 **CRITICAL INSTRUCTION - Eye Laterality for Different Audiences:**
 
-### Patient-Facing Segments (Use Plain Language)
-In the following segments, ALWAYS use plain language terms for better patient understanding:
-- **Clinical Notes** (patient instructions portion) → Use "Left Eye" or "Right Eye" (NOT "OS/LE" or "OD/RE")
+### Student-Facing Segments (Use Plain Language)
+In the following segments, ALWAYS use plain language terms for better student understanding:
+- **Clinical Notes** (student instructions portion) → Use "Left Eye" or "Right Eye" (NOT "OS/LE" or "OD/RE")
 - **Prescriptions/Recommendations** → Use "Left Eye" or "Right Eye" (NOT "OS/LE" or "OD/RE")
 - **Referral Recommendations** → Use "Left Eye" or "Right Eye" (NOT "OS/LE" or "OD/RE")
 - **Follow-up Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS/LE" or "OD/RE")
 
-**Examples for Patient-Facing Text:**
+**Examples for Student-Facing Text:**
 ✅ CORRECT: "Glasses prescribed: Right Eye +2.00, Left Eye +2.25"
 ❌ WRONG: "Glasses prescribed: OD +2.00, OS +2.25"
 
 ✅ CORRECT: "Glaucoma screening recommended for Left Eye due to elevated pressure"
 ❌ WRONG: "Glaucoma screening recommended for OS due to elevated pressure"
 
-✅ CORRECT: "Clinical Notes: Patient reports blurred vision in Right Eye for 2 weeks"
-❌ WRONG: "Clinical Notes: Patient reports blurred vision in OD for 2 weeks"
+✅ CORRECT: "Clinical Notes: Student reports blurred vision in Right Eye for 2 weeks"
+❌ WRONG: "Clinical Notes: Student reports blurred vision in OD for 2 weeks"
 
 ### Medical Practitioner Segments (Use Both Terminologies)
 In clinical measurement and examination segments, use BOTH medical abbreviations AND plain language:
@@ -90,9 +90,9 @@ In clinical measurement and examination segments, use BOTH medical abbreviations
 
 **VALIDATION CHECKLIST:**
 Before finalizing output, verify:
-✅ All patient-facing portions of clinical notes use "Left Eye"/"Right Eye" only
+✅ All student-facing portions of clinical notes use "Left Eye"/"Right Eye" only
 ✅ All measurement sections use "RE/OD (Right Eye)"/"LE/OS (Left Eye)" format
-✅ No abbreviations (OS, OD, LE, RE, OU) appear alone in patient instructions or recommendations
+✅ No abbreviations (OS, OD, LE, RE, OU) appear alone in student instructions or recommendations
 ✅ Consistency maintained throughout the document
 
 ---
@@ -115,7 +115,7 @@ Before finalizing output, verify:
 
 ## FIELD EXTRACTION GUIDELINES
 
-### 1. PATIENT DEMOGRAPHICS
+### 1. STUDENT DEMOGRAPHICS
 
 **date:**
 - Examination date
@@ -125,18 +125,18 @@ Before finalizing output, verify:
 **mrNumber:**
 - Medical Record Number
 - Format: String (alphanumeric)
-- Keywords: "MR number", "medical record", "patient ID", "registration number"
+- Keywords: "MR number", "medical record", "student ID", "registration number"
 
 **title:**
 - Values: "Mr." | "Mrs." | "Miss" | "Ms." | "Dr." | ""
-- Extract from patient introduction
+- Extract from student introduction
 
 **surname:**
-- Patient's last name/family name
+- Student's last name/family name
 - Format: String
 
 **name:**
-- Patient's first name/given name
+- Student's first name/given name
 - Format: String
 
 **dob:**
@@ -205,7 +205,7 @@ Before finalizing output, verify:
 - Format: String (e.g., "+1.50", "+2.00", "+2.50")
 - Keywords: "add", "reading add", "near add", "bifocal add"
 - Common values: +1.00 to +3.00
-- Used for patients >40 years with presbyopia
+- Used for students >40 years with presbyopia
 
 #### **vaNear (Visual Acuity Near):**
 - Near visual acuity with reading correction
@@ -349,7 +349,7 @@ Before finalizing output, verify:
 
 ✅ **Data Consistency:**
 - If refraction given, corrected VA should be present
-- If "add" present, patient likely >40 years old
+- If "add" present, student likely >40 years old
 - If vision is CF/HM/LP, refraction may not be measurable
 
 ---
@@ -508,7 +508,7 @@ Extract comprehensive optometry examination data from the voice transcript below
    - Follow-up plans
    - Referral information
    - Any abnormal or concerning findings
-   - Patient education provided
+   - Student education provided
 
 7. **Missing Data:**
    - Use "N/A" for measurements not mentioned
@@ -541,7 +541,7 @@ Begin extraction now.
 OPTO_PARAMETERS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics
+        # Section 1: Student Demographics
         "patientDemographics": types.Schema(
             type=types.Type.OBJECT,
             properties={
@@ -553,7 +553,7 @@ OPTO_PARAMETERS_SCHEMA = types.Schema(
                 "dob": types.Schema(type=types.Type.STRING, description="Date of birth in YYYY-MM-DD or DD-MM-YYYY format or empty string"),
                 "address": types.Schema(type=types.Type.STRING, description="Complete address (multiline acceptable) or empty string")
             },
-            description="Patient identification and demographics"
+            description="Student identification and demographics"
         ),
 
         # Section 2: Referral Information
@@ -610,7 +610,7 @@ OPTO_PARAMETERS_SCHEMA = types.Schema(
         # Section 6: Clinical Notes
         "clinicalNotes": types.Schema(
             type=types.Type.STRING,
-            description="Free text for additional observations, chief complaint, recommendations, follow-up, referral reasons, concerning findings, patient education provided, or empty string"
+            description="Free text for additional observations, chief complaint, recommendations, follow-up, referral reasons, concerning findings, student education provided, or empty string"
         ),
 
         # Section 7: Provider Information
@@ -638,7 +638,7 @@ OPTO_PARAMETERS_SCHEMA = types.Schema(
 OPTO_PARAMETERS_SCHEMA_FLAT = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics (flattened)
+        # Section 1: Student Demographics (flattened)
         "patientDemographics_date": types.Schema(type=types.Type.STRING, description="Examination date in YYYY-MM-DD or DD-MM-YYYY format or empty string"),
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
         "patientDemographics_title": types.Schema(type=types.Type.STRING, description="Mr., Mrs., Miss, Ms., Dr., or empty string"),
@@ -677,7 +677,7 @@ OPTO_PARAMETERS_SCHEMA_FLAT = types.Schema(
         # Section 6: Clinical Notes (no nesting)
         "clinicalNotes": types.Schema(
             type=types.Type.STRING,
-            description="Free text for additional observations, chief complaint, recommendations, follow-up, referral reasons, concerning findings, patient education provided, or empty string"
+            description="Free text for additional observations, chief complaint, recommendations, follow-up, referral reasons, concerning findings, student education provided, or empty string"
         ),
 
         # Section 7: Provider Information (flattened)

@@ -10,9 +10,9 @@ interface QualityMetricsModalProps {
   onClose: () => void;
 }
 
-interface AcceptanceByDoctor {
-  doctor_id: string;
-  doctor_name: string;
+interface AcceptanceByCounsellor {
+  counsellor_id: string;
+  counsellor_name: string;
   total: number;
   unchanged: number;
   edited: number;
@@ -21,8 +21,8 @@ interface AcceptanceByDoctor {
 }
 
 interface NotesPerDay {
-  doctor_id: string;
-  doctor_name: string;
+  counsellor_id: string;
+  counsellor_name: string;
   date: string;
   note_count: number;
 }
@@ -42,9 +42,9 @@ interface PipelineTiming {
   total: TimingStage;
 }
 
-interface AccuracyByDoctor {
-  doctor_id: string;
-  doctor_name: string;
+interface AccuracyByCounsellor {
+  counsellor_id: string;
+  counsellor_name: string;
   count: number;
   avg_wer: number;
   avg_entity_error_rate: number;
@@ -65,10 +65,10 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
   // Data
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState<any>(null);
-  const [acceptanceByDoctor, setAcceptanceByDoctor] = useState<AcceptanceByDoctor[]>([]);
+  const [acceptanceByCounsellor, setAcceptanceByCounsellor] = useState<AcceptanceByCounsellor[]>([]);
   const [notesPerDay, setNotesPerDay] = useState<NotesPerDay[]>([]);
   const [pipelineTiming, setPipelineTiming] = useState<PipelineTiming | null>(null);
-  const [accuracyByDoctor, setAccuracyByDoctor] = useState<AccuracyByDoctor[]>([]);
+  const [accuracyByCounsellor, setAccuracyByCounsellor] = useState<AccuracyByCounsellor[]>([]);
   const [activeTab, setActiveTab] = useState<'summary' | 'acceptance' | 'notes' | 'timing' | 'accuracy'>('summary');
 
   const fetchMetrics = useCallback(async () => {
@@ -76,7 +76,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
     if (!token) return;
     setLoading(true);
     try {
-      const params = `hospital_id=${hospitalId}&date_from=${dateFrom}&date_to=${dateTo}`;
+      const params = `school_id=${hospitalId}&date_from=${dateFrom}&date_to=${dateTo}`;
 
       // Fetch summary
       const summaryRes = await authGet(`/api/v1/metrics/summary?${params}`, token);
@@ -89,7 +89,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
       const acceptRes = await authGet(`/api/v1/metrics/ai-acceptance?${params}&group_by=doctor`, token);
       if (acceptRes.ok) {
         const json = await acceptRes.json();
-        setAcceptanceByDoctor(Array.isArray(json.data) ? json.data : []);
+        setAcceptanceByCounsellor(Array.isArray(json.data) ? json.data : []);
       }
 
       // Fetch notes per day
@@ -110,7 +110,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
       const accRes = await authGet(`/api/v1/metrics/accuracy?${params}&group_by=doctor`, token);
       if (accRes.ok) {
         const json = await accRes.json();
-        setAccuracyByDoctor(Array.isArray(json.data) ? json.data : []);
+        setAccuracyByCounsellor(Array.isArray(json.data) ? json.data : []);
       }
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
@@ -270,12 +270,12 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
                     </tr>
                   </thead>
                   <tbody>
-                    {acceptanceByDoctor.length === 0 ? (
+                    {acceptanceByCounsellor.length === 0 ? (
                       <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No data available</td></tr>
                     ) : (
-                      acceptanceByDoctor.map((row, i) => (
-                        <tr key={row.doctor_id || i} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-3 py-2 text-slate-800">{row.doctor_name}</td>
+                      acceptanceByCounsellor.map((row, i) => (
+                        <tr key={row.counsellor_id || i} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-3 py-2 text-slate-800">{row.counsellor_name}</td>
                           <td className="px-3 py-2 text-right text-slate-700">{row.total}</td>
                           <td className="px-3 py-2 text-right text-green-600">{row.unchanged}</td>
                           <td className="px-3 py-2 text-right text-amber-600">{row.edited}</td>
@@ -305,8 +305,8 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
                       <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-400">No data available</td></tr>
                     ) : (
                       notesPerDay.map((row, i) => (
-                        <tr key={`${row.doctor_id}-${row.date}-${i}`} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-3 py-2 text-slate-800">{row.doctor_name}</td>
+                        <tr key={`${row.counsellor_id}-${row.date}-${i}`} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-3 py-2 text-slate-800">{row.counsellor_name}</td>
                           <td className="px-3 py-2 text-slate-600">{row.date}</td>
                           <td className="px-3 py-2 text-right font-medium text-slate-800">{row.note_count}</td>
                         </tr>
@@ -353,7 +353,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
             {/* Accuracy Tab */}
             {activeTab === 'accuracy' && (
               <div className="overflow-x-auto">
-                {accuracyByDoctor.length === 0 ? (
+                {accuracyByCounsellor.length === 0 ? (
                   <p className="text-center text-slate-400 py-6">No accuracy data yet. Metrics are computed when counsellors edit AI-generated notes.</p>
                 ) : (
                   <table className="w-full text-sm">
@@ -367,9 +367,9 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
                       </tr>
                     </thead>
                     <tbody>
-                      {accuracyByDoctor.map((row, i) => (
-                        <tr key={row.doctor_id || i} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-3 py-2 text-slate-800">{row.doctor_name}</td>
+                      {accuracyByCounsellor.map((row, i) => (
+                        <tr key={row.counsellor_id || i} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-3 py-2 text-slate-800">{row.counsellor_name}</td>
                           <td className="px-3 py-2 text-right text-slate-700">{row.count}</td>
                           <td className="px-3 py-2 text-right font-medium text-slate-800">{(row.avg_wer * 100).toFixed(1)}%</td>
                           <td className="px-3 py-2 text-right text-amber-600">{row.avg_entity_error_rate.toFixed(1)}%</td>

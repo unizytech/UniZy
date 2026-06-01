@@ -65,10 +65,10 @@ def generate_service_jwt(
         scopes = [
             "read:extractions",
             "write:extractions",
-            "read:patients",
-            "write:patients",
+            "read:students",
+            "write:students",
             "read:templates",
-            "read:doctors",
+            "read:counsellors",
         ]
 
     now = datetime.now(timezone.utc)
@@ -79,8 +79,8 @@ def generate_service_jwt(
         "client_name": client_name,
         "client_type": "web_app",
         "scopes": scopes,
-        "hospital_id": None,  # Global access
-        "allowed_doctor_ids": None,  # All doctors
+        "school_id": None,  # Global access
+        "allowed_counsellor_ids": None,  # All counsellors
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
         "iss": "1hat-api",
@@ -195,7 +195,7 @@ def main():
     print("// JavaScript/TypeScript")
     print('const SERVICE_JWT = process.env.SERVICE_JWT_TOKEN;')
     print()
-    print('fetch("https://your-backend.com/api/v1/doctors", {')
+    print('fetch("https://your-backend.com/api/v1/counsellors", {')
     print('  headers: {')
     print('    "Authorization": `Bearer ${SERVICE_JWT}`,')
     print('    "Content-Type": "application/json"')
@@ -207,7 +207,7 @@ def main():
     print("-" * 70)
     print()
     token_preview = result["token"][:60] + "..." if len(result["token"]) > 60 else result["token"]
-    print(f'curl -X GET "http://localhost:8000/api/v1/doctors" \\')
+    print(f'curl -X GET "http://localhost:8000/api/v1/counsellors" \\')
     print(f'  -H "Authorization: Bearer {token_preview}"')
     print()
     print("=" * 70)

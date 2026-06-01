@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import type { MedicalExtractionResponse, ConsultationTypeCode, ActivatedTemplate, ProcessingMode } from "@lib/types";
+import type { ExtractionResponse, ConsultationTypeCode, ActivatedTemplate, ProcessingMode } from "@lib/types";
 import DoctorSelector from './DoctorSelector';
 import { extractMedicalSummary, handleApiError, getActivatedTemplates, getProcessingModes } from "@lib/summaryApi";
 
@@ -20,8 +20,8 @@ export function MedicalSummaryTab() {
   const [transcript, setTranscript] = useState('');
 
   // Extraction state
-  const [coreExtractionData, setCoreExtractionData] = useState<MedicalExtractionResponse | null>(null);
-  const [additionalExtractionData, setAdditionalExtractionData] = useState<MedicalExtractionResponse | null>(null);
+  const [coreExtractionData, setCoreExtractionData] = useState<ExtractionResponse | null>(null);
+  const [additionalExtractionData, setAdditionalExtractionData] = useState<ExtractionResponse | null>(null);
   const [loadingCore, setLoadingCore] = useState(false);
   const [loadingAdditional, setLoadingAdditional] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +131,7 @@ export function MedicalSummaryTab() {
 
       const coreResponse = await extractMedicalSummary({
         transcript: transcript.trim(),
-        doctor_id: selectedDoctorId,
+        counsellor_id: selectedDoctorId,
         template_name: selectedTemplate.template_name,
         processing_mode: processingMode,  // NEW: Use processing_mode
         mode: 'core',  // Only CORE segments
@@ -163,7 +163,7 @@ export function MedicalSummaryTab() {
 
       const additionalResponse = await extractMedicalSummary({
         transcript: transcript.trim(),
-        doctor_id: selectedDoctorId,
+        counsellor_id: selectedDoctorId,
         template_name: selectedTemplate.template_name,
         processing_mode: processingMode,  // NEW: Use processing_mode
         mode: 'additional',  // Only ADDITIONAL segments

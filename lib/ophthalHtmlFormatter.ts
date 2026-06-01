@@ -230,14 +230,14 @@ function generateBasicConsultationHtml(
     <div class="patient-grid">
       <div class="field">
         <span class="field-label">MR. No.:</span>
-        <span>${escapeHtml(patientDetails.mr_no || patientDetails.mrno || patientDetails.patient_id || 'N/A')}</span>
+        <span>${escapeHtml(patientDetails.mr_no || patientDetails.mrno || patientDetails.student_id || 'N/A')}</span>
       </div>
       <div class="field">
         <span class="field-label">Date:</span>
         <span>${escapeHtml(patientDetails.date || new Date().toLocaleDateString())}</span>
       </div>
       <div class="field">
-        <span class="field-label">Patient Name:</span>
+        <span class="field-label">Student Name:</span>
         <span>${escapeHtml(patientDetails.name || patientDetails.patient_name || 'N/A')}</span>
       </div>
       <div class="field">
@@ -702,7 +702,7 @@ function generateFullConsultationHtml(
 
   <!-- PATIENT DETAILS -->
   <div class="section">
-    <div class="section-title">Patient Details</div>
+    <div class="section-title">Student Details</div>
     <div class="patient-grid">
       <div class="field"><span class="field-label">Name:</span> ${escapeHtml(patientDetails.name || patientDetails.patient_name || 'N/A')}</div>
       <div class="field"><span class="field-label">MR.No:</span> ${escapeHtml(patientDetails.mrno || patientDetails.mr_no || 'N/A')}</div>
@@ -754,7 +754,7 @@ function generateFullConsultationHtml(
           <td>${escapeHtml(eyeRefraction.aided?.leftEye || eyeRefraction.leftEye?.aided || '')}</td>
         </tr>
         <tr>
-          <td>Patient Glasses</td>
+          <td>Student Glasses</td>
           <td>${escapeHtml(eyeRefraction.patient_glasses?.rightEye || eyeRefraction.rightEye?.patient_glasses || '')}</td>
           <td>${escapeHtml(eyeRefraction.patient_glasses?.leftEye || eyeRefraction.leftEye?.patient_glasses || '')}</td>
         </tr>
@@ -1019,13 +1019,13 @@ function generateFullConsultationHtml(
 
   <!-- DOCTOR RECOMMENDATION -->
   <div class="section">
-    <div class="section-title">Doctor Recommendation</div>
+    <div class="section-title">Counsellor Recommendation</div>
     <div class="text-content">${escapeHtml(doctorRecommendation || 'Follow up as needed')}</div>
   </div>
 
   <!-- DOCTOR NOTES -->
   <div class="section">
-    <div class="section-title">Doctor Notes</div>
+    <div class="section-title">Counsellor Notes</div>
     <div class="text-content">${escapeHtml(doctorNotes || '')}</div>
   </div>
 
@@ -1039,7 +1039,7 @@ function generateFullConsultationHtml(
   <div style="margin-top: 40px; border-top: 1px solid #000; padding-top: 20px;">
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div>
-        <div><strong>Doctor Name:</strong> _______________________</div>
+        <div><strong>Counsellor Name:</strong> _______________________</div>
         <div style="margin-top: 15px;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
       </div>
       <div>
@@ -1227,7 +1227,7 @@ function generateDischargeHtml(
   <!-- PATIENT DETAILS -->
   <div class="patient-box">
     <div style="font-weight: bold; font-size: 14pt; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 5px;">
-      PATIENT DETAILS
+      STUDENT DETAILS
     </div>
     <div class="patient-grid">
       <div class="field">
@@ -1279,7 +1279,7 @@ function generateDischargeHtml(
 
   <div class="section">
     <div class="field">
-      <span class="field-label">Condition of the patient on admission:</span>
+      <span class="field-label">Condition of the student on admission:</span>
       <span>${escapeHtml(conditionOnAdmission)}</span>
     </div>
     <div class="field">
@@ -1297,7 +1297,7 @@ function generateDischargeHtml(
   <!-- CONDITION ON DISCHARGE -->
   <div class="section">
     <div class="field">
-      <span class="field-label">Condition of the patient on discharge:</span>
+      <span class="field-label">Condition of the student on discharge:</span>
       <span>${escapeHtml(conditionOnDischarge)}</span>
     </div>
   </div>
@@ -1371,7 +1371,7 @@ function generateDischargeHtml(
   <!-- EMERGENCY CONTACT INFORMATION -->
   ${Array.isArray(emergencySymptoms) && emergencySymptoms.length > 0 ? `
   <div class="emergency-box">
-    <div class="section-title">Please Contact the hospital immediately if patient has the following symptoms:</div>
+    <div class="section-title">Please Contact the school immediately if student has the following symptoms:</div>
     <ul class="instructions-list">
       ${emergencySymptoms.map((symptom: string) => `
         <li>${escapeHtml(symptom)}</li>
@@ -1580,7 +1580,7 @@ function generateOptometryHtml(
       </div>
       <div class="field">
         <span class="field-label">MR. No.:</span>
-        <span>${escapeHtml(patientDetails.mr_no || patientDetails.mrno || patientDetails.patient_id || 'N/A')}</span>
+        <span>${escapeHtml(patientDetails.mr_no || patientDetails.mrno || patientDetails.student_id || 'N/A')}</span>
       </div>
     </div>
 
@@ -1605,7 +1605,7 @@ function generateOptometryHtml(
       </div>
     </div>
 
-    <!-- Patient Information -->
+    <!-- Student Information -->
     <div class="patient-grid" style="margin-top: 15px;">
       <div class="field">
         <span class="field-label">Title:</span>
@@ -1923,7 +1923,7 @@ function generatePrescriptionHtml(
   data: Record<string, any>,
   template: ActivatedTemplate | null
 ): string {
-  // Patient details
+  // Student details
   const patientDetails = data.patientDetails || data.patient_details || {};
   const prescriptionItems = data.prescriptionItems || data.prescription_items || [];
   const continuingMedications = data.continuingMedications || data.continuing_medications || [];
@@ -2128,7 +2128,7 @@ function generatePrescriptionHtml(
       <span class="field-value">${escapeHtml(patientDetails.visitId || patientDetails.visit_id || '')}</span>
     </div>
     <div class="field" style="grid-column: 1 / -1;">
-      <span class="field-label">Patient Name</span>
+      <span class="field-label">Student Name</span>
       <span>:</span>
       <span class="field-value">${escapeHtml(patientDetails.name || '')}</span>
     </div>
@@ -2185,7 +2185,7 @@ function generatePrescriptionHtml(
   <!-- SIGNATURE & STAMP -->
   <div class="signature-section">
     <div class="signature-box">
-      <div><strong>Doctor's Name:</strong></div>
+      <div><strong>Counsellor's Name:</strong></div>
       <div class="signature-line">${escapeHtml(doctorDetails.name || '')}</div>
     </div>
     <div class="signature-box">
@@ -2196,7 +2196,7 @@ function generatePrescriptionHtml(
 
   <div style="margin-top: 20px;">
     <div><strong>Stamp:</strong></div>
-    <div class="stamp-box">[Hospital Stamp]</div>
+    <div class="stamp-box">[School Stamp]</div>
   </div>
 
   <!-- FOLLOW-UP -->
@@ -2221,7 +2221,7 @@ function generatePostOpRxHtml(
   data: Record<string, any>,
   template: ActivatedTemplate | null
 ): string {
-  // Patient details
+  // Student details
   const patientDetails = data.patientDetails || data.patient_details || {};
   const surgeryDetails = data.surgeryDetails || data.surgery_details || {};
   const medications = data.medications || [];

@@ -86,7 +86,7 @@ def generate_edit_warnings(
 
     Args:
         enriched_data: Extraction data after postprocessing (with _external_id etc.)
-        ehr_code: Doctor's EHR type (e.g., "aosta", "kg_ehr", "raster", or None)
+        ehr_code: Counsellor's EHR type (e.g., "aosta", "kg_ehr", "raster", or None)
         template_code: Template code for context
         original_extraction: Original AI extraction (before any edits)
         edited_extraction: Raw edit data before enrichment

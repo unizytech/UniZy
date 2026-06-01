@@ -17,7 +17,7 @@ from datetime import datetime
 
 from services.supabase_service import (
     get_clinical_severity_assessment,
-    get_patient_severity_history,
+    get_student_severity_history,
     get_severity_statistics
 )
 
@@ -45,8 +45,8 @@ class ClinicalSeverityResponse(BaseModel):
     """Response model for clinical severity assessment."""
     id: str
     extraction_id: str
-    patient_id: Optional[str] = None
-    doctor_id: Optional[str] = None
+    student_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
 
     # Severity Result
     severity_level: str  # LOW, MEDIUM, HIGH
@@ -98,7 +98,7 @@ async def get_severity_for_extraction(extraction_id: str):
     Get clinical severity assessment for a specific extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         ClinicalSeverityResponse with complete severity data
@@ -122,8 +122,8 @@ async def get_severity_for_extraction(extraction_id: str):
     return ClinicalSeverityResponse(
         id=assessment["id"],
         extraction_id=assessment["extraction_id"],
-        patient_id=assessment.get("patient_id"),
-        doctor_id=assessment.get("doctor_id"),
+        student_id=assessment.get("student_id"),
+        counsellor_id=assessment.get("counsellor_id"),
         severity_level=assessment["severity_level"],
         total_score=assessment["total_score"],
         was_overridden=assessment.get("was_overridden", False),
@@ -136,31 +136,31 @@ async def get_severity_for_extraction(extraction_id: str):
     )
 
 
-@router.get("/patient/{patient_id}/history")
-async def get_patient_severity_history_endpoint(
-    patient_id: str,
+@router.get("/student/{student_id}/history")
+async def get_student_severity_history_endpoint(
+    student_id: str,
     limit: int = Query(default=10, le=50, ge=1)
 ) -> List[SeverityHistoryItem]:
     """
-    Get clinical severity assessment history for a patient.
+    Get clinical severity assessment history for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum number of records (default 10, max 50)
 
     Returns:
         List of severity assessments, ordered by created_at descending
     """
     try:
-        patient_uuid = uuid.UUID(patient_id)
+        patient_uuid = uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    history = get_patient_severity_history(patient_uuid, limit)
+    history = get_student_severity_history(patient_uuid, limit)
 
     result = []
     for item in history:
-        extraction_data = item.get("medical_extractions", {}) or {}
+        extraction_data = item.get("extractions", {}) or {}
         result.append(SeverityHistoryItem(
             id=item["id"],
             extraction_id=item["extraction_id"],
@@ -174,23 +174,23 @@ async def get_patient_severity_history_endpoint(
     return result
 
 
-@router.get("/patient/{patient_id}/latest", response_model=Optional[ClinicalSeverityResponse])
-async def get_patient_latest_severity(patient_id: str):
+@router.get("/student/{student_id}/latest", response_model=Optional[ClinicalSeverityResponse])
+async def get_student_latest_severity(student_id: str):
     """
-    Get the most recent clinical severity assessment for a patient.
+    Get the most recent clinical severity assessment for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
 
     Returns:
         Latest ClinicalSeverityResponse or null if none found
     """
     try:
-        patient_uuid = uuid.UUID(patient_id)
+        patient_uuid = uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    history = get_patient_severity_history(patient_uuid, limit=1)
+    history = get_student_severity_history(patient_uuid, limit=1)
 
     if not history:
         return None
@@ -199,8 +199,8 @@ async def get_patient_latest_severity(patient_id: str):
     return ClinicalSeverityResponse(
         id=assessment["id"],
         extraction_id=assessment["extraction_id"],
-        patient_id=assessment.get("patient_id"),
-        doctor_id=assessment.get("doctor_id"),
+        student_id=assessment.get("student_id"),
+        counsellor_id=assessment.get("counsellor_id"),
         severity_level=assessment["severity_level"],
         total_score=assessment["total_score"],
         was_overridden=assessment.get("was_overridden", False),
@@ -215,27 +215,27 @@ async def get_patient_latest_severity(patient_id: str):
 
 @router.get("/statistics", response_model=SeverityStatistics)
 async def get_severity_statistics_endpoint(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = Query(default=30, le=365, ge=1)
 ):
     """
     Get aggregate severity statistics.
 
     Args:
-        doctor_id: Optional filter by doctor UUID
+        counsellor_id: Optional filter by counsellor UUID
         days: Number of days to look back (default 30, max 365)
 
     Returns:
         Counts by severity level
     """
-    doctor_uuid = None
-    if doctor_id:
+    counsellor_uuid = None
+    if counsellor_id:
         try:
-            doctor_uuid = uuid.UUID(doctor_id)
+            counsellor_uuid = uuid.UUID(counsellor_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+            raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-    stats = get_severity_statistics(doctor_uuid, days)
+    stats = get_severity_statistics(counsellor_uuid, days)
 
     return SeverityStatistics(
         LOW=stats.get("LOW", 0),

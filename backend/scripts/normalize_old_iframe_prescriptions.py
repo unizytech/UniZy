@@ -5,7 +5,7 @@ original schema.
 
 Background
 ----------
-The KG hospital edit iframe historically saved prescription edits in
+The KG school edit iframe historically saved prescription edits in
 M-N-E-N quantity schema (morning_qty / noon_qty / evening_qty / night_qty /
 durationDays / remarks / timeToTake) even when the AI emitted them in the
 KG Cardio schema (dose / intake / intake_period / duration / duration_unit /
@@ -26,10 +26,10 @@ Usage (from repo root)::
 
     cd backend && source venv/bin/activate
     SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \\
-    python scripts/_run_normalize.py [--doctor-id UUID] [--limit N] [--dry-run]
+    python scripts/_run_normalize.py [--counsellor-id UUID] [--limit N] [--dry-run]
 
 Options:
-    --doctor-id UUID   Restrict to one doctor.
+    --counsellor-id UUID   Restrict to one counsellor.
     --limit N          Max rows to update (default: no limit).
     --dry-run          Report what would change but do not write.
 """
@@ -85,14 +85,14 @@ def _looks_like_iframe_drift(orig_pres: Any, edit_pres: Any) -> bool:
 
 def _find_candidates(
     sb: Client,
-    doctor_id: Optional[str],
+    counsellor_id: Optional[str],
     limit: Optional[int],
 ) -> List[Dict[str, Any]]:
-    q = sb.table("medical_extractions").select(
-        "id, doctor_id, original_extraction_json, edited_extraction_json, edit_count, created_at"
+    q = sb.table("extractions").select(
+        "id, counsellor_id, original_extraction_json, edited_extraction_json, edit_count, created_at"
     )
-    if doctor_id:
-        q = q.eq("doctor_id", doctor_id)
+    if counsellor_id:
+        q = q.eq("counsellor_id", counsellor_id)
     # Only rows that have an edit at all
     q = q.gt("edit_count", 0)
     q = q.order("created_at", desc=True)
@@ -123,10 +123,10 @@ def _normalize_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def main(args: argparse.Namespace) -> None:
     sb = _get_supabase()
-    candidates = _find_candidates(sb, args.doctor_id, args.limit)
+    candidates = _find_candidates(sb, args.counsellor_id, args.limit)
     logger.info(
         f"[NORMALIZE] Found {len(candidates)} candidate(s) "
-        f"(doctor_id={args.doctor_id or 'all'}, dry_run={args.dry_run})"
+        f"(counsellor_id={args.counsellor_id or 'all'}, dry_run={args.dry_run})"
     )
 
     updated = 0
@@ -151,7 +151,7 @@ def main(args: argparse.Namespace) -> None:
             if args.dry_run:
                 continue
 
-            sb.table("medical_extractions").update(
+            sb.table("extractions").update(
                 {"edited_extraction_json": new_edit}
             ).eq("id", ext_id).execute()
             updated += 1
@@ -167,7 +167,7 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--doctor-id", help="Restrict to one doctor")
+    p.add_argument("--counsellor-id", help="Restrict to one counsellor")
     p.add_argument("--limit", type=int, help="Max rows to update")
     p.add_argument("--dry-run", action="store_true", help="Report only, don't write")
     args = p.parse_args()

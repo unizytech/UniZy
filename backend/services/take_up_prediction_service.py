@@ -1,12 +1,12 @@
 """
 Take-Up Likelihood Prediction Service
 
-Predicts the likelihood (0-100) that a patient will accept and follow through
+Predicts the likelihood (0-100) that a student will accept and follow through
 with each intervention based on:
 - Clinical severity (from clinical_severity_assessments)
-- Anxiety (post-consultation level + trajectory from patient_dropoff_risk)
-- Financial concerns (from patient_dropoff_risk)
-- Compliance likelihood (from patient_dropoff_risk)
+- Anxiety (post-consultation level + trajectory from student_dropoff_risk)
+- Financial concerns (from student_dropoff_risk)
+- Compliance likelihood (from student_dropoff_risk)
 - Fear/Distress emotions (from OTHER_EMOTIONS_DETECTED segment)
 
 Category-specific weights allow REVENUE, RETENTION, and QUALITY interventions
@@ -103,7 +103,7 @@ class TakeUpSignals:
     # From clinical_severity_assessments
     clinical_severity: str = "MEDIUM"  # LOW, MEDIUM, HIGH
 
-    # From patient_dropoff_risk (reused, not recalculated)
+    # From student_dropoff_risk (reused, not recalculated)
     anxiety_post_level: str = "None"  # None, Mild, Moderate, Severe
     anxiety_trajectory: str = "Stable"  # Improved, Stable, Worsened, Unable to determine
     financial_concern: str = "none"  # none, mild, moderate, severe
@@ -275,7 +275,7 @@ def _calculate_anxiety_score(
     - 60% post-consultation level
     - 40% trajectory modifier
 
-    Higher anxiety = higher take-up (patient seeking help)
+    Higher anxiety = higher take-up (student seeking help)
     """
     anxiety_config = config.get("anxiety_calculation", {})
     signal_mappings = config.get("signal_mappings", {})
@@ -448,7 +448,7 @@ def build_signals_from_assessments(
 
     Args:
         clinical_severity: Data from clinical_severity_assessments table
-        dropoff_risk: Data from patient_dropoff_risk table
+        dropoff_risk: Data from student_dropoff_risk table
         other_emotions_segment: Data from OTHER_EMOTIONS_DETECTED segment
 
     Returns:

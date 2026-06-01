@@ -1,10 +1,10 @@
 """
 Dashboard API Router
 
-Provides endpoints for the hospital management dashboard:
+Provides endpoints for the school management dashboard:
 - GET /intervention-summary - Main dashboard metrics by period
 - GET /intervention-categories - Category breakdown with risk scores
-- GET /patients - Patient list by category
+- GET /students - Student list by category
 - GET /outcome-metrics - Outcome tracking and ROI
 - GET /time-to-action - Response time analytics
 - POST /interventions/{id}/status - Update intervention status
@@ -32,11 +32,11 @@ router = APIRouter(
 )
 
 
-def resolve_hospital_id(client: ClientContext, query_hospital_id: Optional[str]) -> Optional[uuid.UUID]:
-    """Hospital admin's hospital_id takes precedence over query param."""
-    if client.hospital_id is not None:
-        return client.hospital_id  # Hospital admin: force their hospital
-    return uuid.UUID(query_hospital_id) if query_hospital_id else None
+def resolve_school_id(client: ClientContext, query_school_id: Optional[str]) -> Optional[uuid.UUID]:
+    """School admin's school_id takes precedence over query param."""
+    if client.school_id is not None:
+        return client.school_id  # School admin: force their school
+    return uuid.UUID(query_school_id) if query_school_id else None
 
 
 # =============================================================================
@@ -45,7 +45,7 @@ def resolve_hospital_id(client: ClientContext, query_hospital_id: Optional[str])
 
 class PeriodStatsResponse(BaseModel):
     """Statistics for a time period."""
-    total_patients: int
+    total_students: int
     patients_with_interventions: int
     percentage: float
     revenue_potential: float
@@ -57,7 +57,7 @@ class CategoryStatsResponse(BaseModel):
     label: str
     icon: str
     color: str
-    patient_count: int
+    student_count: int
     intervention_count: int
     revenue_potential: float
     aggregate_risk_score: float
@@ -69,7 +69,7 @@ class CategoryStatsResponse(BaseModel):
 
 
 class BreakdownStatsResponse(BaseModel):
-    """Statistics for a breakdown row (doctor or department)."""
+    """Statistics for a breakdown row (counsellor or department)."""
     id: str
     name: str
     specialization: Optional[str] = None
@@ -77,9 +77,9 @@ class BreakdownStatsResponse(BaseModel):
     total_at_risk: int
 
 
-class PatientMetricRowResponse(BaseModel):
-    """Per-patient clinical metric row."""
-    patient_id: str
+class StudentMetricRowResponse(BaseModel):
+    """Per-student clinical metric row."""
+    student_id: str
     patient_name: str
     mrn: Optional[str] = None
     compliance_likelihood: Optional[str] = None
@@ -93,7 +93,7 @@ class PatientMetricRowResponse(BaseModel):
 
 class InterventionSummaryResponse(BaseModel):
     """Response for intervention summary endpoint."""
-    total_patients: int
+    total_students: int
     patients_with_interventions: int
     percentage: float
     revenue_potential: float
@@ -102,12 +102,12 @@ class InterventionSummaryResponse(BaseModel):
     high_risk_categories: List[str]
     by_department: List[BreakdownStatsResponse]
     by_doctor: List[BreakdownStatsResponse]
-    by_patient: List[PatientMetricRowResponse] = []
+    by_patient: List[StudentMetricRowResponse] = []
     filters_applied: Dict[str, Any]
 
 
-class PatientInterventionResponse(BaseModel):
-    """Individual intervention in patient list."""
+class StudentInterventionResponse(BaseModel):
+    """Individual intervention in student list."""
     id: str
     code: Optional[str] = None
     category: Optional[str] = None  # Raw DB category, mapped to 5 dashboard categories at display layer
@@ -121,20 +121,20 @@ class PatientInterventionResponse(BaseModel):
     days_since_generated: int = 0
 
 
-class PatientResponse(BaseModel):
-    """Patient with interventions."""
-    patient_id: str
+class StudentResponse(BaseModel):
+    """Student with interventions."""
+    student_id: str
     patient_name: str
     mrn: Optional[str]
-    doctor_name: Optional[str]
+    counsellor_name: Optional[str]
     last_consultation: Optional[str]
-    interventions: List[PatientInterventionResponse]
+    interventions: List[StudentInterventionResponse]
     total_revenue_potential: float
 
 
-class PatientsListResponse(BaseModel):
-    """Response for patients list endpoint."""
-    patients: List[PatientResponse]
+class StudentsListResponse(BaseModel):
+    """Response for students list endpoint."""
+    students: List[StudentResponse]
     total_count: int
     page: int
     page_size: int
@@ -166,7 +166,7 @@ class UpdateStatusRequest(BaseModel):
     notes: Optional[str] = Field(None, description="Optional notes about the status change")
     actual_revenue: Optional[float] = Field(None, description="Actual revenue if status is COMPLETED")
     updated_by_user_id: Optional[str] = Field(None, description="User making the update")
-    updated_by_user_type: str = Field("coordinator", description="Type: coordinator, nurse, admin")
+    updated_by_user_type: str = Field("coordinator", description="Type: coordinator, assistant, admin")
 
 
 class UpdateStatusResponse(BaseModel):
@@ -186,9 +186,9 @@ async def get_intervention_summary(
     period: str = Query("mtd", description="Period: today, week, mtd, ytd, custom"),
     start_date: Optional[date] = Query(None, description="Start date for custom period"),
     end_date: Optional[date] = Query(None, description="End date for custom period"),
-    hospital_id: Optional[str] = Query(None, description="Filter by hospital ID"),
+    school_id: Optional[str] = Query(None, description="Filter by school ID"),
     department_id: Optional[str] = Query(None, description="Filter by department ID"),
-    doctor_id: Optional[str] = Query(None, description="Filter by doctor ID"),
+    counsellor_id: Optional[str] = Query(None, description="Filter by counsellor ID"),
     priority_threshold: str = Query("MEDIUM", description="Minimum priority: CRITICAL, HIGH, MEDIUM, LOW"),
     client: ClientContext = Depends(get_current_client),
 ):
@@ -207,11 +207,11 @@ async def get_intervention_summary(
     - Period breakdown (today, week, MTD, YTD)
     - Category breakdown with aggregate risk scores
     - High-risk category alerts
-    - Per-patient clinical metrics (by_patient)
+    - Per-student clinical metrics (by_patient)
 
     **6 Dashboard Categories:**
     - TREATMENT_COMPLIANCE: Treatment adherence (score-based)
-    - DROP_OFF_RISK: Patient retention risk (score-based)
+    - DROP_OFF_RISK: Student retention risk (score-based)
     - FOLLOWUP_DUE: Actionable follow-up needs (intervention-based)
     - HEALTH_SERVICES: Rx refill + diagnostics + allied health (intervention-based)
     - SURGERY_CANDIDATE: OPD to IPD conversion (intervention-based)
@@ -220,15 +220,15 @@ async def get_intervention_summary(
     try:
         from services.dashboard_service import get_intervention_summary as get_summary
 
-        # Parse UUIDs - hospital admin's hospital_id takes precedence
-        h_id = resolve_hospital_id(client, hospital_id)
+        # Parse UUIDs - school admin's school_id takes precedence
+        h_id = resolve_school_id(client, school_id)
         d_id = uuid.UUID(department_id) if department_id else None
-        doc_id = uuid.UUID(doctor_id) if doctor_id else None
+        doc_id = uuid.UUID(counsellor_id) if counsellor_id else None
 
         summary = get_summary(
-            hospital_id=h_id,
+            school_id=h_id,
             department_id=d_id,
-            doctor_id=doc_id,
+            counsellor_id=doc_id,
             period=period,
             start_date=start_date,
             end_date=end_date,
@@ -236,13 +236,13 @@ async def get_intervention_summary(
         )
 
         return InterventionSummaryResponse(
-            total_patients=summary.total_patients,
+            total_students=summary.total_students,
             patients_with_interventions=summary.patients_with_interventions,
             percentage=summary.percentage,
             revenue_potential=summary.revenue_potential,
             by_period={
                 k: PeriodStatsResponse(
-                    total_patients=v.total_patients,
+                    total_students=v.total_students,
                     patients_with_interventions=v.patients_with_interventions,
                     percentage=v.percentage,
                     revenue_potential=v.revenue_potential,
@@ -255,7 +255,7 @@ async def get_intervention_summary(
                     label=c.label,
                     icon=c.icon,
                     color=c.color,
-                    patient_count=c.patient_count,
+                    student_count=c.student_count,
                     intervention_count=c.intervention_count,
                     revenue_potential=c.revenue_potential,
                     aggregate_risk_score=c.aggregate_risk_score,
@@ -289,8 +289,8 @@ async def get_intervention_summary(
                 for d in summary.by_doctor
             ],
             by_patient=[
-                PatientMetricRowResponse(
-                    patient_id=p.patient_id,
+                StudentMetricRowResponse(
+                    student_id=p.student_id,
                     patient_name=p.patient_name,
                     mrn=p.mrn,
                     compliance_likelihood=p.compliance_likelihood,
@@ -307,9 +307,9 @@ async def get_intervention_summary(
                 "period": period,
                 "start_date": str(start_date) if start_date else None,
                 "end_date": str(end_date) if end_date else None,
-                "hospital_id": hospital_id,
+                "school_id": school_id,
                 "department_id": department_id,
-                "doctor_id": doctor_id,
+                "counsellor_id": counsellor_id,
                 "priority_threshold": priority_threshold,
             },
         )
@@ -321,12 +321,12 @@ async def get_intervention_summary(
         raise HTTPException(status_code=500, detail="Failed to get intervention summary")
 
 
-@router.get("/patients", response_model=PatientsListResponse)
-async def get_patients_by_category(
-    category: Optional[str] = Query(None, description="Dashboard category: TREATMENT_COMPLIANCE, DROP_OFF_RISK, FOLLOWUP_DUE, HEALTH_SERVICES, SURGERY_CANDIDATE, QUALITY_RISK. Also accepts legacy DB categories. If not provided, returns all patients."),
-    hospital_id: Optional[str] = Query(None, description="Filter by hospital ID"),
+@router.get("/students", response_model=StudentsListResponse)
+async def get_students_by_category(
+    category: Optional[str] = Query(None, description="Dashboard category: TREATMENT_COMPLIANCE, DROP_OFF_RISK, FOLLOWUP_DUE, HEALTH_SERVICES, SURGERY_CANDIDATE, QUALITY_RISK. Also accepts legacy DB categories. If not provided, returns all students."),
+    school_id: Optional[str] = Query(None, description="Filter by school ID"),
     department_id: Optional[str] = Query(None, description="Filter by department ID"),
-    doctor_id: Optional[str] = Query(None, description="Filter by doctor ID"),
+    counsellor_id: Optional[str] = Query(None, description="Filter by counsellor ID"),
     priority_threshold: str = Query("MEDIUM", description="Minimum priority"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -335,21 +335,21 @@ async def get_patients_by_category(
     client: ClientContext = Depends(get_current_client),
 ):
     """
-    Get patient list for a specific category.
+    Get student list for a specific category.
 
     **Use this endpoint to:**
     - Drill down into a specific category from the main dashboard
-    - View patients with their intervention details
+    - View students with their intervention details
     - Plan outreach based on priority and revenue potential
 
     **Returns:**
-    - Patient list with contact info
-    - Interventions per patient with priority and revenue
+    - Student list with contact info
+    - Interventions per student with priority and revenue
     - Days since intervention was generated
     """
     try:
-        logger.info(f"[DASHBOARD API] get_patients_by_category called with category={category}, hospital_id={hospital_id}, period={period}")
-        from services.dashboard_service import get_patients_by_category as get_patients
+        logger.info(f"[DASHBOARD API] get_students_by_category called with category={category}, school_id={school_id}, period={period}")
+        from services.dashboard_service import get_students_by_category as get_students
 
         # Validate category if provided - accept both new dashboard categories and legacy DB categories
         valid_categories = [
@@ -361,38 +361,38 @@ async def get_patients_by_category(
         if category and category not in valid_categories:
             raise HTTPException(status_code=400, detail="Invalid category")
 
-        # Parse UUIDs - hospital admin's hospital_id takes precedence
-        h_id = resolve_hospital_id(client, hospital_id)
+        # Parse UUIDs - school admin's school_id takes precedence
+        h_id = resolve_school_id(client, school_id)
         d_id = uuid.UUID(department_id) if department_id else None
-        doc_id = uuid.UUID(doctor_id) if doctor_id else None
+        doc_id = uuid.UUID(counsellor_id) if counsellor_id else None
         logger.info(f"[DASHBOARD API] UUIDs parsed successfully: h_id={h_id}")
 
-        result = get_patients(
+        result = get_students(
             category=category,  # Can be None for "All Categories"
-            hospital_id=h_id,
+            school_id=h_id,
             department_id=d_id,
-            doctor_id=doc_id,
+            counsellor_id=doc_id,
             priority_threshold=priority_threshold,
             page=page,
             page_size=page_size,
             sort_by=sort_by,
             period=period,
         )
-        logger.info(f"[DASHBOARD API] Service returned {len(result.get('patients', []))} patients")
+        logger.info(f"[DASHBOARD API] Service returned {len(result.get('students', []))} students")
 
         # Build response with defensive access
-        patients_list = []
-        for p in result.get("patients", []):
-            patient_id = p.get("patient_id")
-            if not patient_id:
-                logger.warning(f"[DASHBOARD API] Skipping patient with no patient_id: {p}")
+        students_list = []
+        for p in result.get("students", []):
+            student_id = p.get("student_id")
+            if not student_id:
+                logger.warning(f"[DASHBOARD API] Skipping student with no student_id: {p}")
                 continue
 
             interventions_list = []
             for i in p.get("interventions", []):
                 if not i.get("id"):
                     continue
-                interventions_list.append(PatientInterventionResponse(
+                interventions_list.append(StudentInterventionResponse(
                     id=str(i.get("id", "")),
                     code=i.get("code"),
                     category=i.get("category"),  # Raw DB category, mapped to 5 dashboard categories at display layer
@@ -406,19 +406,19 @@ async def get_patients_by_category(
                     days_since_generated=i.get("days_since_generated", 0),
                 ))
 
-            patients_list.append(PatientResponse(
-                patient_id=str(patient_id),
+            students_list.append(StudentResponse(
+                student_id=str(student_id),
                 patient_name=p.get("patient_name") or "Unknown",
                 mrn=p.get("mrn"),
-                doctor_name=p.get("doctor_name"),
+                counsellor_name=p.get("counsellor_name"),
                 last_consultation=p.get("last_consultation"),
                 interventions=interventions_list,
                 total_revenue_potential=p.get("total_revenue_potential", 0),
             ))
 
-        logger.info(f"[DASHBOARD API] Built {len(patients_list)} patient responses, returning...")
-        response = PatientsListResponse(
-            patients=patients_list,
+        logger.info(f"[DASHBOARD API] Built {len(students_list)} student responses, returning...")
+        response = StudentsListResponse(
+            students=students_list,
             total_count=result.get("total_count", 0),
             page=result.get("page", page),
             page_size=result.get("page_size", page_size),
@@ -430,18 +430,18 @@ async def get_patients_by_category(
     except HTTPException:
         raise
     except ValueError as e:
-        logger.error(f"[DASHBOARD API] ValueError in get_patients: {e}", exc_info=True)
+        logger.error(f"[DASHBOARD API] ValueError in get_students: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid parameter")
     except Exception as e:
-        logger.error(f"[DASHBOARD API] Failed to get patients: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get patients")
+        logger.error(f"[DASHBOARD API] Failed to get students: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get students")
 
 
 @router.get("/outcome-metrics", response_model=OutcomeMetricsResponse)
 async def get_outcome_metrics(
-    hospital_id: Optional[str] = Query(None, description="Filter by hospital ID"),
+    school_id: Optional[str] = Query(None, description="Filter by school ID"),
     department_id: Optional[str] = Query(None, description="Filter by department ID"),
-    doctor_id: Optional[str] = Query(None, description="Filter by doctor ID"),
+    counsellor_id: Optional[str] = Query(None, description="Filter by counsellor ID"),
     period: str = Query("mtd", description="Period: today, week, mtd, ytd"),
     client: ClientContext = Depends(get_current_client),
 ):
@@ -462,15 +462,15 @@ async def get_outcome_metrics(
     try:
         from services.dashboard_service import get_outcome_metrics as get_metrics
 
-        # Parse UUIDs - hospital admin's hospital_id takes precedence
-        h_id = resolve_hospital_id(client, hospital_id)
+        # Parse UUIDs - school admin's school_id takes precedence
+        h_id = resolve_school_id(client, school_id)
         d_id = uuid.UUID(department_id) if department_id else None
-        doc_id = uuid.UUID(doctor_id) if doctor_id else None
+        doc_id = uuid.UUID(counsellor_id) if counsellor_id else None
 
         result = get_metrics(
-            hospital_id=h_id,
+            school_id=h_id,
             department_id=d_id,
-            doctor_id=doc_id,
+            counsellor_id=doc_id,
             period=period,
         )
 
@@ -485,7 +485,7 @@ async def get_outcome_metrics(
 
 @router.get("/time-to-action", response_model=TimeToActionResponse)
 async def get_time_to_action_metrics(
-    hospital_id: Optional[str] = Query(None, description="Filter by hospital ID"),
+    school_id: Optional[str] = Query(None, description="Filter by school ID"),
     period: str = Query("mtd", description="Period: today, week, mtd, ytd"),
     client: ClientContext = Depends(get_current_client),
 ):
@@ -506,11 +506,11 @@ async def get_time_to_action_metrics(
     try:
         from services.dashboard_service import get_time_to_action_metrics as get_metrics
 
-        # Parse UUIDs - hospital admin's hospital_id takes precedence
-        h_id = resolve_hospital_id(client, hospital_id)
+        # Parse UUIDs - school admin's school_id takes precedence
+        h_id = resolve_school_id(client, school_id)
 
         result = get_metrics(
-            hospital_id=h_id,
+            school_id=h_id,
             period=period,
         )
 
@@ -534,13 +534,13 @@ async def update_intervention_status(
 
     **Status progression:**
     - PENDING → CONTACTED (when staff reaches out)
-    - CONTACTED → ACCEPTED (patient agrees) or DECLINED (patient refuses)
+    - CONTACTED → ACCEPTED (student agrees) or DECLINED (student refuses)
     - ACCEPTED → COMPLETED (action taken, revenue captured)
     - Any → EXPIRED (time limit passed)
 
     **Use this endpoint to:**
-    - Track patient outreach progress
-    - Record patient responses
+    - Track student outreach progress
+    - Record student responses
     - Capture actual revenue for ROI calculation
 
     **Note:** Setting status to CONTACTED automatically records first_contact_at timestamp.

@@ -64,7 +64,7 @@ async def inspect(session_id: str, bypass_guard: bool) -> None:
 
     row = (
         supabase.table("recording_sessions")
-        .select("id, total_duration_seconds, doctor_id")
+        .select("id, total_duration_seconds, counsellor_id")
         .eq("id", session_id)
         .single()
         .execute()
@@ -74,7 +74,7 @@ async def inspect(session_id: str, bypass_guard: bool) -> None:
         return
 
     duration = float(row.data["total_duration_seconds"] or 0)
-    doctor_id = row.data["doctor_id"]
+    counsellor_id = row.data["counsellor_id"]
 
     print(f"\n========== {session_id} ==========")
     print(f"Duration: {duration:.1f}s  bypass_guard={bypass_guard}")
@@ -96,7 +96,7 @@ async def inspect(session_id: str, bypass_guard: bool) -> None:
             audio_content=audio,
             mime_type=mime,
             session_id=session_id,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             audio_duration_seconds=duration,
         )
 

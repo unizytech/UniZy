@@ -4,7 +4,7 @@ At extraction tail, after the LLM-derived `insights` dict is finalized but
 before persist + EHR dispatch, this module:
 
 1. Loads the template's standard text fragments (`template_standard_texts`).
-2. Builds a flat context dict from extraction segments + patient record + helpers.
+2. Builds a flat context dict from extraction segments + student record + helpers.
 3. Resolves `{{ var }}` placeholders inside each fragment.
 4. Renders the full Jinja2 layout (`templates.letter_template_jinja`) to a
    single `consult_letter` string.
@@ -143,7 +143,7 @@ def _primary_diagnosis(insights: Dict[str, Any]) -> str:
     return ""
 
 
-def _referring_doctor(insights: Dict[str, Any]) -> str:
+def _referring_counsellor(insights: Dict[str, Any]) -> str:
     # LLM emits camelCase per assembled schema (`referralDetails`).
     # Fall back to UPPER_SNAKE for any legacy / hand-edited extraction JSON.
     ref = insights.get("referralDetails") or insights.get("REFERRAL_DETAILS")
@@ -153,20 +153,20 @@ def _referring_doctor(insights: Dict[str, Any]) -> str:
 
 
 # ============================================================================
-# Patient record fetch
+# Student record fetch
 # ============================================================================
 
-def _fetch_patient(patient_id: Any) -> Dict[str, Any]:
-    if not patient_id:
+def _fetch_student(student_id: Any) -> Dict[str, Any]:
+    if not student_id:
         return {}
     try:
-        result = supabase.table("patients").select(
+        result = supabase.table("students").select(
             "full_name, gender, date_of_birth, add_info"
-        ).eq("id", str(patient_id)).execute()
+        ).eq("id", str(student_id)).execute()
         if result.data:
             return result.data[0] or {}
     except Exception as e:
-        logger.warning(f"[LETTER_RENDER] Patient fetch failed for {patient_id}: {e}")
+        logger.warning(f"[LETTER_RENDER] Student fetch failed for {student_id}: {e}")
     return {}
 
 
@@ -176,16 +176,16 @@ def _fetch_patient(patient_id: Any) -> Dict[str, Any]:
 
 def build_letter_context(
     insights: Dict[str, Any],
-    patient_record: Dict[str, Any],
+    student_record: Dict[str, Any],
     session_record: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Flatten insights + add patient + helpers into a single Jinja context."""
+    """Flatten insights + add student + helpers into a single Jinja context."""
     ctx = _flatten_insights(insights or {})
 
-    # Patient PHI — resolved server-side, never via LLM
-    name = (patient_record or {}).get("full_name") or ""
-    sex = (patient_record or {}).get("gender") or ""
-    dob = (patient_record or {}).get("date_of_birth")
+    # Student PHI — resolved server-side, never via LLM
+    name = (student_record or {}).get("full_name") or ""
+    sex = (student_record or {}).get("gender") or ""
+    dob = (student_record or {}).get("date_of_birth")
     ctx["patient_name"] = name
     ctx["patient_sex"] = sex
     ctx["patient_age"] = _compute_age(dob)
@@ -195,7 +195,7 @@ def build_letter_context(
     if "primary_diagnosis" not in ctx or not ctx.get("primary_diagnosis"):
         ctx["primary_diagnosis"] = _primary_diagnosis(insights or {})
     if "referring_doctor" not in ctx or not ctx.get("referring_doctor"):
-        ctx["referring_doctor"] = _referring_doctor(insights or {})
+        ctx["referring_doctor"] = _referring_counsellor(insights or {})
 
     # Computed helpers
     ctx["has_any_blood_value"] = any(ctx.get(k) for k in _BLOOD_KEYS)
@@ -208,8 +208,8 @@ def build_letter_context(
     ctx["mrn_paren"] = f" (MRN {mrn_val})" if mrn_val else ""
 
     # Hand-fill placeholders for empty PHI fields (printed-form workflow):
-    # when patient name / age / diagnosis aren't available at extraction
-    # time, render an underscore line in the greeting so the doctor can
+    # when student name / age / diagnosis aren't available at extraction
+    # time, render an underscore line in the greeting so the counsellor can
     # write the value on the printed letter.
     ctx["patient_name_display"] = str(ctx.get("patient_name") or "").strip() or ("_" * 30)
     ctx["patient_age_display"] = str(ctx.get("patient_age") or "").strip() or "___"
@@ -299,7 +299,7 @@ def render_full_letter(
 def attach_letter_artifacts(
     insights: Dict[str, Any],
     template_id: Any,
-    patient_id: Any,
+    student_id: Any,
     session_record: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Mutate `insights` to add `standard_texts` and `consult_letter`.
@@ -321,8 +321,8 @@ def attach_letter_artifacts(
         # No rendering for this template; nothing to attach.
         return
 
-    patient_record = _fetch_patient(patient_id)
-    context = build_letter_context(insights, patient_record, session_record)
+    student_record = _fetch_student(student_id)
+    context = build_letter_context(insights, student_record, session_record)
 
     # Resolve fragments first; merge them into context so the layout can reference
     # {{ GREETING_SALUTATION }} etc. directly.

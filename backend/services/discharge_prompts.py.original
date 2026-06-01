@@ -875,7 +875,7 @@ Each medication object contains:
 - **approved_by**: Name of approving authority
 - **report_date**: Date report was prepared (DD-MM-YYYY)
 - **report_time**: Time of report preparation
-- **hospital_name**: Name of hospital/clinic
+- **school_name**: Name of hospital/clinic
 - **hospital_address**: Address of facility
 - **hospital_contact**: Hospital contact information
 
@@ -1107,7 +1107,7 @@ DISCHARGE_SUMMARY_EXTRACTION_PROMPT_USER = """Extract structured information fro
     "approved_by": "string or N/A",
     "report_date": "DD-MM-YYYY",
     "report_time": "string or N/A",
-    "hospital_name": "string",
+    "school_name": "string",
     "hospital_address": "string or N/A",
     "hospital_contact": "string or N/A"
   }}

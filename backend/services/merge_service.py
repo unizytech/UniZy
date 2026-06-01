@@ -1,10 +1,10 @@
 """
 Extraction Merge Service
 
-AI-powered contextual merging of multiple medical extractions into a single consolidated output.
+AI-powered contextual merging of multiple extractions into a single consolidated output.
 
 Features:
-- Validates merge requests (same patient, minimum count)
+- Validates merge requests (same student, minimum count)
 - Prepares merge context (chronological ordering, conflict detection)
 - Generates specialized AI prompts for contextual merging
 - Calls Gemini API with merge instructions
@@ -28,35 +28,17 @@ from services import supabase_service
 from services.schema_transformer import SchemaTransformer, detect_schema_type, transform_for_merge
 
 # Split schema imports for consultation types with large schemas
-from services.neo_proforma_prompts_split import NEO_PROFORMA_PART1_SCHEMA, NEO_PROFORMA_PART2_SCHEMA
-from services.neo_proforma_formatter import format_neo_proforma_from_parts
-from services.neo_op_prompts_split import NEO_OP_PART1_SCHEMA, NEO_OP_PART2_SCHEMA
-from services.neo_op_formatter import format_neo_op_from_parts
 from services.ophthal_prompt_split import OPHTHAL_PART1_SCHEMA, OPHTHAL_PART2_SCHEMA
 from services.ophthal_formatter import format_ophthalmology_from_parts
 from services.ophthal_discharge_prompt_split import OPHTHAL_DISCHARGE_PART1_SCHEMA, OPHTHAL_DISCHARGE_PART2_SCHEMA
 from services.ophthal_discharge_formatter import format_ophthal_discharge_from_parts
 from services.ophthal_consult_prompt_split import OPHTHAL_FULL_PART1_SCHEMA, OPHTHAL_FULL_PART2_SCHEMA
 from services.ophthal_consult_formatter import format_ophthal_full_consult_from_parts
-from services.neo_discharge_prompts_split import NEO_DISCHARGE_PART1_SCHEMA, NEO_DISCHARGE_PART2_SCHEMA
-from services.neo_discharge_formatter import format_neo_discharge_from_parts
-from services.neo_admission_prompts_split import NEO_ADMISSION_PART1_SCHEMA, NEO_ADMISSION_PART2_SCHEMA
-from services.neo_admission_formatter import format_neo_admission_from_parts
 
 logger = logging.getLogger(__name__)
 
 # Consultation types that require split merge due to Gemini schema limits
 SPLIT_MERGE_TYPES = {
-    "NEO_PROFORMA": {
-        "part1_schema": NEO_PROFORMA_PART1_SCHEMA,
-        "part2_schema": NEO_PROFORMA_PART2_SCHEMA,
-        "formatter": format_neo_proforma_from_parts,
-    },
-    "NEO_OP": {
-        "part1_schema": NEO_OP_PART1_SCHEMA,
-        "part2_schema": NEO_OP_PART2_SCHEMA,
-        "formatter": format_neo_op_from_parts,
-    },
     "OPHTHAL_CONSULT_BRIEF": {
         "part1_schema": OPHTHAL_PART1_SCHEMA,
         "part2_schema": OPHTHAL_PART2_SCHEMA,
@@ -71,16 +53,6 @@ SPLIT_MERGE_TYPES = {
         "part1_schema": OPHTHAL_FULL_PART1_SCHEMA,
         "part2_schema": OPHTHAL_FULL_PART2_SCHEMA,
         "formatter": format_ophthal_full_consult_from_parts,
-    },
-    "NEO_DISCHARGE": {
-        "part1_schema": NEO_DISCHARGE_PART1_SCHEMA,
-        "part2_schema": NEO_DISCHARGE_PART2_SCHEMA,
-        "formatter": format_neo_discharge_from_parts,
-    },
-    "NEO_ADMISSION": {
-        "part1_schema": NEO_ADMISSION_PART1_SCHEMA,
-        "part2_schema": NEO_ADMISSION_PART2_SCHEMA,
-        "formatter": format_neo_admission_from_parts,
     },
 }
 
@@ -97,7 +69,7 @@ CATEGORY_PATTERNS = [
     ("NEONATAL", "NEONATAL_FAMILY", "Neonatal care documentation"),
     ("OPTOMETRY", "OPHTHALMOLOGY_FAMILY", "Eye care - optometry"),
     ("OPHTHAL", "OPHTHALMOLOGY_FAMILY", "Eye care - ophthalmology (including OPHTHAL_DISCHARGE)"),
-    ("GKNM", "GKNM_SPECIALTY", "GKNM hospital specialty consultations"),
+    ("GKNM", "GKNM_SPECIALTY", "GKNM school specialty consultations"),
     ("DISCHARGE", "DISCHARGE_FAMILY", "General discharge summaries (not ophthalmology)"),
     ("OP", "OP_FAMILY", "Outpatient consultations (general, short, concise)"),
 ]
@@ -111,7 +83,7 @@ def get_merge_category(type_code: str) -> str:
     1. NEONATAL - Neonatal care types
     2. OPTOMETRY/OPHTHAL - Ophthalmology family (OPHTHAL_DISCHARGE is ophthalmology, not general discharge)
     3. GKNM - GKNM specialty types
-    4. DISCHARGE - General discharge summaries (hospital discharge, but not eye-specific)
+    4. DISCHARGE - General discharge summaries (school discharge, but not eye-specific)
     5. OP - Outpatient types (OP, OP_SHORT, OP_CONCISE)
 
     Args:
@@ -257,116 +229,64 @@ def detect_cross_category_scenario(
 # Merge Prompt Templates
 # =====================================================
 
-MERGE_SYSTEM_PROMPT = """You are a highly skilled medical documentation specialist with expertise in merging multiple consultation records across various medical specialties.
+MERGE_SYSTEM_PROMPT = """You are a highly skilled counselling documentation specialist with expertise in merging multiple counselling-session records for the same student into one unified record.
 
-Your task is to create a unified, coherent medical extraction by intelligently merging information from multiple source extractions. The sources may be from the same or different consultation types (OP, Discharge, Specialty consultations).
+Your task is to create a unified, coherent extraction by intelligently DEEP-MERGING information from multiple source extractions. The sources may be from the same or different session types, and may use different templates — map fields across templates by meaning, not just by name.
+
+This is a DEEP merge — never a shallow overwrite of a whole section, and never a blind append that duplicates or drops data.
 
 CORE MERGE PRINCIPLES:
 
 1. **CHRONOLOGICAL AWARENESS**
-   - Recognize temporal progression across extractions
-   - Show how conditions, diagnoses, or treatments evolved over time
-   - Example: "Initially presented with X on [date1], progressed to Y by [date2]"
-   - For admissions: Show pre-admission → admission → hospital course → discharge timeline
+   - Recognise temporal progression across sessions.
+   - Show how goals, plans, tasks, and the student's direction evolved over time.
+   - Example: "Initially exploring Engineering (session 1), shifted focus to Computer Science by session 3."
 
-2. **LATEST-WINS STRATEGY (for current state fields)**
-   - For fields representing current state (vital signs, current diagnosis, current medications), use the most recent extraction
-   - Rationale: Most recent data is most clinically relevant for current treatment
-   - Exception: If latest data is incomplete, supplement with earlier complete data
+2. **LATEST-WINS STRATEGY (for current-state fields)**
+   - For single-value/current-state fields (current goals, assessment meters, latest plans), use the most recent source.
+   - Exception: if the latest source is incomplete, supplement with earlier complete data rather than losing it.
 
-3. **APPEND-MODE (for historical fields)**
-   - For fields representing history (past medications, investigations, timestamped events), combine chronologically
-   - Preserve all historical data - never lose information
-   - Mark discontinued items clearly with dates
+3. **CARRY FORWARD + UNION (never lose data)**
+   - Every item/field from every source must survive the merge unless a later source explicitly supersedes or removes it.
+   - For list fields (e.g. tasks, key facts, activities, books, competitions), produce the UNION of all sources.
+   - NEVER produce duplicates of the same item; NEVER drop a prior item just because a later source omits it.
 
-4. **NARRATIVE SYNTHESIS (for text fields)**
-   - For narrative fields (HPI, hospital course, clinical notes), create coherent merged narrative
-   - Show progression, not just concatenation
-   - Example: "Patient initially complained of X, which progressed to Y with additional symptom Z noted during follow-up"
+4. **DEEP-MERGE NESTED STRUCTURES**
+   - When sources share a nested section (an object with sub-fields), merge field-by-field: keep every sub-field, update only what a later source changes, and add new sub-fields. Do not replace a whole section because one field changed.
 
-5. **CONFLICT RESOLUTION**
-   - If contradictory information exists (e.g., different diagnoses at different times), use latest value
-   - However, note previous values in clinical_assessment or appropriate field
-   - Example: "Diagnosis revised from 'suspected pneumonia' to 'confirmed bacterial pneumonia' based on lab results"
+5. **NARRATIVE SYNTHESIS (for text fields)**
+   - For narrative/free-text fields (student context, counsellor remarks), create a single coherent merged narrative showing progression — not a concatenation with "|" separators.
 
-6. **MEDICATION TRACKING**
-   - List all medications from all sources
-   - Mark status clearly:
-     * "Medication X (discontinued [date])"
-     * "Medication Y (started [date])"
-     * "Dosage changed from A to B on [date]"
-   - Preserve all dosage, frequency, duration information
-   - Separate by category if needed: Pre-admission / During hospitalization / Discharge
+6. **CONFLICT RESOLUTION**
+   - When sources contradict, prefer the most recent value, but preserve the evolution where it matters (e.g. "target course changed from Medicine to Computer Science").
 
-7. **INVESTIGATION CONSOLIDATION**
-   - Append all test results chronologically
-   - Format: "[Date] Test Name: Result"
-   - Show trends if applicable: "WBC increased from X on [date1] to Y on [date2]"
-   - Group by type: Laboratory / Imaging / Special investigations
+7. **ITEM LIFECYCLE & STATUS**
+   - Carry every task/activity forward; if a later source marks one completed/cancelled/dropped, reflect that status (or remove it) rather than silently duplicating it.
+   - When an item is refined/clarified (same item, better wording), keep ONLY the refined version.
 
-8. **PRESERVE CLINICAL SPECIFICITY**
-   - Never lose important details during merge
-   - If a source extraction mentions a specific finding, preserve it
-   - Maintain medical terminology accuracy
+8. **PRESERVE SPECIFICITY**
+   - Never lose important detail during the merge. If a source records a specific fact, goal, date, or figure, preserve it.
 
-9. **CONTEXT-AWARE FIELD MAPPING**
-   - If source and target schemas differ, intelligently map fields:
-     * OP "chief_complaints" → DISCHARGE "presenting_complaints" or "admission_complaints"
-     * DISCHARGE "hospital_course" → OP "history_of_present_illness" (summarized)
-     * Specialty fields → Map to appropriate general sections or preserve in specialty subsections
-   - Drop fields not supported by target schema, but note significant omissions
+9. **CONTEXT-AWARE FIELD MAPPING (across templates)**
+   - If source and target schemas differ, map fields by meaning (e.g. a "goals" field in one template maps to the target's "future goals" section). Drop only fields the target schema cannot represent, and note significant omissions.
 
 10. **QUALITY OVER BREVITY**
-    - Merged extraction should be comprehensive and clinically useful
-    - Don't sacrifice information for conciseness
-    - Better to have detailed merged record than sparse summary
-
-SPECIALTY-SPECIFIC CONSIDERATIONS:
-
-**Ophthalmology Merges:**
-- Preserve separate OD (right eye) and OS (left eye) measurements
-- Vision: VA, refraction, IOP should be tracked per eye
-- Combine optometry (refraction) with ophthalmology (pathology) findings
-
-**Neonatal Merges:**
-- Track daily progress notes → comprehensive proforma
-- Preserve feeding, weight, vital sign trends
-- Respiratory support progression is critical
-
-**Obstetrics/Gynecology Merges:**
-- Preserve obstetric history (G/P/A)
-- Fetal monitoring and delivery details are critical
-- Maternal and fetal outcomes should both be documented
-
-**Cardiac Merges:**
-- ECG and Echo findings should be tracked with dates
-- Intervention details (angiography, stenting) are critical
-- Risk stratification (TIMI, GRACE scores) should be preserved
-
-**OP → Discharge Merges:**
-- Pre-admission OP visits provide baseline and admission context
-- Track what was tried outpatient before admission
-
-**Discharge → OP Merges:**
-- Hospital course informs follow-up care
-- Track post-discharge compliance and recovery
+    - The merged record should be comprehensive and useful. Prefer a complete merged record over a sparse summary.
 
 OUTPUT REQUIREMENTS:
-- Must conform exactly to the target schema provided
-- All required fields must be populated (use "N/A" if truly no data)
-- Use proper medical terminology
-- Maintain professional clinical documentation style
-- Ensure temporal markers are clear (dates, sequence of events)
-- Include source attribution where helpful: "[Per OP visit dated X]", "[Per discharge summary]"
+- Must conform exactly to the target schema provided.
+- Populate all required fields (use "N/A" only if there is genuinely no data).
+- Maintain a clear, professional counselling-documentation style.
+- Keep temporal markers clear (dates, session sequence) where relevant.
 """
 
-MERGE_USER_PROMPT_TEMPLATE = """Please merge the following {source_count} medical extractions into a single {target_type_name} extraction.
+MERGE_USER_PROMPT_TEMPLATE = """Please DEEP-MERGE the following {source_count} session extractions into a single {target_type_name} extraction.
 
 MERGE CONTEXT:
-- Patient: {patient_name} (ID: {patient_id})
+- Student: {patient_name} (ID: {student_id})
 - Target Output Type: {target_type_name}
-- Merge Strategy: AI-powered contextual merge
-- Conflict Resolution: Latest extraction wins (validate if reasonable)
+- Merge Strategy: AI-powered deep contextual merge (carry forward + union + latest-wins)
+- Conflict Resolution: Latest source wins on conflicts; nothing is dropped unless explicitly superseded
 
 SOURCE EXTRACTIONS (chronological order, oldest to newest):
 
@@ -375,60 +295,47 @@ SOURCE EXTRACTIONS (chronological order, oldest to newest):
 TARGET SCHEMA:
 {target_schema_description}
 
-MERGE INSTRUCTIONS:
+MERGE INSTRUCTIONS (apply to whichever of these sections the target schema contains; map fields across templates by meaning):
 
-1. **Create unified patient record**:
-   - Use patient demographics from most complete source
-   - Preserve patient ID, name, age, contact information
+1. **Unified student record**:
+   - Use participant/student details from the most complete source; preserve identifiers.
 
-2. **Merge diagnoses**:
-   - Primary diagnosis: Use from latest extraction
-   - If diagnosis changed over time, note evolution in clinical_assessment
-   - Secondary diagnoses: Merge unique values, mark resolved conditions
+2. **Key facts**:
+   - UNION all key facts across sources; keep the most specific wording; remove exact duplicates.
 
-3. **Merge chief complaints**:
-   - If ongoing complaints, consolidate into current chief_complaints
-   - If resolved complaints, note in history section
-   - Show progression: "Initially X, progressed to Y, currently Z"
+3. **Tasks**:
+   - UNION all tasks (identified by task_name); never duplicate.
+   - Carry forward dates/type/details; if a later source updates a task, keep the updated version once.
+   - If a later source marks a task completed/cancelled/dropped, reflect that status (or omit it).
 
-4. **Merge history (HPI, past medical/surgical history)**:
-   - Create chronological narrative for HPI
-   - Combine past medical/surgical history (unique values only)
-   - Maintain family history, social history, allergies from most complete source
+4. **Future goals & academics**:
+   - Use the latest goals/academic direction; preserve the evolution if direction changed.
+   - Deep-merge nested sub-fields (interests, planned courses, etc.) — keep all, update what changed.
 
-5. **Merge physical examination**:
-   - Vital signs: Use latest measurements
-   - If vital signs changed significantly, note trend in clinical_assessment
-   - General examination: Merge relevant findings
-   - Systemic examination: Combine findings, note changes if applicable
+5. **Supercurricular activities**:
+   - UNION nested lists (activities, books, competitions, projects) across sources; never drop prior items.
+   - Respect inline status prefixes (e.g. "Ongoing:" / "Completed:") — keep them distinct.
 
-6. **Merge investigations**:
-   - List all test results chronologically
-   - Format: "[YYYY-MM-DD] Test: Result"
-   - Show trends for repeated tests
+6. **Work experience & student context**:
+   - Deep-merge field-by-field; combine narratives chronologically into one coherent account.
 
-7. **Merge medications**:
-   - Create comprehensive medication list with status
-   - Format: "Medication Name (dosage) - Status: [Current/Discontinued on DATE/Started on DATE]"
-   - Preserve frequency, duration, route, timing, special instructions
+7. **Assessment meters**:
+   - Use the latest values (e.g. post-session anxiety) from the most recent source; carry forward any not re-measured.
 
-8. **Merge treatment plan and advice**:
-   - Combine diet, activity, monitoring instructions
-   - Prioritize latest instructions if contradictory
-   - Preserve warning signs and contingency plans
+8. **Next steps**:
+   - Use the latest next-meeting details and action items; union any nested lists.
 
-9. **Merge follow-up**:
-   - Use latest follow-up plan
-   - If multiple follow-ups scheduled, list all chronologically
+9. **Counsellor remarks**:
+   - Synthesise into one coherent narrative covering all sessions — no "|" concatenation.
 
-10. **Handle cross-type merges intelligently**:
+10. **Handle cross-type / cross-template merges intelligently**:
     {cross_type_instructions}
 
 IMPORTANT:
-- Do NOT invent information - only use data from provided source extractions
-- If data conflicts, prefer latest extraction but validate clinical reasonability
-- Maintain medical accuracy and professional documentation standards
-- Output must be valid JSON matching the target schema exactly
+- Do NOT invent information — only use data from the provided source extractions.
+- This is a DEEP merge: deep-merge nested objects, UNION lists (no duplicates, no drops), latest-wins on scalar conflicts.
+- If data conflicts, prefer the latest source but preserve meaningful evolution.
+- Output must be valid JSON matching the target schema exactly.
 
 Generate the merged extraction now:
 """
@@ -444,16 +351,16 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     # SAME TYPE MERGES
     # =========================================
     "SAME_TYPE": """
-    **SAME TYPE MERGE** - Merging multiple extractions of identical consultation type.
+    **SAME TYPE MERGE** - Merging multiple extractions of the identical session/record type.
 
-    Strategy:
-    - Show temporal progression clearly with dates
-    - Latest extraction reflects CURRENT state (vitals, diagnosis, medications)
-    - Earlier extractions provide HISTORICAL context
-    - Mark changes explicitly: "Improved from X to Y", "New symptom Z appeared on [date]"
-    - Medications: Track started/discontinued/dosage changes with dates
-    - Investigations: Append chronologically, show trends for repeated tests
-    - Follow-up: Use latest scheduled follow-up
+    Strategy (DEEP merge — carry forward + union + latest-wins; never shallow-overwrite, never blind-append):
+    - Show temporal progression clearly across sessions (oldest → newest).
+    - The latest source reflects CURRENT state (current goals, assessment meters, latest plans).
+    - Earlier sources provide HISTORICAL context — preserve it, never discard it.
+    - Lists (tasks, key facts, activities, books, competitions): UNION across all sources; no duplicates, no drops.
+    - Nested sections: deep-merge field-by-field; keep every sub-field, update only what changed.
+    - Mark meaningful changes explicitly: "Goal shifted from X to Y", "New task Z added on [date]".
+    - Narrative/text fields: synthesise into one coherent account showing progression.
     """,
 
     # =========================================
@@ -476,7 +383,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     **WITHIN DISCHARGE FAMILY** - Merging different discharge types (DISCHARGE, OPHTHAL_DISCHARGE, etc.).
 
     Strategy:
-    - All are discharge summaries - merge hospital course chronologically
+    - All are discharge summaries - merge school course chronologically
     - If specialty discharge (OPHTHAL_DISCHARGE): Preserve specialty-specific fields
     - Combine admission complaints and discharge diagnoses
     - Merge procedure lists from all sources
@@ -561,7 +468,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
 
     Strategy:
     - Different specialties have specialty-specific fields
-    - Map common fields (patient info, vitals, diagnosis, prescription)
+    - Map common fields (student info, vitals, diagnosis, prescription)
     - Preserve specialty-specific data in appropriate sections
     - OBG-specific: Obstetric history, fetal monitoring, delivery notes
     - Cardiac-specific: ECG findings, echo results, cardiac medications
@@ -569,13 +476,13 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     """,
 
     "SAME_CATEGORY": """
-    **SAME CATEGORY** - Generic within-category merge for unlisted variants.
+    **SAME CATEGORY** - Generic within-category / cross-template merge for related session types.
 
-    Strategy:
-    - Apply standard merge principles
-    - Latest extraction wins for current state fields
-    - Append historical data chronologically
-    - Preserve all unique information from each source
+    Strategy (DEEP merge across templates — map fields by meaning, not just by name):
+    - Apply the standard deep-merge principles (carry forward + union + latest-wins).
+    - Latest source wins for current-state/scalar fields; nothing is dropped unless superseded.
+    - Deep-merge nested sections field-by-field; UNION all list fields (no duplicates, no drops).
+    - Preserve all unique information from each source; synthesise narrative fields coherently.
     """,
 
     # =========================================
@@ -584,7 +491,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     "OP_to_DISCHARGE": """
     **OP TO DISCHARGE** - Pre-admission outpatient visits → Discharge summary.
 
-    This is a common scenario: Patient had OP consultations before hospital admission.
+    This is a common scenario: Student had OP consultations before school admission.
 
     Strategy:
     - OP chief_complaints → Include in presenting complaints/admission reason
@@ -592,24 +499,24 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     - OP investigations → Add to "Investigations done prior to admission"
     - OP diagnosis → Note as "Pre-admission diagnosis" (may be revised)
     - OP medications → "Pre-admission medications" section
-    - Create narrative: "Patient was seen in OPD on [dates] with [complaints].
-      Was advised admission for [reason]. Hospital course: ..."
+    - Create narrative: "Student was seen in OPD on [dates] with [complaints].
+      Was advised admission for [reason]. School course: ..."
     - OP follow-up instructions → May inform discharge planning
     """,
 
     "DISCHARGE_to_OP": """
-    **DISCHARGE TO OP** - Hospital discharge → Follow-up outpatient consolidation.
+    **DISCHARGE TO OP** - School discharge → Follow-up outpatient consolidation.
 
     This is for post-discharge follow-up tracking.
 
     Strategy:
     - Discharge admission_complaints → Include in chief_complaints history
-    - Hospital course → Summarize in history_of_present_illness
+    - School course → Summarize in history_of_present_illness
     - Discharge diagnosis → Primary diagnosis (may be refined in follow-up)
     - Discharge medications → Current prescription baseline
     - Procedures performed → Add to past surgical history
     - Discharge follow-up → Track compliance in current OP notes
-    - Create narrative: "Post-discharge follow-up. Patient was admitted on [date]
+    - Create narrative: "Post-discharge follow-up. Student was admitted on [date]
       for [reason]. Discharged on [date]. Current status: ..."
     """,
 
@@ -622,7 +529,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     Strategy:
     - Specialty-specific findings → Relevant discharge sections
     - OBG: Delivery details, maternal/fetal outcomes → Discharge summary
-    - Cardiac: Procedure notes, intervention details → Hospital course
+    - Cardiac: Procedure notes, intervention details → School course
     - Preserve specialty-specific sections in discharge format
     - Medications from specialty → Discharge medications
     - Specialty follow-up plan → Discharge follow-up instructions
@@ -633,7 +540,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
 
     Strategy:
     - Extract specialty-relevant information from discharge
-    - Hospital course → Relevant history for specialty follow-up
+    - School course → Relevant history for specialty follow-up
     - Discharge diagnosis → Current working diagnosis
     - Discharge medications → Current medications
     - Pending investigations → Follow-up investigation planning
@@ -646,7 +553,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     Strategy:
     - Pre-operative eye examination → Pre-op assessment section
     - Vision measurements → Document pre-op VA, target post-op VA
-    - Surgical procedure → Primary procedure in hospital course
+    - Surgical procedure → Primary procedure in school course
     - Post-op medications → Discharge medications (eye drops, etc.)
     - Follow-up schedule → Discharge follow-up (typically frequent for eye surgery)
     """,
@@ -661,7 +568,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
     ADDED to the discharge summary, not replace existing discharge medications.
 
     Strategy:
-    - PRESERVE all existing discharge summary data (hospital course, procedures, diagnosis)
+    - PRESERVE all existing discharge summary data (school course, procedures, diagnosis)
     - APPEND medications from OPHTHAL_POSTOP_RX to discharge medications section
     - Preserve medication timing structure:
       * timing1 through timing6 slots for each medication
@@ -742,7 +649,7 @@ CROSS_CATEGORY_MERGE_INSTRUCTIONS = {
 
     Strategy:
     - This is an unusual merge - proceed with caution
-    - Map common fields (patient info, vitals, medications)
+    - Map common fields (student info, vitals, medications)
     - Create clearly labeled sections for each consultation type
     - Preserve all unique information
     - Note in clinical assessment: "This is a consolidated record from multiple consultation types"
@@ -960,7 +867,7 @@ async def validate_merge_request(
 
     Checks:
     1. All source extractions exist
-    2. All belong to same patient
+    2. All belong to same student
     3. Minimum sources: 2 total (extractions + JSON uploads combined)
     4. Target consultation type exists
 
@@ -972,7 +879,7 @@ async def validate_merge_request(
         has_uploaded_json: [DEPRECATED] Use uploaded_json_count instead
 
     Returns:
-        Tuple of (is_valid, error_message, patient_id)
+        Tuple of (is_valid, error_message, student_id)
     """
     try:
         # Handle legacy has_uploaded_json parameter
@@ -1009,20 +916,20 @@ async def validate_merge_request(
                 else:
                     return False, error_msg, None
 
-            patient_id = validation['patient_id']
+            student_id = validation['student_id']
         else:
             # No database extractions - JSON-only merge
-            # This is handled by the caller (merge_extractions) which requires patient_id
+            # This is handled by the caller (merge_extractions) which requires student_id
             return False, "No database extractions provided - caller must handle JSON-only merge validation", None
 
         # Validate target consultation type exists
         consultation_type = supabase_client.table('consultation_types').select('*').eq('type_code', target_consultation_type_code).execute()
 
         if not consultation_type.data:
-            return False, f"Target consultation type '{target_consultation_type_code}' not found", patient_id
+            return False, f"Target consultation type '{target_consultation_type_code}' not found", student_id
 
-        logger.info(f"[MergeService] ✅ Validation passed: {total_sources} total sources for patient {patient_id}")
-        return True, "Valid", patient_id
+        logger.info(f"[MergeService] ✅ Validation passed: {total_sources} total sources for student {student_id}")
+        return True, "Valid", student_id
 
     except Exception as e:
         logger.error(f"[MergeService] ❌ Validation error: {str(e)}")
@@ -1034,8 +941,8 @@ async def prepare_merge_context(
     target_consultation_type_code: str,
     supabase_client,
     uploaded_json_sources: Optional[List[Dict[str, Any]]] = None,
-    patient_id: Optional[str] = None,
-    doctor_id: Optional[str] = None
+    student_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Prepare merge context by loading and organizing source extractions.
@@ -1044,7 +951,7 @@ async def prepare_merge_context(
     1. Load all source extractions with full data
     2. Add uploaded JSON sources with their merge strategies
     3. Sort chronologically (oldest → newest)
-    4. Extract patient demographics
+    4. Extract student demographics
     5. Build conflict map for overlapping fields
     6. Determine cross-type merge scenario
 
@@ -1059,7 +966,7 @@ async def prepare_merge_context(
             - source_name: Display name
             - source_date: Optional date for chronological ordering
             - consultation_type_code: Optional type code for field mapping
-        patient_id: Optional patient_id (required for JSON-only merges)
+        student_id: Optional student_id (required for JSON-only merges)
 
     Returns:
         Dict with merge context:
@@ -1101,8 +1008,8 @@ async def prepare_merge_context(
                 "consultation_type_code": consultation_types.get('type_code'),
                 "consultation_type_name": consultation_types.get('type_name'),
                 "created_at": extraction_result['created_at'],
-                "doctor_id": extraction_result.get('doctor_id'),
-                "doctor_name": extraction_result.get('doctor_name'),
+                "counsellor_id": extraction_result.get('counsellor_id'),
+                "counsellor_name": extraction_result.get('counsellor_name'),
                 "extraction_mode": extraction_result.get('extraction_mode'),
                 "segment_count": extraction_result.get('segment_count'),
                 "data": extraction_data
@@ -1158,8 +1065,8 @@ async def prepare_merge_context(
                 "consultation_type_code": transformed_json.get('consultation_type_code', upload_type),
                 "consultation_type_name": source_name,
                 "created_at": timestamp,
-                "doctor_id": None,
-                "doctor_name": None,
+                "counsellor_id": None,
+                "counsellor_name": None,
                 "extraction_mode": "uploaded",
                 "segment_count": len(transformed_json.get('data', {})),
                 "data": transformed_json.get('data', {}),
@@ -1179,8 +1086,8 @@ async def prepare_merge_context(
 
         has_uploaded_json = len(uploaded_json_sources) > 0
 
-        # Extract patient info from most complete source (latest DB extraction, not uploaded JSON)
-        # For patient info, prefer DB extractions over uploaded JSON
+        # Extract student info from most complete source (latest DB extraction, not uploaded JSON)
+        # For student info, prefer DB extractions over uploaded JSON
         db_extractions = [e for e in source_extractions if not e.get('is_uploaded_json')]
         if db_extractions:
             latest_db_extraction = db_extractions[-1]
@@ -1188,28 +1095,28 @@ async def prepare_merge_context(
         else:
             patient_info = {}
 
-        # Get patient_id UUID from database
+        # Get student_id UUID from database
         # For DB extractions: look up from first extraction
-        # For JSON-only merges: resolve external patient_id (varchar) to UUID via patients table
-        resolved_patient_uuid = None
+        # For JSON-only merges: resolve external student_id (varchar) to UUID via students table
+        resolved_student_uuid = None
         if db_extractions:
-            # Have DB extractions - get patient_id from first one
-            extraction_record = supabase_client.table('medical_extractions').select('patient_id').eq('id', db_extractions[0]['extraction_id']).execute()
+            # Have DB extractions - get student_id from first one
+            extraction_record = supabase_client.table('extractions').select('student_id').eq('id', db_extractions[0]['extraction_id']).execute()
             if extraction_record.data:
-                resolved_patient_uuid = extraction_record.data[0]['patient_id']
-        elif patient_id:
-            # JSON-only merge - resolve external patient_id (varchar) to UUID
-            # Use create_or_get_patient to auto-create if doesn't exist
-            from services.supabase_service import create_or_get_patient, get_doctor_hospital_id_cached
-            merge_hospital_id = get_doctor_hospital_id_cached(doctor_id) if doctor_id else None
-            patient_record = create_or_get_patient(
-                patient_id=patient_id,  # External varchar ID (e.g., "PAT-12345")
+                resolved_student_uuid = extraction_record.data[0]['student_id']
+        elif student_id:
+            # JSON-only merge - resolve external student_id (varchar) to UUID
+            # Use create_or_get_student to auto-create if doesn't exist
+            from services.supabase_service import create_or_get_student, get_counsellor_school_id_cached
+            merge_school_id = get_counsellor_school_id_cached(counsellor_id) if counsellor_id else None
+            student_record = create_or_get_student(
+                student_id=student_id,  # External varchar ID (e.g., "PAT-12345")
                 full_name=None,
-                hospital_id=merge_hospital_id,
+                school_id=merge_school_id,
             )
-            resolved_patient_uuid = patient_record['id']  # UUID from patients.id
+            resolved_student_uuid = student_record['id']  # UUID from students.id
             from services.log_sanitizer import truncate_id as _tid
-            logger.debug(f"[MergeService] Resolved external patient_id '{_tid(patient_id)}' to UUID: {_tid(resolved_patient_uuid)}")
+            logger.debug(f"[MergeService] Resolved external student_id '{_tid(student_id)}' to UUID: {_tid(resolved_student_uuid)}")
 
         # Determine cross-type merge scenario using pattern-based detection
         # Include uploaded JSON's detected type in the scenario detection
@@ -1283,7 +1190,7 @@ async def prepare_merge_context(
         merge_context = {
             "source_extractions": source_extractions,
             "patient_info": patient_info,
-            "patient_id": str(resolved_patient_uuid) if resolved_patient_uuid else None,
+            "student_id": str(resolved_student_uuid) if resolved_student_uuid else None,
             "conflict_map": conflict_map,
             "cross_type_scenario": cross_type_scenario,
             "source_count": len(source_extractions),
@@ -1327,7 +1234,7 @@ def format_source_extractions_for_prompt(source_extractions: List[Dict[str, Any]
     for i, extraction in enumerate(source_extractions, 1):
         created_at = extraction['created_at']
         consultation_type = extraction['consultation_type_name']
-        doctor_name = extraction.get('doctor_name', 'Unknown')
+        counsellor_name = extraction.get('counsellor_name', 'Unknown')
         data = extraction['data']
 
         # Convert data to formatted JSON
@@ -1339,7 +1246,7 @@ SOURCE EXTRACTION {i} of {len(source_extractions)}
 {'='*80}
 Date: {created_at}
 Type: {consultation_type}
-Doctor: {doctor_name}
+Counsellor: {counsellor_name}
 Extraction ID: {extraction['extraction_id']}
 
 DATA:
@@ -1458,17 +1365,17 @@ async def generate_merge_prompt(
         if merge_strategy_instructions:
             cross_type_instructions = f"{cross_type_instructions}\n\n{merge_strategy_instructions}"
 
-        # Get patient info
+        # Get student info
         patient_info = merge_context['patient_info']
         patient_name = patient_info.get('name') or patient_info.get('patientName') or 'Unknown'
-        patient_id = merge_context.get('patient_id', 'Unknown')
+        student_id = merge_context.get('student_id', 'Unknown')
 
         # Build user prompt
         user_prompt = MERGE_USER_PROMPT_TEMPLATE.format(
             source_count=merge_context['source_count'],
             target_type_name=target_type_name,
             patient_name=patient_name,
-            patient_id=patient_id,
+            student_id=student_id,
             source_extractions_formatted=source_extractions_formatted,
             target_schema_description=target_schema_description,
             cross_type_instructions=cross_type_instructions
@@ -1493,7 +1400,7 @@ async def perform_ai_merge(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Call LLM API to perform AI-powered contextual merge.
@@ -1505,8 +1412,8 @@ async def perform_ai_merge(
         target_schema: Gemini schema object for target type (converted to JSON Schema for non-Gemini)
         model: LLM model to use (defaults to 'thorough' mode from processing_modes)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Merged extraction data as dict
@@ -1554,7 +1461,7 @@ async def perform_ai_merge(
                 api_duration_seconds=api_duration,
                 session_id=UUID(session_id) if session_id else None,
                 extraction_id=UUID(extraction_id) if extraction_id else None,
-                doctor_id=UUID(doctor_id) if doctor_id else None,
+                counsellor_id=UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(usage_data)
 
@@ -1575,7 +1482,7 @@ async def perform_ai_merge(
                 api_duration_seconds=api_duration,
                 session_id=UUID(session_id) if session_id else None,
                 extraction_id=UUID(extraction_id) if extraction_id else None,
-                doctor_id=UUID(doctor_id) if doctor_id else None,
+                counsellor_id=UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(usage_data)
 
@@ -1593,7 +1500,7 @@ async def perform_ai_merge(
             error_message=str(e),
             session_id=UUID(session_id) if session_id else None,
             extraction_id=UUID(extraction_id) if extraction_id else None,
-            doctor_id=UUID(doctor_id) if doctor_id else None,
+            counsellor_id=UUID(counsellor_id) if counsellor_id else None,
         )
         await log_llm_usage(error_usage)
 
@@ -1607,7 +1514,7 @@ async def perform_merge_from_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Perform AI-powered merge using split schema approach (2 API calls).
@@ -1623,8 +1530,8 @@ async def perform_merge_from_split(
         target_consultation_type_code: Target type to determine which split schemas to use
         model: LLM model to use (defaults to 'thorough' mode from processing_modes)
         session_id: Recording session ID for usage tracking
-        extraction_id: Medical extraction ID for usage tracking
-        doctor_id: Doctor ID for usage tracking
+        extraction_id: extraction ID for usage tracking
+        counsellor_id: Counsellor ID for usage tracking
 
     Returns:
         Merged extraction data as dict (formatted from Part1 + Part2)
@@ -1687,7 +1594,7 @@ async def perform_merge_from_split(
                 api_duration_seconds=part1_duration,
                 session_id=UUID(session_id) if session_id else None,
                 extraction_id=UUID(extraction_id) if extraction_id else None,
-                doctor_id=UUID(doctor_id) if doctor_id else None,
+                counsellor_id=UUID(counsellor_id) if counsellor_id else None,
                 call_subtype=f"merge_{target_consultation_type_code.lower()}_part1"
             )
             await log_llm_usage(usage_data_p1)
@@ -1714,7 +1621,7 @@ async def perform_merge_from_split(
                 api_duration_seconds=part2_duration,
                 session_id=UUID(session_id) if session_id else None,
                 extraction_id=UUID(extraction_id) if extraction_id else None,
-                doctor_id=UUID(doctor_id) if doctor_id else None,
+                counsellor_id=UUID(counsellor_id) if counsellor_id else None,
                 call_subtype=f"merge_{target_consultation_type_code.lower()}_part2"
             )
             await log_llm_usage(usage_data_p2)
@@ -1742,7 +1649,7 @@ async def perform_merge_from_split(
                 api_duration_seconds=part1_duration,
                 session_id=UUID(session_id) if session_id else None,
                 extraction_id=UUID(extraction_id) if extraction_id else None,
-                doctor_id=UUID(doctor_id) if doctor_id else None,
+                counsellor_id=UUID(counsellor_id) if counsellor_id else None,
                 call_subtype=f"merge_{target_consultation_type_code.lower()}_part1"
             )
             await log_llm_usage(usage_data_p1)
@@ -1768,7 +1675,7 @@ async def perform_merge_from_split(
                 api_duration_seconds=part2_duration,
                 session_id=UUID(session_id) if session_id else None,
                 extraction_id=UUID(extraction_id) if extraction_id else None,
-                doctor_id=UUID(doctor_id) if doctor_id else None,
+                counsellor_id=UUID(counsellor_id) if counsellor_id else None,
                 call_subtype=f"merge_{target_consultation_type_code.lower()}_part2"
             )
             await log_llm_usage(usage_data_p2)
@@ -1797,7 +1704,7 @@ async def perform_merge_from_split(
             error_message=str(e),
             session_id=UUID(session_id) if session_id else None,
             extraction_id=UUID(extraction_id) if extraction_id else None,
-            doctor_id=UUID(doctor_id) if doctor_id else None,
+            counsellor_id=UUID(counsellor_id) if counsellor_id else None,
         )
         await log_llm_usage(error_usage)
 
@@ -1808,7 +1715,7 @@ async def save_merged_extraction(
     merged_data: Dict[str, Any],
     merge_context: Dict[str, Any],
     target_consultation_type_code: str,
-    doctor_id: str,
+    counsellor_id: str,
     merge_notes: Optional[str],
     merge_prompt: Dict[str, str],
     supabase_client,
@@ -1819,7 +1726,7 @@ async def save_merged_extraction(
     Save merged extraction to database with relationship tracking.
 
     Steps:
-    1. INSERT into medical_extractions (is_merged=TRUE)
+    1. INSERT into extractions (is_merged=TRUE)
     2. INSERT into extraction_segments (all segments)
     3. INSERT into extraction_relationships (link sources)
     4. UPDATE source extractions (add merged_into_extraction_id)
@@ -1828,7 +1735,7 @@ async def save_merged_extraction(
         merged_data: Merged extraction data
         merge_context: Merge context with source extractions
         target_consultation_type_code: Target consultation type (for internal lookup)
-        doctor_id: Doctor who performed merge
+        counsellor_id: Counsellor who performed merge
         merge_notes: Optional notes about merge
         merge_prompt: Prompts used for merge (for audit)
         supabase_client: Supabase client instance
@@ -1846,11 +1753,11 @@ async def save_merged_extraction(
     try:
         logger.info(f"[MergeService] Saving merged extraction")
 
-        # Get patient_id from merge context
-        patient_id = merge_context.get('patient_id')
+        # Get student_id from merge context
+        student_id = merge_context.get('student_id')
 
-        if not patient_id:
-            raise ValueError("patient_id not found in merge context")
+        if not student_id:
+            raise ValueError("student_id not found in merge context")
 
         # Get consultation_type_id
         consultation_type = supabase_client.table('consultation_types').select('id').eq('type_code', target_consultation_type_code).single().execute()
@@ -1884,10 +1791,10 @@ async def save_merged_extraction(
         # and merged extractions don't have an associated processing job.
         # Clients should use extraction_id to look up merged extractions.
 
-        # INSERT into medical_extractions
+        # INSERT into extractions
         extraction_record = {
-            "patient_id": patient_id,
-            "doctor_id": doctor_id,
+            "student_id": student_id,
+            "counsellor_id": counsellor_id,
             "consultation_type_id": consultation_type_id,
             # submission_id intentionally omitted - merged extractions have no processing job
             "extraction_mode": "full",  # Merged extractions are always full
@@ -1904,7 +1811,7 @@ async def save_merged_extraction(
             extraction_record["id"] = extraction_id
             logger.debug(f"[MergeService] Using pre-generated extraction_id: {extraction_id}")
 
-        result = supabase_client.table('medical_extractions').insert(extraction_record).execute()
+        result = supabase_client.table('extractions').insert(extraction_record).execute()
 
         if not result.data:
             raise ValueError("Failed to insert merged extraction")
@@ -1929,7 +1836,7 @@ async def save_merged_extraction(
                 "source_metadata": {
                     "consultation_type": source_extraction['consultation_type_code'],
                     "created_at": source_extraction['created_at'],
-                    "doctor_id": source_extraction.get('doctor_id')
+                    "counsellor_id": source_extraction.get('counsellor_id')
                 }
             })
 
@@ -1941,7 +1848,7 @@ async def save_merged_extraction(
 
         # UPDATE source extractions (add merged_into_extraction_id) - only for DB extractions
         for source_extraction in db_source_extractions:
-            supabase_client.table('medical_extractions').update({
+            supabase_client.table('extractions').update({
                 "merged_into_extraction_id": merged_extraction_id
             }).eq('id', source_extraction['extraction_id']).execute()
 
@@ -2000,13 +1907,13 @@ async def save_merged_extraction(
 async def merge_extractions(
     source_extraction_ids: List[str],
     target_consultation_type_code: str,
-    doctor_id: str,
+    counsellor_id: str,
     merge_notes: Optional[str] = None,
     preview_only: bool = False,
     supabase_client = None,
     uploaded_json_sources: Optional[List[Dict[str, Any]]] = None,
     extraction_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     target_template_code: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -2023,7 +1930,7 @@ async def merge_extractions(
     Args:
         source_extraction_ids: List of extraction UUIDs to merge (can be empty for JSON-only merges)
         target_consultation_type_code: Target consultation type (derived from template, for internal logic)
-        doctor_id: Doctor performing merge
+        counsellor_id: Counsellor performing merge
         merge_notes: Optional notes about merge
         preview_only: If True, don't save (return preview)
         supabase_client: Supabase client instance
@@ -2035,7 +1942,7 @@ async def merge_extractions(
             - source_date: Optional date for chronological ordering
             - consultation_type_code: Optional type code for field mapping
         extraction_id: Optional pre-generated extraction UUID (for async merge flow)
-        patient_id: Optional patient UUID (required for JSON-only merges)
+        student_id: Optional student UUID (required for JSON-only merges)
         target_template_code: Optional template code (for metadata storage)
 
     Returns:
@@ -2053,11 +1960,11 @@ async def merge_extractions(
         total_sources = len(source_extraction_ids) + len(uploaded_json_sources)
         logger.info(f"[MergeService] ===== Starting merge: {total_sources} sources ({len(source_extraction_ids)} DB + {len(uploaded_json_sources)} uploaded) → {target_consultation_type_code} =====")
 
-        # Step 1: Validate (skip if JSON-only merge with provided patient_id)
-        resolved_patient_id = patient_id
+        # Step 1: Validate (skip if JSON-only merge with provided student_id)
+        resolved_student_id = student_id
         if source_extraction_ids:
             # Have DB extractions - validate them
-            is_valid, error_message, db_patient_id = await validate_merge_request(
+            is_valid, error_message, db_student_id = await validate_merge_request(
                 source_extraction_ids,
                 target_consultation_type_code,
                 supabase_client,
@@ -2070,14 +1977,14 @@ async def merge_extractions(
                     "success": False,
                     "error": error_message
                 }
-            resolved_patient_id = db_patient_id
+            resolved_student_id = db_student_id
         else:
-            # JSON-only merge - validate patient_id was provided and consultation type exists
-            if not patient_id:
-                logger.error(f"[MergeService] JSON-only merge requires patient_id")
+            # JSON-only merge - validate student_id was provided and consultation type exists
+            if not student_id:
+                logger.error(f"[MergeService] JSON-only merge requires student_id")
                 return {
                     "success": False,
-                    "error": "patient_id is required for JSON-only merges"
+                    "error": "student_id is required for JSON-only merges"
                 }
             # Validate target consultation type exists
             consultation_type = supabase_client.table('consultation_types').select('*').eq('type_code', target_consultation_type_code).execute()
@@ -2086,7 +1993,7 @@ async def merge_extractions(
                     "success": False,
                     "error": f"Target consultation type '{target_consultation_type_code}' not found"
                 }
-            logger.info(f"[MergeService] JSON-only merge with patient_id: {patient_id}")
+            logger.info(f"[MergeService] JSON-only merge with student_id: {student_id}")
 
         # Step 2: Prepare merge context (pass uploaded JSON sources with merge strategies)
         merge_context = await prepare_merge_context(
@@ -2094,15 +2001,15 @@ async def merge_extractions(
             target_consultation_type_code,
             supabase_client,
             uploaded_json_sources=uploaded_json_sources,
-            patient_id=resolved_patient_id,
-            doctor_id=doctor_id
+            student_id=resolved_student_id,
+            counsellor_id=counsellor_id
         )
 
         # Step 3: Generate target schema using template configuration
         # Priority: template_segments first, fallback to consultation_type_segments
         target_schema, target_segments = await segment_registry.generate_merge_artifacts(
             template_code=target_template_code,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             consultation_type_code=target_consultation_type_code,  # Pre-resolved for efficiency
             mode='full'
         )
@@ -2125,7 +2032,7 @@ async def merge_extractions(
                 merge_prompt,
                 target_consultation_type_code,
                 extraction_id=extraction_id,
-                doctor_id=doctor_id
+                counsellor_id=counsellor_id
             )
         else:
             # Standard single-call merge for smaller schemas
@@ -2133,7 +2040,7 @@ async def merge_extractions(
                 merge_prompt,
                 target_schema,
                 extraction_id=extraction_id,
-                doctor_id=doctor_id
+                counsellor_id=counsellor_id
             )
 
         # Build merge_metadata that matches MergeMetadata model
@@ -2165,7 +2072,7 @@ async def merge_extractions(
             merged_data,
             merge_context,
             target_consultation_type_code,
-            doctor_id,
+            counsellor_id,
             merge_notes,
             merge_prompt,
             supabase_client,
@@ -2180,7 +2087,7 @@ async def merge_extractions(
             "preview": False,
             "extraction_id": save_result['extraction_id'],
             # submission_id not included - merged extractions don't have processing jobs
-            "patient_id": merge_context.get('patient_id'),  # For webhook
+            "student_id": merge_context.get('student_id'),  # For webhook
             "merged_data": merged_data,
             "merge_metadata": merge_metadata_response,
             "source_count": merge_context['source_count']

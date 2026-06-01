@@ -1,9 +1,9 @@
 /**
  * Dashboard API Client
  *
- * Provides functions for the hospital management dashboard:
+ * Provides functions for the school management dashboard:
  * - Intervention summary and category breakdown
- * - Patient list by category
+ * - Student list by category
  * - Outcome tracking metrics
  * - Time-to-action analytics
  * - Status updates
@@ -18,7 +18,7 @@ export type { AuthOptions };
 // ============================================================================
 
 export interface PeriodStats {
-  total_patients: number;
+  total_students: number;
   patients_with_interventions: number;
   percentage: number;
   revenue_potential: number;
@@ -29,7 +29,7 @@ export interface CategoryStats {
   label: string;
   icon: string;
   color: string;
-  patient_count: number;
+  student_count: number;
   intervention_count: number;
   revenue_potential: number;
   aggregate_risk_score: number;
@@ -48,8 +48,8 @@ export interface BreakdownStats {
   total_at_risk: number;
 }
 
-export interface PatientMetricRow {
-  patient_id: string;
+export interface StudentMetricRow {
+  student_id: string;
   patient_name: string;
   mrn: string | null;
   compliance_likelihood: string | null;
@@ -62,7 +62,7 @@ export interface PatientMetricRow {
 }
 
 export interface InterventionSummaryResponse {
-  total_patients: number;
+  total_students: number;
   patients_with_interventions: number;
   percentage: number;
   revenue_potential: number;
@@ -71,11 +71,11 @@ export interface InterventionSummaryResponse {
   high_risk_categories: string[];
   by_department: BreakdownStats[];
   by_doctor: BreakdownStats[];
-  by_patient: PatientMetricRow[];
+  by_patient: StudentMetricRow[];
   filters_applied: Record<string, any>;
 }
 
-export interface PatientIntervention {
+export interface StudentIntervention {
   id: string;
   code: string;
   category: string;  // Raw DB category (OP_TO_IP, FOLLOWUP_DUE, etc.) - mapped to 5 dashboard categories at display layer
@@ -89,18 +89,18 @@ export interface PatientIntervention {
   status: string;
 }
 
-export interface PatientWithInterventions {
-  patient_id: string;
+export interface StudentWithInterventions {
+  student_id: string;
   patient_name: string;
   mrn: string | null;
-  doctor_name: string | null;
+  counsellor_name: string | null;
   last_consultation: string | null;
-  interventions: PatientIntervention[];
+  interventions: StudentIntervention[];
   total_revenue_potential: number;
 }
 
-export interface PatientsListResponse {
-  patients: PatientWithInterventions[];
+export interface StudentsListResponse {
+  students: StudentWithInterventions[];
   total_count: number;
   page: number;
   page_size: number;
@@ -143,24 +143,24 @@ export interface UpdateStatusResponse {
 export type TimePeriod = 'today' | 'week' | 'mtd' | 'ytd' | 'custom';
 
 // ============================================================================
-// Hospital & Doctor Types
+// School & Counsellor Types
 // ============================================================================
 
-export interface Hospital {
+export interface School {
   id: string;
-  hospital_name: string;
-  hospital_code: string;
+  school_name: string;
+  school_code: string;
   city: string | null;
   state: string | null;
 }
 
-export interface Doctor {
+export interface Counsellor {
   id: string;
   full_name: string;
-  doctor_name?: string; // Alias for backwards compatibility
+  counsellor_name?: string; // Alias for backwards compatibility
   email: string | null;
   specialization: string | null;
-  hospital_id: string | null;
+  school_id: string | null;
 }
 
 // Category type for filtering (6 dashboard categories)
@@ -282,9 +282,9 @@ export async function getInterventionSummary(
   if (options.period) params.append('period', options.period);
   if (options.startDate) params.append('start_date', options.startDate);
   if (options.endDate) params.append('end_date', options.endDate);
-  if (options.hospitalId) params.append('hospital_id', options.hospitalId);
+  if (options.hospitalId) params.append('school_id', options.hospitalId);
   if (options.departmentId) params.append('department_id', options.departmentId);
-  if (options.doctorId) params.append('doctor_id', options.doctorId);
+  if (options.doctorId) params.append('counsellor_id', options.doctorId);
   if (options.priorityThreshold) params.append('priority_threshold', options.priorityThreshold);
 
   const endpoint = `/api/v1/dashboard/intervention-summary${params.toString() ? '?' + params.toString() : ''}`;
@@ -299,13 +299,13 @@ export async function getInterventionSummary(
 }
 
 // ============================================================================
-// Patient List API
+// Student List API
 // ============================================================================
 
 /**
- * Get patient list by category (or all categories if category is undefined)
+ * Get student list by category (or all categories if category is undefined)
  */
-export async function getPatientsByCategory(
+export async function getStudentsByCategory(
   category: InterventionCategory | undefined,
   options: {
     hospitalId?: string;
@@ -318,27 +318,27 @@ export async function getPatientsByCategory(
     period?: TimePeriod;
   } = {},
   auth?: string | AuthOptions | null
-): Promise<PatientsListResponse> {
+): Promise<StudentsListResponse> {
   const params = new URLSearchParams();
 
   // Category is optional - if not provided, returns all categories
   if (category) params.append('category', category);
 
-  if (options.hospitalId) params.append('hospital_id', options.hospitalId);
+  if (options.hospitalId) params.append('school_id', options.hospitalId);
   if (options.departmentId) params.append('department_id', options.departmentId);
-  if (options.doctorId) params.append('doctor_id', options.doctorId);
+  if (options.doctorId) params.append('counsellor_id', options.doctorId);
   if (options.priorityThreshold) params.append('priority_threshold', options.priorityThreshold);
   if (options.page) params.append('page', options.page.toString());
   if (options.pageSize) params.append('page_size', options.pageSize.toString());
   if (options.sortBy) params.append('sort_by', options.sortBy);
   if (options.period) params.append('period', options.period);
 
-  const endpoint = `/api/v1/dashboard/patients?${params.toString()}`;
+  const endpoint = `/api/v1/dashboard/students?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to get patients: ${response.statusText}`);
+    throw new Error(errorData.detail || `Failed to get students: ${response.statusText}`);
   }
 
   return response.json();
@@ -362,9 +362,9 @@ export async function getOutcomeMetrics(
 ): Promise<OutcomeMetricsResponse> {
   const params = new URLSearchParams();
 
-  if (options.hospitalId) params.append('hospital_id', options.hospitalId);
+  if (options.hospitalId) params.append('school_id', options.hospitalId);
   if (options.departmentId) params.append('department_id', options.departmentId);
-  if (options.doctorId) params.append('doctor_id', options.doctorId);
+  if (options.doctorId) params.append('counsellor_id', options.doctorId);
   if (options.period) params.append('period', options.period);
 
   const endpoint = `/api/v1/dashboard/outcome-metrics${params.toString() ? '?' + params.toString() : ''}`;
@@ -394,7 +394,7 @@ export async function getTimeToActionMetrics(
 ): Promise<TimeToActionResponse> {
   const params = new URLSearchParams();
 
-  if (options.hospitalId) params.append('hospital_id', options.hospitalId);
+  if (options.hospitalId) params.append('school_id', options.hospitalId);
   if (options.period) params.append('period', options.period);
 
   const endpoint = `/api/v1/dashboard/time-to-action${params.toString() ? '?' + params.toString() : ''}`;
@@ -528,68 +528,68 @@ export function getDaysOverdueText(days: number): { text: string; color: string 
 }
 
 // ============================================================================
-// Hospital & Doctor API
+// School & Counsellor API
 // ============================================================================
 
 /**
- * Get list of all active hospitals
+ * Get list of all active schools
  */
-export async function getHospitals(
+export async function getSchools(
   auth?: string | AuthOptions | null
-): Promise<Hospital[]> {
-  const endpoint = '/api/v1/doctors/hospitals';
+): Promise<School[]> {
+  const endpoint = '/api/v1/counsellors/schools';
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to get hospitals: ${response.statusText}`);
+    throw new Error(errorData.detail || `Failed to get schools: ${response.statusText}`);
   }
 
   const data = await response.json();
-  return data.hospitals || [];
+  return data.schools || [];
 }
 
 /**
- * Get list of all active doctors, optionally filtered by hospital
+ * Get list of all active counsellors, optionally filtered by school
  */
-export async function getDoctors(
+export async function getCounsellors(
   options: {
     hospitalId?: string;
   } = {},
   auth?: string | AuthOptions | null
-): Promise<Doctor[]> {
-  const endpoint = '/api/v1/doctors/list-all';
+): Promise<Counsellor[]> {
+  const endpoint = '/api/v1/counsellors/list-all';
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to get doctors: ${response.statusText}`);
+    throw new Error(errorData.detail || `Failed to get counsellors: ${response.statusText}`);
   }
 
   const data = await response.json();
-  let doctors = data.doctors || [];
+  let doctors = data.counsellors || [];
 
-  // Filter by hospital if specified
+  // Filter by school if specified
   if (options.hospitalId) {
-    doctors = doctors.filter((d: Doctor) => d.hospital_id === options.hospitalId);
+    doctors = doctors.filter((d: Counsellor) => d.school_id === options.hospitalId);
   }
 
-  // Map full_name to doctor_name for backwards compatibility
+  // Map full_name to counsellor_name for backwards compatibility
   doctors = doctors.map((d: any) => ({
     ...d,
-    doctor_name: d.full_name || d.doctor_name,
+    counsellor_name: d.full_name || d.counsellor_name,
   }));
 
   return doctors;
 }
 
 /**
- * Get list of distinct specializations from active doctors
+ * Get list of distinct specializations from active counsellors
  */
 export async function getSpecializations(
   auth?: string | AuthOptions | null
 ): Promise<string[]> {
-  const endpoint = '/api/v1/doctors/specializations';
+  const endpoint = '/api/v1/counsellors/specializations';
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -602,30 +602,30 @@ export async function getSpecializations(
 }
 
 // ============================================================================
-// Patient Info API (for modal in By Patient table)
+// Student Info API (for modal in By Student table)
 // ============================================================================
 
-export interface PatientLastVisitInfo {
+export interface StudentLastVisitInfo {
   found: boolean;
   diagnosis: any;
-  doctor_name: string | null;
+  counsellor_name: string | null;
   visit_date: string | null;
   preferred_language: string | null;
 }
 
 /**
- * Get last visit info for a patient (diagnosis, doctor, date)
- * Uses existing patient history endpoint
+ * Get last visit info for a student (diagnosis, counsellor, date)
+ * Uses existing student history endpoint
  */
-export async function getPatientLastVisitInfo(
+export async function getStudentLastVisitInfo(
   patientId: string,
   auth?: string | AuthOptions | null
-): Promise<PatientLastVisitInfo> {
-  const endpoint = `/api/v1/patients/${encodeURIComponent(patientId)}/last-diagnosis`;
+): Promise<StudentLastVisitInfo> {
+  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-diagnosis`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
-    return { found: false, diagnosis: null, doctor_name: null, visit_date: null, preferred_language: null };
+    return { found: false, diagnosis: null, counsellor_name: null, visit_date: null, preferred_language: null };
   }
 
   const data = await response.json();
@@ -651,7 +651,7 @@ export async function getPatientLastVisitInfo(
   return {
     found: data.found ?? false,
     diagnosis,
-    doctor_name: data.metadata?.doctor_name ?? null,
+    counsellor_name: data.metadata?.counsellor_name ?? null,
     visit_date: data.metadata?.created_at ?? null,
     preferred_language: data.patient?.preferred_language ?? null,
   };

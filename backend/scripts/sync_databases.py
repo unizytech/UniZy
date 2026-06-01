@@ -17,17 +17,17 @@ TARGET_KEY = os.environ.get("TARGET_SUPABASE_KEY")
 # Tables to sync in order (respecting foreign key dependencies)
 TABLES_TO_SYNC = [
     # Base tables (no foreign keys)
-    "hospitals",
+    "schools",
     "processing_modes",
     "consultation_types",
 
-    # Tables with hospital FK
-    "doctors",
-    "nurses",
+    # Tables with school FK
+    "counsellors",
+    "assistants",
     "api_clients",
 
-    # Tables with doctor FK
-    "patients",
+    # Tables with counsellor FK
+    "students",
 
     # Prompt system tables
     "segment_definitions",
@@ -38,23 +38,23 @@ TABLES_TO_SYNC = [
     # Template tables
     "templates",
     "template_segments",
-    "doctor_templates",
-    "nurse_templates",
+    "counsellor_templates",
+    "assistant_templates",
 
     # Consultation type junction tables
     "consultation_type_segments",
     "consultation_type_system_prompts",
 
     # Medicine/Investigation tables
-    "doctor_medicines",
-    "doctor_investigations",
+    "counsellor_medicines",
+    "counsellor_investigations",
     "hospital_medicine_list",
     "hospital_investigation_list",
     "medicine_list_uploads",
     "investigation_list_uploads",
 
     # Other tables
-    "nurse_doctors",
+    "assistant_counsellors",
     "intervention_definitions",
 ]
 

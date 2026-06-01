@@ -105,9 +105,9 @@ export default function QAResultsTable({
                           <p className="text-sm font-medium text-gray-900">
                             {result.patient_name || 'Unknown Student'}
                           </p>
-                          {result.patient_external_id && (
+                          {result.student_external_id && (
                             <p className="text-xs text-gray-500">
-                              ID: {result.patient_external_id}
+                              ID: {result.student_external_id}
                             </p>
                           )}
                         </div>
@@ -115,7 +115,7 @@ export default function QAResultsTable({
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-sm text-gray-700">
-                        {result.doctor_name || 'N/A'}
+                        {result.counsellor_name || 'N/A'}
                       </p>
                     </td>
                     <td className="px-4 py-3">

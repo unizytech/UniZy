@@ -11,35 +11,35 @@ from services.supabase_service import supabase
 
 # Sample transcript with emotional content for testing
 TEST_TRANSCRIPT = """
-Doctor: Good morning, how are you feeling today?
+Counsellor: Good morning, how are you feeling today?
 
-Patient: I'm very worried, doctor. I haven't been sleeping well because of these chest pains. I'm really scared it might be my heart. My father had a heart attack at my age.
+Student: I'm very worried, counsellor. I haven't been sleeping well because of these chest pains. I'm really scared it might be my heart. My father had a heart attack at my age.
 
-Doctor: I understand your concern. Let's talk about your symptoms. When did this start?
+Counsellor: I understand your concern. Let's talk about your symptoms. When did this start?
 
-Patient: About a week ago. The pain comes and goes, but it's been keeping me up at night. I'm anxious about it.
+Student: About a week ago. The pain comes and goes, but it's been keeping me up at night. I'm anxious about it.
 
-Doctor: I can see you're anxious. Let me examine you and we'll run some tests to be sure. How is your insurance coverage?
+Counsellor: I can see you're anxious. Let me examine you and we'll run some tests to be sure. How is your insurance coverage?
 
-Patient: Um, actually, I'm worried about the cost. Can we do just the necessary tests? I don't have the best insurance and money is tight right now.
+Student: Um, actually, I'm worried about the cost. Can we do just the necessary tests? I don't have the best insurance and money is tight right now.
 
-Doctor: Of course. We'll prioritize the most important ones. Don't worry, we'll work this out. I want to run an ECG and some blood work first.
+Counsellor: Of course. We'll prioritize the most important ones. Don't worry, we'll work this out. I want to run an ECG and some blood work first.
 
-Patient: Okay, thank you. How much will that cost approximately?
+Student: Okay, thank you. How much will that cost approximately?
 
-Doctor: The billing department can give you an exact estimate, but we can also discuss payment plans if needed. Your health is the priority.
+Counsellor: The billing department can give you an exact estimate, but we can also discuss payment plans if needed. Your health is the priority.
 
-Patient: Thank you, doctor. I really appreciate that. I feel a bit better knowing there are options.
+Student: Thank you, counsellor. I really appreciate that. I feel a bit better knowing there are options.
 
-Doctor: The exam looks good so far. Your heart rate and blood pressure are normal. I'll order the ECG and blood work now. These should give us a clear picture.
+Counsellor: The exam looks good so far. Your heart rate and blood pressure are normal. I'll order the ECG and blood work now. These should give us a clear picture.
 
-Patient: Okay, I feel more reassured now. Thank you for explaining everything and being understanding about the cost concerns.
+Student: Okay, I feel more reassured now. Thank you for explaining everything and being understanding about the cost concerns.
 
-Doctor: You're welcome. Make sure to follow up with me next week after we get the test results. Do you have any other questions?
+Counsellor: You're welcome. Make sure to follow up with me next week after we get the test results. Do you have any other questions?
 
-Patient: No, I think I'm good. Thank you again, doctor.
+Student: No, I think I'm good. Thank you again, counsellor.
 
-Doctor: Take care. We'll get to the bottom of this.
+Counsellor: Take care. We'll get to the bottom of this.
 """
 
 async def test_emotion_extraction():
@@ -72,40 +72,40 @@ async def test_emotion_extraction():
     print(f"✓ Found OP_CORE template: {template_id}")
     print()
 
-    # Get an existing doctor (or create a test one)
-    doctors_response = supabase.table('doctors').select('id').limit(1).execute()
+    # Get an existing counsellor (or create a test one)
+    doctors_response = supabase.table('counsellors').select('id').limit(1).execute()
 
     if doctors_response.data:
         user_id = uuid.UUID(doctors_response.data[0]['id'])
-        print(f"✓ Using existing doctor: {user_id}")
+        print(f"✓ Using existing counsellor: {user_id}")
     else:
-        # Create a test doctor if none exist
+        # Create a test counsellor if none exist
         test_doctor = {
             "id": str(uuid.uuid4()),
-            "name": "Test Doctor",
+            "name": "Test Counsellor",
             "email": f"test-{uuid.uuid4().hex[:8]}@example.com"
         }
-        doctor_response = supabase.table('doctors').insert(test_doctor).execute()
+        doctor_response = supabase.table('counsellors').insert(test_doctor).execute()
         user_id = uuid.UUID(doctor_response.data[0]['id'])
-        print(f"✓ Created test doctor: {user_id}")
+        print(f"✓ Created test counsellor: {user_id}")
 
-    # Get an existing patient (or create a test one)
-    patients_response = supabase.table('patients').select('id').limit(1).execute()
+    # Get an existing student (or create a test one)
+    patients_response = supabase.table('students').select('id').limit(1).execute()
 
     if patients_response.data:
-        patient_id = uuid.UUID(patients_response.data[0]['id'])
-        print(f"✓ Using existing patient: {patient_id}")
+        student_id = uuid.UUID(patients_response.data[0]['id'])
+        print(f"✓ Using existing student: {student_id}")
     else:
-        # Create a test patient if none exist
+        # Create a test student if none exist
         test_patient_uuid = uuid.uuid4()
         test_patient = {
             "id": str(test_patient_uuid),
-            "patient_id": f"TEST-MRN-{uuid.uuid4().hex[:8].upper()}",  # External patient ID (MRN)
-            "full_name": "Test Patient for Emotion Extraction",
+            "student_id": f"TEST-MRN-{uuid.uuid4().hex[:8].upper()}",  # External student ID (MRN)
+            "full_name": "Test Student for Emotion Extraction",
         }
-        patient_response = supabase.table('patients').insert(test_patient).execute()
-        patient_id = uuid.UUID(patient_response.data[0]['id'])
-        print(f"✓ Created test patient: {patient_id}")
+        patient_response = supabase.table('students').insert(test_patient).execute()
+        student_id = uuid.UUID(patient_response.data[0]['id'])
+        print(f"✓ Created test student: {student_id}")
 
     print()
 
@@ -113,8 +113,8 @@ async def test_emotion_extraction():
     extraction_data = {
         "session_id": None,  # NULL for test (session_id is optional)
         "consultation_type_id": str(consultation_type_id),
-        "user_id": str(user_id),  # Using user_id instead of doctor_id
-        "patient_id": str(patient_id),
+        "user_id": str(user_id),  # Using user_id instead of counsellor_id
+        "student_id": str(student_id),
         "extraction_mode": "full",
         "model_used": "gemini-2.5-flash",
         "segment_count": 0,
@@ -122,7 +122,7 @@ async def test_emotion_extraction():
     }
 
     print("Creating test extraction record...")
-    extraction_response = supabase.table("medical_extractions").insert(extraction_data).execute()
+    extraction_response = supabase.table("extractions").insert(extraction_data).execute()
 
     if not extraction_response.data:
         print("❌ ERROR: Failed to create extraction record")
@@ -156,7 +156,7 @@ async def test_emotion_extraction():
 
     # Check extraction status
     print("Checking extraction status...")
-    status_response = supabase.table('medical_extractions').select('*').eq('id', str(extraction_id)).execute()
+    status_response = supabase.table('extractions').select('*').eq('id', str(extraction_id)).execute()
 
     if status_response.data:
         extraction = status_response.data[0]
@@ -222,7 +222,7 @@ async def test_emotion_extraction():
     # Cleanup test data
     print("Cleaning up test data...")
     supabase.table('extraction_segments').delete().eq('extraction_id', str(extraction_id)).execute()
-    supabase.table('medical_extractions').delete().eq('id', str(extraction_id)).execute()
+    supabase.table('extractions').delete().eq('id', str(extraction_id)).execute()
     print("✓ Test data cleaned up")
     print()
 

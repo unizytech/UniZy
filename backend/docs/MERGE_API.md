@@ -51,16 +51,16 @@ The main `/merge` endpoint is **asynchronous**:
 
 | Identifier | Type | Description | Source |
 |------------|------|-------------|--------|
-| `extraction_id` | UUID | Unique ID for an extraction record | `medical_extractions.id` |
+| `extraction_id` | UUID | Unique ID for an extraction record | `extractions.id` |
 | `submission_id` | UUID | Processing job ID from recording flow | `processing_jobs.submission_id` |
-| `patient_id` | VARCHAR | External patient identifier (e.g., "PAT-12345", MRN) | User input |
-| `patient_id` (DB) | UUID | Internal patient UUID | `patients.id` |
+| `student_id` | VARCHAR | External patient identifier (e.g., "PAT-12345", MRN) | User input |
+| `student_id` (DB) | UUID | Internal patient UUID | `patients.id` |
 
 ### Important Notes
 
 - **Regular extractions** (from recording): Have both `submission_id` and `extraction_id`
 - **Merged extractions**: Have only `extraction_id` (submission_id is NULL)
-- **patient_id resolution**: External VARCHAR IDs are automatically resolved to internal UUIDs
+- **student_id resolution**: External VARCHAR IDs are automatically resolved to internal UUIDs
 
 ### Source Limits
 
@@ -85,7 +85,7 @@ curl -X POST "http://localhost:8000/api/v1/extractions/merge" \
   -d '{
     "source_extraction_ids": ["uuid1", "uuid2"],
     "target_template_code": "OP_GENERAL",
-    "doctor_id": "doctor-uuid"
+    "counsellor_id": "doctor-uuid"
   }'
 ```
 
@@ -118,7 +118,7 @@ curl -X POST "http://localhost:8000/api/v1/extractions/merge/preview" \
   -d '{
     "source_extraction_ids": ["uuid1", "uuid2"],
     "target_template_code": "OP_GENERAL",
-    "doctor_id": "doctor-uuid"
+    "counsellor_id": "doctor-uuid"
   }'
 ```
 
@@ -170,7 +170,7 @@ curl "http://localhost:8000/api/v1/extractions/by-session/{session_id}"
 
 ### 6. Get Patient Timeline
 
-**GET** `/patient/{patient_id}/timeline`
+**GET** `/patient/{student_id}/timeline`
 
 Get all extractions for a patient (for selection UI).
 
@@ -206,7 +206,7 @@ curl "http://localhost:8000/api/v1/extractions/{extraction_id}/merge-info"
 ```typescript
 interface MergeRequest {
   // Option 1: Direct extraction IDs (recommended)
-  source_extraction_ids?: string[];      // UUIDs from medical_extractions.id
+  source_extraction_ids?: string[];      // UUIDs from extractions.id
 
   // Option 2: Submission IDs (auto-resolved to extraction IDs)
   source_submission_ids?: string[];      // UUIDs from processing_jobs.submission_id
@@ -216,10 +216,10 @@ interface MergeRequest {
 
   // Required fields
   target_template_code: string;          // e.g., "OP_GENERAL", "OP_SMITH_1225141530"
-  doctor_id: string;                     // Doctor UUID performing merge (must have access to template)
+  counsellor_id: string;                     // Doctor UUID performing merge (must have access to template)
 
   // Conditional fields
-  patient_id?: string;                   // Required for JSON-only merges (external ID like "PAT-12345")
+  student_id?: string;                   // Required for JSON-only merges (external ID like "PAT-12345")
   merge_notes?: string;                  // Optional notes
 }
 ```
@@ -323,7 +323,7 @@ interface MergeMetadata {
 
 ```typescript
 interface PatientTimelineResponse {
-  patient_id: string;
+  student_id: string;
   extractions: PatientTimelineExtraction[];
   total_count: number;
 }
@@ -370,7 +370,7 @@ POST /api/v1/extractions/merge
     "550e8400-e29b-41d4-a716-446655440002"
   ],
   "target_template_code": "OP_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
@@ -383,7 +383,7 @@ POST /api/v1/extractions/merge
     "submission-uuid-2"
   ],
   "target_template_code": "OP_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
@@ -414,7 +414,7 @@ POST /api/v1/extractions/merge
     }
   ],
   "target_template_code": "OP_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
@@ -436,13 +436,13 @@ POST /api/v1/extractions/merge
     }
   ],
   "target_template_code": "OP_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
 **Key points:**
 - Can use either `source_extraction_ids` OR `source_submission_ids` for the DB extraction
-- `patient_id` is **optional** (derived from the extraction)
+- `student_id` is **optional** (derived from the extraction)
 - `upload_type` determines merge strategy (INVESTIGATION = APPEND)
 - Multiple JSON sources can be included (up to 4 total sources)
 
@@ -462,7 +462,7 @@ POST /api/v1/extractions/merge
     "new-extraction-uuid"
   ],
   "target_template_code": "DISCHARGE_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
@@ -479,7 +479,7 @@ POST /api/v1/extractions/merge
     }
   ],
   "target_template_code": "DISCHARGE_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
@@ -492,7 +492,7 @@ POST /api/v1/extractions/merge
 **When to use:** Creating a new extraction purely from uploaded JSON data.
 
 **Requirements:**
-- `patient_id` is **REQUIRED** (external ID like "PAT-12345")
+- `student_id` is **REQUIRED** (external ID like "PAT-12345")
 - `upload_type` is **REQUIRED** for each JSON source
 - Minimum 2 JSON sources
 
@@ -522,8 +522,8 @@ POST /api/v1/extractions/merge
     }
   ],
   "target_template_code": "OP_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099",
-  "patient_id": "PAT-12345"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099",
+  "student_id": "PAT-12345"
 }
 ```
 
@@ -546,7 +546,7 @@ POST /api/v1/extractions/merge
     "op-extraction-uuid-2"
   ],
   "target_template_code": "DISCHARGE_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099",
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099",
   "merge_notes": "Consolidating OP visits into discharge summary"
 }
 ```
@@ -584,7 +584,7 @@ POST /api/v1/extractions/merge
     }
   ],
   "target_template_code": "OP_GENERAL",
-  "doctor_id": "550e8400-e29b-41d4-a716-446655440099"
+  "counsellor_id": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
 
@@ -639,7 +639,7 @@ Data is always appended. Existing arrays are never replaced.
 |-------|--------|-------|----------|
 | "At least 2 sources required" | 400 | Less than 2 sources provided | Add more extraction IDs or JSON sources |
 | "Maximum 4 sources allowed" | 400 | More than 4 total sources | Reduce number of sources |
-| "patient_id is required" | 400 | JSON-only merge without patient_id | Provide `patient_id` field |
+| "student_id is required" | 400 | JSON-only merge without student_id | Provide `student_id` field |
 | "Cannot use both source_extraction_ids and source_submission_ids" | 400 | Both fields provided | Use only one |
 | "Failed to resolve submission_ids" | 400 | submission_id not found or still processing | Wait for processing or use extraction_id |
 | "Template not found" | 404 | Invalid target_template_code | Use valid template code |
@@ -675,7 +675,7 @@ if (status.status === 'completed') {
 
 ## Quick Reference: Which API to Use?
 
-| Scenario | API Field | patient_id | upload_type |
+| Scenario | API Field | student_id | upload_type |
 |----------|-----------|------------|-------------|
 | 2+ DB extractions (regular) | `source_extraction_ids` OR `source_submission_ids` | Optional | N/A |
 | DB extraction + JSON upload | (`source_extraction_ids` OR `source_submission_ids`) + `uploaded_json_sources` | Optional | Required |
@@ -689,20 +689,20 @@ if (status.status === 'completed') {
 To populate the target template dropdown, use the existing templates API:
 
 ```bash
-GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
+GET /api/v1/summary/templates?filter_type=doctor&counsellor_id={doctor-uuid}
 ```
 
 **Response:** (full template objects - frontend transforms to simplified format)
 ```json
 {
   "success": true,
-  "doctor_id": "doctor-uuid",
+  "counsellor_id": "doctor-uuid",
   "templates": [
     {
       "id": "template-uuid-1",
       "template_code": "OP_GENERAL",
       "template_name": "OP General",
-      "doctor_id": null,
+      "counsellor_id": null,
       "consultation_type_code": "OP",
       "consultation_type_name": "Outpatient"
     },
@@ -710,7 +710,7 @@ GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
       "id": "template-uuid-2",
       "template_code": "OP_SMITH_1225141530",
       "template_name": "Dr. Smith's OP Template",
-      "doctor_id": "doctor-uuid",
+      "counsellor_id": "doctor-uuid",
       "consultation_type_code": "OP",
       "consultation_type_name": "Outpatient"
     }
@@ -724,14 +724,14 @@ GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
 {
   template_code: string;    // Use as dropdown value
   template_name: string;    // Display in dropdown
-  is_common: boolean;       // Derived from doctor_id === null
+  is_common: boolean;       // Derived from counsellor_id === null
 }
 ```
 
 **Template Access Types:**
-- **Owned:** Doctor owns the template (`templates.doctor_id` = doctor's UUID)
-- **Shared:** Shared via `doctor_templates` junction table with `access_level='use'`
-- **Common:** Platform-wide templates (`templates.doctor_id` = NULL)
+- **Owned:** Doctor owns the template (`templates.counsellor_id` = doctor's UUID)
+- **Shared:** Shared via `counsellor_templates` junction table with `access_level='use'`
+- **Common:** Platform-wide templates (`templates.counsellor_id` = NULL)
 
 ---
 
@@ -744,7 +744,7 @@ GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
 {
   "source_extraction_ids": [...],
   "target_consultation_type_code": "OP",  // Consultation type code
-  "doctor_id": "..."
+  "counsellor_id": "..."
 }
 ```
 
@@ -753,7 +753,7 @@ GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
 {
   "source_extraction_ids": [...],
   "target_template_code": "OP_GENERAL",   // Template code
-  "doctor_id": "..."
+  "counsellor_id": "..."
 }
 ```
 
@@ -762,7 +762,7 @@ GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
 | Aspect | LEGACY (v1.x) | CURRENT (v2.0+) |
 |--------|---------------|-----------------|
 | Target field | `target_consultation_type_code` | `target_template_code` |
-| Dropdown API | `GET /api/v1/summary/consultation-types` | `GET /api/v1/summary/templates?filter_type=doctor&doctor_id=<uuid>` (existing endpoint) |
+| Dropdown API | `GET /api/v1/summary/consultation-types` | `GET /api/v1/summary/templates?filter_type=doctor&counsellor_id=<uuid>` (existing endpoint) |
 | Metadata field | `target_type_code` | `target_template_code` |
 | Access control | None | Template access validation |
 | Segment prompts | From `consultation_type_code` | From derived `consultation_type_code` (template → consultation_type lookup) |
@@ -770,15 +770,15 @@ GET /api/v1/summary/templates?filter_type=doctor&doctor_id={doctor-uuid}
 ### Migration Steps
 
 1. **Update API calls:** Change `target_consultation_type_code` → `target_template_code`
-2. **Update dropdown:** Fetch from `/templates?filter_type=doctor&doctor_id=<uuid>` instead of `/consultation-types`
+2. **Update dropdown:** Fetch from `/templates?filter_type=doctor&counsellor_id=<uuid>` instead of `/consultation-types`
 3. **Update metadata parsing:** Change `target_type_code` → `target_template_code`
 4. **Ensure doctor access:** Templates now validate doctor has access (owned, shared, or common)
 
 ### Benefits of Template-Based API
 
 - **Doctor-specific templates:** Each doctor can select their own templates for merge operations
-- **Shared templates:** Templates shared via `doctor_templates` junction are available
-- **Common templates:** Platform-wide templates (`doctor_id = NULL`) are always available as fallback
+- **Shared templates:** Templates shared via `counsellor_templates` junction are available
+- **Common templates:** Platform-wide templates (`counsellor_id = NULL`) are always available as fallback
 - **Access control:** Explicit validation that doctor can use the specified template before merge
 
 ---

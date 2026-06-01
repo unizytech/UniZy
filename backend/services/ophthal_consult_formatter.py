@@ -39,7 +39,7 @@ def format_ophthal_full_consult(flat_data: Dict[str, Any]) -> Dict[str, Any]:
 
         nested = {}
 
-        # ========== SECTION 1: PATIENT DEMOGRAPHICS (RECONSTRUCT OBJECT) ==========
+        # ========== SECTION 1: STUDENT DEMOGRAPHICS (RECONSTRUCT OBJECT) ==========
         nested["patientDemographics"] = {
             "name": flat_data.get("patientDemographics_name", ""),
             "mrNumber": flat_data.get("patientDemographics_mrNumber", ""),
@@ -284,10 +284,10 @@ def format_ophthal_full_consult(flat_data: Dict[str, Any]) -> Dict[str, Any]:
             procedures = []
         nested["procedures"] = procedures
 
-        # ========== SECTION 22: DOCTOR RECOMMENDATION (SIMPLE FIELD) ==========
+        # ========== SECTION 22: COUNSELLOR RECOMMENDATION (SIMPLE FIELD) ==========
         nested["doctorRecommendation"] = flat_data.get("doctorRecommendation", "N/A")
 
-        # ========== SECTION 23: DOCTOR NOTES AND INVESTIGATION ==========
+        # ========== SECTION 23: COUNSELLOR NOTES AND INVESTIGATION ==========
         nested["doctorNotes"] = flat_data.get("doctorNotes", "N/A")
 
         investigation = flat_data.get("investigation", [])

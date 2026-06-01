@@ -4,44 +4,44 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   mergeExtractions,
   previewMerge,
-  getPatientTimeline,
+  getStudentTimeline,
   type MergeRequest,
   type MergeResponse,
-  type PatientTimelineExtraction,
+  type StudentTimelineExtraction,
   type UploadedJsonSource,
 } from '../services/mergeService';
-import { getDoctorTemplates } from '@lib/summaryApi';
-import { searchPatients, type PatientSearchResult } from '@lib/patientHistoryApi';
+import { getCounsellorTemplates } from '@lib/summaryApi';
+import { searchStudents, type StudentSearchResult } from '@lib/studentHistoryApi';
 import { useAuth } from '@lib/auth';
 import type { MergeTargetTemplate } from '@lib/types';
-import DoctorSelector from './DoctorSelector';
+import CounsellorSelector from './CounsellorSelector';
 
 interface ExtractionMergeScreenProps {
-  initialPatientId?: string;
-  initialDoctorId?: string;
+  initialStudentId?: string;
+  initialCounsellorId?: string;
   onClose?: () => void;
 }
 
 export default function ExtractionMergeScreen({
-  initialPatientId,
-  initialDoctorId,
+  initialStudentId,
+  initialCounsellorId,
   onClose,
 }: ExtractionMergeScreenProps) {
   const { getAccessToken } = useAuth();
 
   // State
-  const [patientId, setPatientId] = useState(initialPatientId || '');
-  const [extractions, setExtractions] = useState<PatientTimelineExtraction[]>([]);
+  const [patientId, setStudentId] = useState(initialStudentId || '');
+  const [extractions, setExtractions] = useState<StudentTimelineExtraction[]>([]);
   const [selectedExtractionIds, setSelectedExtractionIds] = useState<string[]>([]);
   const [targetTemplateCode, setTargetTemplateCode] = useState('');
-  const [doctorId, setDoctorId] = useState(initialDoctorId || '');
+  const [doctorId, setCounsellorId] = useState(initialCounsellorId || '');
   const [mergeNotes, setMergeNotes] = useState('');
 
-  // Patient list for dropdown
-  const [patientsList, setPatientsList] = useState<PatientSearchResult[]>([]);
-  const [loadingPatients, setLoadingPatients] = useState(false);
+  // Student list for dropdown
+  const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
-  // Templates from database (doctor-accessible templates)
+  // Templates from database (counsellor-accessible templates)
   const [templates, setTemplates] = useState<MergeTargetTemplate[]>([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
 
@@ -59,17 +59,19 @@ export default function ExtractionMergeScreen({
   // Upload type options - determines merge strategy
   // DEEP_MERGE: Contextual merging, latest/most complete value wins
   // APPEND: Arrays concatenated, never replaced
+  // NOTE: `value` strings are a fixed FE↔BE contract (drive DEEP_MERGE vs APPEND on the
+  // backend). Only labels/descriptions are domain copy; do not rename the values here.
   const UPLOAD_TYPES = [
-    // DEEP_MERGE types
-    { value: 'OP_SUMMARY', label: 'OP Summary', strategy: 'DEEP_MERGE', description: 'Outpatient session summary' },
-    { value: 'DISCHARGE_SUMMARY', label: 'Discharge Summary', strategy: 'DEEP_MERGE', description: 'School discharge summary' },
-    { value: 'EXAMINATION', label: 'Examination', strategy: 'DEEP_MERGE', description: 'Physical examination, vitals' },
-    { value: 'OPTOMETRY', label: 'Optometry', strategy: 'DEEP_MERGE', description: 'Ophthalmology/optometry data' },
+    // DEEP_MERGE types — contextually merged (latest/most complete wins on conflicts)
+    { value: 'OP_SUMMARY', label: 'Session Summary', strategy: 'DEEP_MERGE', description: 'A prior session summary' },
+    { value: 'DISCHARGE_SUMMARY', label: 'Case Summary', strategy: 'DEEP_MERGE', description: 'Overall case/progress summary' },
+    { value: 'EXAMINATION', label: 'Assessment', strategy: 'DEEP_MERGE', description: 'Assessment meters / evaluations' },
+    { value: 'OPTOMETRY', label: 'Goals & Academics', strategy: 'DEEP_MERGE', description: 'Goals, academics, direction' },
     { value: 'OTHER', label: 'Other', strategy: 'DEEP_MERGE', description: 'General/unclassified data' },
-    // APPEND types
-    { value: 'INVESTIGATION', label: 'Investigation/Lab', strategy: 'APPEND', description: 'Lab results, imaging reports' },
-    { value: 'PRESCRIPTION', label: 'Prescription', strategy: 'APPEND', description: 'Medications, prescriptions' },
-    { value: 'NOTES', label: 'Notes', strategy: 'APPEND', description: 'Clinical notes, documentation' },
+    // APPEND types — list items are unioned, never replaced
+    { value: 'INVESTIGATION', label: 'Key Facts', strategy: 'APPEND', description: 'Key facts / highlights' },
+    { value: 'PRESCRIPTION', label: 'Tasks', strategy: 'APPEND', description: 'Tasks and action items' },
+    { value: 'NOTES', label: 'Notes', strategy: 'APPEND', description: 'Counsellor notes, documentation' },
   ];
 
   // Load templates when doctorId is available
@@ -81,7 +83,7 @@ export default function ExtractionMergeScreen({
       }
       try {
         setLoadingTypes(true);
-        const response = await getDoctorTemplates(doctorId, getAccessToken());
+        const response = await getCounsellorTemplates(doctorId, getAccessToken());
         if (response.success && response.templates) {
           setTemplates(response.templates);
           // Set default target template to first available template
@@ -100,37 +102,37 @@ export default function ExtractionMergeScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctorId]); // Only re-run when doctorId changes - getAccessToken is stable from useAuth
 
-  // Load patients list when doctor is selected
+  // Load students list when counsellor is selected
   useEffect(() => {
     if (doctorId) {
-      loadPatientsList();
+      loadStudentsList();
     } else {
-      setPatientsList([]);
-      setPatientId('');
+      setStudentsList([]);
+      setStudentId('');
       setExtractions([]);
       setSelectedExtractionIds([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctorId]);
 
-  const loadPatientsList = async () => {
+  const loadStudentsList = async () => {
     if (!doctorId) return;
 
     try {
-      setLoadingPatients(true);
+      setLoadingStudents(true);
       const accessToken = getAccessToken();
-      // Use searchPatients with empty query to get all patients for this doctor
-      const response = await searchPatients('', doctorId, 1, 100, accessToken);
-      setPatientsList(response.patients || []);
+      // Use searchStudents with empty query to get all students for this counsellor
+      const response = await searchStudents('', doctorId, 1, 100, accessToken);
+      setStudentsList(response.students || []);
     } catch (err) {
-      console.error('Failed to load patients:', err);
-      setPatientsList([]);
+      console.error('Failed to load students:', err);
+      setStudentsList([]);
     } finally {
-      setLoadingPatients(false);
+      setLoadingStudents(false);
     }
   };
 
-  // Load patient timeline when patient ID changes (with debounce to avoid too many API calls)
+  // Load student timeline when student ID changes (with debounce to avoid too many API calls)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     // Clear any existing timer
@@ -141,7 +143,7 @@ export default function ExtractionMergeScreen({
     // Only load if patientId has at least 2 characters
     if (patientId && patientId.length >= 2) {
       debounceTimerRef.current = setTimeout(() => {
-        loadPatientTimeline();
+        loadStudentTimeline();
       }, 500); // 500ms debounce
     }
 
@@ -152,11 +154,11 @@ export default function ExtractionMergeScreen({
     };
   }, [patientId]);
 
-  const loadPatientTimeline = async () => {
+  const loadStudentTimeline = async () => {
     try {
       setLoading(true);
       setError(null);
-      const timeline = await getPatientTimeline(patientId, undefined, getAccessToken());
+      const timeline = await getStudentTimeline(patientId, undefined, getAccessToken());
       setExtractions(timeline.extractions);
       setSelectedExtractionIds([]); // Reset selection
     } catch (err) {
@@ -255,7 +257,7 @@ export default function ExtractionMergeScreen({
       setError('Maximum 4 sources allowed (extractions + JSON uploads combined)');
       return;
     }
-    // For JSON-only merge, patient_id is required
+    // For JSON-only merge, student_id is required
     if (selectedExtractionIds.length === 0 && !patientId) {
       setError('Student ID is required for JSON-only merge');
       return;
@@ -267,9 +269,9 @@ export default function ExtractionMergeScreen({
       const preview = await previewMerge({
         source_extraction_ids: selectedExtractionIds,
         target_template_code: targetTemplateCode,
-        doctor_id: doctorId,
+        counsellor_id: doctorId,
         uploaded_json_sources: uploadedJsonSources.length > 0 ? uploadedJsonSources : undefined,
-        patient_id: selectedExtractionIds.length === 0 ? patientId : undefined,
+        student_id: selectedExtractionIds.length === 0 ? patientId : undefined,
       }, getAccessToken());
       setPreviewData(preview);
       setMergedResult(null); // Clear any previous merged result
@@ -291,7 +293,7 @@ export default function ExtractionMergeScreen({
       setError('Maximum 4 sources allowed (extractions + JSON uploads combined)');
       return;
     }
-    // For JSON-only merge, patient_id is required
+    // For JSON-only merge, student_id is required
     if (selectedExtractionIds.length === 0 && !patientId) {
       setError('Student ID is required for JSON-only merge');
       return;
@@ -303,10 +305,10 @@ export default function ExtractionMergeScreen({
       const request: MergeRequest = {
         source_extraction_ids: selectedExtractionIds,
         target_template_code: targetTemplateCode,
-        doctor_id: doctorId,
+        counsellor_id: doctorId,
         merge_notes: mergeNotes || undefined,
         uploaded_json_sources: uploadedJsonSources.length > 0 ? uploadedJsonSources : undefined,
-        patient_id: selectedExtractionIds.length === 0 ? patientId : undefined,
+        student_id: selectedExtractionIds.length === 0 ? patientId : undefined,
       };
       const result = await mergeExtractions(request, getAccessToken());
       setMergedResult(result);
@@ -314,7 +316,7 @@ export default function ExtractionMergeScreen({
       handleClearAllJson(); // Clear uploaded JSON sources after successful merge
 
       // Reload timeline to show new merged extraction
-      await loadPatientTimeline();
+      await loadStudentTimeline();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to merge extractions');
     } finally {
@@ -341,7 +343,7 @@ export default function ExtractionMergeScreen({
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Merge Extractions</h1>
             <p className="text-gray-600 mt-1">
-              Combine multiple medical extractions into a single consolidated record
+              Combine multiple session records into a single consolidated record
             </p>
           </div>
           {onClose && (
@@ -378,17 +380,17 @@ export default function ExtractionMergeScreen({
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel: Patient Selection & Configuration */}
+          {/* Left Panel: Student Selection & Configuration */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Doctor Selection */}
+            {/* Counsellor Selection */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Counsellor Selection</h2>
-              <DoctorSelector
-                selectedDoctorId={doctorId}
-                onDoctorSelect={(id) => {
-                  setDoctorId(id || '');
-                  // Clear patient selection when doctor changes
-                  setPatientId('');
+              <CounsellorSelector
+                selectedCounsellorId={doctorId}
+                onCounsellorSelect={(id) => {
+                  setCounsellorId(id || '');
+                  // Clear student selection when counsellor changes
+                  setStudentId('');
                   setExtractions([]);
                   setSelectedExtractionIds([]);
                 }}
@@ -396,7 +398,7 @@ export default function ExtractionMergeScreen({
               />
             </div>
 
-            {/* Patient Selection */}
+            {/* Student Selection */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Student Selection</h2>
               <div>
@@ -405,7 +407,7 @@ export default function ExtractionMergeScreen({
                 </label>
                 {!doctorId ? (
                   <p className="text-sm text-gray-500 italic">Select a counsellor first</p>
-                ) : loadingPatients ? (
+                ) : loadingStudents ? (
                   <div className="flex items-center justify-center py-3">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                     <span className="text-gray-500 text-sm">Loading students...</span>
@@ -413,15 +415,15 @@ export default function ExtractionMergeScreen({
                 ) : patientsList.length > 0 ? (
                   <select
                     value={patientId}
-                    onChange={(e) => setPatientId(e.target.value)}
+                    onChange={(e) => setStudentId(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">Select a student...</option>
                     {patientsList.map((patient) => (
-                      <option key={patient.id} value={patient.patient_id}>
-                        {patient.patient_id}
+                      <option key={patient.id} value={patient.student_id}>
+                        {patient.student_id}
                         {patient.full_name ? ` - ${patient.full_name}` : ''}
-                        {patient.hospital_name ? ` (${patient.hospital_name})` : ''}
+                        {patient.school_name ? ` (${patient.school_name})` : ''}
                         {patient.add_info?.roomNo ? ` [Room ${patient.add_info.roomNo}, Bed ${patient.add_info.bedNo}]` : ''}
                       </option>
                     ))}
@@ -431,7 +433,7 @@ export default function ExtractionMergeScreen({
                 )}
                 {patientId && (
                   <button
-                    onClick={loadPatientTimeline}
+                    onClick={loadStudentTimeline}
                     disabled={!patientId || loading}
                     className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                   >
@@ -780,7 +782,7 @@ export default function ExtractionMergeScreen({
                             </span>
                           </div>
                           <div className="mt-1 text-sm text-gray-600">
-                            <span>Counsellor: {extraction.doctor_name || 'Unknown'}</span>
+                            <span>Counsellor: {extraction.counsellor_name || 'Unknown'}</span>
                             <span className="mx-2">•</span>
                             <span>{extraction.segment_count} segments</span>
                           </div>

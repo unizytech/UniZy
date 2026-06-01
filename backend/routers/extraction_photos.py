@@ -1,9 +1,9 @@
 """
 Extraction Photos API Router
 
-Endpoints to attach, list, and delete photos linked to a medical_extractions row.
+Endpoints to attach, list, and delete photos linked to a extractions row.
 
-Auth: admin / web_app / EHR (EHR clients are scoped to their hospital via the
+Auth: admin / web_app / EHR (EHR clients are scoped to their school via the
 existing EHRExtractionAccessChecker).
 
 Storage: 'extraction-photos' Supabase Storage bucket. See
@@ -85,8 +85,8 @@ class ExtractionPhotoListResponse(BaseModel):
 
 def _get_extraction_or_404(extraction_id: str) -> dict:
     try:
-        result = supabase.table("medical_extractions").select(
-            "id, patient_id, doctor_id"
+        result = supabase.table("extractions").select(
+            "id, student_id, counsellor_id"
         ).eq("id", extraction_id).limit(1).execute()
     except Exception as e:
         logger.error(f"[PHOTOS] Failed to load extraction {extraction_id}: {e}")
@@ -126,7 +126,7 @@ def _audit(
     *,
     action: str,
     resource_id: str,
-    patient_id: Optional[str],
+    student_id: Optional[str],
     status: int,
 ) -> None:
     """Fire-and-forget PHI audit log."""
@@ -143,7 +143,7 @@ def _audit(
                 resource_type="extraction_photo",
                 resource_id=resource_id,
                 action=action,
-                patient_id=patient_id,
+                student_id=student_id,
             )
         )
     except Exception:
@@ -166,7 +166,7 @@ async def upload_extraction_photo(
     label: str = Form(...),
     _auth=Depends(verify_extraction_access),
 ):
-    """Attach a photo to a medical extraction."""
+    """Attach a photo to an extraction."""
     try:
         uuid.UUID(extraction_id)
     except ValueError:
@@ -257,7 +257,7 @@ async def upload_extraction_photo(
         request,
         action="create",
         resource_id=photo_id,
-        patient_id=extraction.get("patient_id"),
+        student_id=extraction.get("student_id"),
         status=201,
     )
     return _row_to_response(row)
@@ -272,7 +272,7 @@ async def list_extraction_photos(
     extraction_id: str,
     _auth=Depends(verify_extraction_access),
 ):
-    """List photos attached to a medical extraction."""
+    """List photos attached to an extraction."""
     try:
         uuid.UUID(extraction_id)
     except ValueError:
@@ -295,7 +295,7 @@ async def list_extraction_photos(
         request,
         action="read",
         resource_id=extraction_id,
-        patient_id=extraction.get("patient_id"),
+        student_id=extraction.get("student_id"),
         status=200,
     )
     return ExtractionPhotoListResponse(photos=photos, total=len(photos))
@@ -347,7 +347,7 @@ async def delete_extraction_photo(
         request,
         action="delete",
         resource_id=photo_id,
-        patient_id=extraction.get("patient_id"),
+        student_id=extraction.get("student_id"),
         status=204,
     )
     return None

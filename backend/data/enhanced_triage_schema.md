@@ -344,7 +344,7 @@
         ]
       },
 
-      "patient_education": {
+      "student_education": {
         "key_messages": [
           "Hypertension is usually asymptomatic but causes serious complications",
           "Lifelong therapy required in most cases",

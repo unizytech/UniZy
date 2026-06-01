@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { MedicalExtractionResponse, ConsultationTypeCode, ProcessingMode, ActivatedTemplate } from "@lib/types";
-import DoctorSelector from './DoctorSelector';
-import NurseSelector from './NurseSelector';
+import type { ExtractionResponse, ConsultationTypeCode, ProcessingMode, ActivatedTemplate } from "@lib/types";
+import CounsellorSelector from './CounsellorSelector';
+import AssistantSelector from './AssistantSelector';
 import { handleApiError, getProcessingModes, getEmotionAnalysis, getTriageSuggestions, saveExtractionEdits, getExtractionTranslation, saveTranslationEdits, retryExtractionTranslation, type EmotionAnalysisData, type TriageSuggestionsResponse, type ExtractionTranslation } from "@lib/summaryApi";
-import { getNurseTemplates, type NurseTemplate } from '@/services/nurseApi';
-import { searchPatients, type PatientSearchResult } from "@lib/patientHistoryApi";
-import { getDoctorTemplates, type DoctorTemplate } from "../services/doctorApi";
+import { getAssistantTemplates, type AssistantTemplate } from '@/services/assistantApi';
+import { searchStudents, type StudentSearchResult } from "@lib/studentHistoryApi";
+import { getCounsellorTemplates, type CounsellorTemplate } from "../services/counsellorApi";
 import { RecordingManager } from '../services/recordingService';
 import { API_CONFIG } from "@lib/config";
 import ExtractionMergeScreen from './ExtractionMergeScreen';
@@ -30,28 +30,28 @@ export function VHRScreen() {
   // Auth
   const { getAccessToken, loading: authLoading } = useAuth();
 
-  // Doctor selection
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+  // Counsellor selection
+  const [selectedCounsellorId, setSelectedCounsellorId] = useState<string | null>(null);
 
-  // Nurse selection (optional)
-  const [selectedNurseId, setSelectedNurseId] = useState<string | null>(null);
+  // Assistant selection (optional)
+  const [selectedAssistantId, setSelectedAssistantId] = useState<string | null>(null);
 
   // Template selection
-  const [selectedTemplate, setSelectedTemplate] = useState<DoctorTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<CounsellorTemplate | null>(null);
 
-  // Doctor templates
-  const [activatedTemplates, setActivatedTemplates] = useState<DoctorTemplate[]>([]);
+  // Counsellor templates
+  const [activatedTemplates, setActivatedTemplates] = useState<CounsellorTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-  // Patient ID and list
-  const [patientId, setPatientId] = useState('');
-  const [patientsList, setPatientsList] = useState<PatientSearchResult[]>([]);
-  const [loadingPatients, setLoadingPatients] = useState(false);
+  // Student ID and list
+  const [patientId, setStudentId] = useState('');
+  const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Continuation mode (whether this recording continues a prior consultation)
   const [isContinuation, setIsContinuation] = useState(false);
 
-  // Reset continuation toggle when patient changes
+  // Reset continuation toggle when student changes
   useEffect(() => { setIsContinuation(false); }, [patientId]);
 
   // Processing mode (determines model selection)
@@ -81,8 +81,8 @@ export function VHRScreen() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Extraction state (progressive)
-  const [coreExtractionData, setCoreExtractionData] = useState<MedicalExtractionResponse | null>(null);
-  const [additionalExtractionData, setAdditionalExtractionData] = useState<MedicalExtractionResponse | null>(null);
+  const [coreExtractionData, setCoreExtractionData] = useState<ExtractionResponse | null>(null);
+  const [additionalExtractionData, setAdditionalExtractionData] = useState<ExtractionResponse | null>(null);
   const [loadingCore, setLoadingCore] = useState(false);
   const [loadingAdditional, setLoadingAdditional] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -202,7 +202,7 @@ export function VHRScreen() {
   const [editedTranslationData, setEditedTranslationData] = useState<Record<string, unknown> | null>(null);
   const [translationOutdated, setTranslationOutdated] = useState(false);
   const [retranslating, setRetranslating] = useState(false);
-  const [doctorTranslationLanguage, setDoctorTranslationLanguage] = useState<string | null>(null);
+  const [doctorTranslationLanguage, setCounsellorTranslationLanguage] = useState<string | null>(null);
 
   // Cache refresh state
   const [isRefreshingCache, setIsRefreshingCache] = useState(false);
@@ -232,49 +232,49 @@ export function VHRScreen() {
     }
   }, [authLoading, getAccessToken, processingModesLoaded]);
 
-  // Load activated templates when doctor or nurse is selected
-  // Nurse templates take priority over doctor templates
+  // Load activated templates when counsellor or assistant is selected
+  // Assistant templates take priority over counsellor templates
   useEffect(() => {
-    if (selectedNurseId) {
-      loadNurseActivatedTemplates();
-    } else if (selectedDoctorId) {
+    if (selectedAssistantId) {
+      loadAssistantActivatedTemplates();
+    } else if (selectedCounsellorId) {
       loadActivatedTemplates();
     } else {
       setActivatedTemplates([]);
       setSelectedTemplate(null);
     }
-  }, [selectedDoctorId, selectedNurseId]);
+  }, [selectedCounsellorId, selectedAssistantId]);
 
-  // Load patients list when doctor is selected
+  // Load students list when counsellor is selected
   useEffect(() => {
-    if (selectedDoctorId) {
-      loadPatientsList();
+    if (selectedCounsellorId) {
+      loadStudentsList();
     } else {
-      setPatientsList([]);
-      setPatientId('');
+      setStudentsList([]);
+      setStudentId('');
     }
-  }, [selectedDoctorId]);
+  }, [selectedCounsellorId]);
 
-  const loadPatientsList = async () => {
-    if (!selectedDoctorId) return;
+  const loadStudentsList = async () => {
+    if (!selectedCounsellorId) return;
 
     try {
-      setLoadingPatients(true);
+      setLoadingStudents(true);
       const accessToken = getAccessToken();
-      // Use searchPatients with empty query to get all patients for this doctor
-      // For Doctor SKS, this automatically syncs with Neopaed hospital system
-      const response = await searchPatients('', selectedDoctorId, 1, 100, accessToken);
-      console.log('[DEBUG] Loaded patients:', response.total_count);
-      setPatientsList(response.patients);
-      // Auto-select first patient if available
-      if (response.patients.length > 0) {
-        setPatientId(response.patients[0].patient_id);
+      // Use searchStudents with empty query to get all students for this counsellor
+      // For Counsellor SKS, this automatically syncs with Neopaed school system
+      const response = await searchStudents('', selectedCounsellorId, 1, 100, accessToken);
+      console.log('[DEBUG] Loaded students:', response.total_count);
+      setStudentsList(response.students);
+      // Auto-select first student if available
+      if (response.students.length > 0) {
+        setStudentId(response.students[0].student_id);
       }
     } catch (err) {
-      console.error('Failed to load patients list:', err);
-      setPatientsList([]);
+      console.error('Failed to load students list:', err);
+      setStudentsList([]);
     } finally {
-      setLoadingPatients(false);
+      setLoadingStudents(false);
     }
   };
 
@@ -329,13 +329,13 @@ export function VHRScreen() {
   };
 
   const loadActivatedTemplates = async () => {
-    if (!selectedDoctorId) return;
+    if (!selectedCounsellorId) return;
 
     try {
       setLoadingTemplates(true);
-      console.log('[DEBUG] Loading templates for doctor:', selectedDoctorId);
+      console.log('[DEBUG] Loading templates for counsellor:', selectedCounsellorId);
       const accessToken = getAccessToken();
-      const templates = await getDoctorTemplates(selectedDoctorId, accessToken);
+      const templates = await getCounsellorTemplates(selectedCounsellorId, accessToken);
       console.log('[DEBUG] Received templates:', templates);
       console.log('[DEBUG] Template count:', templates.length);
       setActivatedTemplates(templates);
@@ -344,7 +344,7 @@ export function VHRScreen() {
         setSelectedTemplate(templates[0]);
         console.log('[DEBUG] Auto-selected template:', templates[0].template_name);
       } else {
-        console.warn('[DEBUG] No templates found for doctor:', selectedDoctorId);
+        console.warn('[DEBUG] No templates found for counsellor:', selectedCounsellorId);
       }
     } catch (err) {
       console.error('Failed to load activated templates:', err);
@@ -355,23 +355,23 @@ export function VHRScreen() {
     }
   };
 
-  // Load nurse's accessible templates
-  const loadNurseActivatedTemplates = async () => {
-    if (!selectedNurseId) return;
+  // Load assistant's accessible templates
+  const loadAssistantActivatedTemplates = async () => {
+    if (!selectedAssistantId) return;
 
     try {
       setLoadingTemplates(true);
-      console.log('[DEBUG] Loading templates for nurse:', selectedNurseId);
+      console.log('[DEBUG] Loading templates for assistant:', selectedAssistantId);
       const accessToken = getAccessToken();
-      const nurseTemplates = await getNurseTemplates(selectedNurseId, accessToken);
-      console.log('[DEBUG] Received nurse templates:', nurseTemplates);
-      console.log('[DEBUG] Nurse template count:', nurseTemplates.length);
+      const nurseTemplates = await getAssistantTemplates(selectedAssistantId, accessToken);
+      console.log('[DEBUG] Received assistant templates:', nurseTemplates);
+      console.log('[DEBUG] Assistant template count:', nurseTemplates.length);
 
-      // Convert NurseTemplate to DoctorTemplate format for UI compatibility
+      // Convert AssistantTemplate to CounsellorTemplate format for UI compatibility
       // Only include templates with 'use' access level
       // Deduplicate by template_id to avoid React key warnings
       const seenTemplateIds = new Set<string>();
-      const convertedTemplates: DoctorTemplate[] = nurseTemplates
+      const convertedTemplates: CounsellorTemplate[] = nurseTemplates
         .filter(nt => nt.is_active)
         .filter(nt => {
           if (seenTemplateIds.has(nt.template_id)) {
@@ -388,7 +388,7 @@ export function VHRScreen() {
           consultation_type_code: nt.consultation_type_code || '',
           consultation_type_name: nt.consultation_type_name || '',
           description: nt.description || '',
-          doctor_id: selectedDoctorId || '',  // Use doctor if selected
+          counsellor_id: selectedCounsellorId || '',  // Use counsellor if selected
           is_active: nt.is_active,
           is_default: false,
           created_at: nt.created_at,
@@ -399,13 +399,13 @@ export function VHRScreen() {
       // Auto-select first template if available
       if (convertedTemplates.length > 0) {
         setSelectedTemplate(convertedTemplates[0]);
-        console.log('[DEBUG] Auto-selected nurse template:', convertedTemplates[0].template_name);
+        console.log('[DEBUG] Auto-selected assistant template:', convertedTemplates[0].template_name);
       } else {
-        console.warn('[DEBUG] No accessible templates found for nurse:', selectedNurseId);
+        console.warn('[DEBUG] No accessible templates found for assistant:', selectedAssistantId);
         setSelectedTemplate(null);
       }
     } catch (err) {
-      console.error('Failed to load nurse templates:', err);
+      console.error('Failed to load assistant templates:', err);
       setActivatedTemplates([]);
       setSelectedTemplate(null);
     } finally {
@@ -1065,9 +1065,9 @@ export function VHRScreen() {
           // Select the template so splitFullExtractionResults can use it
           setSelectedTemplate(matchingTemplate);
 
-          // Also restore the doctor ID if different
-          if (result.templateContext.doctorId && result.templateContext.doctorId !== selectedDoctorId) {
-            setSelectedDoctorId(result.templateContext.doctorId);
+          // Also restore the counsellor ID if different
+          if (result.templateContext.doctorId && result.templateContext.doctorId !== selectedCounsellorId) {
+            setSelectedCounsellorId(result.templateContext.doctorId);
           }
         }
       }
@@ -1094,8 +1094,8 @@ export function VHRScreen() {
             correlation_id: null,
             submission_id: null,
             extraction_id: 'restored',
-            doctor_id: result.templateContext?.doctorId || null,
-            patient_id: null,
+            counsellor_id: result.templateContext?.doctorId || null,
+            student_id: null,
             template_code: result.templateContext?.consultationTypeCode || result.templateName || null,
             mode: 'full',
             segment_count: 0,
@@ -1287,9 +1287,9 @@ export function VHRScreen() {
 
   // Save edits to backend
   const handleSaveEdits = async () => {
-    // Determine who is editing: nurse takes priority if selected
-    const editedById = selectedNurseId || selectedDoctorId;
-    const editedByType: 'doctor' | 'nurse' = selectedNurseId ? 'nurse' : 'doctor';
+    // Determine who is editing: assistant takes priority if selected
+    const editedById = selectedAssistantId || selectedCounsellorId;
+    const editedByType: 'doctor' | 'nurse' = selectedAssistantId ? 'nurse' : 'doctor';
 
     if (!currentExtractionId || !editedById) {
       setEditSaveError('Missing extraction ID or editor ID');
@@ -1407,27 +1407,27 @@ export function VHRScreen() {
     setTranslationOutdated(false);
   };
 
-  // Fetch doctor's translation_language when doctor changes
+  // Fetch counsellor's translation_language when counsellor changes
   useEffect(() => {
-    if (!selectedDoctorId) {
-      setDoctorTranslationLanguage(null);
+    if (!selectedCounsellorId) {
+      setCounsellorTranslationLanguage(null);
       return;
     }
     const fetchLang = async () => {
       try {
         const accessToken = getAccessToken();
-        const res = await authGet(`/api/v1/doctors/${selectedDoctorId}`, accessToken);
+        const res = await authGet(`/api/v1/counsellors/${selectedCounsellorId}`, accessToken);
         if (res.ok) {
           const data = await res.json();
           const doctor = data.doctor || data;
-          setDoctorTranslationLanguage(doctor.translation_language || null);
+          setCounsellorTranslationLanguage(doctor.translation_language || null);
         }
       } catch {
         // Non-critical - translation toggle just won't show
       }
     };
     fetchLang();
-  }, [selectedDoctorId]);
+  }, [selectedCounsellorId]);
 
   // Language display names
   const LANGUAGE_LABELS: Record<string, string> = {
@@ -1483,8 +1483,8 @@ export function VHRScreen() {
 
   // Save translated version edits
   const handleSaveTranslationEdits = async () => {
-    const editedById = selectedNurseId || selectedDoctorId;
-    const editedByType: 'doctor' | 'nurse' = selectedNurseId ? 'nurse' : 'doctor';
+    const editedById = selectedAssistantId || selectedCounsellorId;
+    const editedByType: 'doctor' | 'nurse' = selectedAssistantId ? 'nurse' : 'doctor';
     if (!currentExtractionId || !editedById || !editedTranslationData) return;
 
     setIsSavingEdits(true);
@@ -1558,7 +1558,7 @@ export function VHRScreen() {
   // while previous ones process in the background
   const canStartRecording = (): boolean => {
     return Boolean(
-      selectedDoctorId &&
+      selectedCounsellorId &&
       selectedTemplate &&
       processingMode &&
       patientId.trim() &&
@@ -1609,8 +1609,8 @@ export function VHRScreen() {
       correlation_id: null,
       submission_id: null,
       extraction_id: 'fallback',
-      doctor_id: selectedDoctorId || null,
-      patient_id: null,
+      counsellor_id: selectedCounsellorId || null,
+      student_id: null,
       template_code: selectedTemplate.template_code || null,
       mode: 'full',
       segment_count: segmentCount,
@@ -1629,7 +1629,7 @@ export function VHRScreen() {
 
     // Background: fetch segment config and remove excluded segments
     try {
-      const segmentUrl = `${API_CONFIG.backendUrl}/api/v1/summary/segments/${selectedTemplate.consultation_type_code}?doctor_id=${selectedDoctorId}&template_code=${encodeURIComponent(selectedTemplate.template_code)}`;
+      const segmentUrl = `${API_CONFIG.backendUrl}/api/v1/summary/segments/${selectedTemplate.consultation_type_code}?counsellor_id=${selectedCounsellorId}&template_code=${encodeURIComponent(selectedTemplate.template_code)}`;
 
       const segmentsResponse = await fetchWithRetry(segmentUrl, 3, 500);
       if (!segmentsResponse.ok) return;
@@ -1693,8 +1693,8 @@ export function VHRScreen() {
         {
           template: templateCodeToUse,  // Template code for DB lookups
           templateName: templateNameToUse,  // Display name for readability
-          doctorName: selectedDoctorId || 'Unknown',
-          nurseId: selectedNurseId || undefined,  // Optional nurse_id if recording initiated by nurse
+          doctorName: selectedCounsellorId || 'Unknown',
+          nurseId: selectedAssistantId || undefined,  // Optional assistant_id if recording initiated by assistant
           patientId: patientId,
           transcriptionEngine: 'gemini',
           processingMode: processingMode,
@@ -1719,7 +1719,7 @@ export function VHRScreen() {
     if (!recordingManagerRef.current) return;
 
     // Capture current session info before resetting
-    const currentPatientId = patientId;
+    const currentStudentId = patientId;
     const currentTemplateName = selectedTemplate?.template_name || 'Unknown';
 
     try {
@@ -1735,7 +1735,7 @@ export function VHRScreen() {
       // Create background session and start Realtime listener
       const backgroundSession: BackgroundSession = {
         submissionId,
-        patientId: currentPatientId,
+        patientId: currentStudentId,
         templateName: currentTemplateName,
         status: 'processing',
         progress: 0,
@@ -1743,7 +1743,7 @@ export function VHRScreen() {
         templateContext: selectedTemplate ? {
           templateCode: selectedTemplate.template_code,
           consultationTypeCode: selectedTemplate.consultation_type_code,
-          doctorId: selectedDoctorId || '',
+          doctorId: selectedCounsellorId || '',
         } : undefined,
       };
 
@@ -1788,7 +1788,7 @@ export function VHRScreen() {
     if (!canStartRecording()) return;
 
     // Capture current session info before any state changes
-    const currentPatientId = patientId;
+    const currentStudentId = patientId;
     const currentTemplateName = selectedTemplate?.template_name || 'Unknown';
 
     setInputMode('upload');
@@ -1819,14 +1819,14 @@ export function VHRScreen() {
       // Only send extraction_mode to backend when doing FULL extraction
       const backendExtractionMode = extractionMode === 'full' ? 'full' : undefined;
 
-      console.log('[FILE_UPLOAD] Template:', templateNameToUse, 'Patient:', currentPatientId);
+      console.log('[FILE_UPLOAD] Template:', templateNameToUse, 'Student:', currentStudentId);
 
       // Start session WITHOUT microphone (for file uploads)
       await recordingManager.startSessionWithoutMicrophone({
         template: templateCodeToUse,
         templateName: templateNameToUse,
-        doctorName: selectedDoctorId || 'Unknown',
-        patientId: currentPatientId,
+        doctorName: selectedCounsellorId || 'Unknown',
+        patientId: currentStudentId,
         transcriptionEngine: 'gemini',
         processingMode: processingMode,
         extractionMode: backendExtractionMode,
@@ -1856,7 +1856,7 @@ export function VHRScreen() {
       // Create background session and start Realtime listener
       const backgroundSession: BackgroundSession = {
         submissionId,
-        patientId: currentPatientId,
+        patientId: currentStudentId,
         templateName: currentTemplateName,
         status: 'processing',
         progress: 0,
@@ -1864,7 +1864,7 @@ export function VHRScreen() {
         templateContext: selectedTemplate ? {
           templateCode: selectedTemplate.template_code,
           consultationTypeCode: selectedTemplate.consultation_type_code,
-          doctorId: selectedDoctorId || '',
+          doctorId: selectedCounsellorId || '',
         } : undefined,
       };
 
@@ -1889,7 +1889,7 @@ export function VHRScreen() {
 
   const handleClearAll = () => {
     clearResults();
-    setPatientId('');
+    setStudentId('');
     setInputMode(null);
     setSelectedFile(null);
     setProcessingProgress(null);
@@ -1916,8 +1916,8 @@ export function VHRScreen() {
   if (showMergeScreen) {
     return (
       <ExtractionMergeScreen
-        initialPatientId={patientId}
-        initialDoctorId={selectedDoctorId || undefined}
+        initialStudentId={patientId}
+        initialCounsellorId={selectedCounsellorId || undefined}
         onClose={() => setShowMergeScreen(false)}
       />
     );
@@ -1980,7 +1980,7 @@ export function VHRScreen() {
             {/* Merge Extractions Button */}
             <button
               onClick={() => setShowMergeScreen(true)}
-              disabled={!selectedDoctorId}
+              disabled={!selectedCounsellorId}
               className="flex items-center px-4 py-2 bg-white hover:bg-blue-50 text-blue-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1992,15 +1992,15 @@ export function VHRScreen() {
         </div>
       </div>
 
-      {/* Doctor Selector */}
+      {/* Counsellor Selector */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <DoctorSelector
-          selectedDoctorId={selectedDoctorId}
-          onDoctorSelect={setSelectedDoctorId}
+        <CounsellorSelector
+          selectedCounsellorId={selectedCounsellorId}
+          onCounsellorSelect={setSelectedCounsellorId}
           required={false}
         />
         {/* Recording History Button */}
-        {selectedDoctorId && (
+        {selectedCounsellorId && (
           <button
             onClick={() => { setRecordingHistorySource('doctor'); setShowRecordingHistoryModal(true); }}
             className="mt-4 w-full px-4 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2"
@@ -2013,20 +2013,20 @@ export function VHRScreen() {
         )}
       </div>
 
-      {/* Nurse Selector (Optional) */}
+      {/* Assistant Selector (Optional) */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <NurseSelector
-          selectedNurseId={selectedNurseId}
-          onNurseSelect={setSelectedNurseId}
+        <AssistantSelector
+          selectedAssistantId={selectedAssistantId}
+          onAssistantSelect={setSelectedAssistantId}
           required={false}
         />
-        {selectedNurseId && (
+        {selectedAssistantId && (
           <p className="mt-2 text-xs text-teal-600 dark:text-teal-400">
             Templates will be loaded from assistant&apos;s accessible templates
           </p>
         )}
-        {/* Nurse Recording History Button */}
-        {selectedNurseId && (
+        {/* Assistant Recording History Button */}
+        {selectedAssistantId && (
           <button
             onClick={() => { setRecordingHistorySource('nurse'); setShowRecordingHistoryModal(true); }}
             className="mt-4 w-full px-4 py-2 text-sm bg-teal-50 text-teal-700 rounded-lg hover:bg-teal-100 transition-colors flex items-center justify-center gap-2"
@@ -2041,7 +2041,7 @@ export function VHRScreen() {
 
       {/* Activated Templates Selector */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        {!selectedDoctorId ? (
+        {!selectedCounsellorId ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
             <svg className="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -2189,12 +2189,12 @@ export function VHRScreen() {
             </div>
           </div>
 
-          {/* Patient ID Selection */}
+          {/* Student ID Selection */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Student ID
             </label>
-            {loadingPatients ? (
+            {loadingStudents ? (
               <div className="flex items-center justify-center py-3">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                 <span className="text-gray-500 text-sm">Loading students...</span>
@@ -2202,16 +2202,16 @@ export function VHRScreen() {
             ) : patientsList.length > 0 ? (
               <select
                 value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
+                onChange={(e) => setStudentId(e.target.value)}
                 disabled={isRecording || isSubmitting}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 bg-white"
               >
                 <option value="">Select a student...</option>
                 {patientsList.map((patient) => (
-                  <option key={patient.id} value={patient.patient_id}>
-                    {patient.patient_id}
+                  <option key={patient.id} value={patient.student_id}>
+                    {patient.student_id}
                     {patient.full_name ? ` - ${patient.full_name}` : ''}
-                    {patient.hospital_name ? ` (${patient.hospital_name})` : ''}
+                    {patient.school_name ? ` (${patient.school_name})` : ''}
                     {patient.add_info?.roomNo ? ` [Room ${patient.add_info.roomNo}, Bed ${patient.add_info.bedNo}]` : ''}
                   </option>
                 ))}
@@ -2220,7 +2220,7 @@ export function VHRScreen() {
               <input
                 type="text"
                 value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
+                onChange={(e) => setStudentId(e.target.value)}
                 placeholder="Enter student ID (e.g., PAT-12345)"
                 disabled={isRecording || isSubmitting}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900"
@@ -2228,7 +2228,7 @@ export function VHRScreen() {
             )}
           </div>
 
-          {/* Continuation Toggle - only visible when a patient is selected */}
+          {/* Continuation Toggle - only visible when a student is selected */}
           {patientId && !isRecording && !isSubmitting && (
             <div className="bg-white rounded-lg shadow-md p-4">
               <label className="flex items-center space-x-3 cursor-pointer">
@@ -2685,7 +2685,7 @@ export function VHRScreen() {
                 </div>
 
                 {/* Edit Mode Controls */}
-                {(coreExtractionData || additionalExtractionData) && currentExtractionId && selectedDoctorId && (
+                {(coreExtractionData || additionalExtractionData) && currentExtractionId && selectedCounsellorId && (
                   <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <div className="flex items-center gap-2">
                       {isEditMode ? (
@@ -3015,8 +3015,8 @@ export function VHRScreen() {
                         template_code: selectedTemplate?.template_code,
                         processing_mode: processingMode,
                         extraction_model: processingModes.find(m => m.mode_code === processingMode)?.extraction_model || 'default',
-                        patient_id: patientId,
-                        doctor_id: selectedDoctorId,
+                        student_id: patientId,
+                        counsellor_id: selectedCounsellorId,
                         core_segment_count: coreExtractionData?.metadata.segment_count || 0,
                         additional_segment_count: additionalExtractionData?.metadata.segment_count || 0,
                         total_segments: (coreExtractionData?.metadata.segment_count || 0) + (additionalExtractionData?.metadata.segment_count || 0),
@@ -3178,7 +3178,7 @@ export function VHRScreen() {
         data={triageData}
         extractionId={currentExtractionId}
         onRefresh={currentExtractionId ? () => handleOpenTriageModal(currentExtractionId, true) : undefined}
-        doctorId={selectedDoctorId}
+        doctorId={selectedCounsellorId}
         enableFeedback={true}
       />
 
@@ -3195,12 +3195,12 @@ export function VHRScreen() {
       />
 
       {/* Recording History Modal */}
-      {(selectedDoctorId || selectedNurseId) && (
+      {(selectedCounsellorId || selectedAssistantId) && (
         <RecordingHistoryModal
           isOpen={showRecordingHistoryModal}
           onClose={() => setShowRecordingHistoryModal(false)}
-          doctorId={recordingHistorySource === 'doctor' ? selectedDoctorId || undefined : undefined}
-          nurseId={recordingHistorySource === 'nurse' ? selectedNurseId || undefined : undefined}
+          doctorId={recordingHistorySource === 'doctor' ? selectedCounsellorId || undefined : undefined}
+          nurseId={recordingHistorySource === 'nurse' ? selectedAssistantId || undefined : undefined}
           templates={activatedTemplates}
           processingModes={processingModes}
           accessToken={getAccessToken()}
@@ -3218,7 +3218,7 @@ export function VHRScreen() {
               templateContext: {
                 templateCode: info.templateCode,
                 consultationTypeCode: info.consultationTypeCode,
-                doctorId: selectedDoctorId || '',
+                doctorId: selectedCounsellorId || '',
               },
             };
 
@@ -3246,7 +3246,7 @@ export function VHRScreen() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {payloadData.payloadType === 'raster' ? 'Raster EMR Payload' : payloadData.payloadType === 'neopaed' ? 'Neopaed EHR Payload' : payloadData.payloadType === 'kg' ? 'KG Hospital EHR Payload' : 'Aosta EHR Payload'}
+                  {payloadData.payloadType === 'raster' ? 'Raster EMR Payload' : payloadData.payloadType === 'neopaed' ? 'Neopaed EHR Payload' : payloadData.payloadType === 'kg' ? 'KG School EHR Payload' : 'Aosta EHR Payload'}
                 </h2>
                 {payloadData.templateCode && (
                   <p className="text-sm text-gray-500">Template: {payloadData.templateCode}</p>

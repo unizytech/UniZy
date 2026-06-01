@@ -23,11 +23,11 @@ import {
   updateTemplateSegment,
   bulkUpdateTemplateSegments,
   inheritTemplateConfiguration,
-  // Doctor-specific APIs (EHR-authenticated)
-  getDoctorTemplateSegments,
-  updateDoctorTemplateSegment,
-  bulkUpdateDoctorTemplateSegments,
-  inheritDoctorTemplateConfiguration,
+  // Counsellor-specific APIs (EHR-authenticated)
+  getCounsellorTemplateSegments,
+  updateCounsellorTemplateSegment,
+  bulkUpdateCounsellorTemplateSegments,
+  inheritCounsellorTemplateConfiguration,
   handleApiError,
   type TemplateSegmentConfig,
 } from '@lib/summaryApi';
@@ -40,7 +40,7 @@ interface TemplateSegmentConfigPanelProps {
   template: Template;
   onClose: () => void;
   onNavigateToSegmentDefinition?: (segmentId: string) => void;
-  doctorId?: string; // When provided, uses EHR-authenticated doctor APIs
+  doctorId?: string; // When provided, uses EHR-authenticated counsellor APIs
 }
 
 interface TemplateSegment {
@@ -105,10 +105,10 @@ export function TemplateSegmentConfigPanel({
       setLoading(true);
       setError(null);
 
-      // Use doctor APIs when doctorId is provided (EHR-authenticated)
+      // Use counsellor APIs when doctorId is provided (EHR-authenticated)
       // Otherwise use admin APIs
       const response = doctorId
-        ? await getDoctorTemplateSegments(template.template_code, doctorId, getAccessToken())
+        ? await getCounsellorTemplateSegments(template.template_code, doctorId, getAccessToken())
         : await getTemplateSegments(template.template_code, getAccessToken());
 
       if (response.success) {
@@ -147,9 +147,9 @@ export function TemplateSegmentConfigPanel({
       setInheriting(true);
       setError(null);
 
-      // Use doctor APIs when doctorId is provided (EHR-authenticated)
+      // Use counsellor APIs when doctorId is provided (EHR-authenticated)
       if (doctorId) {
-        await inheritDoctorTemplateConfiguration(template.template_code, doctorId, getAccessToken());
+        await inheritCounsellorTemplateConfiguration(template.template_code, doctorId, getAccessToken());
       } else {
         await inheritTemplateConfiguration(template.template_code, getAccessToken());
       }
@@ -263,9 +263,9 @@ export function TemplateSegmentConfigPanel({
         .filter((s): s is NonNullable<typeof s> => s !== null);
 
       if (segmentsToUpdate.length > 0) {
-        // Use doctor APIs when doctorId is provided (EHR-authenticated)
+        // Use counsellor APIs when doctorId is provided (EHR-authenticated)
         if (doctorId) {
-          await bulkUpdateDoctorTemplateSegments(template.template_code, segmentsToUpdate, doctorId, getAccessToken());
+          await bulkUpdateCounsellorTemplateSegments(template.template_code, segmentsToUpdate, doctorId, getAccessToken());
         } else {
           await bulkUpdateTemplateSegments(template.template_code, segmentsToUpdate, getAccessToken());
         }
@@ -305,9 +305,9 @@ export function TemplateSegmentConfigPanel({
         terminology_style: segment.terminology_style,
       };
 
-      // Use doctor APIs when doctorId is provided (EHR-authenticated)
+      // Use counsellor APIs when doctorId is provided (EHR-authenticated)
       if (doctorId) {
-        await updateDoctorTemplateSegment(template.template_code, segment.segment_code, config, doctorId, getAccessToken());
+        await updateCounsellorTemplateSegment(template.template_code, segment.segment_code, config, doctorId, getAccessToken());
       } else {
         await updateTemplateSegment(template.template_code, segment.segment_code, config, getAccessToken());
       }
@@ -380,9 +380,9 @@ export function TemplateSegmentConfigPanel({
 
       // Single API call for all updates
       if (segmentsToUpdate.length > 0) {
-        // Use doctor APIs when doctorId is provided (EHR-authenticated)
+        // Use counsellor APIs when doctorId is provided (EHR-authenticated)
         if (doctorId) {
-          await bulkUpdateDoctorTemplateSegments(template.template_code, segmentsToUpdate, doctorId, getAccessToken());
+          await bulkUpdateCounsellorTemplateSegments(template.template_code, segmentsToUpdate, doctorId, getAccessToken());
         } else {
           await bulkUpdateTemplateSegments(template.template_code, segmentsToUpdate, getAccessToken());
         }

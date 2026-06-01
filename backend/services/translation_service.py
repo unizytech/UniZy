@@ -1,7 +1,7 @@
 """
-Translation Service for Medical Extractions
+Translation Service for Extractions
 
-Translates patient-facing fields of extraction results into Indic languages.
+Translates student-facing fields of extraction results into Indic languages.
 Runs as fire-and-forget post-extraction, zero pipeline latency impact.
 """
 
@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 # Fields NOT listed here are kept in English (drug names, ICD codes, dates, etc.)
 
 TRANSLATABLE_FIELDS: Dict[str, List[str]] = {
-    # HIGH priority — patient-facing instructions
+    # HIGH priority — student-facing instructions
     "PRESCRIPTION": ["remarks", "timeToTake"],
     "TREATMENT_PLAN": [],  # Multi-schema: array/object/string — handled dynamically when fields=[]
     "FOLLOW_UP": ["special_instructions", "other_instructions"],
     "WARNINGS": ["safety_summary"],
     "EMERGENCY_CONTACT": [],  # String — translate directly
-    "CAUTION": [],  # String — patient-facing treatment limitations
+    "CAUTION": [],  # String — student-facing treatment limitations
 
     # MEDIUM priority — clinical narrative
     "CHIEF_COMPLAINTS": [],  # Array of strings — translate all items directly
@@ -261,13 +261,13 @@ def _build_translation_prompt(sparse_json: Dict[str, Any], target_language: str)
 
     return f"""You are a medical document translator specializing in {lang_display} translation.
 
-TASK: Translate the following medical extraction fields from English to {lang_display}.
+TASK: Translate the following extraction fields from English to {lang_display}.
 
 CRITICAL RULES:
 1. Translate ONLY the text values. Keep all JSON keys exactly as they are.
 2. NEVER translate: drug names, medicine names, ICD codes, medical procedure names, numbers, dates, dosages, units.
 3. For well-known medical terms that have a common local equivalent, use the local term followed by the English term in parentheses. Example: "சர்க்கரை நோய் (Diabetes)"
-4. Use natural, colloquial {lang_display} that patients can easily understand. Avoid overly formal or Sanskritized language.
+4. Use natural, colloquial {lang_display} that students can easily understand. Avoid overly formal or Sanskritized language.
 5. If a value is already a number, date, code, or untranslatable term, return it as-is.
 6. Preserve the exact JSON structure. Return valid JSON only.
 7. For lists of strings, translate each string in the list individually.
@@ -286,7 +286,7 @@ async def translate_extraction(
     model_name: str = "gemini-2.5-flash",
 ) -> Dict[str, Any]:
     """
-    Translate an extraction's patient-facing fields into the target language.
+    Translate an extraction's student-facing fields into the target language.
 
     Returns a full copy of the extraction JSON with translatable fields in target language
     and non-translatable fields kept in English.
@@ -339,24 +339,24 @@ async def translate_extraction(
 async def schedule_translation(
     extraction_id: uuid.UUID,
     extraction_data: Dict[str, Any],
-    doctor_id: str,
+    counsellor_id: str,
     processing_mode_code: str = "default",
 ) -> None:
     """
     Public fire-and-forget entry point for translation.
-    Checks if doctor has translation_language configured and schedules translation.
+    Checks if counsellor has translation_language configured and schedules translation.
     """
     try:
-        from services.supabase_service import get_doctor_translation_language
+        from services.supabase_service import get_counsellor_translation_language
 
-        target_language = get_doctor_translation_language(uuid.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id)
+        target_language = get_counsellor_translation_language(uuid.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id)
 
         if not target_language:
-            logger.debug(f"[TRANSLATION] No translation language configured for doctor {doctor_id} - skipping")
+            logger.debug(f"[TRANSLATION] No translation language configured for counsellor {counsellor_id} - skipping")
             return
 
         if target_language.lower() not in SUPPORTED_LANGUAGES:
-            logger.warning(f"[TRANSLATION] Unsupported language '{target_language}' for doctor {doctor_id} - skipping")
+            logger.warning(f"[TRANSLATION] Unsupported language '{target_language}' for counsellor {counsellor_id} - skipping")
             return
 
         logger.debug(f"[TRANSLATION] Scheduling translation to '{target_language}' for extraction {extraction_id}")

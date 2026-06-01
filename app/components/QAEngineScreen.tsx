@@ -3,7 +3,7 @@
 /**
  * Q&A Engine Screen
  *
- * RAG-based medical query interface for doctors.
+ * RAG-based medical query interface for counsellors.
  * Features:
  * - Chat-style interface with message history
  * - Suggested questions by category
@@ -14,9 +14,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@lib/auth';
 import { qaApi } from '@lib/apiClient';
-import { getHospitals, getDoctors, Hospital, Doctor } from '@lib/dashboardApi';
+import { getSchools, getCounsellors, School, Counsellor } from '@lib/dashboardApi';
 import { getConsultationTypes } from '@lib/summaryApi';
-import { searchPatients, PatientSearchResult } from '@lib/patientHistoryApi';
+import { searchStudents, StudentSearchResult } from '@lib/studentHistoryApi';
 import type {
   QAMessage,
   QAQueryResponse,
@@ -24,7 +24,7 @@ import type {
   SuggestedQuestion,
   QuestionCategory,
   ConsultationType,
-  PatientVisit,
+  StudentVisit,
 } from '@lib/types';
 import QASuggestedQuestions from './qa/QASuggestedQuestions';
 import QAChatMessage from './qa/QAChatMessage';
@@ -40,23 +40,23 @@ export default function QAEngineScreen() {
   const { getAccessToken } = useAuth();
   const accessToken = getAccessToken();
 
-  // Hospital state
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
-  const [hospitalsLoading, setHospitalsLoading] = useState(true);
+  // School state
+  const [hospitals, setSchools] = useState<School[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+  const [hospitalsLoading, setSchoolsLoading] = useState(true);
 
-  // Doctor and Patient filter state
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [patients, setPatients] = useState<PatientSearchResult[]>([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [doctorsLoading, setDoctorsLoading] = useState(false);
-  const [patientsLoading, setPatientsLoading] = useState(false);
+  // Counsellor and Student filter state
+  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [patients, setStudents] = useState<StudentSearchResult[]>([]);
+  const [selectedCounsellorId, setSelectedCounsellorId] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [doctorsLoading, setCounsellorsLoading] = useState(false);
+  const [patientsLoading, setStudentsLoading] = useState(false);
 
   // Consultation Type and Visit filter state (for temporal/longitudinal queries)
   const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
   const [selectedConsultationTypeId, setSelectedConsultationTypeId] = useState<string | null>(null);
-  const [patientVisits, setPatientVisits] = useState<PatientVisit[]>([]);
+  const [patientVisits, setStudentVisits] = useState<StudentVisit[]>([]);
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
   const [visitsLoading, setVisitsLoading] = useState(false);
 
@@ -73,93 +73,93 @@ export default function QAEngineScreen() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load hospitals on mount
+  // Load schools on mount
   useEffect(() => {
-    async function loadHospitals() {
+    async function loadSchools() {
       if (!accessToken) return;
 
       try {
-        const hospitalList = await getHospitals(accessToken);
-        setHospitals(hospitalList);
+        const hospitalList = await getSchools(accessToken);
+        setSchools(hospitalList);
 
-        // Auto-select first hospital or find a default
+        // Auto-select first school or find a default
         if (hospitalList.length > 0) {
-          const defaultHospital = hospitalList.find(h => h.hospital_name?.toLowerCase().includes('guru')) || hospitalList[0];
-          setSelectedHospitalId(defaultHospital.id);
+          const defaultSchool = hospitalList.find(h => h.school_name?.toLowerCase().includes('guru')) || hospitalList[0];
+          setSelectedSchoolId(defaultSchool.id);
         }
       } catch (err) {
-        console.error('Failed to load hospitals:', err);
+        console.error('Failed to load schools:', err);
       } finally {
-        setHospitalsLoading(false);
+        setSchoolsLoading(false);
       }
     }
 
-    loadHospitals();
+    loadSchools();
   }, [accessToken]);
 
-  // Load doctors when hospital changes
+  // Load counsellors when school changes
   useEffect(() => {
-    async function loadDoctors() {
-      if (!accessToken || !selectedHospitalId) {
-        setDoctors([]);
+    async function loadCounsellors() {
+      if (!accessToken || !selectedSchoolId) {
+        setCounsellors([]);
         return;
       }
 
-      setDoctorsLoading(true);
+      setCounsellorsLoading(true);
       try {
-        const doctorList = await getDoctors({ hospitalId: selectedHospitalId }, accessToken);
-        setDoctors(doctorList);
+        const doctorList = await getCounsellors({ hospitalId: selectedSchoolId }, accessToken);
+        setCounsellors(doctorList);
       } catch (err) {
-        console.error('Failed to load doctors:', err);
-        setDoctors([]);
+        console.error('Failed to load counsellors:', err);
+        setCounsellors([]);
       } finally {
-        setDoctorsLoading(false);
+        setCounsellorsLoading(false);
       }
     }
 
-    // Reset doctor and patient selection when hospital changes
-    setSelectedDoctorId(null);
-    setSelectedPatientId(null);
-    loadDoctors();
-  }, [accessToken, selectedHospitalId]);
+    // Reset counsellor and student selection when school changes
+    setSelectedCounsellorId(null);
+    setSelectedStudentId(null);
+    loadCounsellors();
+  }, [accessToken, selectedSchoolId]);
 
-  // Load patients when doctor is selected (doctor_id is required by the API)
+  // Load students when counsellor is selected (counsellor_id is required by the API)
   useEffect(() => {
-    async function loadPatients() {
-      // Doctor ID is required for patient search API
-      if (!accessToken || !selectedHospitalId || !selectedDoctorId) {
-        setPatients([]);
+    async function loadStudents() {
+      // Counsellor ID is required for student search API
+      if (!accessToken || !selectedSchoolId || !selectedCounsellorId) {
+        setStudents([]);
         return;
       }
 
-      setPatientsLoading(true);
+      setStudentsLoading(true);
       try {
-        // Search patients for the selected doctor
-        const response = await searchPatients(
+        // Search students for the selected counsellor
+        const response = await searchStudents(
           '', // empty query to get all
-          selectedDoctorId,
+          selectedCounsellorId,
           1, // page
           100, // page size - limit to 100 for dropdown
           accessToken
         );
-        setPatients(response.patients || []);
+        setStudents(response.students || []);
       } catch (err) {
-        console.error('Failed to load patients:', err);
-        setPatients([]);
+        console.error('Failed to load students:', err);
+        setStudents([]);
       } finally {
-        setPatientsLoading(false);
+        setStudentsLoading(false);
       }
     }
 
-    // Reset patient selection when doctor changes
-    setSelectedPatientId(null);
-    loadPatients();
-  }, [accessToken, selectedHospitalId, selectedDoctorId]);
+    // Reset student selection when counsellor changes
+    setSelectedStudentId(null);
+    loadStudents();
+  }, [accessToken, selectedSchoolId, selectedCounsellorId]);
 
-  // Load consultation types when hospital changes
+  // Load consultation types when school changes
   useEffect(() => {
     async function loadConsultationTypes() {
-      if (!accessToken || !selectedHospitalId) {
+      if (!accessToken || !selectedSchoolId) {
         setConsultationTypes([]);
         return;
       }
@@ -175,38 +175,38 @@ export default function QAEngineScreen() {
 
     setSelectedConsultationTypeId(null);
     loadConsultationTypes();
-  }, [accessToken, selectedHospitalId]);
+  }, [accessToken, selectedSchoolId]);
 
-  // Load patient visits when patient is selected
+  // Load student visits when student is selected
   useEffect(() => {
-    async function loadPatientVisits() {
-      if (!accessToken || !selectedHospitalId || !selectedPatientId) {
-        setPatientVisits([]);
+    async function loadStudentVisits() {
+      if (!accessToken || !selectedSchoolId || !selectedStudentId) {
+        setStudentVisits([]);
         return;
       }
 
       setVisitsLoading(true);
       try {
-        const response = await qaApi.getPatientVisits(
+        const response = await qaApi.getStudentVisits(
           { accessToken },
-          selectedPatientId,
-          selectedHospitalId,
-          selectedDoctorId || undefined,
+          selectedStudentId,
+          selectedSchoolId,
+          selectedCounsellorId || undefined,
           selectedConsultationTypeId || undefined
         );
-        setPatientVisits(response.visits || []);
+        setStudentVisits(response.visits || []);
       } catch (err) {
-        console.error('Failed to load patient visits:', err);
-        setPatientVisits([]);
+        console.error('Failed to load student visits:', err);
+        setStudentVisits([]);
       } finally {
         setVisitsLoading(false);
       }
     }
 
-    // Reset visit selection when patient changes
+    // Reset visit selection when student changes
     setSelectedVisitId(null);
-    loadPatientVisits();
-  }, [accessToken, selectedHospitalId, selectedPatientId, selectedDoctorId, selectedConsultationTypeId]);
+    loadStudentVisits();
+  }, [accessToken, selectedSchoolId, selectedStudentId, selectedCounsellorId, selectedConsultationTypeId]);
 
   // Scroll to bottom when messages change
   const scrollToBottom = useCallback(() => {
@@ -291,9 +291,9 @@ export default function QAEngineScreen() {
 
       const response = await qaApi.query({ accessToken }, {
         query,
-        hospital_id: selectedHospitalId || undefined,
-        doctor_id: selectedDoctorId || undefined,
-        patient_id: selectedPatientId || undefined,
+        school_id: selectedSchoolId || undefined,
+        counsellor_id: selectedCounsellorId || undefined,
+        student_id: selectedStudentId || undefined,
         consultation_type_id: selectedConsultationTypeId || undefined,
         extraction_id: selectedVisitId || undefined,
         prior_context: priorContext,
@@ -399,7 +399,7 @@ export default function QAEngineScreen() {
     inputRef.current?.focus();
   };
 
-  // Show loading state while hospitals are loading
+  // Show loading state while schools are loading
   if (hospitalsLoading) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50">
@@ -411,8 +411,8 @@ export default function QAEngineScreen() {
     );
   }
 
-  // Check for hospital context
-  if (!selectedHospitalId) {
+  // Check for school context
+  if (!selectedSchoolId) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50">
         <div className="text-center p-8">
@@ -439,7 +439,7 @@ export default function QAEngineScreen() {
               <span className="text-rose-600">Q&A Engine</span>
             </h1>
             <p className="text-sm text-gray-500">
-              Ask questions about your medical extractions using natural language
+              Ask questions about your extractions using natural language
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -459,13 +459,13 @@ export default function QAEngineScreen() {
 
         {/* Filter Selectors Row */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Hospital Selector */}
+          {/* School Selector */}
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-gray-500">🏥</span>
             <select
-              value={selectedHospitalId || ''}
+              value={selectedSchoolId || ''}
               onChange={(e) => {
-                setSelectedHospitalId(e.target.value || null);
+                setSelectedSchoolId(e.target.value || null);
                 setMessages([]);
                 setError(null);
               }}
@@ -473,46 +473,46 @@ export default function QAEngineScreen() {
             >
               {hospitals.map((hospital) => (
                 <option key={hospital.id} value={hospital.id}>
-                  {hospital.hospital_name || 'Unnamed School'}
+                  {hospital.school_name || 'Unnamed School'}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Doctor Selector */}
+          {/* Counsellor Selector */}
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-gray-500">👨‍⚕️</span>
             <select
-              value={selectedDoctorId || ''}
-              onChange={(e) => setSelectedDoctorId(e.target.value || null)}
+              value={selectedCounsellorId || ''}
+              onChange={(e) => setSelectedCounsellorId(e.target.value || null)}
               disabled={doctorsLoading || doctors.length === 0}
               className="w-[130px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">All Counsellors</option>
               {doctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {doctor.full_name || doctor.doctor_name || 'Unknown'}
+                  {doctor.full_name || doctor.counsellor_name || 'Unknown'}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Patient Selector */}
+          {/* Student Selector */}
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-gray-500">👤</span>
             <select
-              value={selectedPatientId || ''}
-              onChange={(e) => setSelectedPatientId(e.target.value || null)}
-              disabled={!selectedDoctorId || patientsLoading}
+              value={selectedStudentId || ''}
+              onChange={(e) => setSelectedStudentId(e.target.value || null)}
+              disabled={!selectedCounsellorId || patientsLoading}
               className="w-[140px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">
-                {!selectedDoctorId ? 'Select counsellor first' : 'All Students'}
+                {!selectedCounsellorId ? 'Select counsellor first' : 'All Students'}
               </option>
               {patients.map((patient) => (
-                <option key={patient.id} value={patient.patient_id}>
-                  {patient.full_name || patient.patient_id || 'Unknown'}
-                  {patient.hospital_name ? ` (${patient.hospital_name})` : ''}
+                <option key={patient.id} value={patient.student_id}>
+                  {patient.full_name || patient.student_id || 'Unknown'}
+                  {patient.school_name ? ` (${patient.school_name})` : ''}
                 </option>
               ))}
             </select>
@@ -536,8 +536,8 @@ export default function QAEngineScreen() {
             </select>
           </div>
 
-          {/* Visit Selector (Only shows when patient is selected) */}
-          {selectedPatientId && (
+          {/* Visit Selector (Only shows when student is selected) */}
+          {selectedStudentId && (
             <div className="flex items-center gap-1.5">
               <span className="text-sm text-gray-500">📅</span>
               <select
@@ -576,7 +576,7 @@ export default function QAEngineScreen() {
                 </h2>
                 <p className="text-gray-600 max-w-lg mx-auto">
                   Ask questions about diagnoses, prescriptions, student trends,
-                  or any insights from your medical extractions.
+                  or any insights from your extractions.
                 </p>
               </div>
 
@@ -845,7 +845,7 @@ export default function QAEngineScreen() {
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ask a question about your medical data..."
+                  placeholder="Ask a question about your data..."
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent text-gray-900"
                   disabled={isLoading}
                 />

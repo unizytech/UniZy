@@ -23,7 +23,7 @@ from typing import Dict, Any, Optional, List
 
 from services.supabase_service import (
     get_care_quality_by_extraction,
-    get_patient_care_quality_history,
+    get_student_care_quality_history,
     get_high_risk_care_quality,
     get_care_quality_statistics
 )
@@ -42,8 +42,8 @@ class CareQualityResponse(BaseModel):
     """Response model for care quality risk assessment."""
     id: str
     extraction_id: str
-    patient_id: Optional[str] = None
-    doctor_id: Optional[str] = None
+    student_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
 
     # Main output
     care_quality_score: float  # 0.00 to 100.00
@@ -103,8 +103,8 @@ class HighRiskExtraction(BaseModel):
     """High-risk extraction item."""
     id: str
     extraction_id: str
-    patient_id: Optional[str] = None
-    doctor_id: Optional[str] = None
+    student_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
     care_quality_score: float
     risk_level: str
     primary_risk_driver: Optional[str] = None
@@ -136,7 +136,7 @@ async def get_care_quality_for_extraction(extraction_id: str):
     Get care quality risk assessment for a specific extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         CareQualityResponse with complete assessment data
@@ -160,8 +160,8 @@ async def get_care_quality_for_extraction(extraction_id: str):
     return CareQualityResponse(
         id=risk["id"],
         extraction_id=risk["extraction_id"],
-        patient_id=risk.get("patient_id"),
-        doctor_id=risk.get("doctor_id"),
+        student_id=risk.get("student_id"),
+        counsellor_id=risk.get("counsellor_id"),
         care_quality_score=float(risk.get("care_quality_score", 0)),
         risk_level=risk.get("risk_level", "LOW"),
         is_medication_issue=risk.get("is_medication_issue", False),
@@ -186,31 +186,31 @@ async def get_care_quality_for_extraction(extraction_id: str):
     )
 
 
-@router.get("/patient/{patient_id}/history")
-async def get_patient_care_quality_history_endpoint(
-    patient_id: str,
+@router.get("/student/{student_id}/history")
+async def get_student_care_quality_history_endpoint(
+    student_id: str,
     limit: int = Query(default=10, le=50, ge=1)
 ) -> List[CareQualityHistoryItem]:
     """
-    Get care quality risk assessment history for a patient.
+    Get care quality risk assessment history for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum number of records (default 10, max 50)
 
     Returns:
         List of assessments, ordered by created_at descending
     """
     try:
-        uuid.UUID(patient_id)
+        uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    history = get_patient_care_quality_history(patient_id, limit)
+    history = get_student_care_quality_history(student_id, limit)
 
     result = []
     for item in history:
-        extraction_data = item.get("medical_extractions", {}) or {}
+        extraction_data = item.get("extractions", {}) or {}
         result.append(CareQualityHistoryItem(
             id=item["id"],
             extraction_id=item["extraction_id"],
@@ -231,35 +231,35 @@ async def get_patient_care_quality_history_endpoint(
 
 @router.get("/high-risk")
 async def get_high_risk_extractions_endpoint(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     limit: int = Query(default=50, le=100, ge=1)
 ) -> List[HighRiskExtraction]:
     """
     Get extractions with HIGH or CRITICAL care quality risk.
 
     Args:
-        doctor_id: Optional filter by doctor UUID
+        counsellor_id: Optional filter by counsellor UUID
         limit: Maximum number of records (default 50, max 100)
 
     Returns:
         List of high-risk extractions ordered by score descending
     """
-    if doctor_id:
+    if counsellor_id:
         try:
-            uuid.UUID(doctor_id)
+            uuid.UUID(counsellor_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+            raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-    extractions = get_high_risk_care_quality(doctor_id, limit)
+    extractions = get_high_risk_care_quality(counsellor_id, limit)
 
     result = []
     for item in extractions:
-        extraction_data = item.get("medical_extractions", {}) or {}
+        extraction_data = item.get("extractions", {}) or {}
         result.append(HighRiskExtraction(
             id=item["id"],
             extraction_id=item["extraction_id"],
-            patient_id=item.get("patient_id"),
-            doctor_id=item.get("doctor_id"),
+            student_id=item.get("student_id"),
+            counsellor_id=item.get("counsellor_id"),
             care_quality_score=float(item.get("care_quality_score", 0)),
             risk_level=item.get("risk_level", "HIGH"),
             primary_risk_driver=item.get("primary_risk_driver"),
@@ -274,26 +274,26 @@ async def get_high_risk_extractions_endpoint(
 
 @router.get("/statistics", response_model=CareQualityStatistics)
 async def get_care_quality_statistics_endpoint(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = Query(default=30, le=365, ge=1)
 ):
     """
     Get aggregate care quality risk statistics.
 
     Args:
-        doctor_id: Optional filter by doctor UUID
+        counsellor_id: Optional filter by counsellor UUID
         days: Number of days to look back (default 30, max 365)
 
     Returns:
         Counts and average score
     """
-    if doctor_id:
+    if counsellor_id:
         try:
-            uuid.UUID(doctor_id)
+            uuid.UUID(counsellor_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+            raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-    stats = get_care_quality_statistics(doctor_id, days)
+    stats = get_care_quality_statistics(counsellor_id, days)
 
     return CareQualityStatistics(
         total_assessments=stats.get("total_assessments", 0),

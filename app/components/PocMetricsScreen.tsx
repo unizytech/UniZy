@@ -6,10 +6,10 @@
  * Admin screen for downloading/viewing the POC evaluation metrics:
  *   - Tracker (per-consultation)
  *   - Aggregate (per-day rollup)
- *   - Doctor_All (timings per session for selected doctor)
- *   - Attendant_Nurse (timings per session for selected nurse)
+ *   - Doctor_All (timings per session for selected counsellor)
+ *   - Attendant_Nurse (timings per session for selected assistant)
  *
- * Filters: Hospital + (optional) Doctor + (optional) Nurse + start/end date.
+ * Filters: School + (optional) Counsellor + (optional) Assistant + start/end date.
  * Download: single .xlsx with all 4 sheets via /api/v1/poc-metrics/export.
  */
 
@@ -21,7 +21,7 @@ import {
   type TrackerResponse, type AggregateResponse, type TimingsResponse,
   type PocMetricsFilters, type MetricCode,
 } from '@lib/pocMetricsApi';
-import { getDoctors, type Doctor } from '@/services/doctorApi';
+import { getCounsellors, type Counsellor } from '@/services/counsellorApi';
 import { PocMetricsDetailModal } from './PocMetricsDetailModal';
 
 // Column label (Tracker) → drill-down metric code
@@ -53,8 +53,8 @@ interface DrillDown {
   scopeLabel: string;
 }
 
-interface Hospital { id: string; hospital_name: string; hospital_code?: string }
-interface Nurse { id: string; full_name: string; email?: string; hospital_id?: string }
+interface School { id: string; school_name: string; school_code?: string }
+interface Assistant { id: string; full_name: string; email?: string; school_id?: string }
 
 type Tab = 'tracker' | 'aggregate' | 'doctor_all' | 'attendant_nurse';
 
@@ -68,12 +68,12 @@ const daysAgo = (n: number) => {
 export function PocMetricsScreen() {
   const { getAccessToken } = useAuth();
 
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [nurses, setNurses] = useState<Nurse[]>([]);
-  const [hospitalId, setHospitalId] = useState<string>('');
-  const [doctorId, setDoctorId] = useState<string | null>(null);
-  const [nurseId, setNurseId] = useState<string>('');
+  const [hospitals, setSchools] = useState<School[]>([]);
+  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [nurses, setAssistants] = useState<Assistant[]>([]);
+  const [hospitalId, setSchoolId] = useState<string>('');
+  const [doctorId, setCounsellorId] = useState<string | null>(null);
+  const [nurseId, setAssistantId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>(today());
   const [endDate, setEndDate] = useState<string>(today());
 
@@ -97,47 +97,47 @@ export function PocMetricsScreen() {
     };
   }, [hospitalId, doctorId, nurseId, startDate, endDate]);
 
-  // Load hospitals + nurses once
+  // Load schools + assistants once
   useEffect(() => {
     (async () => {
       const token = getAccessToken();
       if (!token) return;
-      // Hospitals: GET /api/v1/doctors/hospitals → { success, hospitals: [...] }
+      // Schools: GET /api/v1/counsellors/schools → { success, schools: [...] }
       try {
-        const res = await authGet('/api/v1/doctors/hospitals', token);
+        const res = await authGet('/api/v1/counsellors/schools', token);
         if (res.ok) {
           const data = await res.json();
-          const list = Array.isArray(data?.hospitals) ? data.hospitals : (Array.isArray(data) ? data : []);
-          setHospitals(list);
+          const list = Array.isArray(data?.schools) ? data.schools : (Array.isArray(data) ? data : []);
+          setSchools(list);
         }
       } catch { /* ignore */ }
-      // Nurses: GET /api/v1/nurses → { success, nurses: [...] }
+      // Assistants: GET /api/v1/assistants → { success, assistants: [...] }
       try {
-        const res = await authGet('/api/v1/nurses?active_only=true', token);
+        const res = await authGet('/api/v1/assistants?active_only=true', token);
         if (res.ok) {
           const data = await res.json();
-          const list = Array.isArray(data?.nurses) ? data.nurses : (Array.isArray(data) ? data : []);
-          setNurses(list);
+          const list = Array.isArray(data?.assistants) ? data.assistants : (Array.isArray(data) ? data : []);
+          setAssistants(list);
         }
       } catch { /* ignore */ }
-      // Doctors
+      // Counsellors
       try {
-        const list = await getDoctors(true, token);
-        setDoctors(Array.isArray(list) ? list : []);
+        const list = await getCounsellors(true, token);
+        setCounsellors(Array.isArray(list) ? list : []);
       } catch { /* ignore */ }
     })();
   }, [getAccessToken]);
 
-  const doctorsForHospital = useMemo(() => {
+  const doctorsForSchool = useMemo(() => {
     if (!Array.isArray(doctors)) return [];
     if (!hospitalId) return doctors;
-    return doctors.filter(d => !d.hospital_id || d.hospital_id === hospitalId);
+    return doctors.filter(d => !d.school_id || d.school_id === hospitalId);
   }, [doctors, hospitalId]);
 
-  const nursesForHospital = useMemo(() => {
+  const nursesForSchool = useMemo(() => {
     if (!Array.isArray(nurses)) return [];
     if (!hospitalId) return nurses;
-    return nurses.filter(n => !n.hospital_id || n.hospital_id === hospitalId);
+    return nurses.filter(n => !n.school_id || n.school_id === hospitalId);
   }, [nurses, hospitalId]);
 
   const fetchAll = useCallback(async () => {
@@ -211,15 +211,15 @@ export function PocMetricsScreen() {
             <select
               value={hospitalId}
               onChange={(e) => {
-                setHospitalId(e.target.value);
-                setDoctorId(null);
-                setNurseId('');
+                setSchoolId(e.target.value);
+                setCounsellorId(null);
+                setAssistantId('');
               }}
               className={inputCls}
             >
               <option value="">Select school...</option>
               {hospitals.map(h => (
-                <option key={h.id} value={h.id}>{h.hospital_name}</option>
+                <option key={h.id} value={h.id}>{h.school_name}</option>
               ))}
             </select>
           </div>
@@ -228,12 +228,12 @@ export function PocMetricsScreen() {
             <label className={labelCls}>Counsellor (optional)</label>
             <select
               value={doctorId || ''}
-              onChange={(e) => setDoctorId(e.target.value || null)}
+              onChange={(e) => setCounsellorId(e.target.value || null)}
               disabled={!hospitalId}
               className={`${inputCls} disabled:opacity-50`}
             >
               <option value="">— all counsellors —</option>
-              {doctorsForHospital.map(d => (
+              {doctorsForSchool.map(d => (
                 <option key={d.id} value={d.id}>
                   {d.full_name}{d.specialization ? ` (${d.specialization})` : ''}
                 </option>
@@ -245,12 +245,12 @@ export function PocMetricsScreen() {
             <label className={labelCls}>Assistant (optional)</label>
             <select
               value={nurseId}
-              onChange={(e) => setNurseId(e.target.value)}
+              onChange={(e) => setAssistantId(e.target.value)}
               disabled={!hospitalId}
               className={`${inputCls} disabled:opacity-50`}
             >
               <option value="">— none —</option>
-              {nursesForHospital.map(n => (
+              {nursesForSchool.map(n => (
                 <option key={n.id} value={n.id}>{n.full_name}</option>
               ))}
             </select>

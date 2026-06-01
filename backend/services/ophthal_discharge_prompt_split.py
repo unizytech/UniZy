@@ -2,13 +2,13 @@
 Split OPHTHAL_DISCHARGE Schema for Gemini API Compatibility
 
 The flattened schema (42 properties) may approach Gemini's constraint limits,
-especially with the nested arrays for medications and doctors.
+especially with the nested arrays for medications and counsellors.
 This module splits the extraction into TWO separate API calls:
 
-PART 1 (23 fields): PATIENT DATA & TREATMENT
-- Patient demographics (6 fields)
+PART 1 (23 fields): STUDENT DATA & TREATMENT
+- Student demographics (6 fields)
 - Admission details (2 fields)
-- Medical team (2 parallel arrays for doctors)
+- Medical team (2 parallel arrays for counsellors)
 - Diagnosis (3 fields - bilateral)
 - Admission status (2 fields)
 - Treatment given (6 fields)
@@ -26,34 +26,34 @@ The ophthal_discharge_formatter.py service merges both results into the final ne
 from google.genai import types
 
 # ============================================================================
-# PART 1: PATIENT DATA & TREATMENT (23 fields)
+# PART 1: STUDENT DATA & TREATMENT (23 fields)
 # ============================================================================
 
 OPHTHAL_DISCHARGE_PART1_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # ========== SECTION 1: PATIENT DEMOGRAPHICS (6 fields) ==========
-        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+        # ========== SECTION 1: STUDENT DEMOGRAPHICS (6 fields) ==========
+        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
         "patientDemographics_visitId": types.Schema(type=types.Type.STRING, description="Visit/episode ID or empty string"),
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
         "patientDemographics_date": types.Schema(type=types.Type.STRING, description="Discharge summary date in DD-MM-YYYY format or empty string"),
-        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years') or empty string"),
+        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years') or empty string"),
         "patientDemographics_gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
 
         # ========== SECTION 2: ADMISSION DETAILS (2 fields) ==========
-        "admissionDetails_dateOfAdmission": types.Schema(type=types.Type.STRING, description="Hospital admission date in DD-MM-YYYY format"),
+        "admissionDetails_dateOfAdmission": types.Schema(type=types.Type.STRING, description="School admission date in DD-MM-YYYY format"),
         "admissionDetails_dateOfProcedure": types.Schema(type=types.Type.STRING, description="Surgical/procedure date in DD-MM-YYYY format"),
 
         # ========== SECTION 3: MEDICAL TEAM (2 parallel arrays) ==========
         "medicalTeam_doctorNames": types.Schema(
             type=types.Type.ARRAY,
-            items=types.Schema(type=types.Type.STRING, description="Doctor name with credentials"),
-            description="Array of doctor names who attended the patient (empty array if none)"
+            items=types.Schema(type=types.Type.STRING, description="Counsellor name with credentials"),
+            description="Array of counsellor names who attended the student (empty array if none)"
         ),
         "medicalTeam_doctorRegistrationNumbers": types.Schema(
             type=types.Type.ARRAY,
             items=types.Schema(type=types.Type.STRING, description="Medical registration number or empty string"),
-            description="Array of doctor registration numbers (parallel to doctorNames, empty array if none)"
+            description="Array of counsellor registration numbers (parallel to doctorNames, empty array if none)"
         ),
 
         # ========== SECTION 4: DIAGNOSIS (3 fields - bilateral) ==========
@@ -77,7 +77,7 @@ OPHTHAL_DISCHARGE_PART1_SCHEMA = types.Schema(
         "dischargeStatus_conditionOnDischarge": types.Schema(type=types.Type.STRING, description="Condition at discharge (Good, Stable, Satisfactory, Comfortable) or N/A"),
 
         # ========== SECTION 11: PROVIDER INFORMATION (3 fields) ==========
-        "providerInformation_signature": types.Schema(type=types.Type.STRING, description="Doctor signature/name or empty string"),
+        "providerInformation_signature": types.Schema(type=types.Type.STRING, description="Counsellor signature/name or empty string"),
         "providerInformation_registrationNumber": types.Schema(type=types.Type.STRING, description="Medical registration number or empty string"),
         "providerInformation_seal": types.Schema(type=types.Type.STRING, description="Present, Not mentioned, or empty string")
     }
@@ -148,7 +148,7 @@ OPHTHAL_DISCHARGE_PART2_SCHEMA = types.Schema(
             items=types.Schema(type=types.Type.STRING, description="Warning symptom"),
             description="Array of emergency warning symptoms (e.g., Decrease in vision, Pain, Redness, empty array if none)"
         ),
-        "emergencyContact_hospitalContactDetails_telephoneNumber": types.Schema(type=types.Type.STRING, description="Hospital telephone number or empty string"),
+        "emergencyContact_hospitalContactDetails_telephoneNumber": types.Schema(type=types.Type.STRING, description="School telephone number or empty string"),
         "emergencyContact_hospitalContactDetails_contactPersonName": types.Schema(type=types.Type.STRING, description="Contact person name or empty string"),
         "emergencyContact_hospitalContactDetails_mobileNumber": types.Schema(type=types.Type.STRING, description="Mobile contact number or empty string"),
         "emergencyContact_hospitalContactDetails_emergencyNumber": types.Schema(type=types.Type.STRING, description="Emergency contact number or empty string")

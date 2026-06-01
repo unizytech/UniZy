@@ -1,7 +1,7 @@
 """
 Merge Router - API Endpoints for Extraction Merge Feature
 
-Provides REST API endpoints for merging multiple medical extractions
+Provides REST API endpoints for merging multiple extractions
 into a single consolidated output using AI-powered contextual merging.
 
 Endpoints:
@@ -9,7 +9,7 @@ Endpoints:
 - POST /api/v1/extractions/merge/preview - Preview merge without saving
 - POST /api/v1/extractions/transform-schema - Transform JSON to target schema
 - POST /api/v1/extractions/detect-schema - Detect schema type of JSON data
-- GET /api/v1/extractions/patient/{patient_id}/timeline - List patient extractions
+- GET /api/v1/extractions/student/{student_id}/timeline - List student extractions
 - GET /api/v1/extractions/{extraction_id}/merge-info - Get merge lineage
 
 Author: System
@@ -30,29 +30,29 @@ from pydantic import BaseModel
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
     from dependencies.auth import (
-        EHRDoctorAccessChecker, EHRPatientAccessChecker,
+        EHRCounsellorAccessChecker, EHRStudentAccessChecker,
         EHRExtractionAccessChecker, EHRSubmissionAccessChecker,
         get_current_client
     )
-    from services.auth_service import validate_ehr_doctor_access
+    from services.auth_service import validate_ehr_counsellor_access
     from models.auth_models import ClientContext
 
-    _doctor_checker = EHRDoctorAccessChecker()
-    _patient_checker = EHRPatientAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
+    _patient_checker = EHRStudentAccessChecker()
     _extraction_checker = EHRExtractionAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: str = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: str = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
-    async def verify_patient_access(request: Request, patient_id: str = None):  # type: ignore[misc]
-        """Verify EHR client has access to patient data."""
-        # EHRPatientAccessChecker expects str, not UUID
+    async def verify_student_access(request: Request, student_id: str = None):  # type: ignore[misc]
+        """Verify EHR client has access to student data."""
+        # EHRStudentAccessChecker expects str, not UUID
         client = get_current_client(request)
-        return await _patient_checker(request, patient_id, client)
+        return await _patient_checker(request, student_id, client)
 
     async def verify_extraction_access(request: Request, extraction_id: str = None):  # type: ignore[misc]
         """Verify EHR client has access to extraction data."""
@@ -72,25 +72,25 @@ if AUTH_ENABLED:
         client = get_current_client(request)
         return await _submission_checker(request, session_uuid, client)
 
-    async def validate_doctor_from_body(http_request: Request, doctor_id: str):  # type: ignore[misc]
+    async def validate_counsellor_from_body(http_request: Request, counsellor_id: str):  # type: ignore[misc]
         """
-        Validate doctor_id access after body is parsed.
-        Use this for endpoints where doctor_id is in request body.
+        Validate counsellor_id access after body is parsed.
+        Use this for endpoints where counsellor_id is in request body.
         Raises HTTPException 403 if access denied.
         """
         client = get_current_client(http_request)
         if client.client_type == "ehr":
-            doctor_uuid = uuid.UUID(doctor_id)
-            if not await validate_ehr_doctor_access(client, doctor_uuid):
+            counsellor_uuid = uuid.UUID(counsellor_id)
+            if not await validate_ehr_counsellor_access(client, counsellor_uuid):
                 raise HTTPException(
                     status_code=403,
                     detail="Access denied"
                 )
 else:
-    async def verify_doctor_access(request: Request, doctor_id: str = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request, counsellor_id: str = None):  # type: ignore[misc]
         return None
 
-    async def verify_patient_access(request: Request, patient_id: str = None):  # type: ignore[misc]
+    async def verify_student_access(request: Request, student_id: str = None):  # type: ignore[misc]
         return None
 
     async def verify_extraction_access(request: Request, extraction_id: str = None):  # type: ignore[misc]
@@ -102,7 +102,7 @@ else:
     async def verify_session_access(request: Request, session_id: str = None):  # type: ignore[misc]
         return None
 
-    async def validate_doctor_from_body(http_request: Request = None, doctor_id: str = None):  # type: ignore[misc]
+    async def validate_counsellor_from_body(http_request: Request = None, counsellor_id: str = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
 from services.audit_service import audit_service
@@ -115,8 +115,8 @@ from models.merge_models import (
     MergeAsyncResponse,
     MergeStatusResponse,
     MergeLineageResponse,
-    PatientTimelineResponse,
-    PatientTimelineExtraction,
+    StudentTimelineResponse,
+    StudentTimelineExtraction,
     SourceExtractionInfo,
     MergeMetadata,
     UploadedJsonSource,
@@ -143,26 +143,26 @@ _active_merge_tasks: Dict[str, asyncio.Task] = {}
 
 async def resolve_template_to_consultation_type(
     template_code: str,
-    doctor_id: str,
+    counsellor_id: str,
     supabase_client
 ) -> Tuple[str, str, str]:
     """
-    Resolve template_code to consultation_type_code and validate doctor access.
+    Resolve template_code to consultation_type_code and validate counsellor access.
 
     Args:
         template_code: Template code (e.g., 'OP_GENERAL', 'OP_SMITH_1225141530')
-        doctor_id: Doctor UUID performing the merge
+        counsellor_id: Counsellor UUID performing the merge
         supabase_client: Supabase client instance
 
     Returns:
         Tuple of (template_id, consultation_type_id, consultation_type_code)
 
     Raises:
-        HTTPException: If template not found or doctor doesn't have access
+        HTTPException: If template not found or counsellor doesn't have access
     """
     # Lookup template with joined consultation type
     result = supabase_client.table('templates')\
-        .select('id, template_code, doctor_id, consultation_type_id, consultation_types(id, type_code)')\
+        .select('id, template_code, counsellor_id, consultation_type_id, consultation_types(id, type_code)')\
         .eq('template_code', template_code)\
         .eq('is_active', True)\
         .execute()
@@ -175,7 +175,7 @@ async def resolve_template_to_consultation_type(
 
     template = result.data[0]
     template_id = template['id']
-    template_doctor_id = template.get('doctor_id')
+    template_counsellor_id = template.get('counsellor_id')
     consultation_type = template.get('consultation_types')
 
     if not consultation_type:
@@ -187,16 +187,16 @@ async def resolve_template_to_consultation_type(
     consultation_type_id = consultation_type['id']
     consultation_type_code = consultation_type['type_code']
 
-    # Validate doctor access (owned, shared, or common)
-    is_owned = template_doctor_id == doctor_id
-    is_common = template_doctor_id is None
+    # Validate counsellor access (owned, shared, or common)
+    is_owned = template_counsellor_id == counsellor_id
+    is_common = template_counsellor_id is None
 
     if not is_owned and not is_common:
-        # Check if shared via doctor_templates junction
-        shared_result = supabase_client.table('doctor_templates')\
+        # Check if shared via counsellor_templates junction
+        shared_result = supabase_client.table('counsellor_templates')\
             .select('id')\
             .eq('template_id', template_id)\
-            .eq('doctor_id', doctor_id)\
+            .eq('counsellor_id', counsellor_id)\
             .eq('is_active', True)\
             .execute()
 
@@ -223,10 +223,10 @@ async def resolve_template_to_consultation_type(
 async def merge_extractions(
     http_request: Request,
     request: MergeRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
-    Merge multiple medical extractions into a single consolidated output.
+    Merge multiple extractions into a single consolidated output.
 
     **ASYNC BEHAVIOR:** This endpoint returns immediately with an extraction_id.
     The actual merge processing happens in the background.
@@ -244,7 +244,7 @@ async def merge_extractions(
     - Or wait for webhook with matching extraction_id
 
     **Merge Process (background):**
-    1. Validate all source extractions belong to same patient
+    1. Validate all source extractions belong to same student
     2. Load extraction data and sort chronologically
     3. Generate AI merge prompt with field-specific strategies
     4. Call Gemini API for contextual merging
@@ -256,7 +256,7 @@ async def merge_extractions(
     {
         "source_extraction_ids": ["uuid1", "uuid2"],
         "target_template_code": "OP_GENERAL",
-        "doctor_id": "uuid",
+        "counsellor_id": "uuid",
         "merge_notes": "Follow-up consolidation"
     }
     ```
@@ -273,9 +273,9 @@ async def merge_extractions(
     """
     try:
         # =====================================================
-        # Validate EHR client has access to this doctor (hospital-scoped)
+        # Validate EHR client has access to this counsellor (school-scoped)
         # =====================================================
-        await validate_doctor_from_body(http_request, request.doctor_id)
+        await validate_counsellor_from_body(http_request, request.counsellor_id)
 
         # =====================================================
         # Resolve submission_ids to extraction_ids if provided
@@ -336,24 +336,24 @@ async def merge_extractions(
             )
 
         # =====================================================
-        # Validate patient_id requirement for JSON-only merges
+        # Validate student_id requirement for JSON-only merges
         # =====================================================
-        patient_id = request.patient_id
+        student_id = request.student_id
         if len(source_extraction_ids) == 0:
-            # JSON-only merge - patient_id is required
-            if not patient_id:
+            # JSON-only merge - student_id is required
+            if not student_id:
                 raise HTTPException(
                     status_code=400,
-                    detail="patient_id is required when merging only JSON uploads (no extractions provided)"
+                    detail="student_id is required when merging only JSON uploads (no extractions provided)"
                 )
-            logger.debug(f"[MergeAPI] JSON-only merge with provided patient_id: {patient_id}")
+            logger.debug(f"[MergeAPI] JSON-only merge with provided student_id: {student_id}")
 
         # =====================================================
         # Resolve template_code to consultation_type_code and validate access
         # =====================================================
         template_id, consultation_type_id, target_consultation_type_code = await resolve_template_to_consultation_type(
             template_code=request.target_template_code,
-            doctor_id=request.doctor_id,
+            counsellor_id=request.counsellor_id,
             supabase_client=supabase
         )
 
@@ -372,10 +372,10 @@ async def merge_extractions(
                 "status": "processing",
                 "source_extraction_ids": source_extraction_ids,
                 "target_template_code": request.target_template_code,
-                "doctor_id": request.doctor_id,
+                "counsellor_id": request.counsellor_id,
                 "merge_notes": request.merge_notes,
                 "uploaded_json_count": len(uploaded_json_sources),
-                "patient_id": patient_id,
+                "student_id": student_id,
                 "created_at": datetime.utcnow().isoformat(),
             }
             supabase.table("merge_jobs").insert(merge_job).execute()
@@ -393,10 +393,10 @@ async def merge_extractions(
                 source_extraction_ids=source_extraction_ids,
                 target_template_code=request.target_template_code,
                 target_consultation_type_code=target_consultation_type_code,
-                doctor_id=request.doctor_id,
+                counsellor_id=request.counsellor_id,
                 merge_notes=request.merge_notes,
                 uploaded_json_sources=uploaded_json_sources,
-                patient_id=patient_id
+                student_id=student_id
             )
         )
         _active_merge_tasks[extraction_id] = task
@@ -412,8 +412,8 @@ async def merge_extractions(
                     client_context=client_ctx, request=http_request, response_status=200,
                     response_time_ms=0, resource_type="merge", action="create",
                     resource_id=extraction_id,
-                    doctor_id=uuid.UUID(request.doctor_id) if request.doctor_id else None,
-                    patient_id=patient_id,
+                    counsellor_id=uuid.UUID(request.counsellor_id) if request.counsellor_id else None,
+                    student_id=student_id,
                 ))
             except Exception:
                 pass
@@ -440,10 +440,10 @@ async def _run_background_merge(
     source_extraction_ids: List[str],
     target_template_code: str,
     target_consultation_type_code: str,
-    doctor_id: str,
+    counsellor_id: str,
     merge_notes: Optional[str],
     uploaded_json_sources: List[Dict[str, Any]],
-    patient_id: Optional[str] = None
+    student_id: Optional[str] = None
 ):
     """
     Background task to perform the actual merge operation.
@@ -453,10 +453,10 @@ async def _run_background_merge(
         source_extraction_ids: List of extraction UUIDs to merge
         target_template_code: Target template code (for metadata)
         target_consultation_type_code: Derived consultation type code (for internal logic)
-        doctor_id: Doctor performing the merge
+        counsellor_id: Counsellor performing the merge
         merge_notes: Optional notes
         uploaded_json_sources: List of JSON source dicts with upload_type and merge_strategy
-        patient_id: Optional patient_id (required for JSON-only merges)
+        student_id: Optional student_id (required for JSON-only merges)
     """
     try:
         logger.debug(f"[MergeAPI] Starting background merge for: {extraction_id}")
@@ -465,13 +465,13 @@ async def _run_background_merge(
         result = await merge_service.merge_extractions(
             source_extraction_ids=source_extraction_ids,
             target_consultation_type_code=target_consultation_type_code,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             merge_notes=merge_notes,
             preview_only=False,
             supabase_client=supabase,
             uploaded_json_sources=uploaded_json_sources,
             extraction_id=extraction_id,
-            patient_id=patient_id,
+            student_id=student_id,
             target_template_code=target_template_code
         )
 
@@ -492,7 +492,7 @@ async def _run_background_merge(
                 await send_error_webhook(
                     error_message=result.get('error', 'Merge failed'),
                     submission_id=extraction_id,
-                    session_data={"doctor_id": doctor_id, "patient_id": patient_id},
+                    session_data={"counsellor_id": counsellor_id, "student_id": student_id},
                     source="merge",
                     error_code="MERGE_FAILED",
                 )
@@ -516,13 +516,13 @@ async def _run_background_merge(
             from services.webhook_service import send_insights_webhook
             from datetime import datetime
 
-            # Lookup patient preferred_language for webhook
-            _merge_patient_id = result.get('patient_id') or patient_id
+            # Lookup student preferred_language for webhook
+            _merge_patient_id = result.get('student_id') or student_id
             _merge_preferred_language = None
             if _merge_patient_id:
                 try:
                     from services.supabase_service import supabase as sb
-                    _plang_res = sb.table("patients").select("preferred_language").eq("id", _merge_patient_id).limit(1).execute()
+                    _plang_res = sb.table("students").select("preferred_language").eq("id", _merge_patient_id).limit(1).execute()
                     if _plang_res.data:
                         _merge_preferred_language = _plang_res.data[0].get("preferred_language")
                 except Exception:
@@ -534,8 +534,8 @@ async def _run_background_merge(
                 "submission_id": None,  # Merged extractions don't have submission_id
                 "extraction_id": extraction_id,
                 "session_id": None,  # Merges don't have a single session
-                "doctor_id": doctor_id,
-                "patient_id": _merge_patient_id,
+                "counsellor_id": counsellor_id,
+                "student_id": _merge_patient_id,
                 "template_code": target_template_code,  # Target template for merge
                 "mode": "merge",  # Special mode for merged extractions
                 "segment_count": len(result.get('merged_data', {})),
@@ -545,12 +545,12 @@ async def _run_background_merge(
             }
 
             # Check if realtime is enabled (skip webhook if so)
-            from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-            from services.supabase_service import get_doctor_hospital_id_cached
+            from services.realtime_publisher_service import is_realtime_enabled_for_school
+            from services.supabase_service import get_counsellor_school_id_cached
             import uuid as uuid_mod
-            _hospital_id = get_doctor_hospital_id_cached(uuid_mod.UUID(doctor_id)) if doctor_id else None
-            if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                logger.debug(f"[MergeAPI] Skipping webhook - realtime subscription enabled for hospital")
+            _hospital_id = get_counsellor_school_id_cached(uuid_mod.UUID(counsellor_id)) if counsellor_id else None
+            if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                logger.debug(f"[MergeAPI] Skipping webhook - realtime subscription enabled for school")
             else:
                 await send_insights_webhook(
                     insights=result['merged_data'],
@@ -565,23 +565,23 @@ async def _run_background_merge(
         # Publish to realtime table (fire-and-forget) - use extraction_id as submission_id for merges
         try:
             from services.realtime_publisher_service import publish_extraction_response_fire_and_forget
-            from services.supabase_service import get_doctor_hospital_id_cached
+            from services.supabase_service import get_counsellor_school_id_cached
             import uuid as uuid_mod
-            hospital_id_for_realtime = get_doctor_hospital_id_cached(uuid_mod.UUID(doctor_id)) if doctor_id else None
-            if hospital_id_for_realtime:
-                # Look up UHID from patients table
+            school_id_for_realtime = get_counsellor_school_id_cached(uuid_mod.UUID(counsellor_id)) if counsellor_id else None
+            if school_id_for_realtime:
+                # Look up UHID from students table
                 _merge_uhid = ""
-                _merge_patient_id = result.get('patient_id') or patient_id
+                _merge_patient_id = result.get('student_id') or student_id
                 if _merge_patient_id:
                     try:
-                        _p_result = supabase.table("patients").select("patient_id").eq("id", _merge_patient_id).limit(1).execute()
+                        _p_result = supabase.table("students").select("student_id").eq("id", _merge_patient_id).limit(1).execute()
                         if _p_result.data:
-                            _merge_uhid = _p_result.data[0].get("patient_id", "")
+                            _merge_uhid = _p_result.data[0].get("student_id", "")
                     except Exception:
                         pass
                 _rt_recording_metadata = None
                 try:
-                    _me_result = supabase.table("medical_extractions").select(
+                    _me_result = supabase.table("extractions").select(
                         "recording_metadata_json"
                     ).eq("id", extraction_id).limit(1).execute()
                     if _me_result.data:
@@ -590,8 +590,8 @@ async def _run_background_merge(
                     pass
                 asyncio.create_task(publish_extraction_response_fire_and_forget(
                     submission_id=extraction_id,  # extraction_id used as submission_id (merges have no processing job)
-                    hospital_id=hospital_id_for_realtime,
-                    doctor_id=doctor_id,
+                    school_id=school_id_for_realtime,
+                    counsellor_id=counsellor_id,
                     extraction_id=extraction_id,
                     insights=result['merged_data'],
                     uhid=_merge_uhid,
@@ -604,14 +604,14 @@ async def _run_background_merge(
         try:
             from services.ehr_routing_service import schedule_ehr_sync
 
-            # Build patient_info from patients table + most recent source extraction metadata
+            # Build patient_info from students table + most recent source extraction metadata
             _ehr_patient_info = {}
-            _ehr_patient_uuid = result.get('patient_id') or patient_id
+            _ehr_patient_uuid = result.get('student_id') or student_id
             if _ehr_patient_uuid:
                 try:
-                    _p_result = supabase.table("patients").select("patient_id, add_info").eq("id", _ehr_patient_uuid).limit(1).execute()
+                    _p_result = supabase.table("students").select("student_id, add_info").eq("id", _ehr_patient_uuid).limit(1).execute()
                     if _p_result.data:
-                        _ehr_patient_info["patient_id"] = _p_result.data[0].get("patient_id", "")  # UHID
+                        _ehr_patient_info["student_id"] = _p_result.data[0].get("student_id", "")  # UHID
                         _add_info = _p_result.data[0].get("add_info") or {}
                         _ehr_patient_info["neopead_add_info"] = _add_info
                         _ehr_patient_info["visit_number"] = _add_info.get("visit_number", "")
@@ -626,7 +626,7 @@ async def _run_background_merge(
             _rec_meta = {}
             if source_extraction_ids:
                 try:
-                    _latest_src = supabase.table("medical_extractions")\
+                    _latest_src = supabase.table("extractions")\
                         .select("recording_metadata_json")\
                         .in_("id", source_extraction_ids)\
                         .order("created_at", desc=True)\
@@ -638,7 +638,7 @@ async def _run_background_merge(
 
             if not _rec_meta:
                 try:
-                    _me_result = supabase.table("medical_extractions")\
+                    _me_result = supabase.table("extractions")\
                         .select("recording_metadata_json")\
                         .eq("id", extraction_id).limit(1).execute()
                     if _me_result.data:
@@ -653,8 +653,8 @@ async def _run_background_merge(
                 # KG fields (visit_id + role are required by the KG formatter)
                 _ehr_patient_info["visit_id"] = _rec_meta.get("visit_id", "")
                 _ehr_patient_info["role"] = _rec_meta.get("role", "")
-                _ehr_patient_info["hospital_code"] = _rec_meta.get("hospital_code", "")
-                # Raster fields — recording_metadata wins over patients.add_info defaults
+                _ehr_patient_info["school_code"] = _rec_meta.get("school_code", "")
+                # Raster fields — recording_metadata wins over students.add_info defaults
                 if "visit_number" in _rec_meta:
                     _ehr_patient_info["visit_number"] = _rec_meta.get("visit_number", "")
                 if "consultant_id" in _rec_meta:
@@ -671,28 +671,28 @@ async def _run_background_merge(
                 _ehr_patient_info["template_id_aosta"] = _rec_meta.get("template_id") or _rec_meta.get("Template_id") or ""
                 _ehr_patient_info["template_name_aosta"] = _rec_meta.get("template_name") or _rec_meta.get("Template_Name") or ""
 
-            # KG requires patient_uuid (the medical_extractions.patient_id UUID, not the UHID string)
+            # KG requires patient_uuid (the extractions.student_id UUID, not the UHID string)
             if _ehr_patient_uuid:
                 _ehr_patient_info["patient_uuid"] = _ehr_patient_uuid
 
-            # hospital_code: prefer the doctor's hospital (mirrors extraction_service.py:2018-2024).
-            # KG source extractions don't store hospital_code in recording_metadata_json, so the
-            # _rec_meta fallback above resolves to "" — fetch from the doctors → hospitals join instead.
-            if doctor_id and not _ehr_patient_info.get("hospital_code"):
+            # school_code: prefer the counsellor's school (mirrors extraction_service.py:2018-2024).
+            # KG source extractions don't store school_code in recording_metadata_json, so the
+            # _rec_meta fallback above resolves to "" — fetch from the counsellors → schools join instead.
+            if counsellor_id and not _ehr_patient_info.get("school_code"):
                 try:
-                    _doc = supabase.table("doctors")\
-                        .select("hospitals(hospital_code)")\
-                        .eq("id", str(doctor_id)).limit(1).execute()
+                    _doc = supabase.table("counsellors")\
+                        .select("schools(school_code)")\
+                        .eq("id", str(counsellor_id)).limit(1).execute()
                     if _doc.data:
-                        _h = _doc.data[0].get("hospitals") or {}
-                        _ehr_patient_info["hospital_code"] = _h.get("hospital_code", "")
+                        _h = _doc.data[0].get("schools") or {}
+                        _ehr_patient_info["school_code"] = _h.get("school_code", "")
                 except Exception as _e:
-                    logger.warning(f"[MergeAPI] Failed to fetch hospital_code from doctor join: {_e}")
+                    logger.warning(f"[MergeAPI] Failed to fetch school_code from counsellor join: {_e}")
 
-            _ehr_patient_info["doctor_id"] = doctor_id
+            _ehr_patient_info["counsellor_id"] = counsellor_id
 
             _ehr_scheduled = schedule_ehr_sync(
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
                 extraction_data=result['merged_data'],
                 patient_info=_ehr_patient_info,
                 template_code=target_template_code,
@@ -721,7 +721,7 @@ async def _run_background_merge(
             await send_error_webhook(
                 error_message=str(e),
                 submission_id=extraction_id,
-                session_data={"doctor_id": doctor_id, "patient_id": patient_id},
+                session_data={"counsellor_id": counsellor_id, "student_id": student_id},
                 source="merge",
                 error_code="MERGE_FAILED",
             )
@@ -738,8 +738,8 @@ async def _run_background_merge(
 async def get_merge_status(
     request: Request,
     extraction_id: str,
-    doctor_id: str = Query(None, description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(None, description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Check the status of a merge operation.
@@ -779,8 +779,8 @@ async def get_merge_status(
         except Exception:
             pass  # Table might not exist
 
-        # Check if extraction exists in medical_extractions
-        extraction_result = supabase.table("medical_extractions").select(
+        # Check if extraction exists in extractions
+        extraction_result = supabase.table("extractions").select(
             "id, original_extraction_json, merge_metadata, is_merged, created_at"
         ).eq("id", extraction_id).limit(1).execute()
 
@@ -839,16 +839,16 @@ async def get_merge_status(
 async def preview_merge(
     http_request: Request,
     request: MergePreviewRequest,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Preview merge without saving to database.
 
     This endpoint performs AI-powered contextual merging but does NOT save
-    the result. Use this to show doctors the merged result before confirming.
+    the result. Use this to show counsellors the merged result before confirming.
 
     **Use Cases:**
-    - Doctor wants to review merged extraction before committing
+    - Counsellor wants to review merged extraction before committing
     - Check for conflicts or missing data before save
     - Validate merge quality before final approval
 
@@ -867,7 +867,7 @@ async def preview_merge(
     {
         "source_extraction_ids": ["uuid1", "uuid2"],
         "target_template_code": "DISCHARGE_GENERAL",
-        "doctor_id": "uuid"
+        "counsellor_id": "uuid"
     }
     ```
 
@@ -876,15 +876,15 @@ async def preview_merge(
     {
         "source_submission_ids": ["submission-uuid1", "submission-uuid2"],
         "target_template_code": "DISCHARGE_GENERAL",
-        "doctor_id": "uuid"
+        "counsellor_id": "uuid"
     }
     ```
     """
     try:
         # =====================================================
-        # Validate EHR client has access to this doctor (hospital-scoped)
+        # Validate EHR client has access to this counsellor (school-scoped)
         # =====================================================
-        await validate_doctor_from_body(http_request, request.doctor_id)
+        await validate_counsellor_from_body(http_request, request.counsellor_id)
 
         # =====================================================
         # Resolve submission_ids to extraction_ids if provided
@@ -946,13 +946,13 @@ async def preview_merge(
             )
 
         # =====================================================
-        # Validate patient_id requirement for JSON-only merges
+        # Validate student_id requirement for JSON-only merges
         # =====================================================
-        patient_id = request.patient_id
-        if len(source_extraction_ids) == 0 and not patient_id:
+        student_id = request.student_id
+        if len(source_extraction_ids) == 0 and not student_id:
             raise HTTPException(
                 status_code=400,
-                detail="patient_id is required when merging only JSON uploads (no extractions provided)"
+                detail="student_id is required when merging only JSON uploads (no extractions provided)"
             )
 
         # =====================================================
@@ -960,7 +960,7 @@ async def preview_merge(
         # =====================================================
         template_id, consultation_type_id, target_consultation_type_code = await resolve_template_to_consultation_type(
             template_code=request.target_template_code,
-            doctor_id=request.doctor_id,
+            counsellor_id=request.counsellor_id,
             supabase_client=supabase
         )
 
@@ -968,12 +968,12 @@ async def preview_merge(
         result = await merge_service.merge_extractions(
             source_extraction_ids=source_extraction_ids,
             target_consultation_type_code=target_consultation_type_code,
-            doctor_id=request.doctor_id,
+            counsellor_id=request.counsellor_id,
             merge_notes=None,
             preview_only=True,
             supabase_client=supabase,
             uploaded_json_sources=uploaded_json_sources,
-            patient_id=patient_id,
+            student_id=student_id,
             target_template_code=request.target_template_code
         )
 
@@ -1025,19 +1025,19 @@ async def preview_merge(
 # Query Endpoints
 # =====================================================
 
-@router.get("/patient/{patient_id}/timeline", response_model=PatientTimelineResponse, status_code=200)
-async def get_patient_timeline(
+@router.get("/student/{student_id}/timeline", response_model=StudentTimelineResponse, status_code=200)
+async def get_student_timeline(
     request: Request,
-    patient_id: str,
+    student_id: str,
     consultation_type_code: Optional[str] = None,
-    _auth = Depends(verify_patient_access)
+    _auth = Depends(verify_student_access)
 ):
     """
-    Get chronological timeline of all extractions for a patient.
+    Get chronological timeline of all extractions for a student.
 
-    This endpoint returns all extractions for a specific patient, ordered
+    This endpoint returns all extractions for a specific student, ordered
     chronologically from newest to oldest. Useful for:
-    - Displaying patient history
+    - Displaying student history
     - Selecting extractions to merge
     - Viewing merged vs original extractions
 
@@ -1051,23 +1051,23 @@ async def get_patient_timeline(
 
     **Example:**
     ```
-    GET /api/v1/extractions/patient/550e8400-e29b-41d4-a716-446655440050/timeline
-    GET /api/v1/extractions/patient/550e8400-e29b-41d4-a716-446655440050/timeline?consultation_type_code=OP
+    GET /api/v1/extractions/student/550e8400-e29b-41d4-a716-446655440050/timeline
+    GET /api/v1/extractions/student/550e8400-e29b-41d4-a716-446655440050/timeline?consultation_type_code=OP
     ```
     """
     try:
-        logger.info(f"[MergeAPI] Fetching timeline for patient: {patient_id}")
+        logger.info(f"[MergeAPI] Fetching timeline for student: {student_id}")
 
         # Call database function
         result = supabase.rpc(
-            'get_patient_extraction_timeline',
-            {'p_patient_identifier': patient_id}
+            'get_student_extraction_timeline',
+            {'p_student_identifier': student_id}
         ).execute()
 
         if not result.data:
-            logger.debug(f"[MergeAPI] No extractions found for patient: {patient_id}")
-            return PatientTimelineResponse(
-                patient_id=patient_id,
+            logger.debug(f"[MergeAPI] No extractions found for student: {student_id}")
+            return StudentTimelineResponse(
+                student_id=student_id,
                 extractions=[],
                 total_count=0
             )
@@ -1079,12 +1079,12 @@ async def get_patient_timeline(
 
         # Build response
         extractions = [
-            PatientTimelineExtraction(
+            StudentTimelineExtraction(
                 extraction_id=e['extraction_id'],
                 consultation_type_code=e['consultation_type_code'],
                 consultation_type_name=e['consultation_type_name'],
                 created_at=e['created_at'],
-                doctor_name=e['doctor_name'],
+                counsellor_name=e['counsellor_name'],
                 is_merged=e['is_merged'],
                 source_count=e['source_count'],
                 segment_count=e['segment_count']
@@ -1092,29 +1092,29 @@ async def get_patient_timeline(
             for e in extractions_data
         ]
 
-        logger.debug(f"[MergeAPI] Found {len(extractions)} extractions for patient timeline")
+        logger.debug(f"[MergeAPI] Found {len(extractions)} extractions for student timeline")
 
-        # HIPAA Audit: log patient timeline access
+        # HIPAA Audit: log student timeline access
         client_ctx = getattr(request.state, "client", None)
         if client_ctx:
             try:
                 asyncio.create_task(audit_service.log_phi_access(
                     client_context=client_ctx, request=request, response_status=200,
                     response_time_ms=0, resource_type="patient", action="read",
-                    patient_id=patient_id,
+                    student_id=student_id,
                 ))
             except Exception:
                 pass
 
-        return PatientTimelineResponse(
-            patient_id=patient_id,
+        return StudentTimelineResponse(
+            student_id=student_id,
             extractions=extractions,
             total_count=len(extractions)
         )
 
     except Exception as e:
         logger.error(f"[MergeAPI] ❌ Error fetching timeline: {type(e).__name__}")
-        raise HTTPException(status_code=500, detail="Failed to fetch patient timeline")
+        raise HTTPException(status_code=500, detail="Failed to fetch student timeline")
 
 
 @router.get("/{extraction_id}/merge-info", response_model=MergeLineageResponse, status_code=200)
@@ -1149,7 +1149,7 @@ async def get_merge_info(
         logger.debug(f"[MergeAPI] Fetching merge info for extraction: {extraction_id}")
 
         # Get extraction record
-        extraction_result = supabase.table('medical_extractions').select('*').eq('id', extraction_id).single().execute()
+        extraction_result = supabase.table('extractions').select('*').eq('id', extraction_id).single().execute()
 
         if not extraction_result.data:
             raise HTTPException(status_code=404, detail="Extraction not found")
@@ -1176,7 +1176,7 @@ async def get_merge_info(
                 consultation_type_code=s['consultation_type_code'],
                 consultation_type_name=s.get('consultation_type_name', s['consultation_type_code']),
                 created_at=s['created_at'],
-                doctor_name=s.get('doctor_name'),
+                counsellor_name=s.get('counsellor_name'),
                 merge_order=s['merge_order'],
                 merge_strategy=s['merge_strategy']
             )
@@ -1239,8 +1239,8 @@ class DetectSchemaResponse(BaseModel):
 async def transform_schema_endpoint(
     http_request: Request,
     request: TransformSchemaRequest,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Transform JSON data from one schema format to another.
@@ -1353,8 +1353,8 @@ async def transform_schema_endpoint(
 async def detect_schema_endpoint(
     http_request: Request,
     request: DetectSchemaRequest,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ):
     """
     Detect the schema type of JSON data.
@@ -1451,8 +1451,8 @@ class ExtractionLookupResponse(BaseModel):
     submission_id: Optional[str] = None
     session_id: Optional[str] = None
     consultation_type_code: Optional[str] = None
-    doctor_id: Optional[str] = None
-    patient_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
+    student_id: Optional[str] = None
     created_at: Optional[str] = None
     found: bool
     message: Optional[str] = None
@@ -1463,9 +1463,9 @@ async def _lookup_extraction_by_submission_id(submission_id: str) -> ExtractionL
     Internal helper to lookup extraction by submission_id.
     Reused by both the GET endpoint and merge resolution.
     """
-    # Query medical_extractions by submission_id
-    result = supabase.table('medical_extractions').select(
-        'id, submission_id, session_id, consultation_type_id, doctor_id, patient_id, created_at'
+    # Query extractions by submission_id
+    result = supabase.table('extractions').select(
+        'id, submission_id, session_id, consultation_type_id, counsellor_id, student_id, created_at'
     ).eq('submission_id', submission_id).execute()
 
     if not result.data or len(result.data) == 0:
@@ -1510,8 +1510,8 @@ async def _lookup_extraction_by_submission_id(submission_id: str) -> ExtractionL
         submission_id=submission_id,
         session_id=extraction.get('session_id'),
         consultation_type_code=consultation_type_code,
-        doctor_id=extraction.get('doctor_id'),
-        patient_id=extraction.get('patient_id'),
+        counsellor_id=extraction.get('counsellor_id'),
+        student_id=extraction.get('student_id'),
         created_at=extraction.get('created_at'),
         found=True,
         message=None
@@ -1570,7 +1570,7 @@ async def get_extraction_by_submission_id(
     **Relationship Chain:**
     - `submission_id` is generated when recording is submitted for processing
     - `processing_jobs` table tracks the processing with this submission_id
-    - `medical_extractions` table stores the extraction result with submission_id foreign key
+    - `extractions` table stores the extraction result with submission_id foreign key
 
     **Use Case:**
     After completing a recording session and receiving a submission_id from
@@ -1586,7 +1586,7 @@ async def get_extraction_by_submission_id(
     - extraction_id: UUID of the extraction (for use with merge APIs)
     - session_id: Recording session UUID
     - consultation_type_code: Type of consultation (e.g., OP, OPHTHAL_FULL)
-    - doctor_id, patient_id: Associated entities
+    - counsellor_id, student_id: Associated entities
     - found: Boolean indicating if extraction was found
     - message: Error message if not found
     """
@@ -1638,9 +1638,9 @@ async def get_extraction_by_session_id(
     try:
         logger.info(f"[LookupAPI] Looking up extraction for session_id: {session_id}")
 
-        # Query medical_extractions by session_id
-        result = supabase.table('medical_extractions').select(
-            'id, submission_id, session_id, consultation_type_id, doctor_id, patient_id, created_at'
+        # Query extractions by session_id
+        result = supabase.table('extractions').select(
+            'id, submission_id, session_id, consultation_type_id, counsellor_id, student_id, created_at'
         ).eq('session_id', session_id).order('created_at', desc=True).limit(1).execute()
 
         if not result.data or len(result.data) == 0:
@@ -1690,8 +1690,8 @@ async def get_extraction_by_session_id(
             submission_id=extraction.get('submission_id'),
             session_id=session_id,
             consultation_type_code=consultation_type_code,
-            doctor_id=extraction.get('doctor_id'),
-            patient_id=extraction.get('patient_id'),
+            counsellor_id=extraction.get('counsellor_id'),
+            student_id=extraction.get('student_id'),
             created_at=extraction.get('created_at'),
             found=True,
             message=None
@@ -1721,7 +1721,7 @@ async def merge_health():
             "AI-powered contextual merging",
             "Cross-type merge support",
             "Merge preview",
-            "Patient timeline",
+            "Student timeline",
             "Merge lineage tracking",
             "Schema transformation (OPHTHAL_OCR → OPHTHAL_FULL)",
             "Schema detection"

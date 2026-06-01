@@ -2,7 +2,7 @@
 """
 Backfill extraction_accuracy_metrics for historical extractions.
 
-Finds medical_extractions rows missing an extraction_accuracy_metrics row
+Finds extractions rows missing an extraction_accuracy_metrics row
 (or all of them with --force) and computes metrics via
 compute_and_save_accuracy_metrics() (same logic the live pipeline uses).
 
@@ -10,18 +10,18 @@ By default includes BOTH edited (edit_count > 0) and unedited rows so
 unedited records also seed a 0-error row that contributes to the WER
 denominator. For unedited rows, edited_extraction_json is treated as
 identical to original_extraction_json. Use --edited-only to restore the
-old behaviour of only backfilling rows the doctor edited.
+old behaviour of only backfilling rows the counsellor edited.
 
 Usage (from repo root):
     cd backend && source venv/bin/activate
     SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \\
-    python scripts/backfill_accuracy_metrics.py [--hospital-id UUID] \\
-        [--doctor-id UUID] [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD] \\
+    python scripts/backfill_accuracy_metrics.py [--school-id UUID] \\
+        [--counsellor-id UUID] [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD] \\
         [--days N] [--dry-run] [--limit N] [--edited-only] [--force]
 
 Options:
-    --hospital-id UUID    Restrict to one hospital's doctors.
-    --doctor-id UUID      Restrict to one doctor.
+    --school-id UUID    Restrict to one school's counsellors.
+    --counsellor-id UUID      Restrict to one counsellor.
     --start-date DATE     Only rows created on/after this UTC date (inclusive).
     --end-date DATE       Only rows created strictly before this UTC date.
     --days N              Only backfill rows from the last N days.
@@ -51,8 +51,8 @@ logger = logging.getLogger(__name__)
 
 
 def _find_candidates(
-    hospital_id: Optional[str],
-    doctor_id: Optional[str],
+    school_id: Optional[str],
+    counsellor_id: Optional[str],
     since_iso: Optional[str],
     until_iso: Optional[str],
     limit: Optional[int],
@@ -61,24 +61,24 @@ def _find_candidates(
 ) -> list[dict]:
     """Find extractions to backfill. If force=True, include those that already
     have an accuracy row (rows will be upserted). If edited_only=True, restrict
-    to rows the doctor edited."""
-    # 1. Pick doctors in the filter scope
-    doctor_ids: Optional[list[str]] = None
-    if hospital_id and not doctor_id:
-        res = supabase.table("doctors").select("id").eq("hospital_id", hospital_id).execute()
-        doctor_ids = [d["id"] for d in (res.data or [])]
-        if not doctor_ids:
+    to rows the counsellor edited."""
+    # 1. Pick counsellors in the filter scope
+    counsellor_ids: Optional[list[str]] = None
+    if school_id and not counsellor_id:
+        res = supabase.table("counsellors").select("id").eq("school_id", school_id).execute()
+        counsellor_ids = [d["id"] for d in (res.data or [])]
+        if not counsellor_ids:
             return []
 
-    # 2. Fetch medical_extractions in scope
-    q = supabase.table("medical_extractions")\
-        .select("id, session_id, doctor_id, edit_count, original_extraction_json, edited_extraction_json, created_at")
+    # 2. Fetch extractions in scope
+    q = supabase.table("extractions")\
+        .select("id, session_id, counsellor_id, edit_count, original_extraction_json, edited_extraction_json, created_at")
     if edited_only:
         q = q.gt("edit_count", 0)
-    if doctor_id:
-        q = q.eq("doctor_id", doctor_id)
-    elif doctor_ids is not None:
-        q = q.in_("doctor_id", doctor_ids)
+    if counsellor_id:
+        q = q.eq("counsellor_id", counsellor_id)
+    elif counsellor_ids is not None:
+        q = q.in_("counsellor_id", counsellor_ids)
     if since_iso:
         q = q.gte("created_at", since_iso)
     if until_iso:
@@ -123,7 +123,7 @@ async def _process_one(extraction: dict) -> bool:
             extraction_id=uuid.UUID(extraction["id"]),
             original_json=orig,
             edited_json=edited,
-            doctor_id=extraction.get("doctor_id"),
+            counsellor_id=extraction.get("counsellor_id"),
         )
         return True
     except Exception as e:
@@ -142,14 +142,14 @@ async def main(args: argparse.Namespace) -> None:
         until_iso = datetime.fromisoformat(args.end_date).replace(tzinfo=timezone.utc).isoformat()
 
     candidates = _find_candidates(
-        args.hospital_id, args.doctor_id, since_iso, until_iso, args.limit,
+        args.school_id, args.counsellor_id, since_iso, until_iso, args.limit,
         edited_only=args.edited_only, force=args.force,
     )
     logger.info(f"[BACKFILL] Candidates: {len(candidates)} (edited_only={args.edited_only}, force={args.force})")
 
     if args.dry_run:
         for c in candidates[:10]:
-            logger.info(f"  would process: {c['id']} (doctor={c.get('doctor_id')}, created={c['created_at']})")
+            logger.info(f"  would process: {c['id']} (counsellor={c.get('counsellor_id')}, created={c['created_at']})")
         if len(candidates) > 10:
             logger.info(f"  ... and {len(candidates) - 10} more")
         return
@@ -174,8 +174,8 @@ if __name__ == "__main__":
             sys.exit(1)
 
     p = argparse.ArgumentParser()
-    p.add_argument("--hospital-id", help="Restrict to one hospital's doctors")
-    p.add_argument("--doctor-id", help="Restrict to one doctor")
+    p.add_argument("--school-id", help="Restrict to one school's counsellors")
+    p.add_argument("--counsellor-id", help="Restrict to one counsellor")
     p.add_argument("--start-date", help="Inclusive start date YYYY-MM-DD (UTC)")
     p.add_argument("--end-date", help="Exclusive end date YYYY-MM-DD (UTC)")
     p.add_argument("--days", type=int, help="Only backfill rows from the last N days")

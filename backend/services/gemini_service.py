@@ -21,76 +21,6 @@ from .error_utils import sanitize_error_message as _sanitize_error_message
 from .log_sanitizer import truncate_id
 from .gemini_audio_part_service import build_audio_part, cleanup_audio_part
 
-from .neonatal_prompts import (
-    NEO_DAILY_PROMPT_SYSTEM,
-    NEO_DAILY_PROMPT_USER,
-    NEO_PROFORMA_PROMPT_SYSTEM,
-    NEO_PROFORMA_PROMPT_USER,
-    NEO_DAILY_PARAMETERS_SCHEMA,
-    NEO_OP_PROMPT_SYSTEM,
-    NEO_OP_PROMPT_USER,
-    NEO_DISCHARGE_SYSTEM_PROMPT,
-    NEO_DISCHARGE_USER_PROMPT,
-    NEO_ADMISSION_SYSTEM_PROMPT,
-    NEO_ADMISSION_USER_PROMPT,
-)
-
-from .neo_proforma_prompts_split import NEO_PROFORMA_PART1_SCHEMA, NEO_PROFORMA_PART2_SCHEMA
-from .neo_proforma_formatter import format_neo_proforma_from_parts
-
-from .neo_op_prompts_split import NEO_OP_PART1_SCHEMA, NEO_OP_PART2_SCHEMA
-from .neo_op_formatter import format_neo_op_from_parts
-
-from .neo_discharge_prompts_split import NEO_DISCHARGE_PART1_SCHEMA, NEO_DISCHARGE_PART2_SCHEMA
-from .neo_discharge_formatter import format_neo_discharge_from_parts
-
-from .neo_admission_prompts_split import NEO_ADMISSION_PART1_SCHEMA, NEO_ADMISSION_PART2_SCHEMA
-from .neo_admission_formatter import format_neo_admission_from_parts
-
-from .neo_daily_prompts_split import (
-    NEO_DAILY_PART1_SCHEMA,
-    NEO_DAILY_PART2_SCHEMA,
-    NEO_DAILY_SPLIT_SYSTEM_PROMPT,
-    NEO_DAILY_PART1_USER_PROMPT,
-    NEO_DAILY_PART2_USER_PROMPT,
-)
-from .neo_daily_formatter import format_neo_daily_from_parts
-
-# NEO_DAILY_FREE: Simplified neonatal daily progress (17 flat free-text fields)
-from .neo_daily_free_prompts import (
-    NEO_DAILY_FREE_SCHEMA,
-    NEO_DAILY_FREE_SYSTEM_PROMPT,
-    NEO_DAILY_FREE_USER_PROMPT,
-)
-
-# NEO_PROFORMA_FREE: Neonatal proforma free-text (21 fields)
-from .neo_proforma_free_prompts import (
-    NEO_PROFORMA_FREE_SCHEMA,
-    NEO_PROFORMA_FREE_SYSTEM_PROMPT,
-    NEO_PROFORMA_FREE_USER_PROMPT,
-)
-
-# NEO_DISCHARGE_FREE: NICU discharge free-text (21 fields)
-from .neo_discharge_free_prompts import (
-    NEO_DISCHARGE_FREE_SCHEMA,
-    NEO_DISCHARGE_FREE_SYSTEM_PROMPT,
-    NEO_DISCHARGE_FREE_USER_PROMPT,
-)
-
-# NEO_POSTNATAL_DAY_FREE: Postnatal daycare free-text (9 fields)
-from .neo_postnatal_day_free_prompts import (
-    NEO_POSTNATAL_DAY_FREE_SCHEMA,
-    NEO_POSTNATAL_DAY_FREE_SYSTEM_PROMPT,
-    NEO_POSTNATAL_DAY_FREE_USER_PROMPT,
-)
-
-# NEO_POSTNATAL_DISCHARGE_FREE: Postnatal discharge free-text (15 fields)
-from .neo_postnatal_discharge_free_prompts import (
-    NEO_POSTNATAL_DISCHARGE_FREE_SCHEMA,
-    NEO_POSTNATAL_DISCHARGE_FREE_SYSTEM_PROMPT,
-    NEO_POSTNATAL_DISCHARGE_FREE_USER_PROMPT,
-)
-
 # Context caching service for optimized API performance
 from .gemini_cache_service import (
     get_or_create_cache,
@@ -153,7 +83,7 @@ from .ophthal_prescription_prompt import (
 )
 
 # Import for early split type detection and model lookup
-from .supabase_service import get_patient_by_id, get_extraction_model_by_mode
+from .supabase_service import get_student_by_id, get_extraction_model_by_mode
 
 # Load environment variables from .env file
 load_dotenv()
@@ -165,20 +95,10 @@ load_dotenv()
 # ============================================================================
 SPLIT_EXTRACTION_TYPES = {
     "OPHTHAL_CONSULT_BRIEF", "OPHTHA_DISCHARGE", "OPHTHAL_FULL_CONSULT",
-    "NEO_OP", "NEO_PROFORMA", "NEO_DISCHARGE",
-    "NEO_ADMISSION", "NEO_DAILY", "NEO_DAILY_FREE",
-    # New free-text templates:
-    "NEO_PROFORMA_FREE", "NEO_DISCHARGE_FREE",
-    "NEO_POSTNATAL_DAY_FREE", "NEO_POSTNATAL_DISCHARGE_FREE",
 }
 
-# Neonatal consultation types that need patient data overrides
-NEONATAL_OVERRIDE_TYPES = {
-    "NEO_OP", "NEO_PROFORMA", "NEO_DISCHARGE",
-    "NEO_ADMISSION", "NEO_DAILY", "NEO_DAILY_FREE",
-    "NEO_PROFORMA_FREE", "NEO_DISCHARGE_FREE",
-    "NEO_POSTNATAL_DAY_FREE", "NEO_POSTNATAL_DISCHARGE_FREE",
-}
+# Neonatal consultation types that need student data overrides (subsystem removed)
+NEONATAL_OVERRIDE_TYPES = set()
 
 
 def _calculate_age_components(birth_date_str: str, reference_date=None) -> Dict[str, int]:
@@ -322,28 +242,28 @@ def _calculate_eligibility_flags(birth_weight_grams: Optional[int], gestation_we
     return result
 
 
-def apply_neonatal_patient_overrides(
+def apply_neonatal_student_overrides(
     extraction_data: Dict[str, Any],
-    patient_id: Optional[str],
+    student_id: Optional[str],
     consultation_type_code: str,
     recording_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Apply patient data overrides and auto-calculations to neonatal extraction results.
+    Apply student data overrides and auto-calculations to neonatal extraction results.
 
     For neonatal templates:
-    1. Personal details (UHID, name, DOB, etc.) come from patient database
+    1. Personal details (UHID, name, DOB, etc.) come from student database
     2. Ages (chronological, corrected) are auto-calculated from DOB/gestation
     3. Eligibility flags are auto-calculated from birth weight/gestation
-    4. Hospital name and consultation date are auto-filled
+    4. School name and consultation date are auto-filled
 
     Args:
         extraction_data: The formatted extraction result from Gemini
-        patient_id: Patient UUID to look up in database
+        student_id: Student UUID to look up in database
         consultation_type_code: The consultation type (e.g., NEONATAL_ADMISSION)
 
     Returns:
-        Extraction data with patient fields overridden and ages calculated
+        Extraction data with student fields overridden and ages calculated
     """
     import logging
     from datetime import datetime
@@ -404,27 +324,27 @@ def apply_neonatal_patient_overrides(
         if apgar_modified:
             result["apgar"] = apgar
 
-    # ========== AUTO-FILL: Hospital Name ==========
-    # TODO: Get from hospital settings when available
+    # ========== AUTO-FILL: School Name ==========
+    # TODO: Get from school settings when available
     # For now, use a default or leave as extracted
 
-    if not patient_id:
-        logger.debug("[NEONATAL_OVERRIDE] No patient_id provided, skipping patient-specific overrides")
+    if not student_id:
+        logger.debug("[NEONATAL_OVERRIDE] No student_id provided, skipping student-specific overrides")
         return result
 
     try:
         import uuid
-        patient_uuid = uuid.UUID(patient_id) if isinstance(patient_id, str) else patient_id
-        patient = get_patient_by_id(patient_uuid)
+        patient_uuid = uuid.UUID(student_id) if isinstance(student_id, str) else student_id
+        patient = get_student_by_id(patient_uuid)
 
         if not patient:
-            logger.warning(f"[NEONATAL_OVERRIDE] Patient {truncate_id(patient_id)} not found")
+            logger.warning(f"[NEONATAL_OVERRIDE] Student {truncate_id(student_id)} not found")
             return result
 
-        uhid = patient.get("patient_id")  # This is the UHID
+        uhid = patient.get("student_id")  # This is the UHID
         add_info = patient.get("add_info") or {}
 
-        logger.debug(f"[NEONATAL_OVERRIDE] Applying overrides from patient {truncate_id(uhid)} (add_info_keys: {len(add_info) if add_info else 0})")
+        logger.debug(f"[NEONATAL_OVERRIDE] Applying overrides from student {truncate_id(uhid)} (add_info_keys: {len(add_info) if add_info else 0})")
 
         # Extract key values for calculations
         birth_date = add_info.get("birthDate")
@@ -599,7 +519,7 @@ def apply_neonatal_patient_overrides(
                 if recording_metadata.get("bedId") is not None and "bedId" in result:
                     result["bedId"] = recording_metadata["bedId"]
 
-        logger.debug(f"[NEONATAL_OVERRIDE] Successfully applied patient overrides and auto-calculations")
+        logger.debug(f"[NEONATAL_OVERRIDE] Successfully applied student overrides and auto-calculations")
         return result
 
     except Exception as e:
@@ -695,7 +615,7 @@ async def extract_neo_daily_parameters(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract neo natal daily parameters using NEO DAILY prompt with system instructions and Gemini 2.5 Pro.
@@ -707,8 +627,8 @@ async def extract_neo_daily_parameters(
     Args:
         transcript: Clinical note transcript (transcribed medical dictation)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted respiratory parameters as JSON
@@ -781,7 +701,7 @@ async def extract_neo_daily_parameters(
                 consultation_type_code="NEONATAL_DAILY",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(NEO_DAILY_PROMPT_SYSTEM) // 4,  # Rough estimate
                 user_prompt_tokens=len(user_prompt) // 4,  # Rough estimate
             )
@@ -798,7 +718,7 @@ async def extract_neo_daily_parameters(
                 call_subtype="neo_daily",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
             raise Exception("AI service call timed out after 120 seconds")
@@ -859,7 +779,7 @@ async def extract_neo_proforma_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -884,8 +804,8 @@ async def extract_neo_proforma_parameters_split(
     Args:
         transcript: Clinical note transcript (birth/admission documentation, transcribed medical dictation)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted neonatal proforma data as JSON with 100+ fields (same output as single-call version)
@@ -973,7 +893,7 @@ async def extract_neo_proforma_parameters_split(
                 consultation_type_code="NEONATAL_PROFORMA",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -987,7 +907,7 @@ async def extract_neo_proforma_parameters_split(
                 consultation_type_code="NEONATAL_PROFORMA",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1080,7 +1000,7 @@ async def extract_neo_proforma_parameters_split(
                     consultation_type_code="NEONATAL_PROFORMA",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1094,7 +1014,7 @@ async def extract_neo_proforma_parameters_split(
                     consultation_type_code="NEONATAL_PROFORMA",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1145,7 +1065,7 @@ async def extract_neo_op_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -1156,7 +1076,7 @@ async def extract_neo_op_parameters_split(
     This function splits the extraction into TWO separate API calls:
 
     PART 1 (~65 fields): BABY, ELIGIBILITY & MEDICAL HISTORY
-    - Patient identification (uhid, opDateTime, hospitalName)
+    - Student identification (uhid, opDateTime, hospitalName)
     - Baby details including ages
     - Eligibility criteria
     - Medical history
@@ -1173,8 +1093,8 @@ async def extract_neo_op_parameters_split(
     Args:
         transcript: Clinical note transcript (outpatient follow-up dictation)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted outpatient parameters as nested JSON
@@ -1261,7 +1181,7 @@ async def extract_neo_op_parameters_split(
                 consultation_type_code="NEO_OP",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1275,7 +1195,7 @@ async def extract_neo_op_parameters_split(
                 consultation_type_code="NEO_OP",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1368,7 +1288,7 @@ async def extract_neo_op_parameters_split(
                     consultation_type_code="NEO_OP",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1382,7 +1302,7 @@ async def extract_neo_op_parameters_split(
                     consultation_type_code="NEO_OP",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1430,7 +1350,7 @@ async def extract_neo_discharge_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -1438,7 +1358,7 @@ async def extract_neo_discharge_parameters_split(
     Extract neonatal discharge summary using TWO-PART extraction to avoid schema complexity limits.
 
     PART 1 (~45 fields): CORE DISCHARGE INFO
-    - Patient identification (uhid, visitNumber, room/bed)
+    - Student identification (uhid, visitNumber, room/bed)
     - Discharge basics (status, date, weight, measurements)
     - Immunization details
     - Physical exam findings
@@ -1457,8 +1377,8 @@ async def extract_neo_discharge_parameters_split(
     Args:
         transcript: Clinical discharge summary transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
         medicine_list_text: Formatted medicine list for prompt injection (optional)
 
     Returns:
@@ -1545,7 +1465,7 @@ async def extract_neo_discharge_parameters_split(
                 consultation_type_code="NEONATAL_DISCHARGE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1559,7 +1479,7 @@ async def extract_neo_discharge_parameters_split(
                 consultation_type_code="NEONATAL_DISCHARGE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1647,7 +1567,7 @@ async def extract_neo_discharge_parameters_split(
                     consultation_type_code="NEONATAL_DISCHARGE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1661,7 +1581,7 @@ async def extract_neo_discharge_parameters_split(
                     consultation_type_code="NEONATAL_DISCHARGE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1709,7 +1629,7 @@ async def extract_neo_admission_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -1735,8 +1655,8 @@ async def extract_neo_admission_parameters_split(
     Args:
         transcript: Clinical admission transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
         medicine_list_text: Formatted medicine list for prompt injection (optional)
 
     Returns:
@@ -1823,7 +1743,7 @@ async def extract_neo_admission_parameters_split(
                 consultation_type_code="NEONATAL_ADMISSION",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1837,7 +1757,7 @@ async def extract_neo_admission_parameters_split(
                 consultation_type_code="NEONATAL_ADMISSION",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -1925,7 +1845,7 @@ async def extract_neo_admission_parameters_split(
                     consultation_type_code="NEONATAL_ADMISSION",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1939,7 +1859,7 @@ async def extract_neo_admission_parameters_split(
                     consultation_type_code="NEONATAL_ADMISSION",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -1987,7 +1907,7 @@ async def extract_neo_daily_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -1997,8 +1917,8 @@ async def extract_neo_daily_parameters_split(
     The expanded NEO_DAILY schema (~125 fields) exceeds Gemini's constraint limits.
     This function splits the extraction into TWO separate API calls:
 
-    PART 1 (~58 fields): PATIENT + VITALS + RESPIRATORY + CARDIOVASCULAR
-    - Patient identification (uhid, admissionId)
+    PART 1 (~58 fields): STUDENT + VITALS + RESPIRATORY + CARDIOVASCULAR
+    - Student identification (uhid, admissionId)
     - General info (dateTime, seenBy, problems, background)
     - Respiratory system (ventilation settings, gas exchange, examination)
     - Cardiovascular system (hemodynamics, perfusion)
@@ -2018,8 +1938,8 @@ async def extract_neo_daily_parameters_split(
     Args:
         transcript: Clinical daily progress note transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
         medicine_list_text: Formatted medicine list for prompt injection (optional)
 
     Returns:
@@ -2117,7 +2037,7 @@ async def extract_neo_daily_parameters_split(
                 consultation_type_code="NEONATAL_DAILY",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(part1_user_prompt) // 4,
             )
@@ -2131,7 +2051,7 @@ async def extract_neo_daily_parameters_split(
                 consultation_type_code="NEONATAL_DAILY",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(part2_user_prompt) // 4,
             )
@@ -2222,7 +2142,7 @@ async def extract_neo_daily_parameters_split(
                     consultation_type_code="NEONATAL_DAILY",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(part1_user_prompt) // 4,
                 )
@@ -2236,7 +2156,7 @@ async def extract_neo_daily_parameters_split(
                     consultation_type_code="NEONATAL_DAILY",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(part2_user_prompt) // 4,
                 )
@@ -2284,7 +2204,7 @@ async def extract_neo_daily_free_parameters(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -2298,8 +2218,8 @@ async def extract_neo_daily_free_parameters(
     Args:
         transcript: Clinical daily progress note transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted neonatal daily data as flat JSON with 17 fields
@@ -2378,7 +2298,7 @@ async def extract_neo_daily_free_parameters(
                 consultation_type_code="NEONATAL_DAILY_FREE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -2416,7 +2336,7 @@ async def extract_neo_daily_free_parameters(
                     consultation_type_code="NEONATAL_DAILY_FREE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -2437,8 +2357,8 @@ async def extract_neo_daily_free_parameters(
             logger.debug(f"[GeminiService] NEO_DAILY_FREE extracted {len(result_data)} fields")
 
         # ========== POST-PROCESSING ==========
-        # Resolve seenBy names/IDs via doctor lookup, default to [7] if empty
-        from services.doctor_lookups import resolve_seen_by_ids
+        # Resolve seenBy names/IDs via counsellor lookup, default to [7] if empty
+        from services.counsellor_lookups import resolve_seen_by_ids
         seen_by_raw = result_data.get("seenBy")
         if isinstance(seen_by_raw, list) and seen_by_raw:
             result_data["seenBy"] = resolve_seen_by_ids(seen_by_raw)
@@ -2463,7 +2383,7 @@ async def extract_neo_proforma_free_parameters(
     transcript: str,
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -2528,7 +2448,7 @@ async def extract_neo_proforma_free_parameters(
                 consultation_type_code="NEO_PROFORMA_FREE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -2557,7 +2477,7 @@ async def extract_neo_proforma_free_parameters(
                     consultation_type_code="NEO_PROFORMA_FREE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -2574,7 +2494,7 @@ async def extract_neo_proforma_free_parameters(
             result_data = clean_and_parse_json(response.text, context="NEO_PROFORMA_FREE")
 
         # Post-processing: resolve seenBy
-        from services.doctor_lookups import resolve_seen_by_ids
+        from services.counsellor_lookups import resolve_seen_by_ids
         seen_by_raw = result_data.get("seenBy")
         if isinstance(seen_by_raw, list) and seen_by_raw:
             result_data["seenBy"] = resolve_seen_by_ids(seen_by_raw)
@@ -2594,7 +2514,7 @@ async def extract_neo_discharge_free_parameters(
     transcript: str,
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -2659,7 +2579,7 @@ async def extract_neo_discharge_free_parameters(
                 consultation_type_code="NEO_DISCHARGE_FREE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -2688,7 +2608,7 @@ async def extract_neo_discharge_free_parameters(
                     consultation_type_code="NEO_DISCHARGE_FREE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -2705,7 +2625,7 @@ async def extract_neo_discharge_free_parameters(
             result_data = clean_and_parse_json(response.text, context="NEO_DISCHARGE_FREE")
 
         # Post-processing: resolve seenBy
-        from services.doctor_lookups import resolve_seen_by_ids
+        from services.counsellor_lookups import resolve_seen_by_ids
         seen_by_raw = result_data.get("seenBy")
         if isinstance(seen_by_raw, list) and seen_by_raw:
             result_data["seenBy"] = resolve_seen_by_ids(seen_by_raw)
@@ -2725,7 +2645,7 @@ async def extract_neo_postnatal_day_free_parameters(
     transcript: str,
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -2790,7 +2710,7 @@ async def extract_neo_postnatal_day_free_parameters(
                 consultation_type_code="NEO_POSTNATAL_DAY_FREE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -2819,7 +2739,7 @@ async def extract_neo_postnatal_day_free_parameters(
                     consultation_type_code="NEO_POSTNATAL_DAY_FREE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -2836,7 +2756,7 @@ async def extract_neo_postnatal_day_free_parameters(
             result_data = clean_and_parse_json(response.text, context="NEO_POSTNATAL_DAY_FREE")
 
         # Post-processing: resolve seenBy
-        from services.doctor_lookups import resolve_seen_by_ids
+        from services.counsellor_lookups import resolve_seen_by_ids
         seen_by_raw = result_data.get("seenBy")
         if isinstance(seen_by_raw, list) and seen_by_raw:
             result_data["seenBy"] = resolve_seen_by_ids(seen_by_raw)
@@ -2856,7 +2776,7 @@ async def extract_neo_postnatal_discharge_free_parameters(
     transcript: str,
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     medicine_list_text: str = "",
     investigation_list_text: str = "",
 ) -> Dict[str, Any]:
@@ -2921,7 +2841,7 @@ async def extract_neo_postnatal_discharge_free_parameters(
                 consultation_type_code="NEO_POSTNATAL_DISCHARGE_FREE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -2950,7 +2870,7 @@ async def extract_neo_postnatal_discharge_free_parameters(
                     consultation_type_code="NEO_POSTNATAL_DISCHARGE_FREE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -2967,7 +2887,7 @@ async def extract_neo_postnatal_discharge_free_parameters(
             result_data = clean_and_parse_json(response.text, context="NEO_POSTNATAL_DISCHARGE_FREE")
 
         # Post-processing: resolve seenBy
-        from services.doctor_lookups import resolve_seen_by_ids
+        from services.counsellor_lookups import resolve_seen_by_ids
         seen_by_raw = result_data.get("seenBy")
         if isinstance(seen_by_raw, list) and seen_by_raw:
             result_data["seenBy"] = resolve_seen_by_ids(seen_by_raw)
@@ -2988,7 +2908,7 @@ async def extract_ophthal_discharge_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract ophthalmology discharge summary using TWO-PART extraction to avoid schema complexity limits.
@@ -2996,8 +2916,8 @@ async def extract_ophthal_discharge_parameters_split(
     The flattened schema (42 properties) may approach Gemini's constraint limits.
     This function splits the extraction into TWO separate API calls:
 
-    PART 1 (23 fields): PATIENT DATA & TREATMENT
-    - Patient demographics, admission details
+    PART 1 (23 fields): STUDENT DATA & TREATMENT
+    - Student demographics, admission details
     - Medical team, diagnosis
     - Treatment given, discharge status
     - Provider information
@@ -3011,8 +2931,8 @@ async def extract_ophthal_discharge_parameters_split(
     Args:
         transcript: Clinical discharge summary transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted ophthalmology discharge data as JSON with nested structure
@@ -3073,7 +2993,7 @@ async def extract_ophthal_discharge_parameters_split(
                 consultation_type_code="OPHTHAL_DISCHARGE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -3087,7 +3007,7 @@ async def extract_ophthal_discharge_parameters_split(
                 consultation_type_code="OPHTHAL_DISCHARGE",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4,
                 user_prompt_tokens=len(user_prompt) // 4,
             )
@@ -3175,7 +3095,7 @@ async def extract_ophthal_discharge_parameters_split(
                     consultation_type_code="OPHTHAL_DISCHARGE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -3189,7 +3109,7 @@ async def extract_ophthal_discharge_parameters_split(
                     consultation_type_code="OPHTHAL_DISCHARGE",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4,
                     user_prompt_tokens=len(user_prompt) // 4,
                 )
@@ -3240,7 +3160,7 @@ async def extract_ophthalmology_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract basic ophthalmology consultation using TWO-PART extraction to avoid schema complexity limits.
@@ -3249,8 +3169,8 @@ async def extract_ophthalmology_parameters_split(
     especially with the deeply nested fundusExamination section.
     This function splits the extraction into TWO separate API calls:
 
-    PART 1 (33 fields): PATIENT DATA & ANTERIOR EXAMINATION
-    - Patient demographics, clinical history
+    PART 1 (33 fields): STUDENT DATA & ANTERIOR EXAMINATION
+    - Student demographics, clinical history
     - Visual acuity, refraction
     - Muscle balance, intraocular pressure
     - Gonioscopy, provider information
@@ -3265,8 +3185,8 @@ async def extract_ophthalmology_parameters_split(
     Args:
         transcript: Clinical consultation transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted ophthalmology consultation data as JSON with nested structure
@@ -3324,7 +3244,7 @@ async def extract_ophthalmology_parameters_split(
                 call_subtype="ophthalmology_part1", consultation_type_code="OPHTHALMOLOGY",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4, user_prompt_tokens=len(user_prompt) // 4,
             )
             await log_llm_usage(usage_data_p1)
@@ -3334,7 +3254,7 @@ async def extract_ophthalmology_parameters_split(
                 call_subtype="ophthalmology_part2", consultation_type_code="OPHTHALMOLOGY",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4, user_prompt_tokens=len(user_prompt) // 4,
             )
             await log_llm_usage(usage_data_p2)
@@ -3418,7 +3338,7 @@ async def extract_ophthalmology_parameters_split(
                     call_subtype="ophthalmology_part1", consultation_type_code="OPHTHALMOLOGY",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4, user_prompt_tokens=len(user_prompt) // 4,
                 )
                 await log_llm_usage(usage_data_p1)
@@ -3428,7 +3348,7 @@ async def extract_ophthalmology_parameters_split(
                     call_subtype="ophthalmology_part2", consultation_type_code="OPHTHALMOLOGY",
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4, user_prompt_tokens=len(user_prompt) // 4,
                 )
                 await log_llm_usage(usage_data_p2)
@@ -3478,7 +3398,7 @@ async def extract_ophthal_full_consult_parameters_split(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract comprehensive ophthalmology consultation using TWO-PART extraction to avoid schema complexity limits.
@@ -3486,8 +3406,8 @@ async def extract_ophthal_full_consult_parameters_split(
     The flattened schema (118 properties) exceeds Gemini's constraint limits.
     This function splits the extraction into TWO separate API calls:
 
-    PART 1 (65 fields): PATIENT DATA & PRIMARY EXAMINATION
-    - Patient demographics, clinical history
+    PART 1 (65 fields): STUDENT DATA & PRIMARY EXAMINATION
+    - Student demographics, clinical history
     - Visual acuity and refraction (bilateral)
     - Keratometry (bilateral)
     - Cover tests (with/without glass)
@@ -3508,8 +3428,8 @@ async def extract_ophthal_full_consult_parameters_split(
     Args:
         transcript: Comprehensive clinical consultation transcript
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Extracted full ophthalmology consultation data as JSON with nested structure
@@ -3571,7 +3491,7 @@ async def extract_ophthal_full_consult_parameters_split(
                 template_code=None,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                 user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
             )
@@ -3586,7 +3506,7 @@ async def extract_ophthal_full_consult_parameters_split(
                 template_code=None,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                 user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
             )
@@ -3679,7 +3599,7 @@ async def extract_ophthal_full_consult_parameters_split(
                     template_code=None,
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                     user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
                 )
@@ -3695,7 +3615,7 @@ async def extract_ophthal_full_consult_parameters_split(
                     template_code=None,
                     session_id=uuid_module.UUID(session_id) if session_id else None,
                     extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                    doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                    counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                     user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
                 )
@@ -3712,7 +3632,7 @@ async def extract_ophthal_full_consult_parameters_split(
                         error_message="Parallel extraction timed out after 120 seconds",
                         session_id=uuid_module.UUID(session_id) if session_id else None,
                         extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                        doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                        counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     )
                     await log_llm_usage(error_usage)
                 raise Exception("PARALLEL extraction timed out")
@@ -3727,7 +3647,7 @@ async def extract_ophthal_full_consult_parameters_split(
                         error_message=str(e),
                         session_id=uuid_module.UUID(session_id) if session_id else None,
                         extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                        doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                        counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                     )
                     await log_llm_usage(error_usage)
                 raise Exception(_sanitize_error_message(str(e)))
@@ -3767,7 +3687,7 @@ async def extract_ophthal_postop_rx(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract ophthalmology post-operative prescription schedule from voice transcript.
@@ -3782,12 +3702,12 @@ async def extract_ophthal_postop_rx(
         transcript: Voice transcript text containing prescription instructions
         consultation_date: Surgery/consultation date in dd/mm/yy format (defaults to today)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Dict containing:
-        - patientDetails: Patient identification
+        - patientDetails: Student identification
         - surgeryDetails: Surgery procedure information
         - medications: Array of medication rows with timings
         - generalInstructions: Post-op care instructions
@@ -3867,7 +3787,7 @@ async def extract_ophthal_postop_rx(
                 template_code=None,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                 user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
             )
@@ -3883,7 +3803,7 @@ async def extract_ophthal_postop_rx(
                 error_message="API call timed out after 120 seconds",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
             raise
@@ -3897,7 +3817,7 @@ async def extract_ophthal_postop_rx(
                 error_message=str(e),
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
             raise Exception(_sanitize_error_message(str(e)))
@@ -3929,7 +3849,7 @@ async def extract_ophthal_prescription(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Extract ophthalmology general prescription from voice transcript.
@@ -3945,16 +3865,16 @@ async def extract_ophthal_prescription(
         transcript: Voice transcript text containing prescription instructions
         consultation_date: Consultation date (defaults to today)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        extraction_id: extraction ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
 
     Returns:
         Dict containing:
-        - patientDetails: Patient identification
+        - patientDetails: Student identification
         - prescriptionItems: Array of medication items
         - continuingMedications: Medications to continue from previous
         - additionalNotes: Extra instructions
-        - doctorDetails: Doctor information
+        - doctorDetails: Counsellor information
         - followUp: Follow-up details
         - pharmacyNote: Note for pharmacy
 
@@ -4032,7 +3952,7 @@ async def extract_ophthal_prescription(
                 template_code=None,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                 user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
             )
@@ -4048,7 +3968,7 @@ async def extract_ophthal_prescription(
                 error_message="API call timed out after 120 seconds",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
             raise
@@ -4062,7 +3982,7 @@ async def extract_ophthal_prescription(
                 error_message=str(e),
                 session_id=uuid_module.UUID(session_id) if session_id else None,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
             raise Exception(_sanitize_error_message(str(e)))
@@ -4113,7 +4033,7 @@ async def detect_language_from_audio(
     model: str = 'gemini-2.5-flash',
     timeout_seconds: float = 30.0,
     session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
 ) -> Optional[str]:
     """Detect the dominant spoken language from a short audio preview.
 
@@ -4126,7 +4046,7 @@ async def detect_language_from_audio(
         mime_type: Audio MIME type
         model: Gemini model to use
         timeout_seconds: Max wall time for the call
-        session_id / doctor_id: Optional usage-tracking context
+        session_id / counsellor_id: Optional usage-tracking context
 
     Returns:
         Language name string (e.g., "Tamil", "Hindi", "English") or None
@@ -4138,7 +4058,7 @@ async def detect_language_from_audio(
 
     user_prompt = (
         "Identify the dominant spoken language in this audio clip. "
-        "Focus on the PATIENT if multiple speakers are present. "
+        "Focus on the STUDENT if multiple speakers are present. "
         'Respond with ONLY a JSON object: {"language": "LanguageName"} '
         "where LanguageName is one of: Tamil, Hindi, English, Telugu, "
         "Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Urdu, "
@@ -4172,7 +4092,7 @@ async def detect_language_from_audio(
                 prompt_token_count=getattr(response.usage_metadata, 'prompt_token_count', 0) if response.usage_metadata else 0,
                 candidates_token_count=getattr(response.usage_metadata, 'candidates_token_count', 0) if response.usage_metadata else 0,
                 session_id=_uuid.UUID(session_id) if session_id else None,
-                doctor_id=_uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=_uuid.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(usage)
         except Exception as log_e:
@@ -4207,7 +4127,7 @@ async def transcribe_audio(
     timeout_seconds: float = 300.0,
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     audio_duration_seconds: Optional[float] = None,
 ) -> tuple:
     """
@@ -4224,7 +4144,7 @@ async def transcribe_audio(
         target_language: Target language for transcription (None = original language, "English" = English)
         timeout_seconds: Timeout for the API call in seconds (default: 300s, auto-scaled for long audio)
         session_id: Recording session ID for usage tracking (optional)
-        doctor_id: Doctor ID for usage tracking (optional)
+        counsellor_id: Counsellor ID for usage tracking (optional)
         audio_duration_seconds: Audio duration for cost calculation (optional, estimated from size if not provided)
 
     Returns:
@@ -4352,7 +4272,7 @@ async def transcribe_audio(
                 audio_duration_seconds=audio_duration_seconds,
                 audio_size_bytes=audio_size_bytes,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(usage_data)
 
@@ -4368,7 +4288,7 @@ async def transcribe_audio(
                 error_message=f"Timeout after {timeout_seconds}s",
                 call_subtype="audio_to_text",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
 
@@ -4439,24 +4359,24 @@ async def transcribe_audio(
 
 
 def build_audio_extraction_user_prompt(
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     has_medicine_list: bool = True,
     has_investigation_list: bool = True,
 ) -> str:
     """
     Build dynamic user prompt for direct audio extraction with all 5 injections:
-    1. Medicine list (doctor-specific)
-    2. Investigation list (doctor-specific)
-    3. Caution/Warnings aggregation (patient history)
-    4. Past prescriptions (patient history)
-    5. Past summaries (patient history)
+    1. Medicine list (counsellor-specific)
+    2. Investigation list (counsellor-specific)
+    3. Caution/Warnings aggregation (student history)
+    4. Past prescriptions (student history)
+    5. Past summaries (student history)
 
     Args:
-        doctor_id: Doctor UUID string for medicine/investigation lists
-        patient_id: Patient UUID string for historical context
-        has_medicine_list: Whether doctor has medicine list configured
-        has_investigation_list: Whether doctor has investigation list configured
+        counsellor_id: Counsellor UUID string for medicine/investigation lists
+        student_id: Student UUID string for historical context
+        has_medicine_list: Whether counsellor has medicine list configured
+        has_investigation_list: Whether counsellor has investigation list configured
 
     Returns:
         Dynamic user prompt string with all applicable injections
@@ -4469,58 +4389,58 @@ def build_audio_extraction_user_prompt(
         "Listen carefully to the entire audio and extract all relevant medical information.",
     ]
 
-    # Injection 1: Medicine list (if doctor has one)
-    if doctor_id and has_medicine_list:
+    # Injection 1: Medicine list (if counsellor has one)
+    if counsellor_id and has_medicine_list:
         try:
             from services.medicine_service import get_medicine_list_for_prompt
-            doctor_uuid = uuid.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id
-            medicine_list = get_medicine_list_for_prompt(doctor_uuid)
+            counsellor_uuid = uuid.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id
+            medicine_list = get_medicine_list_for_prompt(counsellor_uuid)
             if medicine_list:
                 prompt_parts.append(f"""
 **MEDICINE MATCHING (CRITICAL):**
 When extracting medicines for the prescription segment, follow these rules:
 
-1. **MATCH FROM LIST FIRST**: For each medicine mentioned, find the closest match from the doctor's medicine list below. Account for:
+1. **MATCH FROM LIST FIRST**: For each medicine mentioned, find the closest match from the counsellor's medicine list below. Account for:
    - Pronunciation variations (e.g., "amlo" → "AMLODIPINE", "glycomet" → "METFORMIN")
    - Abbreviated names (e.g., "telmi 40" → "TELMISARTAN 40MG")
    - Brand vs generic names (listed as "also:" alternatives)
    - Phonetic similarities (e.g., "azithro" → "AZITHROMYCIN")
 
-2. **MATCH BOTH BRAND NAME AND FORM**: Each medicine entry has a `[Form]` tag (e.g., `[Tablet]`, `[Syrup]`, `[Capsule]`) indicating its dosage form. You MUST match based on BOTH the brand name AND the form mentioned by the doctor. Use the `[Form]` tag to disambiguate entries with the same brand. For example:
-   - Doctor says "Dolo 650 tablet" → pick "DOLO 650 [Tablet]", NOT "DOLO 100 ML SYRUP [Syrup]"
-   - Doctor says "Crocin syrup" → if no entry has a matching `[Syrup]` form for Crocin, output the spoken name "Crocin Syrup" verbatim. Do NOT pick "CROCIN 500 MG TABLETS [Tablet]" when the doctor clearly said syrup.
-   - The form spoken by the doctor MUST match the `[Form]` tag of the selected entry. NEVER substitute a tablet for a syrup or vice versa.
+2. **MATCH BOTH BRAND NAME AND FORM**: Each medicine entry has a `[Form]` tag (e.g., `[Tablet]`, `[Syrup]`, `[Capsule]`) indicating its dosage form. You MUST match based on BOTH the brand name AND the form mentioned by the counsellor. Use the `[Form]` tag to disambiguate entries with the same brand. For example:
+   - Counsellor says "Dolo 650 tablet" → pick "DOLO 650 [Tablet]", NOT "DOLO 100 ML SYRUP [Syrup]"
+   - Counsellor says "Crocin syrup" → if no entry has a matching `[Syrup]` form for Crocin, output the spoken name "Crocin Syrup" verbatim. Do NOT pick "CROCIN 500 MG TABLETS [Tablet]" when the counsellor clearly said syrup.
+   - The form spoken by the counsellor MUST match the `[Form]` tag of the selected entry. NEVER substitute a tablet for a syrup or vice versa.
 
 3. **USE EXACT NAME FROM LIST**: If a close match is found, copy the COMPLETE medicine name exactly as it appears in the list — include everything before the `[Form]` tag and "(also:" part. Do NOT include the `[Form]` tag in the output. Do NOT truncate or remove any suffixes like "Kg TABLET" or "ML LIQUID". For example, if the list shows "T - CALPOL 650MG TAB  Kg TABLET [Tablet] (also: CALPOL, ...)", output exactly: "T - CALPOL 650MG TAB  Kg TABLET"
 
-4. **NEW MEDICINES ONLY IF NO MATCH**: Only use the spoken medicine name verbatim if there is NO reasonable match in the list below. This includes cases where the brand exists but the form does not match (e.g., doctor says "syrup" but only a `[Tablet]` entry exists).
+4. **NEW MEDICINES ONLY IF NO MATCH**: Only use the spoken medicine name verbatim if there is NO reasonable match in the list below. This includes cases where the brand exists but the form does not match (e.g., counsellor says "syrup" but only a `[Tablet]` entry exists).
 
-5. **FORM SELF-CHECK (MANDATORY)**: After selecting a medicine from the list, verify the `[Form]` tag matches what the doctor said:
-   - Doctor said "syrup" but you picked a `[Tablet]` entry? WRONG — output the spoken name verbatim instead.
-   - Doctor said "tablet" but you picked a `[Syrup]` entry? WRONG — output the spoken name verbatim instead.
+5. **FORM SELF-CHECK (MANDATORY)**: After selecting a medicine from the list, verify the `[Form]` tag matches what the counsellor said:
+   - Counsellor said "syrup" but you picked a `[Tablet]` entry? WRONG — output the spoken name verbatim instead.
+   - Counsellor said "tablet" but you picked a `[Syrup]` entry? WRONG — output the spoken name verbatim instead.
    - If the form doesn't match ANY entry for that brand, output the spoken name verbatim.
-   Also set the `dosage_form` field to what the doctor ACTUALLY SAID (e.g., "Syrup"), regardless of which list entry you matched.
+   Also set the `dosage_form` field to what the counsellor ACTUALLY SAID (e.g., "Syrup"), regardless of which list entry you matched.
 
 {medicine_list}
 
-**FORM REMINDER: A syrup is NEVER a tablet. A tablet is NEVER a syrup. The [Form] tag MUST match the form the doctor said. If in doubt, output the spoken name verbatim.**
+**FORM REMINDER: A syrup is NEVER a tablet. A tablet is NEVER a syrup. The [Form] tag MUST match the form the counsellor said. If in doubt, output the spoken name verbatim.**
 """)
                 logger.debug(f"[SKIP_TRANSCRIPTION] Injected medicine list ({len(medicine_list)} chars)")
         except Exception as e:
             logger.warning(f"[SKIP_TRANSCRIPTION] Failed to inject medicine list: {e}")
 
-    # Injection 2: Investigation list (if doctor has one)
-    if doctor_id and has_investigation_list:
+    # Injection 2: Investigation list (if counsellor has one)
+    if counsellor_id and has_investigation_list:
         try:
             from services.investigation_service import get_investigation_list_for_prompt
-            doctor_uuid = uuid.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id
-            investigation_list = get_investigation_list_for_prompt(doctor_uuid)
+            counsellor_uuid = uuid.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id
+            investigation_list = get_investigation_list_for_prompt(counsellor_uuid)
             if investigation_list:
                 prompt_parts.append(f"""
 **INVESTIGATION MATCHING (CRITICAL):**
 When extracting investigations, follow these rules:
 
-1. **MATCH FROM LIST FIRST**: For each investigation mentioned, find the closest match from the doctor's investigation list below. Account for:
+1. **MATCH FROM LIST FIRST**: For each investigation mentioned, find the closest match from the counsellor's investigation list below. Account for:
    - Abbreviations (e.g., "CBC" → "Complete Blood Count", "LFT" → "Liver Function Test")
    - Common names (e.g., "blood count" → "Complete Blood Count", "chest x-ray" → "X-Ray Chest PA View")
    - Phonetic similarities (e.g., "hemogram" → "Complete Blood Count")
@@ -4535,17 +4455,17 @@ When extracting investigations, follow these rules:
         except Exception as e:
             logger.warning(f"[SKIP_TRANSCRIPTION] Failed to inject investigation list: {e}")
 
-    # Injections 3-5: Patient context (cautions, past prescriptions, past summaries)
-    if patient_id:
+    # Injections 3-5: Student context (cautions, past prescriptions, past summaries)
+    if student_id:
         try:
-            from services.patient_context_service import (
-                get_patient_context_for_extraction,
-                format_patient_context_for_prompt
+            from services.student_context_service import (
+                get_student_context_for_extraction,
+                format_student_context_for_prompt
             )
-            doctor_id_str = str(doctor_id) if doctor_id else None
-            patient_context = get_patient_context_for_extraction(
-                patient_id=patient_id,
-                doctor_id=doctor_id_str,
+            counsellor_id_str = str(counsellor_id) if counsellor_id else None
+            patient_context = get_student_context_for_extraction(
+                student_id=student_id,
+                counsellor_id=counsellor_id_str,
                 num_past_consultations=3  # Same as normal pipeline
             )
             if patient_context.get("has_context"):
@@ -4553,12 +4473,12 @@ When extracting investigations, follow these rules:
                 # - Caution/Warnings aggregation (allergies with frequency)
                 # - Past Prescriptions (last 3 consultations)
                 # - Past Summaries (last 2 consultations)
-                context_text = format_patient_context_for_prompt(patient_context)
+                context_text = format_student_context_for_prompt(patient_context)
                 if context_text:
                     prompt_parts.append(context_text)
-                    logger.debug(f"[SKIP_TRANSCRIPTION] Injected patient context ({len(context_text)} chars)")
+                    logger.debug(f"[SKIP_TRANSCRIPTION] Injected student context ({len(context_text)} chars)")
         except Exception as e:
-            logger.warning(f"[SKIP_TRANSCRIPTION] Failed to inject patient context: {e}")
+            logger.warning(f"[SKIP_TRANSCRIPTION] Failed to inject student context: {e}")
 
     return "\n\n".join(prompt_parts)
 
@@ -4571,8 +4491,8 @@ async def extract_insights_from_audio_direct(
     model: str = "gemini-2.0-flash",
     timeout_seconds: float = 180.0,
     session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
-    patient_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
     has_medicine_list: bool = False,
     has_investigation_list: bool = False,
     audio_duration_seconds: Optional[float] = None,
@@ -4585,11 +4505,11 @@ async def extract_insights_from_audio_direct(
     This bypasses the transcription step for consultation types with skip_transcription enabled.
 
     Now includes all 5 prompt injections (same as normal pipeline):
-    1. Medicine list (doctor-specific)
-    2. Investigation list (doctor-specific)
-    3. Caution/Warnings aggregation (patient history)
-    4. Past prescriptions (patient history)
-    5. Past summaries (patient history)
+    1. Medicine list (counsellor-specific)
+    2. Investigation list (counsellor-specific)
+    3. Caution/Warnings aggregation (student history)
+    4. Past prescriptions (student history)
+    5. Past summaries (student history)
 
     Args:
         audio_content: Raw audio bytes
@@ -4599,10 +4519,10 @@ async def extract_insights_from_audio_direct(
         model: Gemini model to use
         timeout_seconds: Timeout for the API call
         session_id: Recording session ID for usage tracking
-        doctor_id: Doctor ID for list injection and usage tracking
-        patient_id: Patient ID for historical context injection
-        has_medicine_list: Whether doctor has medicine list configured
-        has_investigation_list: Whether doctor has investigation list configured
+        counsellor_id: Counsellor ID for list injection and usage tracking
+        student_id: Student ID for historical context injection
+        has_medicine_list: Whether counsellor has medicine list configured
+        has_investigation_list: Whether counsellor has investigation list configured
         audio_duration_seconds: Audio duration for cost calculation
         template_code: Template code for logging
 
@@ -4651,8 +4571,8 @@ async def extract_insights_from_audio_direct(
 
         # Build dynamic user prompt with all 5 injections
         user_prompt = build_audio_extraction_user_prompt(
-            doctor_id=doctor_id,
-            patient_id=patient_id,
+            counsellor_id=counsellor_id,
+            student_id=student_id,
             has_medicine_list=has_medicine_list,
             has_investigation_list=has_investigation_list,
         )
@@ -4694,7 +4614,7 @@ async def extract_insights_from_audio_direct(
                 prompt_token_count=getattr(response.usage_metadata, 'prompt_token_count', 0) if response.usage_metadata else 0,
                 candidates_token_count=getattr(response.usage_metadata, 'candidates_token_count', 0) if response.usage_metadata else 0,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 template_code=template_code,
             )
             await log_llm_usage(usage_data)
@@ -4711,7 +4631,7 @@ async def extract_insights_from_audio_direct(
                 error_message=f"Timeout after {timeout_seconds}s",
                 call_subtype="direct_audio_extraction",
                 session_id=uuid_module.UUID(session_id) if session_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
 
@@ -4740,202 +4660,6 @@ async def extract_insights_from_audio_direct(
                 asyncio.create_task(cleanup_audio_part(audio_cleanup_handle))
             except Exception:
                 pass
-
-
-async def extract_audio_only_emotions(
-    audio_content: bytes,
-    audio_mime_type: str,
-    template_id: str,
-    model: str = 'gemini-2.5-flash-preview',
-    timeout_seconds: float = 120.0,
-    session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
-    extraction_id: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Extract emotions from audio ONLY (no transcript required).
-    Used for skip_transcription mode where we bypass transcription.
-
-    Uses pre-assembled AUDIO_* segment prompts from templates table.
-    Outputs to unified emotion schema format for consistency with combined emotions.
-
-    Args:
-        audio_content: Raw audio bytes
-        audio_mime_type: Audio MIME type (e.g., 'audio/mp3', 'audio/wav')
-        template_id: Template UUID for prompt lookup
-        model: Gemini model to use
-        timeout_seconds: Timeout for the API call
-        session_id: Recording session ID for usage tracking
-        doctor_id: Doctor ID for usage tracking
-        extraction_id: Medical extraction ID to link results to
-
-    Returns:
-        Dict with unified emotion segments:
-        {
-            "success": True,
-            "unified_segments": {
-                "ANXIETY_POST_CONSULTATION": {..., "source": "audio_only"},
-                "FINANCIAL_CONCERNS": {..., "source": "audio_only"},
-                ...
-            },
-            "metadata": {...}
-        }
-    """
-    import asyncio
-    import time
-    import json
-    import uuid as uuid_module
-    from services.llm_usage_service import log_llm_usage, create_error_usage
-    from services.supabase_service import get_audio_emotion_prompt_with_fallback
-
-    logger.debug(f'[EMOTION:AUDIO_ONLY] Starting audio-only emotion extraction (timeout: {timeout_seconds}s)...')
-    logger.debug(f'[EMOTION:AUDIO_ONLY] Audio size: {len(audio_content)} bytes, MIME: {audio_mime_type}')
-
-    try:
-        # Get audio-only emotion prompt and schema from database
-        template_uuid = uuid_module.UUID(template_id) if isinstance(template_id, str) else template_id
-        prompt_data = get_audio_emotion_prompt_with_fallback(template_uuid)
-
-        if prompt_data is None:
-            logger.warning(
-                f"[EMOTION:AUDIO_ONLY] Audio emotion prompts not configured for template {template_id}. "
-                f"Ensure AUDIO_* segments are activated."
-            )
-            return {
-                "success": False,
-                "error": "Audio emotion prompts not configured",
-                "unified_segments": {},
-                "metadata": {
-                    "extraction_id": extraction_id,
-                    "template_id": template_id,
-                    "status": "skipped",
-                    "reason": "prompts_not_configured"
-                }
-            }
-
-        system_prompt = prompt_data["system_prompt"]
-        response_schema = prompt_data.get("schema")
-        prompt_source = prompt_data.get("source", "unknown")
-        logger.debug(f"[EMOTION:AUDIO_ONLY] Using {prompt_source} prompt for template {template_id}")
-
-        # Build user prompt for audio-only analysis
-        user_prompt = """Analyze this medical consultation audio recording.
-
-## Your Task:
-Focus on VOCAL characteristics only - tone, pace, hesitations, tremors, and emotional indicators.
-
-1. Listen for anxiety indicators: trembling voice, rapid speech, hesitations
-2. Listen for financial stress: deflection when costs are mentioned, sighing, defensive tone
-3. Listen for compliance indicators: enthusiasm vs reluctance, certainty vs doubt
-4. Analyze doctor communication style: empathy, clarity, pacing
-
-Note: Since there is no transcript for this analysis, only assess audio-level indicators.
-Set text_level fields to null and mismatch fields to null (no text comparison possible)."""
-
-        # Create audio part
-        audio_part = types.Part.from_bytes(
-            data=audio_content,
-            mime_type=audio_mime_type
-        )
-
-        # Make API call
-        api_start = time.time()
-        try:
-            if response_schema:
-                response = await asyncio.wait_for(
-                    client.aio.models.generate_content(
-                        model=model,
-                        contents=[{"role": "user", "parts": [{"text": user_prompt}, audio_part]}],
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_prompt,
-                            response_mime_type="application/json",
-                            response_schema=response_schema,
-                            temperature=0.1,
-                        )
-                    ),
-                    timeout=timeout_seconds
-                )
-            else:
-                response = await asyncio.wait_for(
-                    client.aio.models.generate_content(
-                        model=model,
-                        contents=[{"role": "user", "parts": [{"text": user_prompt}, audio_part]}],
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_prompt,
-                            response_mime_type="application/json",
-                            temperature=0.1,
-                        )
-                    ),
-                    timeout=timeout_seconds
-                )
-
-            api_duration = time.time() - api_start
-            logger.info(f'[EMOTION:AUDIO_ONLY] API call completed in {api_duration:.2f}s')
-
-        except asyncio.TimeoutError:
-            api_duration = time.time() - api_start
-            logger.error(f'[EMOTION:AUDIO_ONLY] Timed out after {api_duration:.2f}s')
-            return {
-                "success": False,
-                "error": f"Timeout after {timeout_seconds}s",
-                "unified_segments": {},
-                "metadata": {"extraction_id": extraction_id, "status": "timeout"}
-            }
-
-        if not response.text:
-            logger.error('[EMOTION:AUDIO_ONLY] No response text returned')
-            return {
-                "success": False,
-                "error": "No response text",
-                "unified_segments": {},
-                "metadata": {"extraction_id": extraction_id, "status": "empty_response"}
-            }
-
-        # Parse response
-        try:
-            segments = json.loads(response.text)
-        except json.JSONDecodeError as e:
-            logger.error(f'[EMOTION:AUDIO_ONLY] Failed to parse JSON response: {e}')
-            return {
-                "success": False,
-                "error": f"JSON parse error: {str(e)}",
-                "unified_segments": {},
-                "metadata": {"extraction_id": extraction_id, "status": "parse_error"}
-            }
-
-        # Transform AUDIO_* segments to unified format for consistent UI/webhook display
-        # Gemini returns: AUDIO_PATIENT_ANXIETY, AUDIO_FINANCIAL_CONCERNS, etc.
-        # UI expects: ANXIETY_POST_CONSULTATION, FINANCIAL_CONCERNS, etc.
-        from services.emotion_transformer import transform_audio_to_unified
-        unified_segments = transform_audio_to_unified(segments)
-
-        logger.debug(
-            f'[EMOTION:AUDIO_ONLY] Successfully extracted {len(segments)} raw AUDIO_* segments, '
-            f'transformed to {len(unified_segments)} unified segments'
-        )
-
-        return {
-            "success": True,
-            "unified_segments": unified_segments,
-            "metadata": {
-                "extraction_id": extraction_id,
-                "template_id": template_id,
-                "model": model,
-                "api_duration_seconds": api_duration,
-                "source": "audio_only",
-                "prompt_source": prompt_source,
-                "raw_segment_count": len(segments)
-            }
-        }
-
-    except Exception as e:
-        logger.error(f'[EMOTION:AUDIO_ONLY] Error in audio-only emotion extraction: {e}')
-        return {
-            "success": False,
-            "error": _sanitize_error_message(str(e)),
-            "unified_segments": {},
-            "metadata": {"extraction_id": extraction_id, "status": "error"}
-        }
 
 
 async def generate_content_with_gemini(
@@ -5170,7 +4894,7 @@ async def _retry_missing_required_keys(
     model: str,
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     template_code: Optional[str] = None,
 ) -> Any:
     """Re-prompt once for any required schema keys the LLM dropped, then merge.
@@ -5262,7 +4986,7 @@ async def _retry_missing_required_keys(
                 template_code=template_code,
                 session_id=uuid.UUID(session_id) if session_id else None,
                 extraction_id=uuid.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(usage_data)
         except Exception as e:
@@ -5297,7 +5021,7 @@ async def _retry_missing_required_keys(
 async def extract_summary_dynamic(
     transcript: str,
     consultation_type_id: str,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     template_code: Optional[str] = None,
     mode: str = "full",
     model: str = "gemini-2.5-flash",
@@ -5305,9 +5029,9 @@ async def extract_summary_dynamic(
     # Usage tracking context (optional)
     session_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
-    # Patient context for history injection (optional)
-    patient_id: Optional[str] = None,
-    # List availability flags (skip injection if doctor/hospital has no lists)
+    # Student context for history injection (optional)
+    student_id: Optional[str] = None,
+    # List availability flags (skip injection if counsellor/school has no lists)
     has_medicine_list: bool = True,
     has_investigation_list: bool = True,
     # Continuation support (optional, non-breaking)
@@ -5330,22 +5054,22 @@ async def extract_summary_dynamic(
     - User's segment configuration (CORE/ADDITIONAL/FULL)
     - Brevity level preferences (concise/balanced/detailed)
     - Terminology style preferences (medical_terms/simple_terms/as_spoken)
-    - Patient history context (prescriptions, summaries, cautions)
+    - Student history context (prescriptions, summaries, cautions)
 
     Args:
         transcript: Consultation transcript text
         consultation_type_id: Consultation type UUID (OP, DISCHARGE, RESPIRATORY, etc.)
-        doctor_id: Doctor ID for personalized configuration (None = default config)
+        counsellor_id: Counsellor ID for personalized configuration (None = default config)
         template_code: Template code for template-specific configuration (optional, unique identifier)
         mode: 'core' | 'additional' | 'full'
         model: Gemini model to use (default: gemini-2.5-flash)
         cached_artifacts: Optional pre-generated artifacts from parallel processing
                          If provided, skips prompt generation step (fast path)
         session_id: Recording session ID for usage tracking (optional)
-        extraction_id: Medical extraction ID for usage tracking (optional)
-        patient_id: Patient ID for injecting history context (prescriptions, summaries, caution)
-        has_medicine_list: Whether doctor/hospital has medicine lists (skip injection if False)
-        has_investigation_list: Whether doctor/hospital has investigation lists (skip injection if False)
+        extraction_id: extraction ID for usage tracking (optional)
+        student_id: Student ID for injecting history context (prescriptions, summaries, caution)
+        has_medicine_list: Whether counsellor/school has medicine lists (skip injection if False)
+        has_investigation_list: Whether counsellor/school has investigation lists (skip injection if False)
 
     Returns:
         Dict with extracted insights and metadata (N/A values filtered)
@@ -5361,7 +5085,7 @@ async def extract_summary_dynamic(
     logger.debug(
         f'[GeminiService] Starting dynamic extraction '
         f'(consultation_type_id: {consultation_type_id}, mode: {mode}, '
-        f'doctor_id: {doctor_id}, template_code: {template_code}, '
+        f'counsellor_id: {counsellor_id}, template_code: {template_code}, '
         f'cached_artifacts: {"present" if cached_artifacts else "absent"})'
     )
 
@@ -5380,11 +5104,11 @@ async def extract_summary_dynamic(
 
             # Fetch medicine list text for NEO templates that have medication fields
             medicine_list_text = ""
-            if doctor_id and has_medicine_list:
+            if counsellor_id and has_medicine_list:
                 try:
                     from services.medicine_service import get_medicine_list_for_prompt
                     import uuid as _uuid_mod
-                    _doc_uuid = _uuid_mod.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id
+                    _doc_uuid = _uuid_mod.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id
                     medicine_list_text = get_medicine_list_for_prompt(_doc_uuid) or ""
                     if medicine_list_text:
                         logger.debug(f"[GeminiService] Fetched medicine list for NEO prompt injection ({len(medicine_list_text)} chars)")
@@ -5393,11 +5117,11 @@ async def extract_summary_dynamic(
 
             # Fetch investigation list text for NEO templates that have investigation fields
             investigation_list_text = ""
-            if doctor_id and has_investigation_list:
+            if counsellor_id and has_investigation_list:
                 try:
                     from services.investigation_service import get_investigation_list_for_prompt
                     import uuid as _uuid_mod2
-                    _doc_uuid2 = _uuid_mod2.UUID(doctor_id) if isinstance(doctor_id, str) else doctor_id
+                    _doc_uuid2 = _uuid_mod2.UUID(counsellor_id) if isinstance(counsellor_id, str) else counsellor_id
                     investigation_list_text = get_investigation_list_for_prompt(_doc_uuid2) or ""
                     if investigation_list_text:
                         logger.debug(f"[GeminiService] Fetched investigation list for NEO prompt injection ({len(investigation_list_text)} chars)")
@@ -5406,14 +5130,14 @@ async def extract_summary_dynamic(
 
             if template_code == "NEO_PROFORMA":
                 result = await extract_neo_proforma_parameters_split(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 185,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5421,14 +5145,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_OP":
                 result = await extract_neo_op_parameters_split(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 125,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5442,7 +5166,7 @@ async def extract_summary_dynamic(
                         "mode": mode,
                         "segment_count": 42,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5456,7 +5180,7 @@ async def extract_summary_dynamic(
                         "mode": mode,
                         "segment_count": 71,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5470,7 +5194,7 @@ async def extract_summary_dynamic(
                         "mode": mode,
                         "segment_count": 118,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5478,14 +5202,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_DISCHARGE":
                 result = await extract_neo_discharge_parameters_split(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 85,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5493,14 +5217,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_ADMISSION":
                 result = await extract_neo_admission_parameters_split(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 130,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5508,14 +5232,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_DAILY":
                 result = await extract_neo_daily_parameters_split(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 125,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "two-part"
                     }
@@ -5523,14 +5247,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_DAILY_FREE":
                 result = await extract_neo_daily_free_parameters(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 17,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "single-call"
                     }
@@ -5538,14 +5262,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_PROFORMA_FREE":
                 result = await extract_neo_proforma_free_parameters(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 21,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "single-call"
                     }
@@ -5553,14 +5277,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_DISCHARGE_FREE":
                 result = await extract_neo_discharge_free_parameters(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 21,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "single-call"
                     }
@@ -5568,14 +5292,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_POSTNATAL_DAY_FREE":
                 result = await extract_neo_postnatal_day_free_parameters(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 9,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "single-call"
                     }
@@ -5583,14 +5307,14 @@ async def extract_summary_dynamic(
 
             elif template_code == "NEO_POSTNATAL_DISCHARGE_FREE":
                 result = await extract_neo_postnatal_discharge_free_parameters(transcript, medicine_list_text=medicine_list_text, investigation_list_text=investigation_list_text)
-                result = apply_neonatal_patient_overrides(result, patient_id, template_code, recording_metadata=recording_metadata)
+                result = apply_neonatal_student_overrides(result, student_id, template_code, recording_metadata=recording_metadata)
                 return {
                     "data": result,
                     "metadata": {
                         "mode": mode,
                         "segment_count": 15,
                         "model": model,
-                        "doctor_id": doctor_id,
+                        "counsellor_id": counsellor_id,
                         "validation": {"is_valid": True, "error_message": None, "warnings": []},
                         "extraction_method": "single-call"
                     }
@@ -5603,18 +5327,18 @@ async def extract_summary_dynamic(
             logger.debug('[GeminiService] Using cached artifacts from parallel processing')
             artifacts = cached_artifacts
         else:
-            doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+            counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
 
             # Generate dynamic prompts and schema
-            # Include patient_id for history context injection (prescriptions, summaries, caution)
-            # Include list availability flags to skip injection if doctor/hospital has no lists
+            # Include student_id for history context injection (prescriptions, summaries, caution)
+            # Include list availability flags to skip injection if counsellor/school has no lists
             artifacts = generate_extraction_artifacts(
                 consultation_type_id=consultation_type_uuid,
-                doctor_id=doctor_uuid,
+                counsellor_id=counsellor_uuid,
                 template_code=template_code,
                 mode=mode,
                 transcript=transcript,
-                patient_id=patient_id,
+                student_id=student_id,
                 has_medicine_list=has_medicine_list,
                 has_investigation_list=has_investigation_list,
                 is_continuation=is_continuation,
@@ -5635,7 +5359,7 @@ async def extract_summary_dynamic(
                     "mode": mode,
                     "segment_count": 0,
                     "model": model,
-                    "doctor_id": doctor_id,
+                    "counsellor_id": counsellor_id,
                     "validation": artifacts["validation"],
                     "message": "No segments configured for this mode"
                 }
@@ -5708,7 +5432,7 @@ async def extract_summary_dynamic(
                 template_code=template_code,
                 session_id=uuid.UUID(session_id) if session_id else None,
                 extraction_id=uuid.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                 user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
             )
@@ -5725,7 +5449,7 @@ async def extract_summary_dynamic(
                 model=model,
                 session_id=session_id,
                 extraction_id=extraction_id,
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
                 template_code=template_code,
             )
 
@@ -5848,7 +5572,7 @@ async def extract_summary_dynamic(
                             api_duration_seconds=api_duration,
                             session_id=uuid.UUID(session_id) if session_id else None,
                             extraction_id=uuid.UUID(extraction_id) if extraction_id else None,
-                            doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                            counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
                         )
                         await log_llm_usage(error_usage)
                         await asyncio.sleep(backoff)
@@ -5896,7 +5620,7 @@ async def extract_summary_dynamic(
                 template_code=template_code,
                 session_id=uuid.UUID(session_id) if session_id else None,
                 extraction_id=uuid.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
                 system_prompt_tokens=len(system_prompt) // 4 if system_prompt else None,
                 user_prompt_tokens=len(user_prompt) // 4 if user_prompt else None,
             )
@@ -5939,10 +5663,10 @@ async def extract_summary_dynamic(
         # Derive segment_count from extracted data (not from loaded segments)
         actual_segment_count = len(extracted_data) if isinstance(extracted_data, dict) else 0
 
-        # Apply patient data overrides for neonatal types
+        # Apply student data overrides for neonatal types
         artifact_template_code = artifacts.get("template_code") or template_code
         if artifact_template_code in NEONATAL_OVERRIDE_TYPES:
-            extracted_data = apply_neonatal_patient_overrides(extracted_data, patient_id, artifact_template_code, recording_metadata=recording_metadata)
+            extracted_data = apply_neonatal_student_overrides(extracted_data, student_id, artifact_template_code, recording_metadata=recording_metadata)
 
         return {
             "data": extracted_data,
@@ -5950,7 +5674,7 @@ async def extract_summary_dynamic(
                 "mode": mode,
                 "segment_count": actual_segment_count,
                 "model": model,
-                "doctor_id": doctor_id,
+                "counsellor_id": counsellor_id,
                 "validation": artifacts["validation"]
             },
             "excluded_segment_codes": artifacts.get("excluded_segment_codes", set())  # For response filtering
@@ -5968,7 +5692,7 @@ async def extract_summary_dynamic(
                 api_duration_seconds=150.0,
                 session_id=uuid.UUID(session_id) if session_id else None,
                 extraction_id=uuid.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
         except Exception:
@@ -5988,7 +5712,7 @@ async def extract_summary_dynamic(
                 error_message="AI service connection issue (all retries exhausted)",
                 session_id=uuid.UUID(session_id) if session_id else None,
                 extraction_id=uuid.UUID(extraction_id) if extraction_id else None,
-                doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
             )
             await log_llm_usage(error_usage)
         except Exception:
@@ -6028,7 +5752,7 @@ async def extract_combined_emotions(
     model: str = 'gemini-2.5-flash-preview',
     timeout_seconds: float = 120.0,
     session_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     extraction_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -6045,8 +5769,8 @@ async def extract_combined_emotions(
         model: Gemini model to use (default: gemini-2.5-flash-preview for multimodal)
         timeout_seconds: Timeout for the API call
         session_id: Recording session ID for usage tracking
-        doctor_id: Doctor ID for usage tracking
-        extraction_id: Medical extraction ID to link results to
+        counsellor_id: Counsellor ID for usage tracking
+        extraction_id: extraction ID to link results to
 
     Returns:
         Dict with unified emotion segments directly:
@@ -6107,18 +5831,19 @@ async def extract_combined_emotions(
         logger.debug(f"[EMOTION:COMBINED] Using {prompt_source} prompt for template {template_id}")
 
         # Build user prompt with transcript context
-        user_prompt = f"""Analyze this medical consultation using BOTH the transcript text AND the audio recording.
+        user_prompt = f"""Analyze this counselling session using BOTH the transcript text AND the audio recording.
+The session may involve up to three speakers: the counsellor, the student, and (optionally) a parent/guardian.
 
 ## Transcript:
 {transcript}
 
 ## Your Task:
-1. Analyze the TEXT content for what was explicitly said
-2. Analyze the AUDIO for how it was said (voice characteristics)
-3. Detect mismatches between text and audio assessments
-4. Provide combined assessments for each category
+1. Analyze the TEXT content for what was explicitly said (by each speaker)
+2. Analyze the AUDIO for how it was said (tone, prosody, pace, hesitation, warmth)
+3. Detect mismatches between the text and audio assessments
+4. Provide combined assessments for each category, attributing signals to the correct speaker
 
-Remember: Mismatches are clinically significant - they may reveal hidden anxiety, financial stress, or compliance concerns."""
+Remember: mismatches matter — a student who says "I'm fine with that" in a flat or hesitant voice may not be. When words and voice disagree, the voice usually wins."""
 
         # Create audio part
         audio_part = types.Part.from_bytes(
@@ -6187,7 +5912,7 @@ Remember: Mismatches are clinically significant - they may reveal hidden anxiety
                 api_duration_seconds=api_duration,
                 extraction_id=uuid_module.UUID(extraction_id) if extraction_id else None,
                 session_id=uuid_module.UUID(session_id) if session_id else None,
-                doctor_id=uuid_module.UUID(doctor_id) if doctor_id else None,
+                counsellor_id=uuid_module.UUID(counsellor_id) if counsellor_id else None,
                 audio_duration_seconds=estimated_audio_duration,
                 audio_size_bytes=audio_size,
             )
@@ -6247,143 +5972,60 @@ Remember: Mismatches are clinically significant - they may reveal hidden anxiety
 
 
 def _get_empty_unified_segments() -> Dict[str, Any]:
-    """Return empty unified segments structure for fallback cases."""
-    return {
-        "ANXIETY_POST_CONSULTATION": {
-            "pre_consultation": {"level": "None", "text_level": "None", "audio_level": "None", "mismatch": False},
-            "post_consultation": {"level": "None", "text_level": "None", "audio_level": "None", "mismatch": False},
-            "trajectory": {"trajectory": "Stable"},
-            "source": "combined",
-            "mismatch": False
-        },
-        "FINANCIAL_CONCERNS": {
-            "concerns_present": False,
-            "severity": "None",
-            "text_severity": "None",
-            "audio_severity": "None",
-            "mismatch": False,
-            "source": "combined"
-        },
-        "OTHER_EMOTIONS_DETECTED": {
-            "emotions_detected": [],
-            "dominant_emotion": "None",
-            "mismatch": False,
-            "source": "combined"
-        },
-        "TREATMENT_COMPLIANCE_LIKELIHOOD": {
-            "likelihood": "Moderate",
-            "text_likelihood": "Moderate",
-            "audio_likelihood": "Moderate",
-            "mismatch": False,
-            "source": "combined"
-        },
-        "DOCTOR_COMMUNICATION_STYLE": {
-            "primary_style": "Clinical",
-            "mismatch": False,
-            "source": "combined"
-        }
-    }
+    """Return empty unified segments for fallback cases (domain-agnostic).
+
+    Emotion segments are schema-driven (defined in the database), so we do not
+    fabricate a fixed structure here — an empty mapping simply means
+    "no emotion segments were produced".
+    """
+    return {}
 
 
 def _enrich_combined_segments(result: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Enrich combined segments with source field and calculate combined scores.
+    Enrich combined emotion segments generically (schema-driven, domain-agnostic).
 
-    Adds:
-    - source: "combined" to all segments
-    - combined_score: Numeric score for severity/level fields
-    - Ensures mismatch field exists
+    For every segment the model returns:
+    - strip the leading 'COMBINED_' prefix to form the unified storage code
+      (e.g. COMBINED_STUDENT_ANXIETY -> STUDENT_ANXIETY)
+    - stamp source='combined'
+    - ensure a top-level 'mismatch' flag exists
+    - attach a 0-1 'combined_score' to any nested object exposing a level/severity
+      style field (best-effort; skipped when not applicable)
+
+    No segment codes are hardcoded here, so new emotion segments defined in the
+    database flow through automatically (medical, counselling, or otherwise).
     """
-    severity_score_map = {
-        "none": 0.0, "mild": 0.33, "moderate": 0.66, "severe": 1.0
+    score_map = {
+        "none": 0.0, "disengaged": 0.0, "very low": 0.1, "low": 0.3, "weak": 0.3,
+        "mild": 0.33, "moderate": 0.6, "medium": 0.6, "high": 0.9, "strong": 1.0,
+        "severe": 1.0,
     }
-    likelihood_score_map = {
-        "very low": 0.1, "low": 0.3, "moderate": 0.6, "high": 0.9
-    }
+    level_keys = ("level", "severity", "engagement_level", "likelihood", "motivation")
 
-    def get_score(level: Optional[str], score_map: Dict[str, float]) -> float:
-        if not level:
-            return 0.5
-        return score_map.get(level.lower().strip(), 0.5)
+    def annotate(obj: Any) -> None:
+        if isinstance(obj, dict):
+            for lk in level_keys:
+                val = obj.get(lk)
+                if isinstance(val, str) and "combined_score" not in obj:
+                    score = score_map.get(val.lower().strip())
+                    if score is not None:
+                        obj["combined_score"] = score
+                    break
+            for v in obj.values():
+                annotate(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                annotate(v)
 
-    enriched = {}
-
-    # COMBINED_ANXIETY (maps to ANXIETY_POST_CONSULTATION for downstream compatibility)
-    anxiety_key = "COMBINED_ANXIETY" if "COMBINED_ANXIETY" in result else "ANXIETY_POST_CONSULTATION"
-    if anxiety_key in result:
-        anxiety = result[anxiety_key]
-        # Calculate overall mismatch
-        pre_mismatch = anxiety.get("pre_consultation", {}).get("mismatch", False)
-        post_mismatch = anxiety.get("post_consultation", {}).get("mismatch", False)
-
-        # Add combined_score to nested objects
-        if "pre_consultation" in anxiety:
-            pre = anxiety["pre_consultation"]
-            pre["combined_score"] = get_score(pre.get("level"), severity_score_map)
-            pre.setdefault("mismatch", False)
-        if "post_consultation" in anxiety:
-            post = anxiety["post_consultation"]
-            post["combined_score"] = get_score(post.get("level"), severity_score_map)
-            post.setdefault("mismatch", False)
-
-        anxiety["source"] = "combined"
-        anxiety["mismatch"] = pre_mismatch or post_mismatch
-        enriched["ANXIETY_POST_CONSULTATION"] = anxiety
-
-    # COMBINED_FINANCIAL_CONCERNS (maps to FINANCIAL_CONCERNS)
-    financial_key = "COMBINED_FINANCIAL_CONCERNS" if "COMBINED_FINANCIAL_CONCERNS" in result else "FINANCIAL_CONCERNS"
-    if financial_key in result:
-        financial = result[financial_key]
-        financial["source"] = "combined"
-        financial["combined_score"] = get_score(financial.get("severity"), severity_score_map)
-        financial.setdefault("mismatch", False)
-        enriched["FINANCIAL_CONCERNS"] = financial
-
-    # COMBINED_OTHER_EMOTIONS (maps to OTHER_EMOTIONS_DETECTED)
-    emotions_key = "COMBINED_OTHER_EMOTIONS" if "COMBINED_OTHER_EMOTIONS" in result else "OTHER_EMOTIONS_DETECTED"
-    if emotions_key in result:
-        emotions = result[emotions_key]
-        emotions["source"] = "combined"
-        emotions.setdefault("mismatch", False)
-        emotions.setdefault("emotions_detected", [])
-        # Populate text_emotions from emotions_detected for compatibility
-        emotions["text_emotions"] = emotions.get("emotions_detected", [])
-        enriched["OTHER_EMOTIONS_DETECTED"] = emotions
-
-    # COMBINED_COMPLIANCE (maps to TREATMENT_COMPLIANCE_LIKELIHOOD)
-    compliance_key = "COMBINED_COMPLIANCE" if "COMBINED_COMPLIANCE" in result else "TREATMENT_COMPLIANCE_LIKELIHOOD"
-    if compliance_key in result:
-        compliance = result[compliance_key]
-        compliance["source"] = "combined"
-        compliance["combined_score"] = get_score(compliance.get("likelihood"), likelihood_score_map)
-        compliance.setdefault("mismatch", False)
-        compliance.setdefault("positive_factors", [])
-        compliance.setdefault("negative_factors", [])
-        compliance.setdefault("key_barriers", [])
-        enriched["TREATMENT_COMPLIANCE_LIKELIHOOD"] = compliance
-
-    # COMBINED_DOCTOR_STYLE (maps to DOCTOR_COMMUNICATION_STYLE)
-    doctor_key = "COMBINED_DOCTOR_STYLE" if "COMBINED_DOCTOR_STYLE" in result else "DOCTOR_COMMUNICATION_STYLE"
-    if doctor_key in result:
-        doctor = result[doctor_key]
-        doctor["source"] = "combined"
-        doctor.setdefault("mismatch", False)
-        doctor.setdefault("empathy_indicators", [])
-        enriched["DOCTOR_COMMUNICATION_STYLE"] = doctor
-
-    # COMBINED_INTERACTION_DYNAMICS (new segment, maps to INTERACTION_DYNAMICS)
-    if "COMBINED_INTERACTION_DYNAMICS" in result:
-        dynamics = result["COMBINED_INTERACTION_DYNAMICS"]
-        dynamics["source"] = "combined"
-        dynamics.setdefault("mismatch", False)
-        enriched["INTERACTION_DYNAMICS"] = dynamics
-
-    # COMBINED_CONGRUENCE_SUMMARY (new segment, maps to CONGRUENCE_SUMMARY)
-    if "COMBINED_CONGRUENCE_SUMMARY" in result:
-        congruence = result["COMBINED_CONGRUENCE_SUMMARY"]
-        congruence["source"] = "combined"
-        enriched["CONGRUENCE_SUMMARY"] = congruence
-
+    enriched: Dict[str, Any] = {}
+    for key, value in result.items():
+        unified_key = key[len("COMBINED_"):] if key.startswith("COMBINED_") else key
+        if isinstance(value, dict):
+            value["source"] = "combined"
+            value.setdefault("mismatch", False)
+            annotate(value)
+        enriched[unified_key] = value
     return enriched
 
 
@@ -6398,7 +6040,7 @@ async def extract_consultation_insights(
     temperature: float = 0.1,
     extraction_id: Optional[uuid.UUID] = None,
     session_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
 ) -> Dict[str, Any]:
     """
     Extract 14 clinical signal groups from consultation using Gemini AI.
@@ -6414,7 +6056,7 @@ async def extract_consultation_insights(
 
     Returns:
         Dict with 14 signal groups:
-        - patient_signals
+        - student_signals
         - clinical_severity_signals
         - diagnostic_needs
         - medication_signals
@@ -6491,7 +6133,7 @@ async def extract_consultation_insights(
                 api_duration_seconds=api_duration,
                 extraction_id=extraction_id,
                 session_id=session_id,
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
             )
             asyncio.create_task(log_llm_usage(usage_data))
         except Exception as usage_err:

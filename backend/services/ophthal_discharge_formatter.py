@@ -31,7 +31,7 @@ def format_ophthal_discharge(flat_data: Dict[str, Any]) -> Dict[str, Any]:
 
         nested = {}
 
-        # ========== SECTION 1: PATIENT DEMOGRAPHICS (RECONSTRUCT OBJECT) ==========
+        # ========== SECTION 1: STUDENT DEMOGRAPHICS (RECONSTRUCT OBJECT) ==========
         nested["patientDemographics"] = {
             "name": flat_data.get("patientDemographics_name", ""),
             "visitId": flat_data.get("patientDemographics_visitId", ""),
@@ -49,20 +49,20 @@ def format_ophthal_discharge(flat_data: Dict[str, Any]) -> Dict[str, Any]:
 
         # ========== SECTION 3: MEDICAL TEAM (RECONSTRUCT ARRAY OF OBJECTS) ==========
         # Reconstruct from parallel arrays
-        doctor_names = flat_data.get("medicalTeam_doctorNames", [])
+        counsellor_names = flat_data.get("medicalTeam_doctorNames", [])
         doctor_regNumbers = flat_data.get("medicalTeam_doctorRegistrationNumbers", [])
 
-        doctors_attended = []
-        for i, name in enumerate(doctor_names):
+        counsellors_attended = []
+        for i, name in enumerate(counsellor_names):
             reg_number = doctor_regNumbers[i] if i < len(doctor_regNumbers) else ""
             if name:  # Only add if name exists
-                doctors_attended.append({
+                counsellors_attended.append({
                     "name": name,
                     "registrationNumber": reg_number
                 })
 
         nested["medicalTeam"] = {
-            "doctorsAttended": doctors_attended
+            "doctorsAttended": counsellors_attended
         }
 
         # ========== SECTION 4: DIAGNOSIS (RECONSTRUCT OBJECT) ==========
@@ -163,7 +163,7 @@ def format_ophthal_discharge(flat_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(
             f"[OPHTHAL_DISCHARGE_FORMATTER] ✅ Reconstruction complete - "
             f"11 top-level sections reconstructed, "
-            f"{len(doctors_attended)} doctors, {len(discharge_medications)} medications"
+            f"{len(counsellors_attended)} counsellors, {len(discharge_medications)} medications"
         )
 
         return nested

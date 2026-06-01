@@ -1,5 +1,5 @@
 """
-Medicine Service - Doctor Medicine List Management and Matching
+Medicine Service - Counsellor Medicine List Management and Matching
 
 This module handles:
 - CSV parsing and medicine list upload
@@ -9,11 +9,11 @@ This module handles:
 - Adaptive learning via segment definition updates
 
 Matching Priority (5 levels):
-1. Doctor's previous feedback (agreed/disagreed) → 95% confidence
-2. Doctor's personal list - exact match → 100% confidence
-3. Doctor's personal list - fuzzy match → 70-95% confidence
-4. Hospital list - exact match → 90% confidence
-5. Hospital list - fuzzy match → 60-85% confidence
+1. Counsellor's previous feedback (agreed/disagreed) → 95% confidence
+2. Counsellor's personal list - exact match → 100% confidence
+3. Counsellor's personal list - fuzzy match → 70-95% confidence
+4. School list - exact match → 90% confidence
+5. School list - fuzzy match → 60-85% confidence
 
 Diagnosis Context Boost: +10% confidence when diagnosis matches medicine category
 """
@@ -49,90 +49,90 @@ _doctor_medicines_cache: Dict[str, Dict[str, Any]] = {}
 _hospital_medicines_cache: Dict[str, Dict[str, Any]] = {}
 _MEDICINE_CACHE_TTL_SECONDS = 31536000  # 1 year (effectively infinite - invalidated on list updates, cleared on server restart)
 
-def _get_doctor_cache_key(doctor_id: uuid.UUID, category: Optional[str] = None) -> str:
-    """Generate cache key for doctor medicine list."""
-    return f"doc_med_{doctor_id}_{category or 'all'}"
+def _get_counsellor_cache_key(counsellor_id: uuid.UUID, category: Optional[str] = None) -> str:
+    """Generate cache key for counsellor medicine list."""
+    return f"doc_med_{counsellor_id}_{category or 'all'}"
 
-def _get_hospital_cache_key(hospital_id: uuid.UUID, category: Optional[str] = None) -> str:
-    """Generate cache key for hospital medicine list."""
-    return f"hosp_med_{hospital_id}_{category or 'all'}"
+def _get_school_cache_key(school_id: uuid.UUID, category: Optional[str] = None) -> str:
+    """Generate cache key for school medicine list."""
+    return f"hosp_med_{school_id}_{category or 'all'}"
 
-def get_cached_doctor_medicines(doctor_id: uuid.UUID, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
-    """Get cached doctor medicine list if not expired."""
-    cache_key = _get_doctor_cache_key(doctor_id, category)
+def get_cached_counsellor_medicines(counsellor_id: uuid.UUID, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+    """Get cached counsellor medicine list if not expired."""
+    cache_key = _get_counsellor_cache_key(counsellor_id, category)
     if cache_key in _doctor_medicines_cache:
         entry = _doctor_medicines_cache[cache_key]
         if datetime.now() < entry["expires_at"]:
-            logger.info(f"[TIMING_MEDICINE_LIST] ♻️ Cache HIT for doctor {str(doctor_id)[:8]}... ({len(entry['data'])} medicines)")
+            logger.info(f"[TIMING_MEDICINE_LIST] ♻️ Cache HIT for counsellor {str(counsellor_id)[:8]}... ({len(entry['data'])} medicines)")
             return entry["data"]
         else:
             del _doctor_medicines_cache[cache_key]
     return None
 
-def get_cached_hospital_medicines(hospital_id: uuid.UUID, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
-    """Get cached hospital medicine list if not expired."""
-    cache_key = _get_hospital_cache_key(hospital_id, category)
+def get_cached_school_medicines(school_id: uuid.UUID, category: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+    """Get cached school medicine list if not expired."""
+    cache_key = _get_school_cache_key(school_id, category)
     if cache_key in _hospital_medicines_cache:
         entry = _hospital_medicines_cache[cache_key]
         if datetime.now() < entry["expires_at"]:
-            logger.info(f"[TIMING_MEDICINE_LIST] ♻️ Cache HIT for hospital {str(hospital_id)[:8]}... ({len(entry['data'])} medicines)")
+            logger.info(f"[TIMING_MEDICINE_LIST] ♻️ Cache HIT for school {str(school_id)[:8]}... ({len(entry['data'])} medicines)")
             return entry["data"]
         else:
             del _hospital_medicines_cache[cache_key]
     return None
 
-def set_cached_doctor_medicines(doctor_id: uuid.UUID, data: List[Dict[str, Any]], category: Optional[str] = None) -> None:
-    """Cache doctor medicine list with TTL."""
-    cache_key = _get_doctor_cache_key(doctor_id, category)
+def set_cached_counsellor_medicines(counsellor_id: uuid.UUID, data: List[Dict[str, Any]], category: Optional[str] = None) -> None:
+    """Cache counsellor medicine list with TTL."""
+    cache_key = _get_counsellor_cache_key(counsellor_id, category)
     _doctor_medicines_cache[cache_key] = {
         "data": data,
         "expires_at": datetime.now() + timedelta(seconds=_MEDICINE_CACHE_TTL_SECONDS),
         "cached_at": datetime.now()
     }
-    logger.debug(f"[MEDICINE_CACHE] 💾 Cached {len(data)} medicines for doctor {str(doctor_id)[:8]}... (TTL: ∞, invalidated on update)")
+    logger.debug(f"[MEDICINE_CACHE] 💾 Cached {len(data)} medicines for counsellor {str(counsellor_id)[:8]}... (TTL: ∞, invalidated on update)")
 
-def set_cached_hospital_medicines(hospital_id: uuid.UUID, data: List[Dict[str, Any]], category: Optional[str] = None) -> None:
-    """Cache hospital medicine list with TTL."""
-    cache_key = _get_hospital_cache_key(hospital_id, category)
+def set_cached_school_medicines(school_id: uuid.UUID, data: List[Dict[str, Any]], category: Optional[str] = None) -> None:
+    """Cache school medicine list with TTL."""
+    cache_key = _get_school_cache_key(school_id, category)
     _hospital_medicines_cache[cache_key] = {
         "data": data,
         "expires_at": datetime.now() + timedelta(seconds=_MEDICINE_CACHE_TTL_SECONDS),
         "cached_at": datetime.now()
     }
-    logger.debug(f"[MEDICINE_CACHE] 💾 Cached {len(data)} medicines for hospital {str(hospital_id)[:8]}... (TTL: ∞, invalidated on update)")
+    logger.debug(f"[MEDICINE_CACHE] 💾 Cached {len(data)} medicines for school {str(school_id)[:8]}... (TTL: ∞, invalidated on update)")
 
-def invalidate_doctor_medicine_cache(doctor_id: uuid.UUID) -> int:
-    """Invalidate all medicine list cache entries for a doctor."""
-    keys_to_delete = [k for k in _doctor_medicines_cache.keys() if str(doctor_id) in k]
+def invalidate_counsellor_medicine_cache(counsellor_id: uuid.UUID) -> int:
+    """Invalidate all medicine list cache entries for a counsellor."""
+    keys_to_delete = [k for k in _doctor_medicines_cache.keys() if str(counsellor_id) in k]
     for key in keys_to_delete:
         del _doctor_medicines_cache[key]
     if keys_to_delete:
-        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated {len(keys_to_delete)} cache entries for doctor {str(doctor_id)[:8]}...")
+        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated {len(keys_to_delete)} cache entries for counsellor {str(counsellor_id)[:8]}...")
     return len(keys_to_delete)
 
-def invalidate_hospital_medicine_cache(hospital_id: uuid.UUID) -> int:
-    """Invalidate all medicine list cache entries for a hospital."""
-    keys_to_delete = [k for k in _hospital_medicines_cache.keys() if str(hospital_id) in k]
+def invalidate_school_medicine_cache(school_id: uuid.UUID) -> int:
+    """Invalidate all medicine list cache entries for a school."""
+    keys_to_delete = [k for k in _hospital_medicines_cache.keys() if str(school_id) in k]
     for key in keys_to_delete:
         del _hospital_medicines_cache[key]
     if keys_to_delete:
-        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated {len(keys_to_delete)} cache entries for hospital {str(hospital_id)[:8]}...")
+        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated {len(keys_to_delete)} cache entries for school {str(school_id)[:8]}...")
     return len(keys_to_delete)
 
-def invalidate_all_hospital_medicine_caches() -> int:
-    """Invalidate ALL hospital medicine caches. Used when hospital-level changes affect all."""
+def invalidate_all_school_medicine_caches() -> int:
+    """Invalidate ALL school medicine caches. Used when school-level changes affect all."""
     count = len(_hospital_medicines_cache)
     _hospital_medicines_cache.clear()
     if count:
-        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated ALL hospital medicine caches ({count} entries)")
+        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated ALL school medicine caches ({count} entries)")
     return count
 
-def invalidate_all_doctor_medicine_caches() -> int:
-    """Invalidate ALL doctor medicine caches. Used for global cache refresh."""
+def invalidate_all_counsellor_medicine_caches() -> int:
+    """Invalidate ALL counsellor medicine caches. Used for global cache refresh."""
     count = len(_doctor_medicines_cache)
     _doctor_medicines_cache.clear()
     if count:
-        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated ALL doctor medicine caches ({count} entries)")
+        logger.debug(f"[MEDICINE_CACHE] 🗑️ Invalidated ALL counsellor medicine caches ({count} entries)")
     return count
 
 # ============================================================================
@@ -338,7 +338,7 @@ def extract_medicine_aliases(medicine_name: str, existing_common_names: Optional
     """
     Extract short recognizable aliases from complex medicine names.
 
-    This helps Gemini recognize medicines when the hospital list has complex names like:
+    This helps Gemini recognize medicines when the school list has complex names like:
     "T - CALPOL 650MG TAB Kg TABLET" -> aliases: ["CALPOL", "CALPOL 650", "CALPOL TABLET"]
 
     IMPORTANT: When there are two medicines with same base name but different forms
@@ -768,7 +768,7 @@ def parse_csv_medicine_list(csv_content: str) -> Tuple[List[Dict], List[Dict]]:
 # ============================================================================
 
 def _upsert_medicine_records(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     medicines: List[Dict[str, Any]],
     errors: List[Dict[str, Any]],
     replace_existing: bool,
@@ -780,7 +780,7 @@ def _upsert_medicine_records(
     upload record update, cache invalidation, result formatting.
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         medicines: List of enriched medicine dicts (already passed through _enrich_medicine_record)
         errors: List of errors from parsing phase (will be extended with upsert errors)
         replace_existing: If True, deactivate existing medicines first
@@ -792,13 +792,13 @@ def _upsert_medicine_records(
     try:
         # Deactivate existing if requested
         if replace_existing and medicines:
-            supabase.table('doctor_medicines').update({
+            supabase.table('counsellor_medicines').update({
                 'is_active': False
-            }).eq('doctor_id', str(doctor_id)).execute()
+            }).eq('counsellor_id', str(counsellor_id)).execute()
 
-        # Prepare all medicines with doctor_id and is_active
+        # Prepare all medicines with counsellor_id and is_active
         for medicine in medicines:
-            medicine['doctor_id'] = str(doctor_id)
+            medicine['counsellor_id'] = str(counsellor_id)
             medicine['is_active'] = True
 
         # Deduplicate by normalized_name (last occurrence wins) —
@@ -819,9 +819,9 @@ def _upsert_medicine_records(
         for i in range(0, len(medicines), BATCH_SIZE):
             batch = medicines[i:i + BATCH_SIZE]
             try:
-                supabase.table('doctor_medicines').upsert(
+                supabase.table('counsellor_medicines').upsert(
                     batch,
-                    on_conflict='doctor_id,normalized_name'
+                    on_conflict='counsellor_id,normalized_name'
                 ).execute()
                 successful += len(batch)
             except Exception as e:
@@ -829,9 +829,9 @@ def _upsert_medicine_records(
                 logger.warning(f"[Medicine] Batch upsert failed, falling back to individual inserts: {e}")
                 for medicine in batch:
                     try:
-                        supabase.table('doctor_medicines').upsert(
+                        supabase.table('counsellor_medicines').upsert(
                             medicine,
-                            on_conflict='doctor_id,normalized_name'
+                            on_conflict='counsellor_id,normalized_name'
                         ).execute()
                         successful += 1
                     except Exception as inner_e:
@@ -852,12 +852,12 @@ def _upsert_medicine_records(
             'processed_at': datetime.utcnow().isoformat()
         }).eq('id', upload_id).execute()
 
-        logger.info(f"[Medicine] Uploaded {successful} medicines for doctor {doctor_id}")
+        logger.info(f"[Medicine] Uploaded {successful} medicines for counsellor {counsellor_id}")
 
         # Invalidate caches after successful upload
         from services.extraction_service import invalidate_list_cache
-        invalidate_list_cache(doctor_id)
-        invalidate_doctor_medicine_cache(doctor_id)
+        invalidate_list_cache(counsellor_id)
+        invalidate_counsellor_medicine_cache(counsellor_id)
 
         return {
             "upload_id": upload_id,
@@ -876,19 +876,19 @@ def _upsert_medicine_records(
                 'processed_at': datetime.utcnow().isoformat()
             }).eq('id', upload_id).execute()
 
-        logger.error(f"[Medicine] Upload failed for doctor {doctor_id}: {e}")
+        logger.error(f"[Medicine] Upload failed for counsellor {counsellor_id}: {e}")
         raise
 
 
 def upload_medicine_list(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     csv_content: str,
     filename: str,
     replace_existing: bool = False
 ) -> Dict[str, Any]:
-    """Upload and process a CSV medicine list for a doctor."""
+    """Upload and process a CSV medicine list for a counsellor."""
     upload_record = supabase.table('medicine_list_uploads').insert({
-        'doctor_id': str(doctor_id),
+        'counsellor_id': str(counsellor_id),
         'filename': filename,
         'file_size_bytes': len(csv_content.encode('utf-8')),
         'status': 'processing'
@@ -896,17 +896,17 @@ def upload_medicine_list(
     upload_id = upload_record.data[0]['id'] if upload_record.data else None
 
     medicines, errors = parse_csv_medicine_list(csv_content)
-    return _upsert_medicine_records(doctor_id, medicines, errors, replace_existing, upload_id)
+    return _upsert_medicine_records(counsellor_id, medicines, errors, replace_existing, upload_id)
 
 
 def upload_medicine_list_json(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     medicines: List[Dict[str, Any]],
     replace_existing: bool = False
 ) -> Dict[str, Any]:
-    """Upload a JSON list of medicines for a doctor."""
+    """Upload a JSON list of medicines for a counsellor."""
     upload_record = supabase.table('medicine_list_uploads').insert({
-        'doctor_id': str(doctor_id),
+        'counsellor_id': str(counsellor_id),
         'filename': 'json_upload',
         'file_size_bytes': 0,
         'status': 'processing'
@@ -921,24 +921,24 @@ def upload_medicine_list_json(
         except Exception as e:
             errors.append({"row": idx + 1, "error": str(e), "data": raw})
 
-    return _upsert_medicine_records(doctor_id, enriched, errors, replace_existing, upload_id)
+    return _upsert_medicine_records(counsellor_id, enriched, errors, replace_existing, upload_id)
 
 
-def upload_hospital_medicine_list(
-    hospital_id: uuid.UUID,
+def upload_school_medicine_list(
+    school_id: uuid.UUID,
     csv_content: str,
     filename: str,
     created_by: uuid.UUID,
     replace_existing: bool = False
 ) -> Dict[str, Any]:
     """
-    Upload and process a CSV medicine list for a hospital.
+    Upload and process a CSV medicine list for a school.
 
     Args:
-        hospital_id: Hospital ID
+        school_id: School ID
         csv_content: CSV string content
         filename: Original filename
-        created_by: Admin doctor ID who uploaded
+        created_by: Admin counsellor ID who uploaded
         replace_existing: If True, deactivate existing medicines first
 
     Returns:
@@ -950,18 +950,18 @@ def upload_hospital_medicine_list(
 
         # Deactivate existing if requested
         if replace_existing and medicines:
-            supabase.table('hospital_medicine_lists').update({
+            supabase.table('school_medicine_lists').update({
                 'is_active': False
-            }).eq('hospital_id', str(hospital_id)).execute()
+            }).eq('school_id', str(school_id)).execute()
 
         # Insert medicines in batches (reduces N round-trips to N/500)
         successful = 0
         failed = len(errors)
         BATCH_SIZE = 500
 
-        # Prepare all medicines with hospital_id, created_by, and is_active
+        # Prepare all medicines with school_id, created_by, and is_active
         for medicine in medicines:
-            medicine['hospital_id'] = str(hospital_id)
+            medicine['school_id'] = str(school_id)
             medicine['created_by'] = str(created_by)
             medicine['is_active'] = True
 
@@ -972,25 +972,25 @@ def upload_hospital_medicine_list(
             seen[medicine['normalized_name']] = medicine
         medicines = list(seen.values())
         if len(medicines) < pre_dedup_count:
-            logger.info(f"[Medicine] Hospital deduped {pre_dedup_count} → {len(medicines)} medicines ({pre_dedup_count - len(medicines)} duplicates removed)")
+            logger.info(f"[Medicine] School deduped {pre_dedup_count} → {len(medicines)} medicines ({pre_dedup_count - len(medicines)} duplicates removed)")
 
         # Batch upsert
         for i in range(0, len(medicines), BATCH_SIZE):
             batch = medicines[i:i + BATCH_SIZE]
             try:
-                supabase.table('hospital_medicine_lists').upsert(
+                supabase.table('school_medicine_lists').upsert(
                     batch,
-                    on_conflict='hospital_id,normalized_name'
+                    on_conflict='school_id,normalized_name'
                 ).execute()
                 successful += len(batch)
             except Exception as e:
                 # If batch fails, fall back to individual inserts for this batch
-                logger.warning(f"[Medicine] Hospital batch upsert failed, falling back to individual inserts: {e}")
+                logger.warning(f"[Medicine] School batch upsert failed, falling back to individual inserts: {e}")
                 for medicine in batch:
                     try:
-                        supabase.table('hospital_medicine_lists').upsert(
+                        supabase.table('school_medicine_lists').upsert(
                             medicine,
-                            on_conflict='hospital_id,normalized_name'
+                            on_conflict='school_id,normalized_name'
                         ).execute()
                         successful += 1
                     except Exception as inner_e:
@@ -1001,12 +1001,12 @@ def upload_hospital_medicine_list(
                             "data": medicine
                         })
 
-        logger.info(f"[Medicine] Uploaded {successful} hospital medicines for hospital {hospital_id}")
+        logger.info(f"[Medicine] Uploaded {successful} school medicines for school {school_id}")
 
         # Invalidate caches after successful upload
-        from services.extraction_service import invalidate_list_cache_by_hospital
-        invalidate_list_cache_by_hospital(hospital_id)
-        invalidate_hospital_medicine_cache(hospital_id)
+        from services.extraction_service import invalidate_list_cache_by_school
+        invalidate_list_cache_by_school(school_id)
+        invalidate_school_medicine_cache(school_id)
 
         return {
             "status": "completed",
@@ -1017,16 +1017,16 @@ def upload_hospital_medicine_list(
         }
 
     except Exception as e:
-        logger.error(f"[Medicine] Hospital upload failed: {e}")
+        logger.error(f"[Medicine] School upload failed: {e}")
         raise
 
 
 # ============================================================================
-# CRUD - Doctor Medicines
+# CRUD - Counsellor Medicines
 # ============================================================================
 
-def create_doctor_medicine(
-    doctor_id: uuid.UUID,
+def create_counsellor_medicine(
+    counsellor_id: uuid.UUID,
     medicine_name: str,
     common_names: Optional[List[str]] = None,
     category: Optional[str] = None,
@@ -1037,7 +1037,7 @@ def create_doctor_medicine(
     medicine_type: Optional[str] = None,
     external_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Create a single medicine for a doctor."""
+    """Create a single medicine for a counsellor."""
     # Initialize common_names list
     if common_names is None:
         common_names = []
@@ -1060,25 +1060,25 @@ def create_doctor_medicine(
     normalized = normalize_medicine_name(medicine_name)
     tokens = generate_search_tokens(medicine_name, common_names)
 
-    # Enrich missing fields from hospital list
+    # Enrich missing fields from school list
     enrichable_fields_missing = (
         not external_id or not formulary_name or not category
         or not typical_dosage or not form or not snomed_code or not medicine_type
     )
     if enrichable_fields_missing:
         try:
-            from services.supabase_service import get_doctor_hospital_id_cached
-            hospital_id = get_doctor_hospital_id_cached(doctor_id)
-            if hospital_id:
-                hospital_match = supabase.table('hospital_medicine_lists')\
+            from services.supabase_service import get_counsellor_school_id_cached
+            school_id = get_counsellor_school_id_cached(counsellor_id)
+            if school_id:
+                school_match = supabase.table('school_medicine_lists')\
                     .select('external_id, formulary_name, category, typical_dosage, form, snomed_code, medicine_type, common_names')\
-                    .eq('hospital_id', hospital_id)\
+                    .eq('school_id', school_id)\
                     .eq('normalized_name', normalized)\
                     .eq('is_active', True)\
                     .limit(1)\
                     .execute()
-                if hospital_match.data:
-                    hm = hospital_match.data[0]
+                if school_match.data:
+                    hm = school_match.data[0]
                     if not external_id:
                         external_id = hm.get('external_id')
                     if not formulary_name:
@@ -1094,21 +1094,21 @@ def create_doctor_medicine(
                     if not medicine_type:
                         medicine_type = hm.get('medicine_type')
                     # Merge common_names (don't replace)
-                    hospital_common = hm.get('common_names') or []
-                    if hospital_common:
+                    school_common = hm.get('common_names') or []
+                    if school_common:
                         existing_lower = {n.lower() for n in common_names}
-                        for name in hospital_common:
+                        for name in school_common:
                             if name.lower() not in existing_lower:
                                 common_names.append(name)
-                    logger.debug(f"[Medicine] Enriched '{medicine_name}' from hospital list: external_id={external_id}")
+                    logger.debug(f"[Medicine] Enriched '{medicine_name}' from school list: external_id={external_id}")
         except Exception as e:
-            logger.warning(f"[Medicine] Hospital enrichment failed for '{medicine_name}': {e}")
+            logger.warning(f"[Medicine] School enrichment failed for '{medicine_name}': {e}")
 
     # Regenerate tokens after potential common_names enrichment
     tokens = generate_search_tokens(medicine_name, common_names)
 
-    result = supabase.table('doctor_medicines').insert({
-        'doctor_id': str(doctor_id),
+    result = supabase.table('counsellor_medicines').insert({
+        'counsellor_id': str(counsellor_id),
         'medicine_name': medicine_name,
         'common_names': common_names,
         'category': category,
@@ -1122,18 +1122,18 @@ def create_doctor_medicine(
         'search_tokens': tokens
     }).execute()
 
-    # Invalidate list availability cache for this doctor
+    # Invalidate list availability cache for this counsellor
     from services.extraction_service import invalidate_list_cache
-    invalidate_list_cache(doctor_id)
+    invalidate_list_cache(counsellor_id)
 
     # Invalidate medicine list data cache
-    invalidate_doctor_medicine_cache(doctor_id)
+    invalidate_counsellor_medicine_cache(counsellor_id)
 
     return result.data[0] if result.data else {}
 
 
-def update_doctor_medicine(medicine_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
-    """Update a doctor's medicine."""
+def update_counsellor_medicine(medicine_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
+    """Update a counsellor's medicine."""
     update_data = {k: v for k, v in kwargs.items() if v is not None}
 
     # Regenerate normalized name and tokens if medicine_name or common_names changed
@@ -1145,7 +1145,7 @@ def update_doctor_medicine(medicine_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
         )
     elif 'common_names' in update_data:
         # Get current medicine_name
-        current = supabase.table('doctor_medicines').select('medicine_name').eq(
+        current = supabase.table('counsellor_medicines').select('medicine_name').eq(
             'id', str(medicine_id)
         ).single().execute()
         if current.data:
@@ -1154,112 +1154,112 @@ def update_doctor_medicine(medicine_id: uuid.UUID, **kwargs) -> Dict[str, Any]:
                 update_data['common_names']
             )
 
-    result = supabase.table('doctor_medicines').update(
+    result = supabase.table('counsellor_medicines').update(
         update_data
     ).eq('id', str(medicine_id)).execute()
 
-    # Invalidate list availability cache for this doctor
-    if result.data and result.data[0].get('doctor_id'):
+    # Invalidate list availability cache for this counsellor
+    if result.data and result.data[0].get('counsellor_id'):
         from services.extraction_service import invalidate_list_cache
-        doctor_uuid = uuid.UUID(result.data[0]['doctor_id'])
-        invalidate_list_cache(doctor_uuid)
+        counsellor_uuid = uuid.UUID(result.data[0]['counsellor_id'])
+        invalidate_list_cache(counsellor_uuid)
         # Invalidate medicine list data cache
-        invalidate_doctor_medicine_cache(doctor_uuid)
+        invalidate_counsellor_medicine_cache(counsellor_uuid)
 
     return result.data[0] if result.data else {}
 
 
-def delete_doctor_medicine(medicine_id: uuid.UUID) -> bool:
-    """Soft delete a doctor's medicine."""
+def delete_counsellor_medicine(medicine_id: uuid.UUID) -> bool:
+    """Soft delete a counsellor's medicine."""
     try:
-        # Get doctor_id before deleting for cache invalidation
-        medicine = supabase.table('doctor_medicines').select('doctor_id').eq(
+        # Get counsellor_id before deleting for cache invalidation
+        medicine = supabase.table('counsellor_medicines').select('counsellor_id').eq(
             'id', str(medicine_id)
         ).single().execute()
-        doctor_id = medicine.data.get('doctor_id') if medicine.data else None
+        counsellor_id = medicine.data.get('counsellor_id') if medicine.data else None
 
-        supabase.table('doctor_medicines').update({
+        supabase.table('counsellor_medicines').update({
             'is_active': False
         }).eq('id', str(medicine_id)).execute()
 
-        # Invalidate list availability cache for this doctor
-        if doctor_id:
+        # Invalidate list availability cache for this counsellor
+        if counsellor_id:
             from services.extraction_service import invalidate_list_cache
-            doctor_uuid = uuid.UUID(doctor_id)
-            invalidate_list_cache(doctor_uuid)
+            counsellor_uuid = uuid.UUID(counsellor_id)
+            invalidate_list_cache(counsellor_uuid)
             # Invalidate medicine list data cache
-            invalidate_doctor_medicine_cache(doctor_uuid)
+            invalidate_counsellor_medicine_cache(counsellor_uuid)
 
         return True
     except Exception:
         return False
 
 
-def has_medicine_lists(doctor_id: uuid.UUID) -> Dict[str, Any]:
+def has_medicine_lists(counsellor_id: uuid.UUID) -> Dict[str, Any]:
     """
-    Check if doctor or doctor's hospital has any medicine lists.
+    Check if counsellor or counsellor's school has any medicine lists.
     Uses COUNT query for efficiency - doesn't fetch actual data.
 
     Args:
-        doctor_id: Doctor ID to check
+        counsellor_id: Counsellor ID to check
 
     Returns:
-        Dict with keys: has_doctor_list, has_hospital_list, has_any_list, hospital_id
+        Dict with keys: has_doctor_list, has_hospital_list, has_any_list, school_id
     """
     try:
-        # Get doctor's hospital_id (cached - 10 min TTL)
-        from services.supabase_service import get_doctor_hospital_id_cached
-        hospital_id = get_doctor_hospital_id_cached(doctor_id)
+        # Get counsellor's school_id (cached - 10 min TTL)
+        from services.supabase_service import get_counsellor_school_id_cached
+        school_id = get_counsellor_school_id_cached(counsellor_id)
 
-        # Check doctor's list (count only, no data fetch)
-        doctor_result = supabase.table('doctor_medicines').select(
+        # Check counsellor's list (count only, no data fetch)
+        counsellor_result = supabase.table('counsellor_medicines').select(
             'id', count='exact', head=True
-        ).eq('doctor_id', str(doctor_id)).eq('is_active', True).limit(1).execute()
-        has_doctor_list = (doctor_result.count or 0) > 0
+        ).eq('counsellor_id', str(counsellor_id)).eq('is_active', True).limit(1).execute()
+        has_doctor_list = (counsellor_result.count or 0) > 0
 
-        # Check hospital's list
+        # Check school's list
         has_hospital_list = False
-        if hospital_id:
-            hospital_result = supabase.table('hospital_medicine_lists').select(
+        if school_id:
+            school_result = supabase.table('school_medicine_lists').select(
                 'id', count='exact', head=True
-            ).eq('hospital_id', str(hospital_id)).eq('is_active', True).limit(1).execute()
-            has_hospital_list = (hospital_result.count or 0) > 0
+            ).eq('school_id', str(school_id)).eq('is_active', True).limit(1).execute()
+            has_hospital_list = (school_result.count or 0) > 0
 
         result = {
             "has_doctor_list": has_doctor_list,
             "has_hospital_list": has_hospital_list,
             "has_any_list": has_doctor_list or has_hospital_list,
-            "hospital_id": hospital_id
+            "school_id": school_id
         }
 
-        logger.debug(f"[Medicine] has_medicine_lists for doctor {doctor_id}: {result}")
+        logger.debug(f"[Medicine] has_medicine_lists for counsellor {counsellor_id}: {result}")
         return result
 
     except Exception as e:
-        logger.error(f"[Medicine] Error checking medicine lists for doctor {doctor_id}: {e}")
+        logger.error(f"[Medicine] Error checking medicine lists for counsellor {counsellor_id}: {e}")
         # Return True by default to avoid skipping lists on error
         return {
             "has_doctor_list": True,
             "has_hospital_list": True,
             "has_any_list": True,
-            "hospital_id": None
+            "school_id": None
         }
 
 
-def list_doctor_medicines(
-    doctor_id: uuid.UUID,
+def list_counsellor_medicines(
+    counsellor_id: uuid.UUID,
     category: Optional[str] = None,
     search: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    List all medicines for a doctor.
+    List all medicines for a counsellor.
 
     Uses in-memory cache (8-hour TTL) when no search filter is applied.
     Cache is invalidated when medicines are added/updated/deleted.
     """
     # Only use cache when no search filter (search results aren't cached)
     if not search:
-        cached = get_cached_doctor_medicines(doctor_id, category)
+        cached = get_cached_counsellor_medicines(counsellor_id, category)
         if cached is not None:
             return cached
 
@@ -1269,8 +1269,8 @@ def list_doctor_medicines(
     medicines = []
     offset = 0
     while True:
-        query = supabase.table('doctor_medicines').select('*').eq(
-            'doctor_id', str(doctor_id)
+        query = supabase.table('counsellor_medicines').select('*').eq(
+            'counsellor_id', str(counsellor_id)
         ).eq('is_active', True)
         if category:
             query = query.eq('category', category)
@@ -1281,11 +1281,11 @@ def list_doctor_medicines(
             break
         offset += PAGE_SIZE
     if offset > 0:
-        logger.info(f"[MEDICINE_LIST] Paginated fetch for doctor {str(doctor_id)[:8]}...: {len(medicines)} total medicines across {offset // PAGE_SIZE + 1} pages")
+        logger.info(f"[MEDICINE_LIST] Paginated fetch for counsellor {str(counsellor_id)[:8]}...: {len(medicines)} total medicines across {offset // PAGE_SIZE + 1} pages")
 
     # Cache the result if no search filter
     if not search:
-        set_cached_doctor_medicines(doctor_id, medicines, category)
+        set_cached_counsellor_medicines(counsellor_id, medicines, category)
 
     # Client-side search if needed
     if search:
@@ -1300,18 +1300,18 @@ def list_doctor_medicines(
     return medicines
 
 
-def copy_hospital_medicine_to_doctor(
-    hospital_medicine_id: uuid.UUID,
-    doctor_id: uuid.UUID
+def copy_school_medicine_to_counsellor(
+    school_medicine_id: uuid.UUID,
+    counsellor_id: uuid.UUID
 ) -> Optional[Dict[str, Any]]:
-    """Copy a hospital medicine to doctor's personal list."""
+    """Copy a school medicine to counsellor's personal list."""
     try:
         # Use RPC if available
         result = supabase.rpc(
-            'copy_hospital_medicine_to_doctor_rpc',
+            'copy_school_medicine_to_counsellor_rpc',
             {
-                'p_hospital_medicine_id': str(hospital_medicine_id),
-                'p_doctor_id': str(doctor_id)
+                'p_school_medicine_id': str(school_medicine_id),
+                'p_counsellor_id': str(counsellor_id)
             }
         ).execute()
 
@@ -1323,16 +1323,16 @@ def copy_hospital_medicine_to_doctor(
         logger.warning(f"[Medicine] RPC copy failed, using fallback: {e}")
 
         # Fallback to manual copy
-        hospital_med = supabase.table('hospital_medicine_lists').select(
+        school_med = supabase.table('school_medicine_lists').select(
             '*'
-        ).eq('id', str(hospital_medicine_id)).single().execute()
+        ).eq('id', str(school_medicine_id)).single().execute()
 
-        if not hospital_med.data:
+        if not school_med.data:
             return None
 
-        hm = hospital_med.data
-        return create_doctor_medicine(
-            doctor_id=doctor_id,
+        hm = school_med.data
+        return create_counsellor_medicine(
+            counsellor_id=counsellor_id,
             medicine_name=hm['medicine_name'],
             common_names=hm['common_names'],
             category=hm['category'],
@@ -1346,11 +1346,11 @@ def copy_hospital_medicine_to_doctor(
 
 
 # ============================================================================
-# CRUD - Hospital Medicines
+# CRUD - School Medicines
 # ============================================================================
 
-def create_hospital_medicine(hospital_id: uuid.UUID, created_by: uuid.UUID, **kwargs) -> Dict[str, Any]:
-    """Create a single medicine for a hospital."""
+def create_school_medicine(school_id: uuid.UUID, created_by: uuid.UUID, **kwargs) -> Dict[str, Any]:
+    """Create a single medicine for a school."""
     medicine_name = kwargs.get('medicine_name', '')
     common_names = list(kwargs.get('common_names', []))  # Make a copy to avoid mutating
 
@@ -1372,7 +1372,7 @@ def create_hospital_medicine(hospital_id: uuid.UUID, created_by: uuid.UUID, **kw
     tokens = generate_search_tokens(medicine_name, common_names)
 
     data = {
-        'hospital_id': str(hospital_id),
+        'school_id': str(school_id),
         'created_by': str(created_by),
         'medicine_name': medicine_name,
         'common_names': common_names,
@@ -1386,30 +1386,30 @@ def create_hospital_medicine(hospital_id: uuid.UUID, created_by: uuid.UUID, **kw
         'search_tokens': tokens
     }
 
-    result = supabase.table('hospital_medicine_lists').insert(data).execute()
+    result = supabase.table('school_medicine_lists').insert(data).execute()
 
-    # Invalidate list availability cache for all doctors (hospital-level change)
-    from services.extraction_service import invalidate_list_cache_by_hospital
-    invalidate_list_cache_by_hospital(hospital_id)
+    # Invalidate list availability cache for all counsellors (school-level change)
+    from services.extraction_service import invalidate_list_cache_by_school
+    invalidate_list_cache_by_school(school_id)
 
-    # Invalidate hospital medicine list data cache
-    invalidate_hospital_medicine_cache(hospital_id)
+    # Invalidate school medicine list data cache
+    invalidate_school_medicine_cache(school_id)
 
     return result.data[0] if result.data else {}
 
 
-def list_hospital_medicines(
-    hospital_id: uuid.UUID,
+def list_school_medicines(
+    school_id: uuid.UUID,
     category: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    List all medicines for a hospital.
+    List all medicines for a school.
 
     Uses in-memory cache (8-hour TTL) for faster repeated access.
-    Cache is invalidated when hospital medicines are added/updated/deleted.
+    Cache is invalidated when school medicines are added/updated/deleted.
     """
     # Check cache first
-    cached = get_cached_hospital_medicines(hospital_id, category)
+    cached = get_cached_school_medicines(school_id, category)
     if cached is not None:
         return cached
 
@@ -1418,8 +1418,8 @@ def list_hospital_medicines(
     medicines = []
     offset = 0
     while True:
-        query = supabase.table('hospital_medicine_lists').select('*').eq(
-            'hospital_id', str(hospital_id)
+        query = supabase.table('school_medicine_lists').select('*').eq(
+            'school_id', str(school_id)
         ).eq('is_active', True)
         if category:
             query = query.eq('category', category)
@@ -1430,10 +1430,10 @@ def list_hospital_medicines(
             break
         offset += PAGE_SIZE
     if offset > 0:
-        logger.info(f"[MEDICINE_LIST] Paginated fetch for hospital {str(hospital_id)[:8]}...: {len(medicines)} total medicines across {offset // PAGE_SIZE + 1} pages")
+        logger.info(f"[MEDICINE_LIST] Paginated fetch for school {str(school_id)[:8]}...: {len(medicines)} total medicines across {offset // PAGE_SIZE + 1} pages")
 
     # Cache the result
-    set_cached_hospital_medicines(hospital_id, medicines, category)
+    set_cached_school_medicines(school_id, medicines, category)
 
     return medicines
 
@@ -1478,12 +1478,12 @@ def _check_diagnosis_context_match(category: Optional[str], diagnosis: str) -> b
     return category_lower in diagnosis_lower
 
 
-async def get_doctor_feedback_for_medicine(
-    doctor_id: uuid.UUID,
+async def get_counsellor_feedback_for_medicine(
+    counsellor_id: uuid.UUID,
     original_name: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Check if doctor has previous feedback for this medicine name.
+    Check if counsellor has previous feedback for this medicine name.
 
     Returns the most recent feedback record if found.
     """
@@ -1491,7 +1491,7 @@ async def get_doctor_feedback_for_medicine(
         result = supabase.rpc(
             'get_medicine_feedback_history_rpc',
             {
-                'p_doctor_id': str(doctor_id),
+                'p_counsellor_id': str(counsellor_id),
                 'p_original_name': original_name
             }
         ).execute()
@@ -1506,7 +1506,7 @@ async def get_doctor_feedback_for_medicine(
         # Fallback to direct query
         result = supabase.table('medicine_match_log').select(
             'matched_medicine_name, correct_medicine_name, feedback_status, match_confidence'
-        ).eq('doctor_id', str(doctor_id)).ilike(
+        ).eq('counsellor_id', str(counsellor_id)).ilike(
             'original_medicine_name', original_name
         ).not_.is_('feedback_status', 'null').order(
             'created_at', desc=True
@@ -1519,7 +1519,7 @@ async def get_doctor_feedback_for_medicine(
 
 async def match_medicine_name(
     extracted_name: str,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     diagnosis: str = "",
     submission_id: str = "",
     threshold: float = MIN_FUZZY_THRESHOLD
@@ -1532,16 +1532,16 @@ async def match_medicine_name(
 
     Matching Priority (Exact/Common first in BOTH lists, then Fuzzy):
     1. Feedback history (agreed/disagreed) → 95% confidence
-    2. Doctor list - exact match → 100% confidence
-    3. Doctor list - common name match → 98% confidence
-    4. Hospital list - exact match → 90% confidence
-    5. Hospital list - common name match → 88% confidence
-    6. Doctor list - fuzzy match (90%+ only) → typo correction
-    7. Hospital list - fuzzy match (90%+ only) → typo correction
+    2. Counsellor list - exact match → 100% confidence
+    3. Counsellor list - common name match → 98% confidence
+    4. School list - exact match → 90% confidence
+    5. School list - common name match → 88% confidence
+    6. Counsellor list - fuzzy match (90%+ only) → typo correction
+    7. School list - fuzzy match (90%+ only) → typo correction
 
     Args:
         extracted_name: Name extracted from transcript
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         diagnosis: Diagnosis context for confidence boost
         submission_id: Submission ID for logging
         threshold: Minimum confidence threshold (default 0.90 for typo-only correction)
@@ -1555,9 +1555,9 @@ async def match_medicine_name(
     normalized_extracted = normalize_medicine_name(extracted_name)
     logger.info(f"[Medicine Match] Processing: '{extracted_name}' (normalized: '{normalized_extracted}')")
 
-    # Level 1: Check feedback history (highest priority - doctor's explicit preference)
+    # Level 1: Check feedback history (highest priority - counsellor's explicit preference)
     feedback_start = time_module.time()
-    feedback = await get_doctor_feedback_for_medicine(doctor_id, extracted_name)
+    feedback = await get_counsellor_feedback_for_medicine(counsellor_id, extracted_name)
     feedback_duration = time_module.time() - feedback_start
     if feedback:
         if feedback['feedback_status'] == 'agreed':
@@ -1577,7 +1577,7 @@ async def match_medicine_name(
         elif feedback['feedback_status'] == 'disagreed' and feedback['correct_medicine_name']:
             total_duration = time_module.time() - match_start
             logger.info(f"[TIMING_MEDICINE_MATCH] '{extracted_name}': feedback_lookup={feedback_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (FEEDBACK_CORRECTED)")
-            logger.info(f"[Medicine Match] ✓ FEEDBACK_CORRECTED: '{extracted_name}' → '{feedback['correct_medicine_name']}' (doctor correction)")
+            logger.info(f"[Medicine Match] ✓ FEEDBACK_CORRECTED: '{extracted_name}' → '{feedback['correct_medicine_name']}' (counsellor correction)")
             return {
                 "matched": True,
                 "original_name": extracted_name,
@@ -1589,31 +1589,31 @@ async def match_medicine_name(
                 "form": None
             }
 
-    # Get doctor's hospital_id for hospital list lookup (cached - 10 min TTL)
-    from services.supabase_service import get_doctor_hospital_id_cached
-    hospital_id = get_doctor_hospital_id_cached(doctor_id)
+    # Get counsellor's school_id for school list lookup (cached - 10 min TTL)
+    from services.supabase_service import get_counsellor_school_id_cached
+    school_id = get_counsellor_school_id_cached(counsellor_id)
 
     # Load both lists upfront
     list_load_start = time_module.time()
-    doctor_meds = list_doctor_medicines(doctor_id)
-    hospital_meds = list_hospital_medicines(uuid.UUID(hospital_id)) if hospital_id else []
+    counsellor_meds = list_counsellor_medicines(counsellor_id)
+    school_meds = list_school_medicines(uuid.UUID(school_id)) if school_id else []
     list_load_duration = time_module.time() - list_load_start
 
-    # Build hospital external_id lookup by normalized name for fallback enrichment
+    # Build school external_id lookup by normalized name for fallback enrichment
     # When a medicine matches on doctor_list (which may lack external_id),
-    # we fall back to the hospital list to get external_id for billing
+    # we fall back to the school list to get external_id for billing
     _hospital_ext_id_lookup = {}
-    for hmed in hospital_meds:
+    for hmed in school_meds:
         if hmed.get('external_id'):
             _hospital_ext_id_lookup[hmed['normalized_name']] = hmed['external_id']
 
     def _enrich_external_id(result: Dict[str, Any]) -> Dict[str, Any]:
-        """If doctor_list match has no external_id, try hospital list by normalized name."""
+        """If doctor_list match has no external_id, try school list by normalized name."""
         if result.get('source') == 'doctor_list' and not result.get('external_id'):
             matched_normalized = normalize_medicine_name(result['matched_name'])
-            hospital_ext_id = _hospital_ext_id_lookup.get(matched_normalized)
-            if hospital_ext_id:
-                result['external_id'] = hospital_ext_id
+            school_ext_id = _hospital_ext_id_lookup.get(matched_normalized)
+            if school_ext_id:
+                result['external_id'] = school_ext_id
         return result
 
     # =========================================================================
@@ -1621,8 +1621,8 @@ async def match_medicine_name(
     # =========================================================================
     exact_match_start = time_module.time()
 
-    # Level 2: Exact match in doctor's list
-    for med in doctor_meds:
+    # Level 2: Exact match in counsellor's list
+    for med in counsellor_meds:
         if med['normalized_name'] == normalized_extracted:
             confidence = 1.0
             if _check_diagnosis_context_match(med.get('category'), diagnosis):
@@ -1647,8 +1647,8 @@ async def match_medicine_name(
                 "product_code": med.get('product_code')
             })
 
-    # Level 3: Common name match in doctor's list
-    for med in doctor_meds:
+    # Level 3: Common name match in counsellor's list
+    for med in counsellor_meds:
         for common in (med.get('common_names') or []):
             if normalize_medicine_name(common) == normalized_extracted:
                 confidence = 0.98
@@ -1673,8 +1673,8 @@ async def match_medicine_name(
                     "form": med.get('form')
                 })
 
-    # Level 4: Exact match in hospital list
-    for med in hospital_meds:
+    # Level 4: Exact match in school list
+    for med in school_meds:
         if med['normalized_name'] == normalized_extracted:
             confidence = 0.90
             if _check_diagnosis_context_match(med.get('category'), diagnosis):
@@ -1688,7 +1688,7 @@ async def match_medicine_name(
                 "matched": True,
                 "original_name": extracted_name,
                 "matched_name": med['medicine_name'],
-                "matched_hospital_medicine_id": med['id'],
+                "matched_school_medicine_id": med['id'],
                 "confidence": confidence,
                 "method": "exact",
                 "source": "hospital_list",
@@ -1699,8 +1699,8 @@ async def match_medicine_name(
                 "product_code": med.get('product_code')
             }
 
-    # Level 5: Common name match in hospital list
-    for med in hospital_meds:
+    # Level 5: Common name match in school list
+    for med in school_meds:
         for common in (med.get('common_names') or []):
             if normalize_medicine_name(common) == normalized_extracted:
                 confidence = 0.88
@@ -1715,7 +1715,7 @@ async def match_medicine_name(
                     "matched": True,
                     "original_name": extracted_name,
                     "matched_name": med['medicine_name'],
-                    "matched_hospital_medicine_id": med['id'],
+                    "matched_school_medicine_id": med['id'],
                     "confidence": confidence,
                     "method": "common_name",
                     "source": "hospital_list",
@@ -1735,8 +1735,8 @@ async def match_medicine_name(
     prefix_match_start = time_module.time()
     logger.info(f"[Medicine Match] No exact/common_name match, trying prefix match (coverage: {PREFIX_MATCH_COVERAGE*100:.0f}%)...")
 
-    # Check if extracted name is a prefix of any medicine in doctor's list
-    for med in doctor_meds:
+    # Check if extracted name is a prefix of any medicine in counsellor's list
+    for med in counsellor_meds:
         med_normalized = med['normalized_name']
         # Check if extracted is a prefix of the medicine name
         if med_normalized.startswith(normalized_extracted) and len(normalized_extracted) > 3:
@@ -1764,14 +1764,14 @@ async def match_medicine_name(
                     "form": med.get('form')
                 })
 
-    # Check if extracted name is a prefix of any medicine in hospital's list
-    for med in hospital_meds:
+    # Check if extracted name is a prefix of any medicine in school's list
+    for med in school_meds:
         med_normalized = med['normalized_name']
         # Check if extracted is a prefix of the medicine name
         if med_normalized.startswith(normalized_extracted) and len(normalized_extracted) > 3:
             coverage = len(normalized_extracted) / len(med_normalized)
             if coverage >= PREFIX_MATCH_COVERAGE:
-                confidence = 0.92  # Slightly lower for hospital list
+                confidence = 0.92  # Slightly lower for school list
                 if _check_diagnosis_context_match(med.get('category'), diagnosis):
                     confidence = min(0.97, confidence + DIAGNOSIS_CONTEXT_BOOST)
 
@@ -1783,7 +1783,7 @@ async def match_medicine_name(
                     "matched": True,
                     "original_name": extracted_name,
                     "matched_name": med['medicine_name'],
-                    "matched_hospital_medicine_id": med['id'],
+                    "matched_school_medicine_id": med['id'],
                     "confidence": confidence,
                     "method": "prefix",
                     "source": "hospital_list",
@@ -1802,85 +1802,85 @@ async def match_medicine_name(
     fuzzy_match_start = time_module.time()
     logger.info(f"[Medicine Match] No exact/common_name/prefix match found, trying fuzzy (threshold: {threshold*100:.0f}%)...")
 
-    # Level 6: Fuzzy match in doctor's list
-    best_doctor_match = None
-    best_doctor_score = 0
+    # Level 6: Fuzzy match in counsellor's list
+    best_counsellor_match = None
+    best_counsellor_score = 0
 
-    for med in doctor_meds:
+    for med in counsellor_meds:
         score = _calculate_fuzzy_score(normalized_extracted, med['normalized_name'])
-        if score > best_doctor_score and score >= threshold:
-            best_doctor_score = score
-            best_doctor_match = med
+        if score > best_counsellor_score and score >= threshold:
+            best_counsellor_score = score
+            best_counsellor_match = med
 
         # Also check common names for fuzzy
         for common in (med.get('common_names') or []):
             common_score = _calculate_fuzzy_score(normalized_extracted, normalize_medicine_name(common))
-            if common_score > best_doctor_score and common_score >= threshold:
-                best_doctor_score = common_score
-                best_doctor_match = med
+            if common_score > best_counsellor_score and common_score >= threshold:
+                best_counsellor_score = common_score
+                best_counsellor_match = med
 
-    # Level 7: Fuzzy match in hospital list
-    best_hospital_match = None
-    best_hospital_score = 0
+    # Level 7: Fuzzy match in school list
+    best_school_match = None
+    best_school_score = 0
 
-    for med in hospital_meds:
+    for med in school_meds:
         score = _calculate_fuzzy_score(normalized_extracted, med['normalized_name'])
-        if score > best_hospital_score and score >= threshold:
-            best_hospital_score = score
-            best_hospital_match = med
+        if score > best_school_score and score >= threshold:
+            best_school_score = score
+            best_school_match = med
 
         # Also check common names for fuzzy
         for common in (med.get('common_names') or []):
             common_score = _calculate_fuzzy_score(normalized_extracted, normalize_medicine_name(common))
-            if common_score > best_hospital_score and common_score >= threshold:
-                best_hospital_score = common_score
-                best_hospital_match = med
+            if common_score > best_school_score and common_score >= threshold:
+                best_school_score = common_score
+                best_school_match = med
 
     fuzzy_match_duration = time_module.time() - fuzzy_match_start
 
-    # Return best fuzzy match (prefer doctor list if scores are equal)
-    if best_doctor_match and best_doctor_score >= best_hospital_score:
-        confidence = best_doctor_score * 0.95  # Scale to 85-95% range
-        if _check_diagnosis_context_match(best_doctor_match.get('category'), diagnosis):
+    # Return best fuzzy match (prefer counsellor list if scores are equal)
+    if best_counsellor_match and best_counsellor_score >= best_school_score:
+        confidence = best_counsellor_score * 0.95  # Scale to 85-95% range
+        if _check_diagnosis_context_match(best_counsellor_match.get('category'), diagnosis):
             confidence = min(0.99, confidence + DIAGNOSIS_CONTEXT_BOOST)
 
         total_duration = time_module.time() - match_start
         logger.info(f"[TIMING_MEDICINE_MATCH] '{extracted_name}': list_load={list_load_duration*1000:.1f}ms, exact={exact_match_duration*1000:.1f}ms, fuzzy={fuzzy_match_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (FUZZY_DOCTOR)")
-        logger.info(f"[Medicine Match] ✓ FUZZY_DOCTOR: '{extracted_name}' → '{best_doctor_match['medicine_name']}' (score: {best_doctor_score*100:.1f}%)")
+        logger.info(f"[Medicine Match] ✓ FUZZY_DOCTOR: '{extracted_name}' → '{best_counsellor_match['medicine_name']}' (score: {best_counsellor_score*100:.1f}%)")
         return _enrich_external_id({
             "matched": True,
             "original_name": extracted_name,
-            "matched_name": best_doctor_match['medicine_name'],
-            "matched_medicine_id": best_doctor_match['id'],
+            "matched_name": best_counsellor_match['medicine_name'],
+            "matched_medicine_id": best_counsellor_match['id'],
             "confidence": confidence,
             "method": "fuzzy",
             "source": "doctor_list",
-            "category": best_doctor_match.get('category'),
-            "formulary_name": best_doctor_match.get('formulary_name'),
-            "external_id": best_doctor_match.get('external_id'),
-            "form": best_doctor_match.get('form')
+            "category": best_counsellor_match.get('category'),
+            "formulary_name": best_counsellor_match.get('formulary_name'),
+            "external_id": best_counsellor_match.get('external_id'),
+            "form": best_counsellor_match.get('form')
         })
 
-    if best_hospital_match:
-        confidence = best_hospital_score * 0.90  # Scale to 81-90% range
-        if _check_diagnosis_context_match(best_hospital_match.get('category'), diagnosis):
+    if best_school_match:
+        confidence = best_school_score * 0.90  # Scale to 81-90% range
+        if _check_diagnosis_context_match(best_school_match.get('category'), diagnosis):
             confidence = min(0.95, confidence + DIAGNOSIS_CONTEXT_BOOST)
 
         total_duration = time_module.time() - match_start
         logger.info(f"[TIMING_MEDICINE_MATCH] '{extracted_name}': list_load={list_load_duration*1000:.1f}ms, exact={exact_match_duration*1000:.1f}ms, fuzzy={fuzzy_match_duration*1000:.1f}ms, total={total_duration*1000:.1f}ms (FUZZY_HOSPITAL)")
-        logger.info(f"[Medicine Match] ✓ FUZZY_HOSPITAL: '{extracted_name}' → '{best_hospital_match['medicine_name']}' (score: {best_hospital_score*100:.1f}%)")
+        logger.info(f"[Medicine Match] ✓ FUZZY_HOSPITAL: '{extracted_name}' → '{best_school_match['medicine_name']}' (score: {best_school_score*100:.1f}%)")
         return {
             "matched": True,
             "original_name": extracted_name,
-            "matched_name": best_hospital_match['medicine_name'],
-            "matched_hospital_medicine_id": best_hospital_match['id'],
+            "matched_name": best_school_match['medicine_name'],
+            "matched_school_medicine_id": best_school_match['id'],
             "confidence": confidence,
             "method": "fuzzy",
             "source": "hospital_list",
-            "category": best_hospital_match.get('category'),
-            "formulary_name": best_hospital_match.get('formulary_name'),
-            "external_id": best_hospital_match.get('external_id'),
-            "form": best_hospital_match.get('form')
+            "category": best_school_match.get('category'),
+            "formulary_name": best_school_match.get('formulary_name'),
+            "external_id": best_school_match.get('external_id'),
+            "form": best_school_match.get('form')
         }
 
     # No match found - trust Gemini's extraction
@@ -1906,7 +1906,7 @@ async def match_medicine_name(
 
 async def postprocess_prescription_extraction(
     extraction_data: Dict[str, Any],
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     extraction_id: uuid.UUID,
     submission_id: str,
     diagnosis: str = "",
@@ -1920,7 +1920,7 @@ async def postprocess_prescription_extraction(
 
     Args:
         extraction_data: Full extraction result
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         extraction_id: Extraction record ID
         submission_id: Submission ID for ground truth
         diagnosis: Diagnosis context
@@ -2005,7 +2005,7 @@ async def postprocess_prescription_extraction(
         # Match medicine
         match_result = await match_medicine_name(
             extracted_name=original_name,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             diagnosis=diagnosis,
             submission_id=submission_id
         )
@@ -2014,7 +2014,7 @@ async def postprocess_prescription_extraction(
         if match_result['matched'] and match_result.get('form'):
             matched_form = match_result['form'].lower()
 
-            # Priority 1: dosage_form from extraction (what doctor SAID)
+            # Priority 1: dosage_form from extraction (what counsellor SAID)
             # Priority 2: detect form from original_name (only useful if Gemini output differs from list)
             extracted_dosage_form = (med.get('dosage_form') or med.get('drug_type') or '').strip().lower()
             name_detected_form = (detect_medicine_form(original_name) or '').lower()
@@ -2064,21 +2064,21 @@ async def postprocess_prescription_extraction(
         if log_matches:
             try:
                 # Separate IDs for doctor_list vs hospital_list matches (different FK constraints)
-                matched_doctor_med_id = None
-                matched_hospital_med_id = None
+                matched_counsellor_med_id = None
+                matched_school_med_id = None
 
                 if match_result.get('source') == 'doctor_list':
-                    matched_doctor_med_id = match_result.get('matched_medicine_id')
+                    matched_counsellor_med_id = match_result.get('matched_medicine_id')
                 elif match_result.get('source') == 'hospital_list':
-                    matched_hospital_med_id = match_result.get('matched_hospital_medicine_id')
+                    matched_school_med_id = match_result.get('matched_school_medicine_id')
 
                 supabase.table('medicine_match_log').insert({
                     'extraction_id': str(extraction_id),
                     'submission_id': submission_id,
-                    'doctor_id': str(doctor_id),
+                    'counsellor_id': str(counsellor_id),
                     'original_medicine_name': original_name,
-                    'matched_medicine_id': matched_doctor_med_id,
-                    'matched_hospital_medicine_id': matched_hospital_med_id,
+                    'matched_medicine_id': matched_counsellor_med_id,
+                    'matched_school_medicine_id': matched_school_med_id,
                     'matched_medicine_name': match_result['matched_name'],
                     'match_confidence': match_result['confidence'],
                     'match_method': match_result['method'],
@@ -2092,7 +2092,7 @@ async def postprocess_prescription_extraction(
         if template_id and match_result['confidence'] >= ADAPTIVE_LEARNING_THRESHOLD:
             try:
                 await update_segment_definition_for_medicine_learning(
-                    doctor_id=doctor_id,
+                    counsellor_id=counsellor_id,
                     template_id=template_id,
                     extracted_name=original_name,
                     matched_name=match_result['matched_name'],
@@ -2109,7 +2109,7 @@ async def postprocess_prescription_extraction(
 # ============================================================================
 
 async def update_segment_definition_for_medicine_learning(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     template_id: uuid.UUID,
     extracted_name: str,
     matched_name: str,
@@ -2121,7 +2121,7 @@ async def update_segment_definition_for_medicine_learning(
     This adds an instruction to the segment's prompt text to help future extractions.
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         template_id: Template ID
         extracted_name: What was extracted
         matched_name: What it was matched to
@@ -2130,7 +2130,7 @@ async def update_segment_definition_for_medicine_learning(
     # This is a placeholder for future implementation
     # The actual implementation would update the segment_definitions table
     # to add learned mappings to the prompt text
-    logger.debug(f"[Medicine] Adaptive learning: '{extracted_name}' -> '{matched_name}' for doctor {doctor_id}")
+    logger.debug(f"[Medicine] Adaptive learning: '{extracted_name}' -> '{matched_name}' for counsellor {counsellor_id}")
 
     # TODO: Implement segment definition update
     # This would involve:
@@ -2152,7 +2152,7 @@ def submit_medicine_feedback(
     """
     Submit feedback for a medicine match.
 
-    If agreed + hospital source → Auto-copy to doctor's personal list.
+    If agreed + school source → Auto-copy to counsellor's personal list.
 
     Args:
         match_log_id: Match log record ID
@@ -2192,52 +2192,52 @@ def submit_medicine_feedback(
         update_data
     ).eq('id', str(match_log_id)).execute()
 
-    doctor_id = ml.get('doctor_id')
+    counsellor_id = ml.get('counsellor_id')
 
-    # Auto-copy to personal list if agreed with hospital match
+    # Auto-copy to personal list if agreed with school match
     if feedback_status == 'agreed' and ml.get('match_source') == 'hospital_list':
-        if ml.get('matched_medicine_id') and doctor_id:
+        if ml.get('matched_medicine_id') and counsellor_id:
             try:
-                copy_hospital_medicine_to_doctor(
-                    hospital_medicine_id=uuid.UUID(ml['matched_medicine_id']),
-                    doctor_id=uuid.UUID(doctor_id)
+                copy_school_medicine_to_counsellor(
+                    school_medicine_id=uuid.UUID(ml['matched_medicine_id']),
+                    counsellor_id=uuid.UUID(counsellor_id)
                 )
-                logger.debug(f"[Medicine] Auto-copied hospital medicine to doctor's list")
+                logger.debug(f"[Medicine] Auto-copied school medicine to counsellor's list")
             except Exception as e:
                 logger.warning(f"[Medicine] Auto-copy failed: {e}")
 
-    # Auto-add to personal list if agreed with no_match (doctor confirms original name is correct)
-    if feedback_status == 'agreed' and ml.get('match_method') == 'no_match' and doctor_id:
+    # Auto-add to personal list if agreed with no_match (counsellor confirms original name is correct)
+    if feedback_status == 'agreed' and ml.get('match_method') == 'no_match' and counsellor_id:
         original_name = ml.get('original_medicine_name', '')
         if original_name:
             try:
-                # Check if already exists in doctor's list
-                existing = supabase.table('doctor_medicines')\
+                # Check if already exists in counsellor's list
+                existing = supabase.table('counsellor_medicines')\
                     .select('id')\
-                    .eq('doctor_id', str(doctor_id))\
+                    .eq('counsellor_id', str(counsellor_id))\
                     .eq('normalized_name', normalize_medicine_name(original_name))\
                     .limit(1)\
                     .execute()
 
                 if not existing.data:
-                    # Add original name to doctor's list
-                    create_doctor_medicine(
-                        doctor_id=uuid.UUID(doctor_id),
+                    # Add original name to counsellor's list
+                    create_counsellor_medicine(
+                        counsellor_id=uuid.UUID(counsellor_id),
                         medicine_name=original_name,
                         common_names=[],
                         category='Added from Feedback'
                     )
-                    logger.debug(f"[Medicine] Added '{original_name}' to doctor's list (from no_match feedback)")
+                    logger.debug(f"[Medicine] Added '{original_name}' to counsellor's list (from no_match feedback)")
             except Exception as e:
                 logger.warning(f"[Medicine] Auto-add from no_match failed: {e}")
 
     # Auto-add correction to personal list if disagreed with correction provided
-    if feedback_status == 'disagreed' and correct_medicine_name and doctor_id:
+    if feedback_status == 'disagreed' and correct_medicine_name and counsellor_id:
         try:
-            # Check if already exists in doctor's list
-            existing = supabase.table('doctor_medicines')\
+            # Check if already exists in counsellor's list
+            existing = supabase.table('counsellor_medicines')\
                 .select('id, common_names')\
-                .eq('doctor_id', str(doctor_id))\
+                .eq('counsellor_id', str(counsellor_id))\
                 .eq('normalized_name', normalize_medicine_name(correct_medicine_name))\
                 .limit(1)\
                 .execute()
@@ -2246,20 +2246,20 @@ def submit_medicine_feedback(
 
             if not existing.data:
                 # Create new medicine entry with original name as common_name
-                create_doctor_medicine(
-                    doctor_id=uuid.UUID(doctor_id),
+                create_counsellor_medicine(
+                    counsellor_id=uuid.UUID(counsellor_id),
                     medicine_name=correct_medicine_name,
                     common_names=[original_name] if original_name else [],
                     category='Corrections'
                 )
-                logger.debug(f"[Medicine] Added correction '{correct_medicine_name}' to doctor's list")
+                logger.debug(f"[Medicine] Added correction '{correct_medicine_name}' to counsellor's list")
             else:
                 # Add original name as common_name if not already present
                 existing_id = existing.data[0]['id']
                 current_names = existing.data[0].get('common_names') or []
                 if original_name and original_name.lower() not in [n.lower() for n in current_names]:
                     updated_names = current_names + [original_name]
-                    supabase.table('doctor_medicines')\
+                    supabase.table('counsellor_medicines')\
                         .update({'common_names': updated_names})\
                         .eq('id', existing_id)\
                         .execute()
@@ -2272,7 +2272,7 @@ def submit_medicine_feedback(
 
 
 def list_pending_feedback(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     limit: int = 100,
     offset: int = 0,
     include_exact_matches: bool = False
@@ -2280,10 +2280,10 @@ def list_pending_feedback(
     """
     Get match logs pending feedback for the dedicated review screen.
 
-    By default, only returns matches that NEED doctor action:
-    - 'fuzzy' matches: System guessed a correction - doctor should confirm/reject
-    - 'no_match' matches: New medicine not in any list - doctor should add/correct
-    - 'doctor_edit_*' matches: FYI only (doctor already corrected in UI)
+    By default, only returns matches that NEED counsellor action:
+    - 'fuzzy' matches: System guessed a correction - counsellor should confirm/reject
+    - 'no_match' matches: New medicine not in any list - counsellor should add/correct
+    - 'doctor_edit_*' matches: FYI only (counsellor already corrected in UI)
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
@@ -2291,7 +2291,7 @@ def list_pending_feedback(
     - 'feedback_agreed'/'feedback_corrected': Already reviewed
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         limit: Max records to return
         offset: Records to skip
         include_exact_matches: If True, also include exact and common_name matches
@@ -2302,7 +2302,7 @@ def list_pending_feedback(
     # Query all pending feedback
     result = supabase.table('medicine_match_log').select(
         '*'
-    ).eq('doctor_id', str(doctor_id)).is_(
+    ).eq('counsellor_id', str(counsellor_id)).is_(
         'feedback_status', 'null'
     ).order('created_at', desc=True).execute()
 
@@ -2310,9 +2310,9 @@ def list_pending_feedback(
 
     # Filter to only show matches that need review
     if not include_exact_matches:
-        # Show matches that need doctor action:
-        # - 'fuzzy': System guessed a correction - doctor should confirm/reject
-        # - 'no_match': New medicine not in any list - doctor should add/correct
+        # Show matches that need counsellor action:
+        # - 'fuzzy': System guessed a correction - counsellor should confirm/reject
+        # - 'no_match': New medicine not in any list - counsellor should add/correct
         # - 'doctor_edit_*': FYI only (already agreed implicitly)
         #
         # Exclude (already correct, no action needed):
@@ -2333,7 +2333,7 @@ def list_pending_feedback(
 
 
 def list_feedback_history(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     feedback_status: Optional[str] = None,
     confidence_min: Optional[float] = None,
     confidence_max: Optional[float] = None,
@@ -2346,17 +2346,17 @@ def list_feedback_history(
     """
     Get feedback history with filters for the review screen.
 
-    By default, only returns matches that NEED/NEEDED doctor action:
+    By default, only returns matches that NEED/NEEDED counsellor action:
     - 'fuzzy' matches: System guessed a correction
     - 'no_match' matches: New medicine not in any list
-    - 'doctor_edit_*' matches: Doctor corrected in UI
+    - 'doctor_edit_*' matches: Counsellor corrected in UI
 
     Does NOT return by default (no action needed):
     - 'exact' matches: Gemini used exact name from list
     - 'common_name' matches: Gemini used a known alias
 
     Args:
-        doctor_id: Doctor ID
+        counsellor_id: Counsellor ID
         feedback_status: Filter by status ('agreed', 'disagreed', None for all)
         confidence_min: Minimum confidence
         confidence_max: Maximum confidence
@@ -2371,7 +2371,7 @@ def list_feedback_history(
     """
     query = supabase.table('medicine_match_log').select(
         '*', count='exact'
-    ).eq('doctor_id', str(doctor_id))
+    ).eq('counsellor_id', str(counsellor_id))
 
     if feedback_status:
         query = query.eq('feedback_status', feedback_status)
@@ -2423,8 +2423,8 @@ def list_feedback_history(
 # ============================================================================
 
 def get_medicine_list_for_prompt(
-    doctor_id: uuid.UUID,
-    hospital_id: Optional[uuid.UUID] = None,
+    counsellor_id: uuid.UUID,
+    school_id: Optional[uuid.UUID] = None,
     max_medicines: int = 3500,
     transcript_text: str = ""
 ) -> str:
@@ -2432,8 +2432,8 @@ def get_medicine_list_for_prompt(
     Generate medicine list formatted for prompt injection.
 
     Args:
-        doctor_id: Doctor ID
-        hospital_id: Hospital ID (optional, auto-detected if not provided)
+        counsellor_id: Counsellor ID
+        school_id: School ID (optional, auto-detected if not provided)
         max_medicines: Maximum medicines to include
         transcript_text: Optional transcript for form-based prioritization.
             When provided, detected dosage forms (tablet, syrup, etc.) are
@@ -2442,23 +2442,23 @@ def get_medicine_list_for_prompt(
     Returns:
         Formatted string for injection into user prompt
     """
-    # Get doctor's hospital if not provided (cached - 10 min TTL)
-    if not hospital_id:
-        from services.supabase_service import get_doctor_hospital_id_cached
-        cached_hospital_id = get_doctor_hospital_id_cached(doctor_id)
-        if cached_hospital_id:
-            hospital_id = uuid.UUID(cached_hospital_id)
+    # Get counsellor's school if not provided (cached - 10 min TTL)
+    if not school_id:
+        from services.supabase_service import get_counsellor_school_id_cached
+        cached_school_id = get_counsellor_school_id_cached(counsellor_id)
+        if cached_school_id:
+            school_id = uuid.UUID(cached_school_id)
 
     # Get medicines
-    doctor_meds = list_doctor_medicines(doctor_id)
-    hospital_meds = list_hospital_medicines(hospital_id) if hospital_id else []
+    counsellor_meds = list_counsellor_medicines(counsellor_id)
+    school_meds = list_school_medicines(school_id) if school_id else []
 
     # Combine and deduplicate
     all_meds = {}
-    for med in doctor_meds:
+    for med in counsellor_meds:
         all_meds[med['normalized_name']] = med
 
-    for med in hospital_meds:
+    for med in school_meds:
         if med['normalized_name'] not in all_meds:
             all_meds[med['normalized_name']] = med
 
@@ -2507,7 +2507,7 @@ def get_medicine_list_for_prompt(
     sorted_forms = sorted(by_form_category.keys(), key=form_sort_key)
 
     # Format for prompt
-    lines = ["**DOCTOR'S MEDICINE LIST (Use these exact names when extracting prescriptions):**", ""]
+    lines = ["**COUNSELLOR'S MEDICINE LIST (Use these exact names when extracting prescriptions):**", ""]
 
     for form in sorted_forms:
         form_plural = f"{form}s" if not form.endswith('s') else form
@@ -2624,7 +2624,7 @@ def _is_valid_medicine_edit(original: str, edited: str) -> Tuple[bool, float, st
 
 async def process_medicine_edit_feedback(
     extraction_id: uuid.UUID,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     original_extraction: Dict[str, Any],
     edited_extraction: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -2636,13 +2636,13 @@ async def process_medicine_edit_feedback(
     2. Matches medicines by fuzzy name similarity
     3. Identifies name standardizations (not dosage changes or different medicines)
     4. Logs to medicine_match_log with feedback_status='agreed'
-    5. Auto-adds corrected medicines to doctor's personal list
+    5. Auto-adds corrected medicines to counsellor's personal list
 
     Args:
-        extraction_id: Medical extraction UUID
-        doctor_id: Doctor UUID who made edits
+        extraction_id: extraction UUID
+        counsellor_id: Counsellor UUID who made edits
         original_extraction: AI-generated extraction JSON
-        edited_extraction: Doctor-edited extraction JSON
+        edited_extraction: Counsellor-edited extraction JSON
 
     Returns:
         Summary of processed medicine edits
@@ -2661,7 +2661,7 @@ async def process_medicine_edit_feedback(
 
     # Get submission_id from extraction for logging
     try:
-        ext_result = supabase.table("medical_extractions")\
+        ext_result = supabase.table("extractions")\
             .select("session_id")\
             .eq("id", str(extraction_id))\
             .limit(1)\
@@ -2810,7 +2810,7 @@ async def process_medicine_edit_feedback(
             supabase.table('medicine_match_log').insert({
                 'extraction_id': str(extraction_id),
                 'submission_id': submission_id,
-                'doctor_id': str(doctor_id),
+                'counsellor_id': str(counsellor_id),
                 'original_medicine_name': orig_name,
                 'matched_medicine_name': edit_name,
                 'match_confidence': similarity,
@@ -2828,57 +2828,57 @@ async def process_medicine_edit_feedback(
             logger.warning(f"[MedicineEditFeedback] Failed to log feedback: {e}")
             results["errors"].append(f"Log failed for {orig_name}: {str(e)}")
 
-        # Auto-add to doctor's medicine list
+        # Auto-add to counsellor's medicine list
         try:
             # Check if already exists
-            existing = supabase.table('doctor_medicines')\
+            existing = supabase.table('counsellor_medicines')\
                 .select('id')\
-                .eq('doctor_id', str(doctor_id))\
+                .eq('counsellor_id', str(counsellor_id))\
                 .eq('normalized_name', normalize_medicine_name(edit_name))\
                 .limit(1)\
                 .execute()
 
             if not existing.data:
-                # Check hospital list first for enriched data
-                added_via_hospital = False
+                # Check school list first for enriched data
+                added_via_school = False
                 try:
-                    from services.supabase_service import get_doctor_hospital_id_cached
-                    hospital_id = get_doctor_hospital_id_cached(doctor_id)
-                    if hospital_id:
-                        hospital_match = supabase.table('hospital_medicine_lists')\
+                    from services.supabase_service import get_counsellor_school_id_cached
+                    school_id = get_counsellor_school_id_cached(counsellor_id)
+                    if school_id:
+                        school_match = supabase.table('school_medicine_lists')\
                             .select('id')\
-                            .eq('hospital_id', str(hospital_id))\
+                            .eq('school_id', str(school_id))\
                             .eq('normalized_name', normalize_medicine_name(edit_name))\
                             .eq('is_active', True)\
                             .limit(1).execute()
-                        if hospital_match.data:
-                            copy_result = copy_hospital_medicine_to_doctor(
-                                hospital_medicine_id=uuid.UUID(hospital_match.data[0]['id']),
-                                doctor_id=doctor_id
+                        if school_match.data:
+                            copy_result = copy_school_medicine_to_counsellor(
+                                school_medicine_id=uuid.UUID(school_match.data[0]['id']),
+                                counsellor_id=counsellor_id
                             )
                             if copy_result:
-                                added_via_hospital = True
-                                logger.debug(f"[MedicineEditFeedback] Added '{edit_name}' from hospital list (enriched)")
-                                # Add orig_name as common_name on the new doctor record
+                                added_via_school = True
+                                logger.debug(f"[MedicineEditFeedback] Added '{edit_name}' from school list (enriched)")
+                                # Add orig_name as common_name on the new counsellor record
                                 if orig_name.lower() != edit_name.lower():
-                                    new_rec = supabase.table('doctor_medicines')\
+                                    new_rec = supabase.table('counsellor_medicines')\
                                         .select('id, common_names')\
-                                        .eq('doctor_id', str(doctor_id))\
+                                        .eq('counsellor_id', str(counsellor_id))\
                                         .eq('normalized_name', normalize_medicine_name(edit_name))\
                                         .limit(1).execute()
                                     if new_rec.data:
                                         names = new_rec.data[0].get('common_names') or []
                                         if orig_name.lower() not in [n.lower() for n in names]:
-                                            supabase.table('doctor_medicines')\
+                                            supabase.table('counsellor_medicines')\
                                                 .update({'common_names': names + [orig_name]})\
                                                 .eq('id', new_rec.data[0]['id']).execute()
                 except Exception as e:
-                    logger.warning(f"[MedicineEditFeedback] Hospital list check failed: {e}")
+                    logger.warning(f"[MedicineEditFeedback] School list check failed: {e}")
 
-                if not added_via_hospital:
-                    # Fallback: add bare entry without hospital enrichment
-                    create_doctor_medicine(
-                        doctor_id=doctor_id,
+                if not added_via_school:
+                    # Fallback: add bare entry without school enrichment
+                    create_counsellor_medicine(
+                        counsellor_id=counsellor_id,
                         medicine_name=edit_name,
                         common_names=[orig_name] if orig_name.lower() != edit_name.lower() else [],
                         category=None,
@@ -2888,12 +2888,12 @@ async def process_medicine_edit_feedback(
                         formulary_name=None,
                         medicine_type='generic'
                     )
-                    logger.debug(f"[MedicineEditFeedback] Added '{edit_name}' to doctor's medicine list (bare)")
+                    logger.debug(f"[MedicineEditFeedback] Added '{edit_name}' to counsellor's medicine list (bare)")
                 results["added_to_list"] += 1
             else:
                 # Update common_names to include the original name
                 existing_id = existing.data[0]['id']
-                current = supabase.table('doctor_medicines')\
+                current = supabase.table('counsellor_medicines')\
                     .select('common_names')\
                     .eq('id', existing_id)\
                     .limit(1)\
@@ -2903,14 +2903,14 @@ async def process_medicine_edit_feedback(
                     current_names = current.data[0].get('common_names') or []
                     if orig_name.lower() not in [n.lower() for n in current_names]:
                         updated_names = current_names + [orig_name]
-                        supabase.table('doctor_medicines')\
+                        supabase.table('counsellor_medicines')\
                             .update({'common_names': updated_names})\
                             .eq('id', existing_id)\
                             .execute()
                         logger.debug(f"[MedicineEditFeedback] Added '{orig_name}' as common name for '{edit_name}'")
 
         except Exception as e:
-            logger.warning(f"[MedicineEditFeedback] Failed to add to doctor's list: {e}")
+            logger.warning(f"[MedicineEditFeedback] Failed to add to counsellor's list: {e}")
             results["errors"].append(f"Add to list failed for {edit_name}: {str(e)}")
 
     logger.debug(f"[MedicineEditFeedback] Completed: {results}")
@@ -2918,28 +2918,28 @@ async def process_medicine_edit_feedback(
 
 
 # ============================================================================
-# Backfill - Enrich doctor medicines from hospital list
+# Backfill - Enrich counsellor medicines from school list
 # ============================================================================
 
 def backfill_medicine_abbreviations(
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     dry_run: bool = True
 ) -> Dict[str, Any]:
     """
-    Backfill existing doctor medicines with enriched common_names from
+    Backfill existing counsellor medicines with enriched common_names from
     the expanded MEDICINE_ABBREVIATIONS dictionary.
 
     For each medicine, runs extract_medicine_aliases() and adds any new
     aliases not already in common_names. Also regenerates search_tokens.
 
     Args:
-        doctor_id: Doctor UUID
+        counsellor_id: Counsellor UUID
         dry_run: If True, only report what would change without updating
 
     Returns:
         Summary dict with updated/skipped counts and details
     """
-    medicines = list_doctor_medicines(doctor_id)
+    medicines = list_counsellor_medicines(counsellor_id)
     updated = []
     skipped = 0
 
@@ -2972,7 +2972,7 @@ def backfill_medicine_abbreviations(
             })
         else:
             try:
-                supabase.table('doctor_medicines').update({
+                supabase.table('counsellor_medicines').update({
                     'common_names': enriched_common,
                     'search_tokens': enriched_tokens,
                 }).eq('id', str(med_id)).execute()
@@ -2985,10 +2985,10 @@ def backfill_medicine_abbreviations(
                 logger.warning(f"[BACKFILL_ABBREV] Failed to update {med_id}: {e}")
 
     if not dry_run and updated:
-        invalidate_doctor_medicine_cache(doctor_id)
+        invalidate_counsellor_medicine_cache(counsellor_id)
 
     return {
-        "doctor_id": str(doctor_id),
+        "counsellor_id": str(counsellor_id),
         "dry_run": dry_run,
         "total_medicines": len(medicines),
         "updated_count": len(updated),
@@ -2997,21 +2997,21 @@ def backfill_medicine_abbreviations(
     }
 
 
-def backfill_doctor_medicines_from_hospital(
-    doctor_id: uuid.UUID,
+def backfill_counsellor_medicines_from_school(
+    counsellor_id: uuid.UUID,
     dry_run: bool = True
 ) -> Dict[str, Any]:
     """
-    Backfill doctor medicine entries that have no external_id by matching
-    against the hospital medicine list and copying enrichment fields.
+    Backfill counsellor medicine entries that have no external_id by matching
+    against the school medicine list and copying enrichment fields.
 
     Fields updated: external_id, form, category, typical_dosage,
     snomed_code, formulary_name, medicine_type, common_names (merged).
     """
-    from services.supabase_service import get_doctor_hospital_id_cached
+    from services.supabase_service import get_counsellor_school_id_cached
 
     result = {
-        "doctor_id": str(doctor_id),
+        "counsellor_id": str(counsellor_id),
         "dry_run": dry_run,
         "total_doctor_medicines": 0,
         "missing_external_id": 0,
@@ -3022,44 +3022,44 @@ def backfill_doctor_medicines_from_hospital(
         "details": []
     }
 
-    hospital_id = get_doctor_hospital_id_cached(doctor_id)
-    if not hospital_id:
-        result["errors"].append("Doctor has no associated hospital")
+    school_id = get_counsellor_school_id_cached(counsellor_id)
+    if not school_id:
+        result["errors"].append("Counsellor has no associated school")
         return result
 
-    # Get doctor medicines missing external_id
-    doctor_meds = supabase.table('doctor_medicines')\
+    # Get counsellor medicines missing external_id
+    counsellor_meds = supabase.table('counsellor_medicines')\
         .select('id, medicine_name, normalized_name, common_names, external_id')\
-        .eq('doctor_id', str(doctor_id))\
+        .eq('counsellor_id', str(counsellor_id))\
         .eq('is_active', True)\
         .execute()
 
-    if not doctor_meds.data:
+    if not counsellor_meds.data:
         return result
 
-    result["total_doctor_medicines"] = len(doctor_meds.data)
-    missing = [m for m in doctor_meds.data if not m.get('external_id')]
+    result["total_doctor_medicines"] = len(counsellor_meds.data)
+    missing = [m for m in counsellor_meds.data if not m.get('external_id')]
     result["missing_external_id"] = len(missing)
 
     if not missing:
         return result
 
-    # Build hospital lookup by normalized_name
-    hospital_meds = supabase.table('hospital_medicine_lists')\
+    # Build school lookup by normalized_name
+    school_meds = supabase.table('school_medicine_lists')\
         .select('id, medicine_name, normalized_name, common_names, external_id, form, category, typical_dosage, snomed_code, formulary_name, medicine_type')\
-        .eq('hospital_id', str(hospital_id))\
+        .eq('school_id', str(school_id))\
         .eq('is_active', True)\
         .execute()
 
-    hospital_lookup = {}
-    for hm in (hospital_meds.data or []):
+    school_lookup = {}
+    for hm in (school_meds.data or []):
         norm = hm.get('normalized_name', '')
         if norm:
-            hospital_lookup[norm] = hm
+            school_lookup[norm] = hm
 
     for dm in missing:
         norm_name = dm.get('normalized_name', '')
-        hm = hospital_lookup.get(norm_name)
+        hm = school_lookup.get(norm_name)
 
         if not hm:
             result["skipped"] += 1
@@ -3068,11 +3068,11 @@ def backfill_doctor_medicines_from_hospital(
         result["matched"] += 1
 
         # Merge common_names
-        doctor_names = dm.get('common_names') or []
-        hospital_names = hm.get('common_names') or []
-        existing_lower = {n.lower() for n in doctor_names}
-        merged_names = list(doctor_names)
-        for name in hospital_names:
+        counsellor_names = dm.get('common_names') or []
+        school_names = hm.get('common_names') or []
+        existing_lower = {n.lower() for n in counsellor_names}
+        merged_names = list(counsellor_names)
+        for name in school_names:
             if name.lower() not in existing_lower:
                 merged_names.append(name)
                 existing_lower.add(name.lower())
@@ -3101,7 +3101,7 @@ def backfill_doctor_medicines_from_hospital(
             result["details"].append(detail)
         else:
             try:
-                supabase.table('doctor_medicines')\
+                supabase.table('counsellor_medicines')\
                     .update(update_data)\
                     .eq('id', dm['id'])\
                     .execute()
@@ -3111,7 +3111,7 @@ def backfill_doctor_medicines_from_hospital(
                 result["errors"].append(f"Update failed for {dm['medicine_name']}: {str(e)}")
                 result["details"].append({**detail, "status": "error", "error": str(e)})
 
-    logger.info(f"[MedicineBackfill] doctor={doctor_id} dry_run={dry_run} "
+    logger.info(f"[MedicineBackfill] counsellor={counsellor_id} dry_run={dry_run} "
                 f"total={result['total_doctor_medicines']} missing={result['missing_external_id']} "
                 f"matched={result['matched']} updated={result['updated']}")
     return result
@@ -3121,310 +3121,29 @@ def backfill_doctor_medicines_from_hospital(
 # NEO-Specific Medicine Post-Processing
 # ============================================================================
 
-async def postprocess_neo_prescription_extraction(
-    extraction_data: Dict[str, Any],
-    doctor_id: uuid.UUID,
-    extraction_id: uuid.UUID,
-    submission_id: str,
-    consultation_type_code: str,
-    log_matches: bool = True
-) -> Dict[str, Any]:
-    """
-    Post-process NEO template medication fields against doctor's medicine list.
-
-    Handles all NEO medication structures:
-    A. Object arrays: NEO_DAILY antibiotics_list [{drugId, drugName, dose, frequency, route}]
-    B. Parallel arrays: medications_drugIds[], medication_drugIds[] (pre-formatting flat keys)
-    C. String arrays: NEO_ADMISSION procedures_ivAntibioticIds[], NEO_PROFORMA maternalAntibioticsArray[]
-    D. Nested medications: NEO_OP top-level medications[], NEO_DISCHARGE discharge.medications[]
-       (post-formatting nested objects — formatters run inside gemini_service before this)
-
-    For each drug name, uses match_medicine_name() (7-level matching) to resolve
-    against the doctor's/hospital's list. If matched, updates the name and attaches
-    _external_id for downstream EHR formatters.
-
-    Args:
-        extraction_data: Full extraction result (will be modified in-place)
-        doctor_id: Doctor UUID
-        extraction_id: Extraction record UUID (for match logging)
-        submission_id: Submission/session ID (for match logging)
-        consultation_type_code: e.g. NEONATAL_DAILY, NEONATAL_DISCHARGE, etc.
-        log_matches: Whether to log each match to medicine_match_log
-
-    Returns:
-        Updated extraction_data with matched medicine names and _external_id attached
-    """
-    import time as time_module
-
-    ct = (consultation_type_code or "").upper()
-    postprocess_start = time_module.time()
-    total_matched = 0
-    total_processed = 0
-
-    logger.info(f"[NEO Medicine Post-Process] Starting for {ct}, doctor={str(doctor_id)[:8]}...")
-
-    try:
-        # =====================================================================
-        # A. Object arrays: NEO_DAILY antibiotics_list
-        # Structure: [{drugId, drugName, dose, frequency, route}, ...]
-        # =====================================================================
-        antibiotics_list = extraction_data.get("antibiotics_list", [])
-        if not antibiotics_list and isinstance(extraction_data.get("antibiotics"), list):
-            # Formatter may have already restructured to top-level "antibiotics"
-            antibiotics_list = extraction_data.get("antibiotics", [])
-
-        if antibiotics_list and isinstance(antibiotics_list, list):
-            for antibiotic in antibiotics_list:
-                if not isinstance(antibiotic, dict):
-                    continue
-                drug_name = antibiotic.get("drugName", "")
-                if not drug_name:
-                    continue
-
-                total_processed += 1
-                match_result = await match_medicine_name(
-                    extracted_name=drug_name,
-                    doctor_id=doctor_id,
-                    submission_id=submission_id
-                )
-
-                if match_result["matched"]:
-                    total_matched += 1
-                    if match_result["matched_name"] != drug_name:
-                        antibiotic["drugName"] = match_result["matched_name"]
-                    if match_result.get("external_id"):
-                        try:
-                            antibiotic["_external_id"] = int(match_result["external_id"])
-                        except (ValueError, TypeError):
-                            antibiotic["_external_id"] = match_result["external_id"]
-                else:
-                    # Fallback: try static drug_lookups
-                    try:
-                        from services.drug_lookups import lookup_drug_id_fuzzy
-                        static_id = lookup_drug_id_fuzzy(drug_name)
-                        if static_id:
-                            antibiotic["_external_id"] = static_id
-                    except Exception:
-                        pass
-
-                if log_matches:
-                    _log_neo_medicine_match(extraction_id, submission_id, doctor_id, drug_name, match_result)
-
-        # =====================================================================
-        # B. Parallel arrays: NEO_DISCHARGE medications_drugIds[], NEO_OP medication_drugIds[]
-        # Structure: ["name1", "name2"] with parallel doses[], routes[], etc.
-        # =====================================================================
-        for drug_ids_key in ["medications_drugIds", "medication_drugIds"]:
-            drug_ids_arr = extraction_data.get(drug_ids_key)
-            if not drug_ids_arr or not isinstance(drug_ids_arr, list):
-                continue
-
-            resolved_ids = []
-            updated_names = []
-            for drug_entry in drug_ids_arr:
-                drug_name = str(drug_entry).strip() if drug_entry else ""
-                if not drug_name:
-                    resolved_ids.append(None)
-                    updated_names.append(drug_name)
-                    continue
-
-                total_processed += 1
-                match_result = await match_medicine_name(
-                    extracted_name=drug_name,
-                    doctor_id=doctor_id,
-                    submission_id=submission_id
-                )
-
-                if match_result["matched"]:
-                    total_matched += 1
-                    updated_names.append(match_result["matched_name"])
-                    ext_id = match_result.get("external_id")
-                    if ext_id:
-                        try:
-                            resolved_ids.append(int(ext_id))
-                        except (ValueError, TypeError):
-                            resolved_ids.append(ext_id)
-                    else:
-                        resolved_ids.append(None)
-                else:
-                    updated_names.append(drug_name)
-                    # Fallback: try static drug_lookups
-                    try:
-                        from services.drug_lookups import lookup_drug_id_fuzzy
-                        static_id = lookup_drug_id_fuzzy(drug_name)
-                        resolved_ids.append(static_id)
-                    except Exception:
-                        resolved_ids.append(None)
-
-                if log_matches:
-                    _log_neo_medicine_match(extraction_id, submission_id, doctor_id, drug_name, match_result)
-
-            # Update the extraction data
-            extraction_data[drug_ids_key] = updated_names
-            extraction_data[f"_resolved_{drug_ids_key}"] = resolved_ids
-
-        # =====================================================================
-        # C. String arrays: NEO_ADMISSION procedures_ivAntibioticIds[],
-        #    NEO_PROFORMA maternalAntibioticsArray[]
-        # Structure: ["Ampicillin", "Gentamicin"]
-        # =====================================================================
-        for arr_key in ["procedures_ivAntibioticIds", "procedures_ivAntibiotics",
-                        "maternalAntibioticsArray"]:
-            str_arr = extraction_data.get(arr_key)
-            if not str_arr or not isinstance(str_arr, list):
-                continue
-
-            updated_arr = []
-            resolved_ids = []
-            for drug_name in str_arr:
-                drug_name = str(drug_name).strip() if drug_name else ""
-                if not drug_name:
-                    updated_arr.append(drug_name)
-                    resolved_ids.append(None)
-                    continue
-
-                total_processed += 1
-                match_result = await match_medicine_name(
-                    extracted_name=drug_name,
-                    doctor_id=doctor_id,
-                    submission_id=submission_id
-                )
-
-                if match_result["matched"]:
-                    total_matched += 1
-                    updated_arr.append(match_result["matched_name"])
-                    ext_id = match_result.get("external_id")
-                    if ext_id:
-                        try:
-                            resolved_ids.append(int(ext_id))
-                        except (ValueError, TypeError):
-                            resolved_ids.append(ext_id)
-                    else:
-                        resolved_ids.append(None)
-                else:
-                    updated_arr.append(drug_name)
-                    # Fallback: try static drug_lookups
-                    try:
-                        from services.drug_lookups import lookup_drug_id_fuzzy
-                        static_id = lookup_drug_id_fuzzy(drug_name)
-                        resolved_ids.append(static_id)
-                    except Exception:
-                        resolved_ids.append(None)
-
-                if log_matches:
-                    _log_neo_medicine_match(extraction_id, submission_id, doctor_id, drug_name, match_result)
-
-            extraction_data[arr_key] = updated_arr
-            extraction_data[f"_resolved_{arr_key}"] = resolved_ids
-
-        # =====================================================================
-        # D. Nested medications array: NEO_OP (top-level), NEO_DISCHARGE (under discharge)
-        # After formatting inside gemini_service, the flat medication_drugIds
-        # arrays have been converted to nested objects. This section resolves
-        # drug names to external IDs in the already-formatted structure.
-        # Structure: [{"drugId": "drug name", "route": "1", "dosage": [...]}]
-        # =====================================================================
-        medications_locations = []
-        # NEO_OP: top-level medications
-        top_meds = extraction_data.get("medications")
-        if isinstance(top_meds, list) and top_meds:
-            medications_locations.append(top_meds)
-        # NEO_DISCHARGE: discharge.medications
-        discharge_obj = extraction_data.get("discharge")
-        if isinstance(discharge_obj, dict):
-            discharge_meds = discharge_obj.get("medications")
-            if isinstance(discharge_meds, list) and discharge_meds:
-                medications_locations.append(discharge_meds)
-
-        for medications_list in medications_locations:
-            for med in medications_list:
-                if not isinstance(med, dict):
-                    continue
-                # Support both drugId (structured NEO) and drugName (free-text NEO)
-                is_free_text = "drugName" in med and "drugId" not in med
-                drug_name = med.get("drugId", "") or med.get("drugName", "")
-                if not drug_name or not isinstance(drug_name, str):
-                    continue
-                # Skip if already a numeric ID
-                if drug_name.strip().isdigit():
-                    continue
-
-                total_processed += 1
-                match_result = await match_medicine_name(
-                    extracted_name=drug_name,
-                    doctor_id=doctor_id,
-                    submission_id=submission_id
-                )
-
-                if match_result["matched"]:
-                    total_matched += 1
-                    ext_id = match_result.get("external_id")
-                    if is_free_text:
-                        # Free-text templates: update drugName (not drugId)
-                        if ext_id:
-                            med["drugName"] = match_result["matched_name"]
-                        elif match_result["matched_name"] != drug_name:
-                            med["drugName"] = match_result["matched_name"]
-                    else:
-                        # Structured templates: update drugId
-                        if ext_id:
-                            try:
-                                med["drugId"] = str(int(ext_id))
-                            except (ValueError, TypeError):
-                                med["drugId"] = str(ext_id)
-                        elif match_result["matched_name"] != drug_name:
-                            med["drugId"] = match_result["matched_name"]
-                else:
-                    # Fallback: try static drug_lookups
-                    try:
-                        from services.drug_lookups import lookup_drug_id_fuzzy
-                        static_id = lookup_drug_id_fuzzy(drug_name)
-                        if static_id:
-                            if is_free_text:
-                                pass  # Name already set
-                            else:
-                                med["drugId"] = str(static_id)
-                    except Exception:
-                        pass
-
-                if log_matches:
-                    _log_neo_medicine_match(extraction_id, submission_id, doctor_id, drug_name, match_result)
-
-    except Exception as e:
-        logger.warning(f"[NEO Medicine Post-Process] Error (non-fatal): {e}")
-
-    duration = time_module.time() - postprocess_start
-    logger.info(
-        f"[NEO Medicine Post-Process] Done for {ct}: "
-        f"{total_processed} processed, {total_matched} matched, {duration:.3f}s"
-    )
-
-    return extraction_data
-
-
 def _log_neo_medicine_match(
     extraction_id: uuid.UUID,
     submission_id: str,
-    doctor_id: uuid.UUID,
+    counsellor_id: uuid.UUID,
     original_name: str,
     match_result: Dict[str, Any]
 ) -> None:
     """Log a NEO medicine match to the medicine_match_log table."""
     try:
-        matched_doctor_med_id = None
-        matched_hospital_med_id = None
+        matched_counsellor_med_id = None
+        matched_school_med_id = None
         if match_result.get("source") == "doctor_list":
-            matched_doctor_med_id = match_result.get("matched_medicine_id")
+            matched_counsellor_med_id = match_result.get("matched_medicine_id")
         elif match_result.get("source") == "hospital_list":
-            matched_hospital_med_id = match_result.get("matched_hospital_medicine_id")
+            matched_school_med_id = match_result.get("matched_school_medicine_id")
 
         supabase.table("medicine_match_log").insert({
             "extraction_id": str(extraction_id),
             "submission_id": submission_id,
-            "doctor_id": str(doctor_id),
+            "counsellor_id": str(counsellor_id),
             "original_medicine_name": original_name,
-            "matched_medicine_id": matched_doctor_med_id,
-            "matched_hospital_medicine_id": matched_hospital_med_id,
+            "matched_medicine_id": matched_counsellor_med_id,
+            "matched_school_medicine_id": matched_school_med_id,
             "matched_medicine_name": match_result.get("matched_name", original_name),
             "match_confidence": match_result.get("confidence", 0),
             "match_method": match_result.get("method", "neo_postprocess"),

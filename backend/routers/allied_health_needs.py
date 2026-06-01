@@ -22,8 +22,8 @@ from typing import Dict, Any, Optional, List
 
 from services.supabase_service import (
     get_allied_health_by_extraction,
-    get_patient_allied_health_history,
-    get_patient_latest_allied_health,
+    get_student_allied_health_history,
+    get_student_latest_allied_health,
     get_allied_health_statistics
 )
 
@@ -41,8 +41,8 @@ class AlliedHealthResponse(BaseModel):
     """Response model for allied health needs assessment."""
     id: str
     extraction_id: str
-    patient_id: Optional[str] = None
-    doctor_id: Optional[str] = None
+    student_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
 
     # Consolidated priority level
     priority_level: str  # NONE, LOW, MEDIUM, HIGH
@@ -124,7 +124,7 @@ async def get_allied_for_extraction(extraction_id: str):
     Get allied health needs assessment for a specific extraction.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
 
     Returns:
         AlliedHealthResponse with complete assessment data
@@ -148,8 +148,8 @@ async def get_allied_for_extraction(extraction_id: str):
     return AlliedHealthResponse(
         id=needs["id"],
         extraction_id=needs["extraction_id"],
-        patient_id=needs.get("patient_id"),
-        doctor_id=needs.get("doctor_id"),
+        student_id=needs.get("student_id"),
+        counsellor_id=needs.get("counsellor_id"),
         priority_level=needs.get("priority_level", "NONE"),
         is_mental_health=needs.get("is_mental_health", False),
         is_nutritional_health=needs.get("is_nutritional_health", False),
@@ -177,31 +177,31 @@ async def get_allied_for_extraction(extraction_id: str):
     )
 
 
-@router.get("/patient/{patient_id}/history")
-async def get_patient_allied_history_endpoint(
-    patient_id: str,
+@router.get("/student/{student_id}/history")
+async def get_student_allied_history_endpoint(
+    student_id: str,
     limit: int = Query(default=10, le=50, ge=1)
 ) -> List[AlliedHistoryItem]:
     """
-    Get allied health assessment history for a patient.
+    Get allied health assessment history for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         limit: Maximum number of records (default 10, max 50)
 
     Returns:
         List of assessments, ordered by created_at descending
     """
     try:
-        uuid.UUID(patient_id)
+        uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    history = get_patient_allied_health_history(patient_id, limit)
+    history = get_student_allied_health_history(student_id, limit)
 
     result = []
     for item in history:
-        extraction_data = item.get("medical_extractions", {}) or {}
+        extraction_data = item.get("extractions", {}) or {}
         result.append(AlliedHistoryItem(
             id=item["id"],
             extraction_id=item["extraction_id"],
@@ -222,23 +222,23 @@ async def get_patient_allied_history_endpoint(
     return result
 
 
-@router.get("/patient/{patient_id}/latest", response_model=Optional[AlliedHealthResponse])
-async def get_patient_latest_allied(patient_id: str):
+@router.get("/student/{student_id}/latest", response_model=Optional[AlliedHealthResponse])
+async def get_student_latest_allied(student_id: str):
     """
-    Get the most recent allied health assessment for a patient.
+    Get the most recent allied health assessment for a student.
 
     Args:
-        patient_id: UUID of the patient
+        student_id: UUID of the student
 
     Returns:
         Latest AlliedHealthResponse or null if none found
     """
     try:
-        uuid.UUID(patient_id)
+        uuid.UUID(student_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid patient_id format")
+        raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    needs = get_patient_latest_allied_health(patient_id)
+    needs = get_student_latest_allied_health(student_id)
 
     if not needs:
         return None
@@ -246,8 +246,8 @@ async def get_patient_latest_allied(patient_id: str):
     return AlliedHealthResponse(
         id=needs["id"],
         extraction_id=needs["extraction_id"],
-        patient_id=needs.get("patient_id"),
-        doctor_id=needs.get("doctor_id"),
+        student_id=needs.get("student_id"),
+        counsellor_id=needs.get("counsellor_id"),
         priority_level=needs.get("priority_level", "NONE"),
         is_mental_health=needs.get("is_mental_health", False),
         is_nutritional_health=needs.get("is_nutritional_health", False),
@@ -277,26 +277,26 @@ async def get_patient_latest_allied(patient_id: str):
 
 @router.get("/statistics", response_model=AlliedStatistics)
 async def get_allied_statistics_endpoint(
-    doctor_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     days: int = Query(default=30, le=365, ge=1)
 ):
     """
     Get aggregate allied health statistics.
 
     Args:
-        doctor_id: Optional filter by doctor UUID
+        counsellor_id: Optional filter by counsellor UUID
         days: Number of days to look back (default 30, max 365)
 
     Returns:
         Counts for each indicator type
     """
-    if doctor_id:
+    if counsellor_id:
         try:
-            uuid.UUID(doctor_id)
+            uuid.UUID(counsellor_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+            raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-    stats = get_allied_health_statistics(doctor_id, days)
+    stats = get_allied_health_statistics(counsellor_id, days)
 
     return AlliedStatistics(
         mental_health=stats.get("mental_health", 0),

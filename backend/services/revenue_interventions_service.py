@@ -17,12 +17,12 @@ Assessment Sources:
 - Specialist Referral (1 type) - from care_quality_risk
 
 Priority Adjustments:
-- Financial Concerns: If patient has HIGH or MEDIUM financial concerns (from emotion analysis),
+- Financial Concerns: If student has HIGH or MEDIUM financial concerns (from emotion analysis),
   allied health intervention priorities are downgraded:
   - HIGH → MEDIUM
   - MEDIUM → LOW
   - LOW → LOW (unchanged)
-  Rationale: Patients struggling with main treatment costs are unlikely to purchase
+  Rationale: Students struggling with main treatment costs are unlikely to purchase
   additional allied health services.
 
 Author: Unizy Health
@@ -84,64 +84,64 @@ ALLIED_HEALTH_INTERVENTIONS: Dict[str, InterventionDefinition] = {
         intervention_type="NUTRITIONAL_REFERRAL",
         sub_type="allied_health",
         priority="HIGH",
-        reason_template="Patient has {condition} requiring dietary guidance",
+        reason_template="Student has {condition} requiring dietary guidance",
         action_template="Schedule nutritional counseling appointment"
     ),
     "PHYSIOTHERAPY_REFERRAL": InterventionDefinition(
         intervention_type="PHYSIOTHERAPY_REFERRAL",
         sub_type="allied_health",
         priority="HIGH",
-        reason_template="Patient has {condition}",
+        reason_template="Student has {condition}",
         action_template="Schedule physiotherapy evaluation"
     ),
     "MENTAL_HEALTH_REFERRAL": InterventionDefinition(
         intervention_type="MENTAL_HEALTH_REFERRAL",
         sub_type="allied_health",
         priority="HIGH",
-        reason_template="Patient shows signs of {indicator}",
+        reason_template="Student shows signs of {indicator}",
         action_template="Refer to mental health specialist"
     ),
     "SLEEP_CLINIC_REFERRAL": InterventionDefinition(
         intervention_type="SLEEP_CLINIC_REFERRAL",
         sub_type="allied_health",
         priority="MEDIUM",
-        reason_template="Patient reports {symptoms} suggesting sleep disorder",
+        reason_template="Student reports {symptoms} suggesting sleep disorder",
         action_template="Schedule sleep study consultation"
     ),
     "CARDIAC_REHAB_REFERRAL": InterventionDefinition(
         intervention_type="CARDIAC_REHAB_REFERRAL",
         sub_type="allied_health",
         priority="HIGH",
-        reason_template="Patient had {event} and would benefit from cardiac rehabilitation",
+        reason_template="Student had {event} and would benefit from cardiac rehabilitation",
         action_template="Enroll in cardiac rehabilitation program"
     ),
     "GENERAL_REHAB_REFERRAL": InterventionDefinition(
         intervention_type="GENERAL_REHAB_REFERRAL",
         sub_type="allied_health",
         priority="MEDIUM",
-        reason_template="Patient requires rehabilitation following {condition}",
+        reason_template="Student requires rehabilitation following {condition}",
         action_template="Schedule rehabilitation assessment"
     ),
     "HOMECARE_SERVICES": InterventionDefinition(
         intervention_type="HOMECARE_SERVICES",
         sub_type="allied_health",
         priority="MEDIUM",
-        reason_template="Patient (age {age}) with {condition} needs home-based care support",
+        reason_template="Student (age {age}) with {condition} needs home-based care support",
         action_template="Arrange home healthcare services"
     ),
     "WELLNESS_PROGRAM": InterventionDefinition(
         intervention_type="WELLNESS_PROGRAM",
         sub_type="allied_health",
         priority="LOW",
-        reason_template="Patient has lifestyle risk factors for {conditions}",
+        reason_template="Student has lifestyle risk factors for {conditions}",
         action_template="Enroll in wellness and prevention program"
     ),
     "TREATMENT_EDUCATION_PROGRAM": InterventionDefinition(
         intervention_type="TREATMENT_EDUCATION_PROGRAM",
         sub_type="allied_health",
         priority="LOW",
-        reason_template="Patient shows difficulty understanding {aspect}",
-        action_template="Schedule patient education session"
+        reason_template="Student shows difficulty understanding {aspect}",
+        action_template="Schedule student education session"
     ),
 }
 
@@ -172,7 +172,7 @@ CLINICAL_UPSELL_INTERVENTIONS: Dict[str, InterventionDefinition] = {
         intervention_type="CHRONIC_CARE_PROGRAM",
         sub_type="clinical_upsell",
         priority="MEDIUM",
-        reason_template="Patient has {condition} requiring ongoing management",
+        reason_template="Student has {condition} requiring ongoing management",
         action_template="Enroll in chronic care management program"
     ),
 }
@@ -183,21 +183,21 @@ DIAGNOSTICS_RX_INTERVENTIONS: Dict[str, InterventionDefinition] = {
         intervention_type="HOME_DIAGNOSTIC_COLLECTION",
         sub_type="diagnostics_rx",
         priority="MEDIUM",
-        reason_template="Patient requires {tests} - home collection available",
+        reason_template="Student requires {tests} - home collection available",
         action_template="Arrange home sample collection"
     ),
     "PRESCRIPTION_REFILL_REMINDER": InterventionDefinition(
         intervention_type="PRESCRIPTION_REFILL_REMINDER",
         sub_type="diagnostics_rx",
         priority="LOW",
-        reason_template="Patient on {count} medications needs refill coordination",
+        reason_template="Student on {count} medications needs refill coordination",
         action_template="Set up prescription refill reminders"
     ),
     "RECURRING_TEST_SCHEDULE": InterventionDefinition(
         intervention_type="RECURRING_TEST_SCHEDULE",
         sub_type="diagnostics_rx",
         priority="LOW",
-        reason_template="Patient needs periodic {test_type} monitoring for {condition}",
+        reason_template="Student needs periodic {test_type} monitoring for {condition}",
         action_template="Schedule recurring diagnostic tests"
     ),
 }
@@ -208,7 +208,7 @@ SPECIALIST_REFERRAL_INTERVENTIONS: Dict[str, InterventionDefinition] = {
         intervention_type="SPECIALIST_REFERRAL_NEEDED",
         sub_type="specialist_referral",
         priority="MEDIUM",
-        reason_template="Patient condition warrants specialist referral for {specialty}",
+        reason_template="Student condition warrants specialist referral for {specialty}",
         action_template="Initiate specialist referral process"
     ),
 }
@@ -378,7 +378,7 @@ def generate_revenue_interventions(
     allied_health_needs: Optional[Dict[str, Any]],
     clinical_severity: Optional[Dict[str, Any]],
     other_clinical_needs: Optional[Dict[str, Any]],
-    hospital_pricing: Dict[str, Dict[str, Any]],
+    school_pricing: Dict[str, Dict[str, Any]],
     consultation_insights_id: Optional[uuid.UUID] = None,
     care_quality_risk: Optional[Dict[str, Any]] = None,
     financial_concerns_level: Optional[str] = None,
@@ -391,11 +391,11 @@ def generate_revenue_interventions(
         allied_health_needs: Allied health needs assessment record
         clinical_severity: Clinical severity assessment record
         other_clinical_needs: Other clinical needs assessment record
-        hospital_pricing: Dict mapping intervention_type -> {revenue_estimate, service_name}
+        school_pricing: Dict mapping intervention_type -> {revenue_estimate, service_name}
         consultation_insights_id: Optional FK to consultation_insights
         care_quality_risk: Care quality risk assessment (for specialist referral)
         financial_concerns_level: "high" or "medium" if financial concerns detected.
-            When present, allied health priorities are downgraded since patients
+            When present, allied health priorities are downgraded since students
             with financial concerns for main treatment are unlikely to purchase
             additional allied health services.
         consultation_insights: Raw consultation_insights dict for extracting
@@ -412,12 +412,12 @@ def generate_revenue_interventions(
         severity_level = clinical_severity.get("severity_level", "MILD")
 
     # 1. Allied Health Services (from allied_health_needs)
-    # Priority downgraded if patient has financial concerns
+    # Priority downgraded if student has financial concerns
     if allied_health_needs:
         interventions.extend(
             _generate_allied_health_interventions(
                 allied_health_needs,
-                hospital_pricing,
+                school_pricing,
                 consultation_insights_id,
                 financial_concerns_level,
                 consultation_insights
@@ -429,7 +429,7 @@ def generate_revenue_interventions(
         interventions.extend(
             _generate_clinical_upsell_interventions(
                 clinical_severity,
-                hospital_pricing,
+                school_pricing,
                 consultation_insights_id,
                 consultation_insights
             )
@@ -440,7 +440,7 @@ def generate_revenue_interventions(
         interventions.extend(
             _generate_diagnostics_rx_interventions(
                 other_clinical_needs,
-                hospital_pricing,
+                school_pricing,
                 consultation_insights_id,
                 consultation_insights
             )
@@ -451,7 +451,7 @@ def generate_revenue_interventions(
         interventions.extend(
             _generate_specialist_referral_interventions(
                 care_quality_risk,
-                hospital_pricing,
+                school_pricing,
                 consultation_insights_id,
                 severity_level,
                 consultation_insights
@@ -474,7 +474,7 @@ def _generate_allied_health_interventions(
 
     Priority Adjustment for Financial Concerns:
     - If financial_concerns_level is "high" or "medium", priorities are downgraded
-    - Rationale: Patients with financial concerns for main treatment are unlikely
+    - Rationale: Students with financial concerns for main treatment are unlikely
       to purchase additional allied health services
     - HIGH → MEDIUM, MEDIUM → LOW, LOW → LOW (unchanged)
 
@@ -718,7 +718,7 @@ def _generate_diagnostics_rx_interventions(
         input_data = assessment.get("input_data", {}) or {}
         med_count = input_data.get("medication_count", 0)
 
-        if med_count >= 3:  # Only for patients on 3+ medications
+        if med_count >= 3:  # Only for students on 3+ medications
             definition = DIAGNOSTICS_RX_INTERVENTIONS["PRESCRIPTION_REFILL_REMINDER"]
             base_reason = definition.reason_template.format(count=med_count)
             evidence = _get_evidence_for_intervention_type(consultation_insights, "PRESCRIPTION_REFILL_REMINDER")
@@ -796,7 +796,7 @@ def _generate_specialist_referral_interventions(
 
     Args:
         care_quality_risk: Care quality risk assessment record
-        pricing: Hospital pricing dictionary
+        pricing: School pricing dictionary
         insights_id: FK to consultation_insights
         severity_level: Clinical severity level for priority adjustments
         consultation_insights: Raw consultation_insights for evidence extraction

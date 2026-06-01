@@ -5,7 +5,7 @@ Matches the GKNM Obstetrics & Gynecology consultation output format from OG Case
 
 from google.genai import types
 
-# OB-GYN GKNM Parameters Schema - Matches GKNM Hospital OB-GYN format
+# OB-GYN GKNM Parameters Schema - Matches GKNM School OB-GYN format
 OG_GKNM_PARAMETERS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
@@ -172,7 +172,7 @@ OG_GKNM_PARAMETERS_SCHEMA = types.Schema(
                     properties={
                         "general_appearance": types.Schema(type=types.Type.STRING, description="General appearance (e.g., 'General Appearance Normal')"),
                         "piccle": types.Schema(type=types.Type.STRING, description="PICCLE findings (e.g., 'No Pallor, icterus, cyanosis, clubbing, lymphadenopathy, pedal Edema')"),
-                        "nutritional_assessment": types.Schema(type=types.Type.STRING, description="Nutritional status (e.g., 'Patient Is Moderately Nourished')")
+                        "nutritional_assessment": types.Schema(type=types.Type.STRING, description="Nutritional status (e.g., 'Student Is Moderately Nourished')")
                     },
                     description="General examination"
                 ),
@@ -247,7 +247,7 @@ OG_GKNM_PARAMETERS_SCHEMA = types.Schema(
                     "comment": types.Schema(type=types.Type.STRING, description="Additional comments or '-'")
                 }
             ),
-            description="Medication chart with GKNM hospital format"
+            description="Medication chart with GKNM school format"
         ),
 
         # Section 14: Care Plan and Advice
@@ -283,7 +283,7 @@ OG_GKNM_PARAMETERS_SCHEMA = types.Schema(
                         "lifestyle": types.Schema(type=types.Type.STRING, description="Lifestyle instructions (e.g., 'Antenatal Exercises, Regular Walking')"),
                         "rchid": types.Schema(type=types.Type.STRING, description="RCHID instruction (e.g., 'Get RCHID')")
                     },
-                    description="Patient instructions"
+                    description="Student instructions"
                 )
             },
             description="Follow up and instructions"
@@ -306,11 +306,11 @@ OG_GKNM_PARAMETERS_SCHEMA = types.Schema(
         "signature": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "doctor_name": types.Schema(type=types.Type.STRING, description="Doctor's name (e.g., 'DR.')"),
+                "counsellor_name": types.Schema(type=types.Type.STRING, description="Doctor's name (e.g., 'DR.')"),
                 "qualifications": types.Schema(type=types.Type.STRING, description="Qualifications (e.g., 'MS OG, DNB OG, MRCOG (UK)')"),
                 "date_time": types.Schema(type=types.Type.STRING, description="Date and time of signature (e.g., 'Nov 26, 2025@10:10')")
             },
-            description="Doctor signature information"
+            description="Counsellor signature information"
         )
     },
     required=[

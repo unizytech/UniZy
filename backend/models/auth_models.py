@@ -26,8 +26,8 @@ class ClientContext(BaseModel):
     client_type: Literal["ehr", "mobile_app", "web_app", "admin"]
     client_id: UUID
     client_name: str
-    hospital_id: Optional[UUID] = None  # NULL = global access (mobile/web apps)
-    allowed_doctor_ids: Optional[List[UUID]] = None  # NULL = all doctors
+    school_id: Optional[UUID] = None  # NULL = global access (mobile/web apps)
+    allowed_counsellor_ids: Optional[List[UUID]] = None  # NULL = all counsellors
     scopes: List[str] = []
 
     # For admin users (Supabase auth)
@@ -39,25 +39,25 @@ class ClientContext(BaseModel):
         """Check if client has a specific scope"""
         return scope in self.scopes
 
-    def can_access_hospital(self, hospital_id: UUID) -> bool:
+    def can_access_school(self, school_id: UUID) -> bool:
         """
-        Check if client can access data from a specific hospital.
-        - NULL hospital_id on client = global access (all hospitals)
+        Check if client can access data from a specific school.
+        - NULL school_id on client = global access (all schools)
         - Otherwise, must match exactly
         """
-        if self.hospital_id is None:
+        if self.school_id is None:
             return True  # Global access
-        return self.hospital_id == hospital_id
+        return self.school_id == school_id
 
-    def can_access_doctor(self, doctor_id: UUID) -> bool:
+    def can_access_counsellor(self, counsellor_id: UUID) -> bool:
         """
-        Check if client can access a specific doctor's data.
-        - NULL allowed_doctor_ids = all doctors
+        Check if client can access a specific counsellor's data.
+        - NULL allowed_counsellor_ids = all counsellors
         - Otherwise, must be in the list
         """
-        if self.allowed_doctor_ids is None:
-            return True  # Access to all doctors
-        return doctor_id in self.allowed_doctor_ids
+        if self.allowed_counsellor_ids is None:
+            return True  # Access to all counsellors
+        return counsellor_id in self.allowed_counsellor_ids
 
 
 # ============================================================================
@@ -72,13 +72,13 @@ class APIClientCreate(BaseModel):
         default="api_key",
         description="Authentication mode: 'api_key' (static) or 'token' (OAuth 2.0 client credentials). Only applies to EHR clients."
     )
-    hospital_id: Optional[UUID] = Field(
+    school_id: Optional[UUID] = Field(
         None,
-        description="Hospital ID for EHR clients (required). NULL for mobile/web apps (global access)."
+        description="School ID for EHR clients (required). NULL for mobile/web apps (global access)."
     )
-    allowed_doctor_ids: Optional[List[UUID]] = Field(
+    allowed_counsellor_ids: Optional[List[UUID]] = Field(
         None,
-        description="Specific doctor IDs to grant access to. NULL = all doctors."
+        description="Specific counsellor IDs to grant access to. NULL = all counsellors."
     )
     scopes: List[str] = Field(
         default=["read:extractions", "write:extractions"],
@@ -103,7 +103,7 @@ class APIClientCreate(BaseModel):
 class APIClientUpdate(BaseModel):
     """Request model for updating an API client"""
     client_name: Optional[str] = Field(None, min_length=3, max_length=100)
-    allowed_doctor_ids: Optional[List[UUID]] = None
+    allowed_counsellor_ids: Optional[List[UUID]] = None
     scopes: Optional[List[str]] = None
     rate_limit_per_hour: Optional[int] = Field(None, ge=10, le=100000)
     token_expiry_minutes: Optional[int] = Field(None, ge=1, le=1440)
@@ -118,8 +118,8 @@ class APIClientResponse(BaseModel):
     client_name: str
     client_type: str
     auth_mode: str = "api_key"
-    hospital_id: Optional[UUID]
-    allowed_doctor_ids: Optional[List[UUID]]
+    school_id: Optional[UUID]
+    allowed_counsellor_ids: Optional[List[UUID]]
     scopes: List[str]
     is_active: bool
     rate_limit_per_hour: int
@@ -194,7 +194,7 @@ class AdminUserCreate(BaseModel):
     email: EmailStr
     full_name: Optional[str] = Field(None, max_length=100)
     role: Literal["super_admin", "admin", "viewer"] = "admin"
-    hospital_id: Optional[UUID] = Field(None, description="Hospital scope. NULL = global access.")
+    school_id: Optional[UUID] = Field(None, description="School scope. NULL = global access.")
 
 
 class AdminUserUpdate(BaseModel):
@@ -211,7 +211,7 @@ class AdminUserResponse(BaseModel):
     email: str
     full_name: Optional[str]
     role: str
-    hospital_id: Optional[UUID] = None
+    school_id: Optional[UUID] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -265,13 +265,13 @@ AVAILABLE_SCOPES = [
     "read:extractions",
     "write:extractions",
 
-    # Patient-related
-    "read:patients",
-    "write:patients",
+    # Student-related
+    "read:students",
+    "write:students",
 
-    # Doctor-related
-    "read:doctors",
-    "write:doctors",
+    # Counsellor-related
+    "read:counsellors",
+    "write:counsellors",
 
     # Recording-related
     "read:recordings",
@@ -285,9 +285,9 @@ AVAILABLE_SCOPES = [
 
 # Default scopes by client type
 DEFAULT_SCOPES = {
-    "ehr": ["read:extractions", "write:extractions", "read:patients", "write:patients", "read:doctors"],
-    "mobile_app": ["read:extractions", "write:extractions", "read:patients", "read:doctors"],
-    "web_app": ["read:extractions", "write:extractions", "read:patients", "read:doctors"],
+    "ehr": ["read:extractions", "write:extractions", "read:students", "write:students", "read:counsellors"],
+    "mobile_app": ["read:extractions", "write:extractions", "read:students", "read:counsellors"],
+    "web_app": ["read:extractions", "write:extractions", "read:students", "read:counsellors"],
     "admin": AVAILABLE_SCOPES,  # Full access
 }
 

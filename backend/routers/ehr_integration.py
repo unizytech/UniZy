@@ -27,22 +27,22 @@ logger = logging.getLogger(__name__)
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
     from dependencies.auth import (
-        EHRDoctorAccessChecker,
+        EHRCounsellorAccessChecker,
         EHRSubmissionAccessChecker,
-        EHRPatientAccessChecker,
+        EHRStudentAccessChecker,
         get_current_client
     )
     from models.auth_models import ClientContext
 
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
-    _patient_checker = EHRPatientAccessChecker()
+    _patient_checker = EHRStudentAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: Optional[str] = None):
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
     async def verify_submission_access(request: Request, submission_id: Optional[str] = None):
         """Verify EHR client has access to submission data."""
@@ -50,10 +50,10 @@ if AUTH_ENABLED:
         client = get_current_client(request)
         return await _submission_checker(request, submission_uuid, client)
 
-    async def verify_patient_access(request: Request, patient_id: str = None):
-        """Verify EHR client has access to patient data."""
+    async def verify_student_access(request: Request, student_id: str = None):
+        """Verify EHR client has access to student data."""
         client = get_current_client(request)
-        return await _patient_checker(request, patient_id, client)
+        return await _patient_checker(request, student_id, client)
 
     def require_admin_webapp_or_ehr(client: ClientContext = Depends(get_current_client)):
         """Allow admin, web_app, or ehr clients for payload preview."""
@@ -68,13 +68,13 @@ if AUTH_ENABLED:
             detail="Admin, web app, or EHR access required for payload preview",
         )
 else:
-    async def verify_doctor_access(request: Request = None, doctor_id: Optional[str] = None):
+    async def verify_counsellor_access(request: Request = None, counsellor_id: Optional[str] = None):
         return None
 
     async def verify_submission_access(request: Request = None, submission_id: Optional[str] = None):
         return None
 
-    async def verify_patient_access(request: Request = None, patient_id: str = None):
+    async def verify_student_access(request: Request = None, student_id: str = None):
         return None
 
     def require_admin_webapp_or_ehr():
@@ -116,11 +116,11 @@ class EHREditRequest(BaseModel):
     """
     Request for generic EHR edit endpoint.
 
-    Used to save edited extraction to our DB and sync to the doctor's
+    Used to save edited extraction to our DB and sync to the counsellor's
     configured EHR system (Aosta, KG, Raster, Neopead) via schedule_ehr_sync().
     """
     edited_data: Optional[Dict[str, Any]] = None  # If None, use original extraction
-    edited_by: str  # Doctor or nurse UUID who made edits
+    edited_by: str  # Counsellor or assistant UUID who made edits
     edited_by_type: str = "doctor"  # "doctor" or "nurse"
     recording_metadata: Optional[Dict[str, Any]] = None  # Contains ip_id, op_id, visit_id, etc.
 
@@ -144,8 +144,8 @@ class EHRExtractionMetadata(BaseModel):
     correlation_id: Optional[str] = None
     submission_id: Optional[str] = None
     extraction_id: Optional[str] = None
-    doctor_id: Optional[str] = None
-    patient_id: Optional[str] = None
+    counsellor_id: Optional[str] = None
+    student_id: Optional[str] = None
     template_code: Optional[str] = None
     timestamp: Optional[str] = None
 
@@ -203,16 +203,16 @@ class EHREmotionsResponse(BaseModel):
     congruence_summary: Optional[EHRCongruenceSummary] = None
 
 
-class EHRPatientInfo(BaseModel):
-    """Patient info for EHR clients"""
+class EHRStudentInfo(BaseModel):
+    """Student info for EHR clients"""
     id: str
-    patient_id: str
+    student_id: str
     full_name: Optional[str] = None
 
 
 class EHRPrescreenResponse(BaseModel):
     """Sanitized prescreen response for EHR clients - excludes model/segment metadata"""
-    patient: EHRPatientInfo
+    patient: EHRStudentInfo
     prescreen_data: Optional[Dict[str, Any]] = None
     has_prescreen: bool = False
     emotion_pattern_summary: Optional[Dict[str, Any]] = None
@@ -307,7 +307,7 @@ async def get_aosta_processing_status(
 
     Extended version of /ehr/status that includes:
     - recording_metadata: Additional metadata passed during /start API
-      (patient info, doctor info, ip_id, op_id, custom fields)
+      (student info, counsellor info, ip_id, op_id, custom fields)
 
     Returns sanitized status excluding:
     - Full transcript
@@ -352,7 +352,7 @@ async def get_aosta_processing_status(
 
 
 # ============================================================================
-# Generic EHR Edit Endpoint (Edit + Sync via doctor's ehr_type_id)
+# Generic EHR Edit Endpoint (Edit + Sync via counsellor's ehr_type_id)
 # ============================================================================
 
 @router.put("/iframe/edit/{submission_id}", response_model=EHREditResponse)
@@ -363,7 +363,7 @@ async def ehr_edit_extraction(
     _auth=Depends(verify_submission_access)
 ):
     """
-    Generic EHR edit endpoint — routes to correct EHR based on doctor's ehr_type_id.
+    Generic EHR edit endpoint — routes to correct EHR based on counsellor's ehr_type_id.
 
     This endpoint:
     1. Updates extraction in our DB (if edited_data provided)
@@ -376,7 +376,7 @@ async def ehr_edit_extraction(
     ```json
     {
         "edited_data": { ... },
-        "edited_by": "doctor-uuid",
+        "edited_by": "counsellor-uuid",
         "edited_by_type": "doctor",
         "recording_metadata": {
             "ip_id": "979043",
@@ -399,9 +399,9 @@ async def ehr_edit_extraction(
         supabase,
         get_extraction_by_submission_id,
         update_extraction_edits,
-        get_doctor_hospital_id_cached
+        get_counsellor_school_id_cached
     )
-    from services.aosta_service import get_hospital_code, get_patient_external_id
+    from services.aosta_service import get_school_code, get_student_external_id
     from services.ehr_routing_service import schedule_ehr_sync
 
     try:
@@ -414,13 +414,13 @@ async def ehr_edit_extraction(
 
         extraction_id = extraction.get("id")
         edit_count = extraction.get("edit_count", 0)
-        doctor_id = extraction.get("doctor_id")
-        patient_uuid = extraction.get("patient_id")
+        counsellor_id = extraction.get("counsellor_id")
+        patient_uuid = extraction.get("student_id")
 
         # Step 2: Get template_code via recording_sessions FK
         template_code = None
         try:
-            tc_result = supabase.table("medical_extractions")\
+            tc_result = supabase.table("extractions")\
                 .select("recording_sessions(template_code)")\
                 .eq("id", extraction_id)\
                 .limit(1)\
@@ -465,14 +465,14 @@ async def ehr_edit_extraction(
             # Fire-and-forget: compute accuracy metrics. Mirrors the path in
             # routers/extractions.py so EHR-iframe edits also populate the
             # extraction_accuracy_metrics table (WER + entity errors).
-            if original_extraction and doctor_id:
+            if original_extraction and counsellor_id:
                 try:
                     from services.accuracy_metrics_service import compute_and_save_accuracy_metrics
                     asyncio.create_task(compute_and_save_accuracy_metrics(
                         extraction_id=uuid.UUID(extraction_id),
                         original_json=original_extraction,
                         edited_json=edited_payload,
-                        doctor_id=doctor_id,
+                        counsellor_id=counsellor_id,
                     ))
                 except Exception as e:
                     logger.warning(f"[EHR_EDIT] Failed to schedule accuracy metrics: {e}")
@@ -492,18 +492,18 @@ async def ehr_edit_extraction(
         from services.investigation_service import postprocess_investigations_extraction
 
         enriched_data = copy.deepcopy(insights)
-        if doctor_id:
+        if counsellor_id:
             try:
                 enriched_data = await postprocess_prescription_extraction(
                     extraction_data=enriched_data,
-                    doctor_id=uuid.UUID(doctor_id),
+                    counsellor_id=uuid.UUID(counsellor_id),
                     extraction_id=uuid.UUID(extraction_id),
                     submission_id=str(extraction_id),
                     log_matches=False
                 )
                 enriched_data = await postprocess_investigations_extraction(
                     extraction_data=enriched_data,
-                    doctor_id=uuid.UUID(doctor_id),
+                    counsellor_id=uuid.UUID(counsellor_id),
                     extraction_id=uuid.UUID(extraction_id),
                     submission_id=str(extraction_id),
                     log_matches=False
@@ -512,7 +512,7 @@ async def ehr_edit_extraction(
 
                 # Persist enriched data back to edited_extraction_json
                 try:
-                    supabase.table("medical_extractions")\
+                    supabase.table("extractions")\
                         .update({"edited_extraction_json": enriched_data})\
                         .eq("id", extraction_id)\
                         .execute()
@@ -523,35 +523,35 @@ async def ehr_edit_extraction(
                 enriched_data = copy.deepcopy(insights)
 
         # Step 6: Build generic patient_info dict (parallelized lookups)
-        async def get_patient_id_async():
+        async def get_student_id_async():
             if patient_uuid:
-                return await asyncio.to_thread(get_patient_external_id, patient_uuid)
+                return await asyncio.to_thread(get_student_external_id, patient_uuid)
             return ""
 
-        async def get_hospital_code_async():
-            if doctor_id:
-                hospital_id = await asyncio.to_thread(get_doctor_hospital_id_cached, uuid.UUID(doctor_id))
-                if hospital_id:
-                    return await asyncio.to_thread(get_hospital_code, str(hospital_id)) or ""
+        async def get_school_code_async():
+            if counsellor_id:
+                school_id = await asyncio.to_thread(get_counsellor_school_id_cached, uuid.UUID(counsellor_id))
+                if school_id:
+                    return await asyncio.to_thread(get_school_code, str(school_id)) or ""
             return ""
 
-        patient_id, hospital_code = await asyncio.gather(
-            get_patient_id_async(),
-            get_hospital_code_async()
+        student_id, school_code = await asyncio.gather(
+            get_student_id_async(),
+            get_school_code_async()
         )
 
         recording_metadata = body.recording_metadata or extraction.get("recording_metadata_json") or {}
 
         # Build patient_info with common fields + all recording_metadata fields.
         # Each EHR routing function picks only the fields it needs:
-        #   Aosta: patient_id, doctor_id, hospital_code, ip_id, op_id
-        #   KG:    patient_uuid, doctor_id, patient_id (uhid), visit_id
-        #   Raster: patient_id (uhid), visit_number, consultant_id, modified_user_id, sex
+        #   Aosta: student_id, counsellor_id, school_code, ip_id, op_id
+        #   KG:    patient_uuid, counsellor_id, student_id (uhid), visit_id
+        #   Raster: student_id (uhid), visit_number, consultant_id, modified_user_id, sex
         patient_info = {
-            "patient_id": patient_id,           # UHID (all EHRs)
+            "student_id": student_id,           # UHID (all EHRs)
             "patient_uuid": patient_uuid,       # KG needs internal UUID
-            "doctor_id": doctor_id or "",
-            "hospital_code": hospital_code,
+            "counsellor_id": counsellor_id or "",
+            "school_code": school_code,
         }
 
         # Pass through all EHR-specific fields from recording_metadata
@@ -571,7 +571,7 @@ async def ehr_edit_extraction(
         ehr_sync_status = "skipped"
         try:
             ehr_sync_scheduled = schedule_ehr_sync(
-                doctor_id=doctor_id,
+                counsellor_id=counsellor_id,
                 extraction_data=enriched_data,
                 patient_info=patient_info,
                 template_code=template_code,
@@ -582,7 +582,7 @@ async def ehr_edit_extraction(
                 ehr_sync_status = "pending"
                 logger.info(f"[EHR_EDIT] EHR sync scheduled for extraction {extraction_id}")
             else:
-                logger.info(f"[EHR_EDIT] No EHR config for doctor {doctor_id} - sync skipped")
+                logger.info(f"[EHR_EDIT] No EHR config for counsellor {counsellor_id} - sync skipped")
         except Exception as e:
             logger.warning(f"[EHR_EDIT] Could not schedule EHR sync: {e}")
 
@@ -591,12 +591,12 @@ async def ehr_edit_extraction(
             from services.realtime_publisher_service import publish_extraction_response_fire_and_forget
 
             _rt_hospital_id = await asyncio.to_thread(
-                get_doctor_hospital_id_cached, uuid.UUID(doctor_id)
-            ) if doctor_id else None
+                get_counsellor_school_id_cached, uuid.UUID(counsellor_id)
+            ) if counsellor_id else None
             if _rt_hospital_id:
                 _rt_recording_metadata = None
                 try:
-                    _me_result = supabase.table("medical_extractions").select(
+                    _me_result = supabase.table("extractions").select(
                         "recording_metadata_json"
                     ).eq("id", str(extraction_id)).limit(1).execute()
                     if _me_result.data:
@@ -605,8 +605,8 @@ async def ehr_edit_extraction(
                     pass
                 asyncio.create_task(publish_extraction_response_fire_and_forget(
                     submission_id=str(extraction_id),
-                    hospital_id=_rt_hospital_id,
-                    doctor_id=doctor_id,
+                    school_id=_rt_hospital_id,
+                    counsellor_id=counsellor_id,
                     extraction_id=str(extraction_id),
                     insights=enriched_data,
                     recording_metadata=_rt_recording_metadata,
@@ -678,8 +678,8 @@ async def extract_for_ehr(
             correlation_id=original_metadata.get("correlation_id"),
             submission_id=original_metadata.get("submission_id"),
             extraction_id=original_metadata.get("extraction_id"),
-            doctor_id=original_metadata.get("doctor_id"),
-            patient_id=original_metadata.get("patient_id"),
+            counsellor_id=original_metadata.get("counsellor_id"),
+            student_id=original_metadata.get("student_id"),
             template_code=original_metadata.get("template_code"),
             timestamp=original_metadata.get("timestamp"),
         )
@@ -706,8 +706,8 @@ async def extract_for_ehr(
 async def get_ehr_merge_status(
     request: Request,
     extraction_id: str,
-    doctor_id: str = Query(..., description="Doctor ID for access verification"),
-    _auth=Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for access verification"),
+    _auth=Depends(verify_counsellor_access)
 ):
     """
     Get merge status for EHR clients.
@@ -721,7 +721,7 @@ async def get_ehr_merge_status(
 
     try:
         # Call original endpoint
-        result = await get_merge_status(request, extraction_id, doctor_id, None)
+        result = await get_merge_status(request, extraction_id, counsellor_id, None)
 
         # Sanitize merge_metadata
         original_metadata = result.merge_metadata
@@ -752,7 +752,7 @@ async def get_ehr_merge_status(
 async def preview_merge_for_ehr(
     http_request: Request,
     request: Dict[str, Any],
-    _auth=Depends(verify_doctor_access)
+    _auth=Depends(verify_counsellor_access)
 ):
     """
     Preview merge for EHR clients.
@@ -904,35 +904,35 @@ async def get_ehr_emotions_by_submission(
 # Prescreen Endpoint (Sanitized)
 # ============================================================================
 
-@router.get("/patients/{patient_id}/prescreen", response_model=EHRPrescreenResponse)
+@router.get("/students/{student_id}/prescreen", response_model=EHRPrescreenResponse)
 async def get_ehr_prescreen(
     request: Request,
-    patient_id: str,
-    doctor_id: str = Query(..., description="Doctor ID (required)"),
-    hospital_id: Optional[str] = Query(None, description="Hospital ID (optional filter)"),
-    _auth=Depends(verify_patient_access)
+    student_id: str,
+    counsellor_id: str = Query(..., description="Counsellor ID (required)"),
+    school_id: Optional[str] = Query(None, description="School ID (optional filter)"),
+    _auth=Depends(verify_student_access)
 ):
     """
-    Get nurse assessment / prescreen information for EHR clients.
+    Get assistant assessment / prescreen information for EHR clients.
 
-    Nurse extractions are identified by recording_sessions.nurse_id (primary)
+    Assistant extractions are identified by recording_sessions.assistant_id (primary)
     or template_code containing 'PRESCREEN' (legacy fallback).
 
     Returns sanitized response excluding:
     - prescreen_metadata (model, segment_count)
     - Internal processing details
     """
-    from routers.patient_history import get_patient_prescreen
+    from routers.student_history import get_student_prescreen
 
     try:
         # Call original endpoint
-        result = await get_patient_prescreen(request, patient_id, doctor_id, hospital_id, None)
+        result = await get_student_prescreen(request, student_id, counsellor_id, school_id, None)
 
         # Convert to sanitized response
         return EHRPrescreenResponse(
-            patient=EHRPatientInfo(
+            patient=EHRStudentInfo(
                 id=result.patient.id,
-                patient_id=result.patient.patient_id,
+                student_id=result.patient.student_id,
                 full_name=result.patient.full_name
             ),
             prescreen_data=result.prescreen_data,
@@ -995,8 +995,8 @@ async def get_ehr_payload_preview(
 
     try:
         # Fetch extraction with session for template_code
-        extraction_result = supabase.table("medical_extractions")\
-            .select("*, patients(id, patient_id, full_name), doctors(id, full_name, hospital_id), recording_sessions(template_code)")\
+        extraction_result = supabase.table("extractions")\
+            .select("*, students(id, student_id, full_name), counsellors(id, full_name, school_id), recording_sessions(template_code)")\
             .eq("id", extraction_id)\
             .single()\
             .execute()
@@ -1013,14 +1013,14 @@ async def get_ehr_payload_preview(
         template_code = session_data.get("template_code", "") or ""
         recording_metadata = extraction.get("recording_metadata_json") or {}
 
-        # Get patient info
-        patient = extraction.get("patients") or {}
-        patient_id = patient.get("patient_id", "")
+        # Get student info
+        patient = extraction.get("students") or {}
+        student_id = patient.get("student_id", "")
 
-        # Get doctor info
-        doctor = extraction.get("doctors") or {}
-        doctor_id = extraction.get("doctor_id", "")
-        hospital_id = doctor.get("hospital_id")
+        # Get counsellor info
+        doctor = extraction.get("counsellors") or {}
+        counsellor_id = extraction.get("counsellor_id", "")
+        school_id = doctor.get("school_id")
 
         if payload_type == "raster":
             # Prefer ehr_payload_json (pre-computed), fallback to on-the-fly computation
@@ -1040,22 +1040,22 @@ async def get_ehr_payload_preview(
                 # Fallback: compute on-the-fly from raw extraction
                 from services.raster_api_service import format_for_raster, format_for_raster_new_op
 
-                uhid = patient_id or recording_metadata.get("uhid", "")
+                uhid = student_id or recording_metadata.get("uhid", "")
 
-                # Fetch patient's add_info to get required Raster EMR fields
-                patient_add_info = {}
+                # Fetch student's add_info to get required Raster EMR fields
+                student_add_info = {}
                 missing_fields = []
 
                 if uhid:
-                    # Scope patient lookup by hospital to prevent cross-hospital collisions
-                    doctor_data = extraction.get("doctors") or {}
-                    _ehr_hospital_id = doctor_data.get("hospital_id")
-                    patient_query = supabase.table("patients").select("add_info").eq("patient_id", uhid)
+                    # Scope student lookup by school to prevent cross-school collisions
+                    counsellor_data = extraction.get("counsellors") or {}
+                    _ehr_hospital_id = counsellor_data.get("school_id")
+                    student_query = supabase.table("students").select("add_info").eq("student_id", uhid)
                     if _ehr_hospital_id:
-                        patient_query = patient_query.eq("hospital_id", _ehr_hospital_id)
-                    patient_result = patient_query.execute()
-                    if patient_result.data:
-                        patient_add_info = patient_result.data[0].get("add_info") or {}
+                        student_query = student_query.eq("school_id", _ehr_hospital_id)
+                    student_result = student_query.execute()
+                    if student_result.data:
+                        student_add_info = student_result.data[0].get("add_info") or {}
 
                 # Get Raster fields directly from recording_metadata (same pattern as Aosta)
                 consultant_id = recording_metadata.get("consultant_id")
@@ -1107,7 +1107,7 @@ async def get_ehr_payload_preview(
                     "extraction_id": extraction_id
                 }
                 if missing_fields:
-                    response_data["warning"] = f"Missing required fields in patient add_info: {missing_fields}. EMR post will fail without these values."
+                    response_data["warning"] = f"Missing required fields in student add_info: {missing_fields}. EMR post will fail without these values."
 
                 return response_data
 
@@ -1119,20 +1119,20 @@ async def get_ehr_payload_preview(
                 payload = ehr_payload
             else:
                 # Fallback: compute on-the-fly from raw extraction
-                from services.aosta_service import format_for_aosta, get_hospital_code
+                from services.aosta_service import format_for_aosta, get_school_code
 
-                hospital_code = ""
-                if hospital_id:
-                    hospital_code = await asyncio.to_thread(get_hospital_code, hospital_id) or ""
+                school_code = ""
+                if school_id:
+                    school_code = await asyncio.to_thread(get_school_code, school_id) or ""
 
                 ip_id = recording_metadata.get("ip_id")
                 op_id = recording_metadata.get("op_id")
 
                 payload = format_for_aosta(
                     extraction_insights=insights,
-                    patient_id=patient_id,
-                    doctor_id=doctor_id or "",
-                    hospital_code=hospital_code,
+                    student_id=student_id,
+                    counsellor_id=counsellor_id or "",
+                    school_code=school_code,
                     ip_id=ip_id,
                     op_id=op_id
                 )
@@ -1140,43 +1140,6 @@ async def get_ehr_payload_preview(
             return PayloadPreviewResponse(
                 success=True,
                 payload_type="aosta",
-                template_code=template_code,
-                payload=payload,
-                extraction_id=extraction_id
-            )
-
-        elif payload_type == "neopaed":
-            # Prefer ehr_payload_json (pre-computed), fallback to on-the-fly computation
-            from services.raster_api_service import (
-                _validate_and_fix_neo_daily_payload,
-                _validate_and_fix_neo_proforma_payload,
-                _validate_and_fix_neo_op_payload,
-                _sanitize_escaped_slashes
-            )
-
-            ehr_payload = extraction.get("ehr_payload_json")
-
-            if ehr_payload:
-                payload = {**ehr_payload}
-            else:
-                # Fallback: compute on-the-fly from raw extraction
-                from services.neo_lookup_dispatcher import apply_template_lookups
-                payload = apply_template_lookups({**insights}, template_code)
-
-            # Always apply structural validation (idempotent)
-            template_upper = (template_code or "").upper()
-            if template_upper in ["NEO_DAILY", "NEONATAL_DAILY"]:
-                payload = _validate_and_fix_neo_daily_payload(payload)
-            elif template_upper in ["NEO_PROFORMA", "NEONATAL_PROFORMA"]:
-                payload = _validate_and_fix_neo_proforma_payload(payload)
-            elif template_upper in ["NEO_OP", "NEONATAL_OP"]:
-                payload = _validate_and_fix_neo_op_payload(payload)
-
-            payload = _sanitize_escaped_slashes(payload)
-
-            return PayloadPreviewResponse(
-                success=True,
-                payload_type="neopaed",
                 template_code=template_code,
                 payload=payload,
                 extraction_id=extraction_id
@@ -1192,12 +1155,12 @@ async def get_ehr_payload_preview(
                 # Fallback: compute on-the-fly from raw extraction
                 from services.kg_service import format_for_kg
 
-                doctor_name = ""
-                if doctor_id:
+                counsellor_name = ""
+                if counsellor_id:
                     try:
-                        doc_result = supabase.table("doctors").select("full_name").eq("id", doctor_id).limit(1).execute()
+                        doc_result = supabase.table("counsellors").select("full_name").eq("id", counsellor_id).limit(1).execute()
                         if doc_result.data:
-                            doctor_name = doc_result.data[0].get("full_name", "")
+                            counsellor_name = doc_result.data[0].get("full_name", "")
                     except Exception:
                         pass
 
@@ -1209,11 +1172,11 @@ async def get_ehr_payload_preview(
 
                 payload = format_for_kg(
                     extraction_data=insights,
-                    patient_id=patient_uuid,
-                    doctor_id=doctor_id or "",
+                    student_id=patient_uuid,
+                    counsellor_id=counsellor_id or "",
                     extraction_id=extraction_id,
-                    doctor_name=doctor_name,
-                    uhid=patient_id,
+                    counsellor_name=counsellor_name,
+                    uhid=student_id,
                     visit_id=visit_id,
                 )
 
@@ -1282,54 +1245,54 @@ def _generate_empty_value(schema: Dict[str, Any]) -> Any:
 @router.get("/template-schema", response_model=TemplateSchemaResponse)
 async def get_template_schema(
     request: Request,
-    template_code: Optional[str] = Query(None, description="Template code (e.g. OP_GENERAL). If omitted, uses doctor/nurse default template."),
-    doctor_id: Optional[str] = Query(None, description="Doctor ID to verify access"),
-    nurse_id: Optional[str] = Query(None, description="Nurse ID to verify access"),
+    template_code: Optional[str] = Query(None, description="Template code (e.g. OP_GENERAL). If omitted, uses counsellor/assistant default template."),
+    counsellor_id: Optional[str] = Query(None, description="Counsellor ID to verify access"),
+    assistant_id: Optional[str] = Query(None, description="Assistant ID to verify access"),
     _auth=Depends(require_admin_webapp_or_ehr)
 ):
     """
     Get empty extraction with full schema for a template.
 
     Returns the template's segment structure with empty/default values,
-    after verifying the doctor or nurse has access to the template.
+    after verifying the counsellor or assistant has access to the template.
 
-    - Requires exactly one of doctor_id or nurse_id.
-    - If template_code is omitted, resolves the default template for the doctor/nurse.
+    - Requires exactly one of counsellor_id or assistant_id.
+    - If template_code is omitted, resolves the default template for the counsellor/assistant.
     - Auth: admin, web_app, or ehr.
     """
     import re
     from services.supabase_service import supabase, get_template_by_code
 
-    # Validate: exactly one of doctor_id or nurse_id
-    if not doctor_id and not nurse_id:
-        raise HTTPException(status_code=400, detail="Either doctor_id or nurse_id is required")
-    if doctor_id and nurse_id:
-        raise HTTPException(status_code=400, detail="Provide only one of doctor_id or nurse_id, not both")
+    # Validate: exactly one of counsellor_id or assistant_id
+    if not counsellor_id and not assistant_id:
+        raise HTTPException(status_code=400, detail="Either counsellor_id or assistant_id is required")
+    if counsellor_id and assistant_id:
+        raise HTTPException(status_code=400, detail="Provide only one of counsellor_id or assistant_id, not both")
 
     # Validate UUID early
-    if doctor_id:
+    if counsellor_id:
         try:
-            doctor_uuid = uuid.UUID(doctor_id)
+            counsellor_uuid = uuid.UUID(counsellor_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid doctor_id format")
+            raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
     else:
         try:
-            nurse_uuid = uuid.UUID(nurse_id)
+            assistant_uuid = uuid.UUID(assistant_id)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid nurse_id format")
+            raise HTTPException(status_code=400, detail="Invalid assistant_id format")
 
     try:
         # Step 1: Resolve template_code if not provided (use default template)
         if not template_code:
-            if doctor_id:
-                from services.doctor_templates_service import get_doctor_default_template
-                default = get_doctor_default_template(doctor_uuid)
+            if counsellor_id:
+                from services.counsellor_templates_service import get_counsellor_default_template
+                default = get_counsellor_default_template(counsellor_uuid)
             else:
-                from services.nurse_templates_service import get_nurse_default_template
-                default = get_nurse_default_template(nurse_uuid)
+                from services.assistant_templates_service import get_assistant_default_template
+                default = get_assistant_default_template(assistant_uuid)
 
             if not default:
-                entity = "doctor" if doctor_id else "nurse"
+                entity = "doctor" if counsellor_id else "nurse"
                 raise HTTPException(status_code=404, detail=f"No default template found for this {entity}")
             template_code = default["template_code"]
 
@@ -1343,27 +1306,27 @@ async def get_template_schema(
         consultation_type_code = template.get("consultation_type_code")
 
         # Step 3: Verify access (skip if template was resolved from their own default)
-        if doctor_id:
-            # Check: doctor owns template, has it shared, or it's a common template
-            template_owner = template.get("doctor_id")
+        if counsellor_id:
+            # Check: counsellor owns template, has it shared, or it's a common template
+            template_owner = template.get("counsellor_id")
             if template_owner is None:
                 pass  # Common template — accessible to all
-            elif str(template_owner) == doctor_id:
-                pass  # Doctor owns this template
+            elif str(template_owner) == counsellor_id:
+                pass  # Counsellor owns this template
             else:
-                access_check = supabase.table("doctor_templates")\
+                access_check = supabase.table("counsellor_templates")\
                     .select("id, is_active")\
-                    .eq("doctor_id", doctor_id)\
+                    .eq("counsellor_id", counsellor_id)\
                     .eq("template_id", str(template_id))\
                     .limit(1)\
                     .execute()
 
                 if not access_check.data or not access_check.data[0].get("is_active", False):
-                    raise HTTPException(status_code=403, detail="Doctor does not have access to this template")
+                    raise HTTPException(status_code=403, detail="Counsellor does not have access to this template")
         else:
-            from services.nurse_templates_service import validate_nurse_template_access
-            if not validate_nurse_template_access(nurse_id, str(template_id)):
-                raise HTTPException(status_code=403, detail="Nurse does not have access to this template")
+            from services.assistant_templates_service import validate_assistant_template_access
+            if not validate_assistant_template_access(assistant_id, str(template_id)):
+                raise HTTPException(status_code=403, detail="Assistant does not have access to this template")
 
         # Step 3: Get assembled_schema_json
         assembled_schema = template.get("assembled_schema_json")
@@ -1578,7 +1541,7 @@ async def get_extraction_gaps(
 ):
     """
     Analyse which fields in Vitals, Comorbidities, Allergy, and Nutritional
-    Screening are missing from a completed extraction — so the doctor/nurse
+    Screening are missing from a completed extraction — so the counsellor/assistant
     knows exactly what to ask during consultation.
 
     Auth: admin, web_app, or ehr.

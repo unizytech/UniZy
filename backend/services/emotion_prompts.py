@@ -34,7 +34,7 @@ Focus on:
 3. Other medically relevant emotions
 4. Financial concerns about treatment
 5. Likelihood of treatment compliance
-6. Doctor's communication style and its impact on patient
+6. Counsellor's communication style and its impact on student
 
 Provide evidence-based assessments with specific quotes and timestamps.
 

@@ -2,10 +2,10 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { startLiveTranscriptionSession } from '../services/geminiClient';
-import type { LiveSessionManager, ProcessingMode, ActivatedTemplate, ExtractionMode, MedicalExtractionResponse } from "@lib/types";
+import type { LiveSessionManager, ProcessingMode, ActivatedTemplate, ExtractionMode, ExtractionResponse } from "@lib/types";
 import { extractMedicalSummary, handleApiError, getActivatedTemplates, getProcessingModes } from "@lib/summaryApi";
-import { searchPatients, type PatientSearchResult } from "@lib/patientHistoryApi";
-import DoctorSelector from './DoctorSelector';
+import { searchStudents, type StudentSearchResult } from "@lib/studentHistoryApi";
+import CounsellorSelector from './CounsellorSelector';
 import { useAuth } from '@lib/auth';
 import { authPost } from '@lib/apiClient';
 
@@ -123,13 +123,13 @@ export default function RecordTab() {
     // Auth
     const { getAccessToken } = useAuth();
 
-    // Doctor selection
-    const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+    // Counsellor selection
+    const [selectedCounsellorId, setSelectedCounsellorId] = useState<string | null>(null);
 
-    // Patient selection
-    const [patientId, setPatientId] = useState<string>('');
-    const [patientsList, setPatientsList] = useState<PatientSearchResult[]>([]);
-    const [loadingPatients, setLoadingPatients] = useState(false);
+    // Student selection
+    const [patientId, setStudentId] = useState<string>('');
+    const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+    const [loadingStudents, setLoadingStudents] = useState(false);
 
     // Template selection
     const [selectedTemplate, setSelectedTemplate] = useState<ActivatedTemplate | null>(null);
@@ -152,8 +152,8 @@ export default function RecordTab() {
     const [status, setStatus] = useState('Select counsellor and template to start recording');
 
     // Extraction state (NEW: structured segment data)
-    const [coreExtractionData, setCoreExtractionData] = useState<MedicalExtractionResponse | null>(null);
-    const [additionalExtractionData, setAdditionalExtractionData] = useState<MedicalExtractionResponse | null>(null);
+    const [coreExtractionData, setCoreExtractionData] = useState<ExtractionResponse | null>(null);
+    const [additionalExtractionData, setAdditionalExtractionData] = useState<ExtractionResponse | null>(null);
     const [loadingCore, setLoadingCore] = useState(false);
     const [loadingAdditional, setLoadingAdditional] = useState(false);
     const [coreExtractionTime, setCoreExtractionTime] = useState<number | null>(null);
@@ -211,11 +211,11 @@ export default function RecordTab() {
 
             // PARALLEL PROMPT GENERATION: Send context with first chunk only
             // This allows backend to start generating prompts while recording continues
-            if (chunkIndex === 0 && selectedDoctorId && selectedTemplate) {
-                payload.doctor_id = selectedDoctorId;
+            if (chunkIndex === 0 && selectedCounsellorId && selectedTemplate) {
+                payload.counsellor_id = selectedCounsellorId;
                 payload.template_code = selectedTemplate.template_code;
                 if (patientId?.trim()) {
-                    payload.patient_id = patientId.trim();
+                    payload.student_id = patientId.trim();
                 }
                 console.log('[RecordTab] First chunk - sending context for parallel prompt generation');
             }
@@ -236,7 +236,7 @@ export default function RecordTab() {
             // Non-fatal - emotion analysis will be skipped if chunks fail
             console.warn('[RecordTab] Chunk upload failed (non-fatal):', err);
         }
-    }, [getAccessToken, selectedDoctorId, selectedTemplate, patientId]);
+    }, [getAccessToken, selectedCounsellorId, selectedTemplate, patientId]);
 
     const startRecording = useCallback(async () => {
         setError(null);
@@ -341,7 +341,7 @@ export default function RecordTab() {
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                 session_duration_seconds: sessionDurationSeconds,
                 audio_duration_seconds: sessionDurationSeconds - 4, // Subtract 4s finalization wait
-                doctor_id: selectedDoctorId,
+                counsellor_id: selectedCounsellorId,
                 consultation_type_code: selectedTemplate?.consultation_type_code,
                 template_code: selectedTemplate?.template_code,
             }).then(res => {
@@ -360,7 +360,7 @@ export default function RecordTab() {
             return;
         }
 
-        if (!selectedTemplate || !selectedDoctorId) {
+        if (!selectedTemplate || !selectedCounsellorId) {
             setError('Counsellor and template selection required for extraction');
             setStatus('Recording stopped. Select counsellor and template.');
             return;
@@ -375,8 +375,8 @@ export default function RecordTab() {
                 '/api/v1/option1/recording/live/session',
                 getAccessToken(),
                 {
-                    doctor_id: selectedDoctorId,
-                    patient_id: patientId.trim() || 'LIVE_RECORDING',  // Use selected patient or fallback
+                    counsellor_id: selectedCounsellorId,
+                    student_id: patientId.trim() || 'LIVE_RECORDING',  // Use selected student or fallback
                     template_code: selectedTemplate.template_code,  // Template code for DB lookups (unique identifier)
                     template_name: selectedTemplate.template_name,  // Display name for readability
                     processing_mode: processingMode,
@@ -404,11 +404,11 @@ export default function RecordTab() {
             setError('Failed to create session. Extraction skipped.');
             setStatus('Session creation failed. Click to start a new recording.');
         }
-    }, [nativeTranscript, selectedTemplate, selectedDoctorId, patientId, processingMode, extractionMode, sessionStartTime]);
+    }, [nativeTranscript, selectedTemplate, selectedCounsellorId, patientId, processingMode, extractionMode, sessionStartTime]);
 
     // Progressive extraction using new /api/v1/summary/extract endpoint
     const handleProgressiveExtraction = async (transcriptText: string, subId: string) => {
-        if (!transcriptText.trim() || !selectedTemplate || !selectedDoctorId) return;
+        if (!transcriptText.trim() || !selectedTemplate || !selectedCounsellorId) return;
 
         try {
             setLoadingCore(true);
@@ -428,7 +428,7 @@ export default function RecordTab() {
 
                 const fullResponse = await extractMedicalSummary({
                     transcript: transcriptText.trim(),
-                    doctor_id: selectedDoctorId,
+                    counsellor_id: selectedCounsellorId,
                     template_code: selectedTemplate.template_code,  // ⭐ Unique identifier for DB lookups
                     template_name: selectedTemplate.template_name,  // Display name for readability
                     processing_mode: processingMode,
@@ -455,7 +455,7 @@ export default function RecordTab() {
 
                 const coreResponse = await extractMedicalSummary({
                     transcript: transcriptText.trim(),
-                    doctor_id: selectedDoctorId,
+                    counsellor_id: selectedCounsellorId,
                     template_code: selectedTemplate.template_code,  // ⭐ Unique identifier for DB lookups
                     template_name: selectedTemplate.template_name,  // Display name for readability
                     processing_mode: processingMode,
@@ -492,7 +492,7 @@ export default function RecordTab() {
     };
 
     const extractAdditionalSegments = async (transcriptText: string, subId: string) => {
-        if (!transcriptText.trim() || !selectedTemplate || !selectedDoctorId) return;
+        if (!transcriptText.trim() || !selectedTemplate || !selectedCounsellorId) return;
 
         try {
             setLoadingAdditional(true);
@@ -502,7 +502,7 @@ export default function RecordTab() {
             const additionalStartTime = performance.now();
             const additionalResponse = await extractMedicalSummary({
                 transcript: transcriptText.trim(),
-                doctor_id: selectedDoctorId,
+                counsellor_id: selectedCounsellorId,
                 template_code: selectedTemplate.template_code,  // ⭐ Unique identifier for DB lookups
                 template_name: selectedTemplate.template_name,  // Display name for readability
                 processing_mode: processingMode,
@@ -530,25 +530,25 @@ export default function RecordTab() {
         loadProcessingModesFromDB();
     }, []);
 
-    // Load activated templates when doctor is selected
+    // Load activated templates when counsellor is selected
     useEffect(() => {
-        if (selectedDoctorId) {
+        if (selectedCounsellorId) {
             loadActivatedTemplatesFromDB();
         } else {
             setActivatedTemplates([]);
             setSelectedTemplate(null);
         }
-    }, [selectedDoctorId]);
+    }, [selectedCounsellorId]);
 
-    // Load patients list when doctor is selected
+    // Load students list when counsellor is selected
     useEffect(() => {
-        if (selectedDoctorId) {
-            loadPatientsList();
+        if (selectedCounsellorId) {
+            loadStudentsList();
         } else {
-            setPatientsList([]);
-            setPatientId('');
+            setStudentsList([]);
+            setStudentId('');
         }
-    }, [selectedDoctorId]);
+    }, [selectedCounsellorId]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -586,12 +586,12 @@ export default function RecordTab() {
     };
 
     const loadActivatedTemplatesFromDB = async () => {
-        if (!selectedDoctorId) return;
+        if (!selectedCounsellorId) return;
 
         try {
             setLoadingTemplates(true);
             const accessToken = getAccessToken();
-            const response = await getActivatedTemplates(selectedDoctorId, accessToken);
+            const response = await getActivatedTemplates(selectedCounsellorId, accessToken);
             setActivatedTemplates(response.templates);
             // Auto-select first template
             if (response.templates.length > 0) {
@@ -606,31 +606,31 @@ export default function RecordTab() {
         }
     };
 
-    const loadPatientsList = async () => {
-        if (!selectedDoctorId) return;
+    const loadStudentsList = async () => {
+        if (!selectedCounsellorId) return;
 
         try {
-            setLoadingPatients(true);
+            setLoadingStudents(true);
             const accessToken = getAccessToken();
-            // Use searchPatients with empty query to get all patients for this doctor
-            const response = await searchPatients('', selectedDoctorId, 1, 100, accessToken);
-            console.log('[RecordTab] Loaded patients:', response.total_count);
-            setPatientsList(response.patients);
-            // Auto-select first patient if available
-            if (response.patients.length > 0) {
-                setPatientId(response.patients[0].patient_id);
+            // Use searchStudents with empty query to get all students for this counsellor
+            const response = await searchStudents('', selectedCounsellorId, 1, 100, accessToken);
+            console.log('[RecordTab] Loaded students:', response.total_count);
+            setStudentsList(response.students);
+            // Auto-select first student if available
+            if (response.students.length > 0) {
+                setStudentId(response.students[0].student_id);
             }
         } catch (err) {
-            console.error('[RecordTab] Failed to load patients list:', err);
-            setPatientsList([]);
+            console.error('[RecordTab] Failed to load students list:', err);
+            setStudentsList([]);
         } finally {
-            setLoadingPatients(false);
+            setLoadingStudents(false);
         }
     };
 
     const canStartRecording = (): boolean => {
         return Boolean(
-            selectedDoctorId &&
+            selectedCounsellorId &&
             selectedTemplate &&
             processingMode &&
             !isRecording
@@ -639,22 +639,22 @@ export default function RecordTab() {
 
     return (
         <div className="w-full flex flex-col items-center space-y-4 max-w-4xl mx-auto">
-            {/* Doctor Selector */}
+            {/* Counsellor Selector */}
             <div className="w-full bg-slate-800 rounded-lg p-4">
-                <DoctorSelector
-                    selectedDoctorId={selectedDoctorId}
-                    onDoctorSelect={setSelectedDoctorId}
+                <CounsellorSelector
+                    selectedCounsellorId={selectedCounsellorId}
+                    onCounsellorSelect={setSelectedCounsellorId}
                     required={true}
                 />
             </div>
 
-            {/* Patient Selector */}
-            {selectedDoctorId && (
+            {/* Student Selector */}
+            {selectedCounsellorId && (
                 <div className="w-full bg-slate-800 rounded-lg p-4">
                     <label className="block text-sm font-medium text-slate-300 mb-3">
                         Student ID (optional - enables student context injection)
                     </label>
-                    {loadingPatients ? (
+                    {loadingStudents ? (
                         <div className="flex items-center justify-center py-3">
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400 mr-2"></div>
                             <span className="text-sm text-slate-400">Loading students...</span>
@@ -662,16 +662,16 @@ export default function RecordTab() {
                     ) : patientsList.length > 0 ? (
                         <select
                             value={patientId}
-                            onChange={(e) => setPatientId(e.target.value)}
+                            onChange={(e) => setStudentId(e.target.value)}
                             disabled={isRecording}
                             className="w-full bg-slate-700 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <option value="">No student (skip context injection)</option>
                             {patientsList.map((patient) => (
-                                <option key={patient.id} value={patient.patient_id}>
-                                    {patient.patient_id}
+                                <option key={patient.id} value={patient.student_id}>
+                                    {patient.student_id}
                                     {patient.full_name ? ` - ${patient.full_name}` : ''}
-                                    {patient.hospital_name ? ` (${patient.hospital_name})` : ''}
+                                    {patient.school_name ? ` (${patient.school_name})` : ''}
                                     {patient.add_info?.roomNo ? ` [Room ${patient.add_info.roomNo}, Bed ${patient.add_info.bedNo}]` : ''}
                                 </option>
                             ))}
@@ -680,7 +680,7 @@ export default function RecordTab() {
                         <input
                             type="text"
                             value={patientId}
-                            onChange={(e) => setPatientId(e.target.value)}
+                            onChange={(e) => setStudentId(e.target.value)}
                             placeholder="Enter student ID (e.g., PAT-12345) or leave empty"
                             disabled={isRecording}
                             className="w-full bg-slate-700 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-slate-500"
@@ -693,7 +693,7 @@ export default function RecordTab() {
             )}
 
             {/* Template Selector */}
-            {selectedDoctorId && (
+            {selectedCounsellorId && (
                 <div className="w-full bg-slate-800 rounded-lg p-4">
                     <label className="block text-sm font-medium text-slate-300 mb-3">
                         Activated Template
@@ -731,7 +731,7 @@ export default function RecordTab() {
             )}
 
             {/* Processing Mode & Extraction Mode Selectors */}
-            {selectedDoctorId && selectedTemplate && (
+            {selectedCounsellorId && selectedTemplate && (
                 <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Processing Mode */}
                     <div className="bg-slate-800 rounded-lg p-4">

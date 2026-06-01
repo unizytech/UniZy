@@ -39,15 +39,15 @@ Extract complete ophthalmology consultation data from voice transcripts and retu
 
 **CRITICAL INSTRUCTION - Eye Laterality for Different Audiences:**
 
-### Patient-Facing Segments (Use Plain Language)
-In the following segments, ALWAYS use plain language terms for better patient understanding:
+### Student-Facing Segments (Use Plain Language)
+In the following segments, ALWAYS use plain language terms for better student understanding:
 - **Diagnosis** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Advice and Follow-up** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Medications/Prescriptions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Treatment Recommendations** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
-- **Patient Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
+- **Student Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 
-**Examples for Patient-Facing Text:**
+**Examples for Student-Facing Text:**
 ✅ CORRECT: "Apply steroid drops to Right Eye after surgery"
 ❌ WRONG: "Apply steroid drops to OD after surgery"
 
@@ -79,9 +79,9 @@ In clinical examination and measurement segments, use BOTH medical abbreviations
 
 **VALIDATION CHECKLIST:**
 Before finalizing output, verify:
-✅ All patient-facing text (diagnosis, medications, advice) uses "Left Eye"/"Right Eye" only
+✅ All student-facing text (diagnosis, medications, advice) uses "Left Eye"/"Right Eye" only
 ✅ All clinical measurement sections use "OD (Right Eye)"/"OS (Left Eye)" format
-✅ No abbreviations (OS, OD, OU) appear alone in patient instructions
+✅ No abbreviations (OS, OD, OU) appear alone in student instructions
 ✅ Consistency maintained throughout the document
 
 ---
@@ -290,7 +290,7 @@ Before finalizing output, verify:
   - GCL (Ganglion Cell Layer) analysis
 
 ### Target IOP
-- Individualized IOP goal for glaucoma patients
+- Individualized IOP goal for glaucoma students
 - Based on severity, baseline IOP, risk factors
 - Example: "Target IOP <15 mmHg for both eyes"
 
@@ -298,10 +298,10 @@ Before finalizing output, verify:
 
 ## FIELD EXTRACTION GUIDELINES
 
-### 1. PATIENT DEMOGRAPHICS
+### 1. STUDENT DEMOGRAPHICS
 
 **name:**
-- Full patient name
+- Full student name
 - Format: String
 
 **mrNumber:**
@@ -319,14 +319,14 @@ Before finalizing output, verify:
 - Keywords: "visit ID", "visit number"
 
 **age:**
-- Patient age
+- Student age
 - Format: String (e.g., "45", "67 years")
 
 **gender:**
 - Values: "Male" | "Female" | "Other" | ""
 
 **doctorName (OPTIONAL):**
-- Name of the consulting doctor/physician
+- Name of the consulting counsellor/physician
 - Format: String
 - Extract if mentioned, otherwise empty string
 
@@ -395,7 +395,7 @@ Before finalizing output, verify:
 - Example: "6/5-", "6/6", "20/20"
 
 **patientGlasses:**
-- Vision with patient's own glasses
+- Vision with student's own glasses
 - Format: String
 - Example: "6/5-", "6/6+"
 
@@ -810,7 +810,7 @@ Before finalizing output, verify:
 
 ---
 
-### 20. DOCTOR RECOMMENDATION
+### 20. COUNSELLOR RECOMMENDATION
 
 **doctorRecommendation:**
 - Treatment recommendations and management plan
@@ -827,12 +827,12 @@ Before finalizing output, verify:
 
 ---
 
-### 21. DOCTOR NOTES
+### 21. COUNSELLOR NOTES
 
 **doctorNotes:**
 - Additional clinical notes
 - Format: String
-- Include observations, patient counseling, special considerations
+- Include observations, student counseling, special considerations
 
 ---
 
@@ -930,7 +930,7 @@ Before finalizing output, verify:
 
 ## VALIDATION CHECKS
 
-✅ **Patient Demographics:**
+✅ **Student Demographics:**
 - Name, MR number, date extracted
 
 ✅ **Visual Acuity:**
@@ -1029,7 +1029,7 @@ Extract comprehensive ophthalmology consultation data from the voice transcript 
 ---
 
 **HIGHEST PRIORITY FIELDS** - Extract with 100% accuracy:
-- Visual acuity for both eyes: Unaided, Aided, Patient Glasses (preserve notation like "6/5-")
+- Visual acuity for both eyes: Unaided, Aided, Student Glasses (preserve notation like "6/5-")
 - Keratometry: horizontal and vertical axis with units (D or mm) and degrees
 - Cover tests: SEPARATE "with glasses" vs "without glasses", distance vs near
 - IOP measurements with TIME, method, and mmHg units
@@ -1038,9 +1038,9 @@ Extract comprehensive ophthalmology consultation data from the voice transcript 
 - Dry eye assessment: OSDI, Schirmer's I/II, TBUT, staining grades
 
 **EYE LATERALITY RULES:**
-- Patient-facing text (diagnosis, medications, advice): Use "Right Eye" / "Left Eye" ONLY
+- Student-facing text (diagnosis, medications, advice): Use "Right Eye" / "Left Eye" ONLY
 - Clinical measurements: Use "OD (Right Eye)" / "OS (Left Eye)" format
-- NEVER use OD/OS abbreviations alone in patient instructions
+- NEVER use OD/OS abbreviations alone in student instructions
 
 **SPECIALIZED TEST EXTRACTION:**
 1. **Cover Tests** - CRITICAL:
@@ -1063,7 +1063,7 @@ Extract comprehensive ophthalmology consultation data from the voice transcript 
    - Include TIME with each IOP measurement
    - Diurnal variation: multiple readings throughout day
    - Visual field: strategy, MD (dB), VFI (%), GHT result
-   - Target IOP for glaucoma patients
+   - Target IOP for glaucoma students
 
 **GRADING SYSTEMS:**
 - MGD: G1, G2, G3
@@ -1097,19 +1097,19 @@ Return ONLY the JSON object. No markdown, no explanations.
 OPHTHAL_FULL_PARAMETERS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics
+        # Section 1: Student Demographics
         "patientDemographics": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+                "name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
                 "mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
-                "age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years', '6 months') or empty string"),
+                "age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years', '6 months') or empty string"),
                 "gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
                 "consultationDate": types.Schema(type=types.Type.STRING, description="Date in YYYY-MM-DD format or empty string"),
                 "visitId": types.Schema(type=types.Type.STRING, description="Visit/appointment ID or empty string"),
-                "doctorName": types.Schema(type=types.Type.STRING, description="Consulting doctor name or empty string")
+                "doctorName": types.Schema(type=types.Type.STRING, description="Consulting counsellor name or empty string")
             },
-            description="Patient identification and demographics"
+            description="Student identification and demographics"
         ),
 
         # Section 1A: Extended History (NEW)
@@ -1138,7 +1138,7 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA = types.Schema(
                     properties={
                         "unaidedVision": types.Schema(type=types.Type.STRING, description="Snellen notation (e.g., 6/60, 20/20) or N/A"),
                         "aidedVision": types.Schema(type=types.Type.STRING, description="Vision with correction or N/A"),
-                        "patientGlasses": types.Schema(type=types.Type.STRING, description="Vision with patient's own glasses or N/A"),
+                        "patientGlasses": types.Schema(type=types.Type.STRING, description="Vision with student's own glasses or N/A"),
                         "pinholeVision": types.Schema(type=types.Type.STRING, description="Vision with pinhole or N/A"),
                         "nearAdd": types.Schema(type=types.Type.STRING, description="Near addition power for presbyopia or N/A"),
                         "nearVision": types.Schema(type=types.Type.STRING, description="Near vision (N notation) or N/A"),
@@ -1153,7 +1153,7 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA = types.Schema(
                     properties={
                         "unaidedVision": types.Schema(type=types.Type.STRING, description="Snellen notation or N/A"),
                         "aidedVision": types.Schema(type=types.Type.STRING, description="Vision with correction or N/A"),
-                        "patientGlasses": types.Schema(type=types.Type.STRING, description="Vision with patient's own glasses or N/A"),
+                        "patientGlasses": types.Schema(type=types.Type.STRING, description="Vision with student's own glasses or N/A"),
                         "pinholeVision": types.Schema(type=types.Type.STRING, description="Vision with pinhole or N/A"),
                         "nearAdd": types.Schema(type=types.Type.STRING, description="Near addition power for presbyopia or N/A"),
                         "nearVision": types.Schema(type=types.Type.STRING, description="Near vision (N notation) or N/A"),
@@ -1436,7 +1436,7 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA = types.Schema(
             description="Procedures performed during visit (empty array if none)"
         ),
 
-        # Section 22: Doctor Recommendations
+        # Section 22: Counsellor Recommendations
         "doctorRecommendation": types.Schema(type=types.Type.STRING, description="Treatment plan, medications, follow-up instructions or N/A"),
 
         # Section 23: Clinical Notes
@@ -1521,14 +1521,14 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA = types.Schema(
 OPHTHAL_FULL_PARAMETERS_SCHEMA_FLAT = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics (flattened)
-        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Patient full name or empty string"),
+        # Section 1: Student Demographics (flattened)
+        "patientDemographics_name": types.Schema(type=types.Type.STRING, description="Student full name or empty string"),
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
-        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years', '6 months') or empty string"),
+        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years', '6 months') or empty string"),
         "patientDemographics_gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
         "patientDemographics_consultationDate": types.Schema(type=types.Type.STRING, description="Date in YYYY-MM-DD format or empty string"),
         "patientDemographics_visitId": types.Schema(type=types.Type.STRING, description="Visit/appointment ID or empty string"),
-        "patientDemographics_doctorName": types.Schema(type=types.Type.STRING, description="Consulting doctor name or empty string"),
+        "patientDemographics_doctorName": types.Schema(type=types.Type.STRING, description="Consulting counsellor name or empty string"),
 
         # Section 1A: Extended History (flattened - NEW)
         "extendedHistory_systemicIllness": types.Schema(type=types.Type.STRING, description="Systemic diseases affecting eyes or empty string"),
@@ -1544,7 +1544,7 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA_FLAT = types.Schema(
         # Section 5: Visual Acuity and Refraction (flattened - 2 levels, bilateral)
         "visualAcuityAndRefraction_rightEye_unaidedVision": types.Schema(type=types.Type.STRING, description="Right eye Snellen notation (e.g., 6/60, 20/20) or N/A"),
         "visualAcuityAndRefraction_rightEye_aidedVision": types.Schema(type=types.Type.STRING, description="Right eye vision with correction or N/A"),
-        "visualAcuityAndRefraction_rightEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Right eye vision with patient's own glasses or N/A"),
+        "visualAcuityAndRefraction_rightEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Right eye vision with student's own glasses or N/A"),
         "visualAcuityAndRefraction_rightEye_pinholeVision": types.Schema(type=types.Type.STRING, description="Right eye vision with pinhole or N/A"),
         "visualAcuityAndRefraction_rightEye_nearAdd": types.Schema(type=types.Type.STRING, description="Right eye near addition power for presbyopia or N/A"),
         "visualAcuityAndRefraction_rightEye_nearVision": types.Schema(type=types.Type.STRING, description="Right eye near vision (N notation) or N/A"),
@@ -1553,7 +1553,7 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA_FLAT = types.Schema(
         "visualAcuityAndRefraction_rightEye_refractionAxis": types.Schema(type=types.Type.NUMBER, description="Right eye axis in degrees (0-180)", nullable=True),
         "visualAcuityAndRefraction_leftEye_unaidedVision": types.Schema(type=types.Type.STRING, description="Left eye Snellen notation or N/A"),
         "visualAcuityAndRefraction_leftEye_aidedVision": types.Schema(type=types.Type.STRING, description="Left eye vision with correction or N/A"),
-        "visualAcuityAndRefraction_leftEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Left eye vision with patient's own glasses or N/A"),
+        "visualAcuityAndRefraction_leftEye_patientGlasses": types.Schema(type=types.Type.STRING, description="Left eye vision with student's own glasses or N/A"),
         "visualAcuityAndRefraction_leftEye_pinholeVision": types.Schema(type=types.Type.STRING, description="Left eye vision with pinhole or N/A"),
         "visualAcuityAndRefraction_leftEye_nearAdd": types.Schema(type=types.Type.STRING, description="Left eye near addition power for presbyopia or N/A"),
         "visualAcuityAndRefraction_leftEye_nearVision": types.Schema(type=types.Type.STRING, description="Left eye near vision (N notation) or N/A"),
@@ -1740,10 +1740,10 @@ OPHTHAL_FULL_PARAMETERS_SCHEMA_FLAT = types.Schema(
             description="Procedures performed during visit (empty array if none)"
         ),
 
-        # Section 22: Doctor Recommendation (simple field)
+        # Section 22: Counsellor Recommendation (simple field)
         "doctorRecommendation": types.Schema(type=types.Type.STRING, description="Treatment plan, medications, follow-up instructions or N/A"),
 
-        # Section 23: Doctor Notes and Investigation
+        # Section 23: Counsellor Notes and Investigation
         "doctorNotes": types.Schema(type=types.Type.STRING, description="Additional clinical notes or observations or N/A"),
         "investigation": types.Schema(
             type=types.Type.ARRAY,

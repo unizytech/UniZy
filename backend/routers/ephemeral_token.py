@@ -25,22 +25,22 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 # Type stubs for when AUTH_ENABLED is False - these are no-op functions
 # Using type: ignore to suppress Pylance warnings about function redefinition
 if AUTH_ENABLED:
-    from dependencies.auth import get_current_client, EHRDoctorAccessChecker
-    _doctor_checker = EHRDoctorAccessChecker()
+    from dependencies.auth import get_current_client, EHRCounsellorAccessChecker
+    _doctor_checker = EHRCounsellorAccessChecker()
 
     async def require_auth(request: Request):  # type: ignore[misc]
         """Basic authentication - any valid client can access"""
         return get_current_client(request)
 
-    async def verify_doctor_access_from_body(request: Request):  # type: ignore[misc]
-        """For endpoints where doctor_id is in request body - validation happens in endpoint"""
+    async def verify_counsellor_access_from_body(request: Request):  # type: ignore[misc]
+        """For endpoints where counsellor_id is in request body - validation happens in endpoint"""
         client = get_current_client(request)
         return await _doctor_checker(request, None, client)
 else:
     async def require_auth(request: Request = None):  # type: ignore[misc]
         return None
 
-    async def verify_doctor_access_from_body(request: Request = None):  # type: ignore[misc]
+    async def verify_counsellor_access_from_body(request: Request = None):  # type: ignore[misc]
         return None
 
 
@@ -58,7 +58,7 @@ class LiveApiUsageRequest(BaseModel):
     session_duration_seconds: float  # Total WebSocket session duration
     audio_duration_seconds: Optional[float] = None  # Actual audio sent
     session_id: Optional[str] = None  # Recording session UUID
-    doctor_id: Optional[str] = None  # Doctor UUID
+    counsellor_id: Optional[str] = None  # Counsellor UUID
     consultation_type_code: Optional[str] = None
     template_code: Optional[str] = None
     error_message: Optional[str] = None
@@ -154,7 +154,7 @@ async def generate_ephemeral_token(
 async def log_live_api_usage(
     http_request: Request,
     request: LiveApiUsageRequest,
-    _auth = Depends(verify_doctor_access_from_body)
+    _auth = Depends(verify_counsellor_access_from_body)
 ):
     """
     Log usage for a completed Gemini Live API session.
@@ -170,7 +170,7 @@ async def log_live_api_usage(
     - session_duration_seconds: Total WebSocket session duration
     - audio_duration_seconds: Actual audio sent (may be less due to pauses)
     - session_id: Recording session UUID (optional)
-    - doctor_id: Doctor UUID (optional)
+    - counsellor_id: Counsellor UUID (optional)
     - consultation_type_code: e.g., "OP_HOSP1" (optional)
     - template_code: Template used (optional)
     - error_message: Error if session failed (optional)
@@ -183,7 +183,7 @@ async def log_live_api_usage(
 
         # Parse UUIDs if provided
         session_uuid = uuid.UUID(request.session_id) if request.session_id else None
-        doctor_uuid = uuid.UUID(request.doctor_id) if request.doctor_id else None
+        counsellor_uuid = uuid.UUID(request.counsellor_id) if request.counsellor_id else None
 
         # Create usage data
         usage_data = create_live_api_usage(
@@ -191,7 +191,7 @@ async def log_live_api_usage(
             session_duration_seconds=request.session_duration_seconds,
             audio_duration_seconds=request.audio_duration_seconds,
             session_id=session_uuid,
-            doctor_id=doctor_uuid,
+            counsellor_id=counsellor_uuid,
             consultation_type_code=request.consultation_type_code,
             template_code=request.template_code,
             error_message=request.error_message,
@@ -204,7 +204,7 @@ async def log_live_api_usage(
             f"Logged Live API usage: session_duration={request.session_duration_seconds:.1f}s, "
             f"audio_duration={request.audio_duration_seconds or 0:.1f}s, "
             f"estimated_cost=${usage_data.total_cost_usd:.6f}, "
-            f"doctor_id={request.doctor_id}"
+            f"counsellor_id={request.counsellor_id}"
         )
 
         return LiveApiUsageResponse(

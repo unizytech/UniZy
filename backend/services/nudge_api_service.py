@@ -96,23 +96,23 @@ class NudgeApiService:
     def _build_common_fields(
         self,
         extraction_id: str,
-        patient_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
+        student_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         patient_name: Optional[str] = None,
-        doctor_name: Optional[str] = None,
+        counsellor_name: Optional[str] = None,
         preferred_language: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Build the common fields shared across all Nudge payloads."""
         fields: Dict[str, Any] = {"extraction_id": extraction_id}
-        if patient_id:
-            fields["patient_id"] = patient_id
-        if doctor_id:
-            fields["doctor_id"] = doctor_id
+        if student_id:
+            fields["student_id"] = student_id
+        if counsellor_id:
+            fields["counsellor_id"] = counsellor_id
         if patient_name:
             fields["patient_name"] = patient_name
-        if doctor_name:
-            fields["doctor_name"] = doctor_name
+        if counsellor_name:
+            fields["counsellor_name"] = counsellor_name
         if preferred_language:
             fields["preferred_language"] = preferred_language
         if metadata:
@@ -127,8 +127,8 @@ class NudgeApiService:
         self,
         extraction_id: str,
         full_extraction: Dict[str, Any],
-        patient_id: Optional[str] = None,
-        doctor_id: Optional[str] = None,
+        student_id: Optional[str] = None,
+        counsellor_id: Optional[str] = None,
         template_code: Optional[str] = None,
         submission_id: Optional[str] = None,
     ) -> bool:
@@ -136,14 +136,14 @@ class NudgeApiService:
         if not self.enabled:
             return False
 
-        patient_name, doctor_name, preferred_language = await _lookup_names(patient_id, doctor_id)
+        patient_name, counsellor_name, preferred_language = await _lookup_names(student_id, counsellor_id)
 
         payload = self._build_common_fields(
             extraction_id=extraction_id,
-            patient_id=patient_id,
-            doctor_id=doctor_id,
+            student_id=student_id,
+            counsellor_id=counsellor_id,
             patient_name=patient_name,
-            doctor_name=doctor_name,
+            counsellor_name=counsellor_name,
             preferred_language=preferred_language,
             metadata={
                 "template_code": template_code,
@@ -172,20 +172,12 @@ class NudgeApiService:
             logger.warning(f"[NUDGE] Extraction not found for emotions: {extraction_id}")
             return False
 
-        patient_id = extraction.get("patient_id")
-        doctor_id = extraction.get("doctor_id")
-        patient_name, doctor_name, preferred_language = await _lookup_names(patient_id, doctor_id)
+        student_id = extraction.get("student_id")
+        counsellor_id = extraction.get("counsellor_id")
+        patient_name, counsellor_name, preferred_language = await _lookup_names(student_id, counsellor_id)
 
-        # Fetch the 7 unified emotion segment codes
-        unified_emotion_codes = [
-            "ANXIETY_POST_CONSULTATION",
-            "FINANCIAL_CONCERNS",
-            "OTHER_EMOTIONS_DETECTED",
-            "TREATMENT_COMPLIANCE_LIKELIHOOD",
-            "DOCTOR_COMMUNICATION_STYLE",
-            "INTERACTION_DYNAMICS",
-            "CONGRUENCE_SUMMARY",
-        ]
+        # Fetch the unified emotion segment codes (counselling 3-speaker model) — single source
+        from services.supabase_service import UNIFIED_EMOTION_SEGMENT_CODES as unified_emotion_codes
 
         segments_response = (
             supabase.table("extraction_segments")
@@ -208,10 +200,10 @@ class NudgeApiService:
 
         payload = self._build_common_fields(
             extraction_id=extraction_id,
-            patient_id=patient_id,
-            doctor_id=doctor_id,
+            student_id=student_id,
+            counsellor_id=counsellor_id,
             patient_name=patient_name,
-            doctor_name=doctor_name,
+            counsellor_name=counsellor_name,
             preferred_language=preferred_language,
             metadata={
                 "source": "emotion_analysis",
@@ -237,9 +229,9 @@ class NudgeApiService:
             logger.warning(f"[NUDGE] Extraction not found for interventions: {extraction_id}")
             return False
 
-        patient_id = extraction.get("patient_id")
-        doctor_id = extraction.get("doctor_id")
-        patient_name, doctor_name, preferred_language = await _lookup_names(patient_id, doctor_id)
+        student_id = extraction.get("student_id")
+        counsellor_id = extraction.get("counsellor_id")
+        patient_name, counsellor_name, preferred_language = await _lookup_names(student_id, counsellor_id)
 
         interventions = get_categorized_interventions(uuid_module.UUID(extraction_id))
         if not interventions:
@@ -259,10 +251,10 @@ class NudgeApiService:
 
         payload = self._build_common_fields(
             extraction_id=extraction_id,
-            patient_id=patient_id,
-            doctor_id=doctor_id,
+            student_id=student_id,
+            counsellor_id=counsellor_id,
             patient_name=patient_name,
-            doctor_name=doctor_name,
+            counsellor_name=counsellor_name,
             preferred_language=preferred_language,
             metadata={
                 "source": "interventions",
@@ -279,39 +271,39 @@ class NudgeApiService:
 # ------------------------------------------------------------------
 
 async def _lookup_names(
-    patient_id: Optional[str],
-    doctor_id: Optional[str],
+    student_id: Optional[str],
+    counsellor_id: Optional[str],
 ) -> tuple:
-    """Lookup patient/doctor display names + patient preferred_language.
+    """Lookup student/counsellor display names + student preferred_language.
 
-    Returns (patient_name, doctor_name, preferred_language).
+    Returns (patient_name, counsellor_name, preferred_language).
     """
     from services.supabase_service import supabase
 
     patient_name = None
-    doctor_name = None
+    counsellor_name = None
     preferred_language = None
 
     try:
-        if doctor_id:
+        if counsellor_id:
             doc_res = (
-                supabase.table("doctors")
+                supabase.table("counsellors")
                 .select("full_name")
-                .eq("id", doctor_id)
+                .eq("id", counsellor_id)
                 .limit(1)
                 .execute()
             )
             if doc_res.data:
-                doctor_name = doc_res.data[0].get("full_name")
+                counsellor_name = doc_res.data[0].get("full_name")
     except Exception as e:
-        logger.debug(f"[NUDGE] Doctor name lookup failed: {e}")
+        logger.debug(f"[NUDGE] Counsellor name lookup failed: {e}")
 
     try:
-        if patient_id:
+        if student_id:
             pat_res = (
-                supabase.table("patients")
+                supabase.table("students")
                 .select("full_name, preferred_language")
-                .eq("id", patient_id)
+                .eq("id", student_id)
                 .limit(1)
                 .execute()
             )
@@ -319,9 +311,9 @@ async def _lookup_names(
                 patient_name = pat_res.data[0].get("full_name")
                 preferred_language = pat_res.data[0].get("preferred_language")
     except Exception as e:
-        logger.debug(f"[NUDGE] Patient name lookup failed: {e}")
+        logger.debug(f"[NUDGE] Student name lookup failed: {e}")
 
-    return patient_name, doctor_name, preferred_language
+    return patient_name, counsellor_name, preferred_language
 
 
 # ------------------------------------------------------------------
@@ -338,8 +330,8 @@ nudge_service = NudgeApiService()
 def send_nudge_medical_records(
     extraction_id: str,
     full_extraction: Dict[str, Any],
-    patient_id: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    student_id: Optional[str] = None,
+    counsellor_id: Optional[str] = None,
     template_code: Optional[str] = None,
     submission_id: Optional[str] = None,
 ) -> None:
@@ -351,8 +343,8 @@ def send_nudge_medical_records(
             nudge_service.send_medical_records(
                 extraction_id=extraction_id,
                 full_extraction=full_extraction,
-                patient_id=patient_id,
-                doctor_id=doctor_id,
+                student_id=student_id,
+                counsellor_id=counsellor_id,
                 template_code=template_code,
                 submission_id=submission_id,
             )

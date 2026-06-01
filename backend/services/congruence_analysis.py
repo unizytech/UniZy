@@ -59,7 +59,7 @@ SEVERITY_MAP = {
     "severe": 3,
 }
 
-# Mapping for doctor communication styles
+# Mapping for counsellor communication styles
 # Positive styles score higher, negative styles score lower
 DOCTOR_STYLE_MAP = {
     # Positive styles (score 3-4)
@@ -75,7 +75,7 @@ DOCTOR_STYLE_MAP = {
     "evasive": 0,
 }
 
-# Negative doctor styles list for easy checking
+# Negative counsellor styles list for easy checking
 NEGATIVE_DOCTOR_STYLES = {"rushed", "dismissive", "detached", "evasive"}
 
 # Negative emotions that may require intervention
@@ -100,12 +100,12 @@ INTERVENTIONS = {
         "priority_score": PRIORITY_CRITICAL,
     },
     "DOCTOR_FOLLOWUP": {
-        "name": "Direct doctor follow-up with patient recommended",
+        "name": "Direct counsellor follow-up with student recommended",
         "priority": "HIGH",
         "priority_score": PRIORITY_HIGH,
     },
     "SECOND_OPINION": {
-        "name": "Second opinion may benefit patient",
+        "name": "Second opinion may benefit student",
         "priority": "HIGH",
         "priority_score": PRIORITY_HIGH,
     },
@@ -130,7 +130,7 @@ INTERVENTIONS = {
         "priority_score": PRIORITY_MEDIUM,
     },
     "PATIENT_FEEDBACK": {
-        "name": "Collect patient feedback on consultation experience",
+        "name": "Collect student feedback on consultation experience",
         "priority": "LOW",
         "priority_score": PRIORITY_LOW,
     },
@@ -209,8 +209,8 @@ def check_compliance_at_risk(value: str) -> bool:
     return score <= 2  # Low (2) or Very Low (1)
 
 
-def check_negative_doctor_style(value: str) -> bool:
-    """Check if doctor style is one of the negative styles."""
+def check_negative_counsellor_style(value: str) -> bool:
+    """Check if counsellor style is one of the negative styles."""
     if not value:
         return False
     return value.lower().strip() in NEGATIVE_DOCTOR_STYLES
@@ -292,7 +292,7 @@ def generate_recommended_interventions(
         triggered.append({
             "code": "EMOTIONAL_SUPPORT",
             **INTERVENTIONS["EMOTIONAL_SUPPORT"],
-            "reason": "Text-audio mismatch detected with moderate+ anxiety - patient may be masking distress",
+            "reason": "Text-audio mismatch detected with moderate+ anxiety - student may be masking distress",
             "source_segments": ["ANXIETY_POST_CONSULTATION"],
         })
 
@@ -368,16 +368,16 @@ def generate_recommended_interventions(
             "source_segments": ["OTHER_EMOTIONS_DETECTED"],
         })
 
-    # 5. Check doctor communication style
-    doctor_style = unified_segments.get("DOCTOR_COMMUNICATION_STYLE", {})
-    primary_style = doctor_style.get("primary_style", "")
-    style_mismatch = doctor_style.get("mismatch", False)
+    # 5. Check counsellor communication style
+    counsellor_style = unified_segments.get("DOCTOR_COMMUNICATION_STYLE", {})
+    primary_style = counsellor_style.get("primary_style", "")
+    style_mismatch = counsellor_style.get("mismatch", False)
 
-    if check_negative_doctor_style(primary_style):
+    if check_negative_counsellor_style(primary_style):
         triggered.append({
             "code": "PATIENT_FEEDBACK",
             **INTERVENTIONS["PATIENT_FEEDBACK"],
-            "reason": f"Doctor communication style flagged: {primary_style}",
+            "reason": f"Counsellor communication style flagged: {primary_style}",
             "source_segments": ["DOCTOR_COMMUNICATION_STYLE"],
         })
 
@@ -435,7 +435,7 @@ __all__ = [
     "clean_likelihood_value",
     "check_severity_threshold",
     "check_compliance_at_risk",
-    "check_negative_doctor_style",
+    "check_negative_counsellor_style",
     "check_negative_emotion",
     "normalize_anxiety_level",
     "normalize_severity",

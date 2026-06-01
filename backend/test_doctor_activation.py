@@ -1,8 +1,8 @@
 """
-Test script for Doctor Template Activation and Segment Management
+Test script for Counsellor Template Activation and Segment Management
 
 Tests:
-1. Activate template for a doctor
+1. Activate template for a counsellor
 2. Load segments for the activated template
 3. Move segments between categories
 4. Update segment configuration (brevity, terminology)
@@ -42,13 +42,13 @@ def print_response(title: str, response: requests.Response):
         print(f"Error: {response.text}")
 
 def test_1_activate_template():
-    """Test 1: Activate template for doctor"""
+    """Test 1: Activate template for counsellor"""
     print("\n" + "="*80)
     print("TEST 1: Activate Template")
     print("="*80)
 
     url = f"{API_BASE_URL}/api/v1/summary/templates/{CONSULTATION_TYPE_CODE}/activate/{TEMPLATE_CODE}"
-    params = {"doctor_id": DOCTOR_ID}
+    params = {"counsellor_id": DOCTOR_ID}
 
     response = requests.post(url, params=params)
     print_response("Activate Template Response", response)
@@ -63,7 +63,7 @@ def test_2_load_segments():
 
     url = f"{API_BASE_URL}/api/v1/summary/segments/{CONSULTATION_TYPE_CODE}"
     params = {
-        "doctor_id": DOCTOR_ID,
+        "counsellor_id": DOCTOR_ID,
         "mode": "full"
     }
 
@@ -116,7 +116,7 @@ def test_3_move_segment(segments: List[Dict[str, Any]]):
 
     url = f"{API_BASE_URL}/api/v1/summary/segments/move"
     params = {
-        "doctor_id": DOCTOR_ID,
+        "counsellor_id": DOCTOR_ID,
         "template_name": TEMPLATE_NAME
     }
     payload = {
@@ -153,7 +153,7 @@ def test_4_update_segment_config(segments: List[Dict[str, Any]]):
 
     url = f"{API_BASE_URL}/api/v1/summary/segments/{segment_code}"
     params = {
-        "doctor_id": DOCTOR_ID,
+        "counsellor_id": DOCTOR_ID,
         "template_name": TEMPLATE_NAME
     }
     payload = {
@@ -175,7 +175,7 @@ def test_5_request_new_segment():
     url = f"{API_BASE_URL}/api/v1/summary/segments/request"
     params = {
         "template_code": TEMPLATE_CODE,
-        "doctor_id": DOCTOR_ID
+        "counsellor_id": DOCTOR_ID
     }
     payload = {
         "segment_name": "Test Segment Custom",
@@ -214,10 +214,10 @@ def test_6_list_pending_requests():
 def main():
     """Run all tests"""
     print("\n" + "="*80)
-    print("DOCTOR TEMPLATE ACTIVATION AND SEGMENT MANAGEMENT TEST SUITE")
+    print("COUNSELLOR TEMPLATE ACTIVATION AND SEGMENT MANAGEMENT TEST SUITE")
     print("="*80)
     print(f"API Base URL: {API_BASE_URL}")
-    print(f"Doctor ID: {DOCTOR_ID}")
+    print(f"Counsellor ID: {DOCTOR_ID}")
     print(f"Consultation Type: {CONSULTATION_TYPE_CODE}")
     print(f"Template Code: {TEMPLATE_CODE}")
 

@@ -1,7 +1,7 @@
 """
-Schema drift logger for doctor edits to medical extractions.
+Schema drift logger for counsellor edits to extractions.
 
-Doctor-edit iframes occasionally send fields with a different shape than
+Counsellor-edit iframes occasionally send fields with a different shape than
 the AI-extraction schema (the canonical example: `diagnosis` arrives as
 {primary_diagnosis: "..."} instead of [{name, code}, ...]). When this
 happens, downstream EHR formatters that assume the canonical shape may
@@ -131,7 +131,7 @@ def _fetch_template_schema_for_extraction(
     """
     Look up the template (id, assembled_schema_json) tied to an extraction.
 
-    Path: medical_extractions.session_id → recording_sessions.template_id
+    Path: extractions.session_id → recording_sessions.template_id
         → templates.assembled_schema_json
 
     Returns (template_id, schema) — either may be None if the extraction
@@ -141,7 +141,7 @@ def _fetch_template_schema_for_extraction(
     from services.supabase_service import supabase
 
     sess_resp = (
-        supabase.table("medical_extractions")
+        supabase.table("extractions")
         .select("recording_sessions(template_id)")
         .eq("id", str(extraction_id))
         .limit(1)

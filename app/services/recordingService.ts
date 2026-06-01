@@ -19,8 +19,8 @@ import { API_CONFIG } from "@lib/config";
 export interface RecordingConfig {
     template: string;  // Template code for database lookups (unique identifier)
     templateName?: string;  // Template display name (optional, for human readability)
-    doctorName: string;  // Contains doctor_id UUID
-    nurseId?: string;  // Optional nurse_id UUID if recording is initiated by a nurse
+    doctorName: string;  // Contains counsellor_id UUID
+    nurseId?: string;  // Optional assistant_id UUID if recording is initiated by an assistant
     patientId: string;
     transcriptionEngine?: string;
     processingMode?: string;  // Processing mode (ultra_fast, fast, default, thorough, ultra)
@@ -117,9 +117,9 @@ export class RecordingManager {
                 body: JSON.stringify({
                     template_code: config.template,  // Template code for DB lookups
                     template_name: config.templateName,  // Display name (optional)
-                    doctor_id: config.doctorName,  // doctorName actually contains doctor_id
-                    nurse_id: config.nurseId || null,  // Optional nurse_id if recording initiated by nurse
-                    patient_id: config.patientId,
+                    counsellor_id: config.doctorName,  // doctorName actually contains counsellor_id
+                    assistant_id: config.nurseId || null,  // Optional assistant_id if recording initiated by assistant
+                    student_id: config.patientId,
                     transcription_engine: config.transcriptionEngine || 'gemini',
                     processing_mode: config.processingMode || 'default',
                     // Only send extraction_mode if template is not TRANSCRIPT_ONLY
@@ -201,8 +201,8 @@ export class RecordingManager {
                 body: JSON.stringify({
                     template_code: config.template,  // Template code for DB lookups
                     template_name: config.templateName,  // Display name (optional)
-                    doctor_id: config.doctorName,  // doctorName actually contains doctor_id
-                    patient_id: config.patientId,
+                    counsellor_id: config.doctorName,  // doctorName actually contains counsellor_id
+                    student_id: config.patientId,
                     transcription_engine: config.transcriptionEngine || 'gemini',
                     processing_mode: config.processingMode || 'default',
                     // Only send extraction_mode if template is not TRANSCRIPT_ONLY

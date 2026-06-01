@@ -136,8 +136,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 client_id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
                 client_type="admin",
                 client_name="test_admin",
-                hospital_id=None,
-                doctor_id=None,
+                school_id=None,
+                counsellor_id=None,
                 permissions=["*"],  # Full permissions for tests
                 rate_limit=None,
             )

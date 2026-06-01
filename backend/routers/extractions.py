@@ -1,16 +1,16 @@
 """
 Extraction Management API Router
 
-Handles operations on medical extractions:
+Handles operations on extractions:
 - Get extraction data (original or edited)
-- Update extraction with doctor edits
+- Update extraction with counsellor edits
 - Compare original vs edited versions
 - Search extractions
 - List extraction history with LLM usage data
 
 Edit Tracking:
 - original_extraction_json: AI-generated (never changes)
-- edited_extraction_json: Latest doctor edits
+- edited_extraction_json: Latest counsellor edits
 - edit_count: Number of times edited
 """
 
@@ -89,7 +89,7 @@ router = APIRouter(
 class UpdateExtractionRequest(BaseModel):
     """Request model for updating extraction with edits"""
     edited_data: Dict[str, Any]  # Complete edited extraction JSON
-    edited_by: str  # Doctor or Nurse UUID who made edits
+    edited_by: str  # Counsellor or Assistant UUID who made edits
     edited_by_type: str = "doctor"  # Type of user: "doctor" or "nurse"
 
 
@@ -98,8 +98,8 @@ class ExtractionResponse(BaseModel):
     extraction_id: str
     session_id: Optional[str]
     consultation_type_id: str
-    doctor_id: Optional[str]
-    patient_id: Optional[str]
+    counsellor_id: Optional[str]
+    student_id: Optional[str]
     extraction_mode: str
     segment_count: int
     extraction_data: Dict[str, Any]  # Current data (edited if exists, otherwise original)
@@ -153,9 +153,9 @@ class ExtractionHistoryItem(BaseModel):
     consultation_type_id: str
     consultation_type_name: Optional[str]
     template_code: Optional[str]
-    doctor_id: Optional[str]
-    doctor_name: Optional[str]
-    patient_id: Optional[str]
+    counsellor_id: Optional[str]
+    counsellor_name: Optional[str]
+    student_id: Optional[str]
     extraction_mode: str
     segment_count: int
     is_edited: bool
@@ -226,7 +226,7 @@ async def get_extraction_by_session_id(
         # Step 1: Look up extraction_id by session (lightweight query)
         response = await loop.run_in_executor(
             _extraction_executor,
-            lambda: supabase.table("medical_extractions")
+            lambda: supabase.table("extractions")
                 .select("id")
                 .eq("session_id", str(session_uuid))
                 .order("created_at", desc=True)
@@ -276,7 +276,7 @@ async def get_extraction_by_session_id(
 
 @router.get("/history", response_model=ExtractionHistoryResponse)
 async def get_extraction_history(
-    doctor_id: Optional[str] = Query(None, description="Filter by doctor ID"),
+    counsellor_id: Optional[str] = Query(None, description="Filter by counsellor ID"),
     consultation_type_id: Optional[str] = Query(None, description="Filter by consultation type"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -289,7 +289,7 @@ async def get_extraction_history(
     **Admin only** - Shows LLM usage and cost data.
 
     Returns a paginated list of extractions with:
-    - Extraction metadata (consultation type, doctor, mode, etc.)
+    - Extraction metadata (consultation type, counsellor, mode, etc.)
     - Processing times (stitching, transcription, extraction)
     - LLM usage summary (total tokens, costs, cache savings)
     - Optionally: detailed LLM usage per API call
@@ -304,9 +304,9 @@ async def get_extraction_history(
         offset = (page - 1) * page_size
 
         # Build base query for extractions
-        query = supabase.table("medical_extractions")\
+        query = supabase.table("extractions")\
             .select(
-                "id, session_id, submission_id, consultation_type_id, doctor_id, patient_id, "
+                "id, session_id, submission_id, consultation_type_id, counsellor_id, student_id, "
                 "extraction_mode, model_used, segment_count, edit_count, created_at, "
                 "stitching_time_seconds, transcription_time_seconds, "
                 "extraction_time_seconds, total_processing_time_seconds, "
@@ -315,8 +315,8 @@ async def get_extraction_history(
             .order("created_at", desc=True)
 
         # Apply filters
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+        if counsellor_id:
+            query = query.eq("counsellor_id", counsellor_id)
         if consultation_type_id:
             query = query.eq("consultation_type_id", consultation_type_id)
 
@@ -327,9 +327,9 @@ async def get_extraction_history(
         extractions_data = result.data or []
 
         # Get total count for pagination
-        count_query = supabase.table("medical_extractions").select("id", count="exact")
-        if doctor_id:
-            count_query = count_query.eq("doctor_id", doctor_id)
+        count_query = supabase.table("extractions").select("id", count="exact")
+        if counsellor_id:
+            count_query = count_query.eq("counsellor_id", counsellor_id)
         if consultation_type_id:
             count_query = count_query.eq("consultation_type_id", consultation_type_id)
         count_result = count_query.execute()
@@ -341,9 +341,9 @@ async def get_extraction_history(
         for ct in (ct_result.data or []):
             consultation_types[ct["id"]] = ct["type_name"]
 
-        # Get doctors for names
+        # Get counsellors for names
         doctors = {}
-        doc_result = supabase.table("doctors").select("id, full_name").execute()
+        doc_result = supabase.table("counsellors").select("id, full_name").execute()
         for doc in (doc_result.data or []):
             doctors[doc["id"]] = doc["full_name"]
 
@@ -488,9 +488,9 @@ async def get_extraction_history(
                 consultation_type_name=consultation_types.get(ext["consultation_type_id"]),
                 template_code=templates.get(session_id) if session_id else None,
                 recording_duration_seconds=recording_durations.get(session_id) if session_id else None,
-                doctor_id=ext.get("doctor_id"),
-                doctor_name=doctors.get(ext.get("doctor_id")) if ext.get("doctor_id") else None,
-                patient_id=ext.get("patient_id"),
+                counsellor_id=ext.get("counsellor_id"),
+                counsellor_name=doctors.get(ext.get("counsellor_id")) if ext.get("counsellor_id") else None,
+                student_id=ext.get("student_id"),
                 extraction_mode=ext["extraction_mode"],
                 segment_count=ext["segment_count"],
                 is_edited=ext.get("edited_extraction_json") is not None,
@@ -564,7 +564,7 @@ async def get_extraction_with_llm_details(
         extraction_uuid = uuid.UUID(extraction_id)
 
         # Get extraction with all data
-        ext_result = supabase.table("medical_extractions")\
+        ext_result = supabase.table("extractions")\
             .select("*")\
             .eq("id", str(extraction_uuid))\
             .limit(1)\
@@ -587,16 +587,16 @@ async def get_extraction_with_llm_details(
             if ct_result.data:
                 ct_name = ct_result.data[0]["type_name"]
 
-        # Get doctor name
-        doctor_name = None
-        if ext.get("doctor_id"):
-            doc_result = supabase.table("doctors")\
+        # Get counsellor name
+        counsellor_name = None
+        if ext.get("counsellor_id"):
+            doc_result = supabase.table("counsellors")\
                 .select("full_name")\
-                .eq("id", ext["doctor_id"])\
+                .eq("id", ext["counsellor_id"])\
                 .limit(1)\
                 .execute()
             if doc_result.data:
-                doctor_name = doc_result.data[0]["full_name"]
+                counsellor_name = doc_result.data[0]["full_name"]
 
         # Get template code from session
         template_code = None
@@ -627,7 +627,7 @@ async def get_extraction_with_llm_details(
             session_level_usage = [u for u in all_usage if u.get("extraction_id") is None and u.get("session_id") == session_id]
 
             # Check if this is a retry by finding other extractions with the same session_id
-            other_extractions = supabase.table("medical_extractions")\
+            other_extractions = supabase.table("extractions")\
                 .select("id, created_at")\
                 .eq("session_id", session_id)\
                 .order("created_at", desc=False)\
@@ -699,9 +699,9 @@ async def get_extraction_with_llm_details(
             "consultation_type_id": ext["consultation_type_id"],
             "consultation_type_name": ct_name,
             "template_code": template_code,
-            "doctor_id": ext.get("doctor_id"),
-            "doctor_name": doctor_name,
-            "patient_id": ext.get("patient_id"),
+            "counsellor_id": ext.get("counsellor_id"),
+            "counsellor_name": counsellor_name,
+            "student_id": ext.get("student_id"),
             "extraction_mode": ext["extraction_mode"],
             "segment_count": ext["segment_count"],
             "is_edited": ext.get("edited_extraction_json") is not None,
@@ -808,7 +808,7 @@ async def get_extraction(
                 asyncio.create_task(audit_service.log_phi_access(
                     client_context=client_ctx, request=request, response_status=200,
                     response_time_ms=0, resource_type="extraction", resource_id=extraction_id,
-                    action="read", patient_id=data.get("patient_id") if isinstance(data, dict) else None,
+                    action="read", student_id=data.get("student_id") if isinstance(data, dict) else None,
                 ))
             except Exception:
                 pass
@@ -829,7 +829,7 @@ async def update_extraction(
     _auth = Depends(verify_extraction_access)
 ):
     """
-    Update extraction with doctor's edits.
+    Update extraction with counsellor's edits.
 
     **What this does:**
     - Stores edited_data in `edited_extraction_json`
@@ -840,7 +840,7 @@ async def update_extraction(
     - **Schedules background task** to compare medicine name changes and log feedback
 
     **Usage:**
-    1. Doctor edits extraction in frontend
+    1. Counsellor edits extraction in frontend
     2. Frontend calls this endpoint with complete edited JSON
     3. System stores latest edit (overwrites previous edit if exists)
     4. Original AI extraction remains unchanged for comparison
@@ -861,45 +861,45 @@ async def update_extraction(
 
         # Validate that edited_by exists in the appropriate table
         if request.edited_by_type == "doctor":
-            doctor_check = supabase.table("doctors")\
+            counsellor_check = supabase.table("counsellors")\
                 .select("id")\
                 .eq("id", str(edited_by_uuid))\
                 .limit(1)\
                 .execute()
-            if not doctor_check.data:
+            if not counsellor_check.data:
                 raise HTTPException(
                     status_code=404,
-                    detail="Doctor not found"
+                    detail="Counsellor not found"
                 )
-        else:  # nurse
-            nurse_check = supabase.table("nurses")\
+        else:  # assistant
+            assistant_check = supabase.table("assistants")\
                 .select("id")\
                 .eq("id", str(edited_by_uuid))\
                 .limit(1)\
                 .execute()
-            if not nurse_check.data:
+            if not assistant_check.data:
                 raise HTTPException(
                     status_code=404,
-                    detail="Nurse not found"
+                    detail="Assistant not found"
                 )
 
         # Get original extraction BEFORE update for medicine comparison
         # Also get template_code for AOSTA_OP sync check (via recording_sessions FK)
-        original_result = supabase.table("medical_extractions")\
-            .select("original_extraction_json, doctor_id, patient_id, recording_metadata_json, recording_sessions(template_code)")\
+        original_result = supabase.table("extractions")\
+            .select("original_extraction_json, counsellor_id, student_id, recording_metadata_json, recording_sessions(template_code)")\
             .eq("id", str(extraction_uuid))\
             .limit(1)\
             .execute()
 
         original_extraction = None
-        doctor_id = None
+        counsellor_id = None
         patient_uuid = None
         recording_metadata = None
         template_code = None
         if original_result.data:
             original_extraction = original_result.data[0].get("original_extraction_json")
-            doctor_id = original_result.data[0].get("doctor_id")
-            patient_uuid = original_result.data[0].get("patient_id")
+            counsellor_id = original_result.data[0].get("counsellor_id")
+            patient_uuid = original_result.data[0].get("student_id")
             recording_metadata = original_result.data[0].get("recording_metadata_json") or {}
             session_info = original_result.data[0].get("recording_sessions") or {}
             template_code = session_info.get("template_code")
@@ -913,40 +913,40 @@ async def update_extraction(
         )
 
         # Schedule background task to compare medicine edits
-        if original_extraction and doctor_id:
+        if original_extraction and counsellor_id:
             from services.background_tasks import schedule_medicine_edit_feedback
             await schedule_medicine_edit_feedback(
                 extraction_id=extraction_uuid,
-                doctor_id=uuid.UUID(doctor_id),
+                counsellor_id=uuid.UUID(counsellor_id),
                 original_extraction=original_extraction,
                 edited_extraction=request.edited_data,
             )
 
-        # EHR Integration: Unified doctor-based routing (fire-and-forget)
-        # Routes to EHR based on doctor's ehr_type_id (not template code)
-        # - Doctor's ehr_type_id determines which EHR to send to
-        # - Hospital's config provides the URL for that EHR type
+        # EHR Integration: Unified counsellor-based routing (fire-and-forget)
+        # Routes to EHR based on counsellor's ehr_type_id (not template code)
+        # - Counsellor's ehr_type_id determines which EHR to send to
+        # - School's config provides the URL for that EHR type
         # - Both creation AND edit/save trigger EHR sync (EHR overrides with latest payload)
         ehr_sync_scheduled = False
-        if doctor_id:
+        if counsellor_id:
             try:
                 from services.ehr_routing_service import schedule_ehr_sync
-                from services.supabase_service import get_doctor_hospital_id_cached
-                from services.aosta_service import get_patient_external_id, get_hospital_code
+                from services.supabase_service import get_counsellor_school_id_cached
+                from services.aosta_service import get_student_external_id, get_school_code
 
                 # Build patient_info dict with all fields needed by various EHRs
                 patient_info = {}
 
-                # Get patient external ID (UHID)
+                # Get student external ID (UHID)
                 if patient_uuid:
-                    patient_info["patient_id"] = get_patient_external_id(patient_uuid) or ""
+                    patient_info["student_id"] = get_student_external_id(patient_uuid) or ""
 
-                # Get hospital_id and hospital_code
-                hospital_id = get_doctor_hospital_id_cached(uuid.UUID(doctor_id))
-                if hospital_id:
-                    patient_info["hospital_code"] = get_hospital_code(str(hospital_id)) or ""
+                # Get school_id and school_code
+                school_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
+                if school_id:
+                    patient_info["school_code"] = get_school_code(str(school_id)) or ""
 
-                patient_info["doctor_id"] = doctor_id
+                patient_info["counsellor_id"] = counsellor_id
 
                 # All EHR-specific fields from recording_metadata
                 # (each EHR routing function picks only the fields it needs)
@@ -964,7 +964,7 @@ async def update_extraction(
                     patient_info["template_id_aosta"] = recording_metadata.get("template_id") or recording_metadata.get("Template_id") or ""
                     patient_info["template_name_aosta"] = recording_metadata.get("template_name") or recording_metadata.get("Template_Name") or ""
 
-                # Re-match medicines and investigations against doctor/hospital lists
+                # Re-match medicines and investigations against counsellor/school lists
                 # to ensure _external_id and other enrichment fields are current
                 import copy
                 from services.medicine_service import postprocess_prescription_extraction
@@ -978,14 +978,14 @@ async def update_extraction(
                 try:
                     enriched_data = await postprocess_prescription_extraction(
                         extraction_data=enriched_data,
-                        doctor_id=uuid.UUID(doctor_id),
+                        counsellor_id=uuid.UUID(counsellor_id),
                         extraction_id=extraction_uuid,
                         submission_id=str(extraction_uuid),
                         log_matches=False
                     )
                     enriched_data = await postprocess_investigations_extraction(
                         extraction_data=enriched_data,
-                        doctor_id=uuid.UUID(doctor_id),
+                        counsellor_id=uuid.UUID(counsellor_id),
                         extraction_id=extraction_uuid,
                         submission_id=str(extraction_uuid),
                         log_matches=False
@@ -994,24 +994,15 @@ async def update_extraction(
 
                     # Compute EHR payload (formatted, with lookups) separately
                     # enriched_data stays RAW -> edited_extraction_json
-                    # ehr_payload gets lookups -> ehr_payload_json
+                    # ehr_payload (template-specific lookup formatting removed with NEO subsystem)
                     ehr_payload = None
-                    try:
-                        # Only compute ehr_payload for templates that have lookups (neo_*/neonatal_*)
-                        _tc_upper = (template_code or "").upper()
-                        if _tc_upper.startswith("NEO") or _tc_upper.startswith("NEONATAL"):
-                            import copy as _copy
-                            from services.neo_lookup_dispatcher import apply_template_lookups
-                            ehr_payload = apply_template_lookups(_copy.deepcopy(enriched_data), template_code)
-                    except Exception as lookup_err:
-                        logger.warning(f"[EXTRACTIONS] EHR payload computation on edit failed: {lookup_err}")
 
                     # Persist: raw enriched -> edited_extraction_json, formatted -> ehr_payload_json
                     try:
                         update_fields = {"edited_extraction_json": enriched_data}
                         if ehr_payload is not None:
                             update_fields["ehr_payload_json"] = ehr_payload
-                        supabase.table("medical_extractions")\
+                        supabase.table("extractions")\
                             .update(update_fields)\
                             .eq("id", str(extraction_uuid))\
                             .execute()
@@ -1022,9 +1013,9 @@ async def update_extraction(
                     logger.warning(f"[EXTRACTIONS] Re-match on edit failed, using raw edited data: {e}")
                     enriched_data = request.edited_data
 
-                # Schedule EHR sync (fire-and-forget based on doctor's ehr_type_id)
+                # Schedule EHR sync (fire-and-forget based on counsellor's ehr_type_id)
                 ehr_sync_scheduled = schedule_ehr_sync(
-                    doctor_id=doctor_id,
+                    counsellor_id=counsellor_id,
                     extraction_data=enriched_data,
                     patient_info=patient_info,
                     template_code=template_code,
@@ -1043,9 +1034,9 @@ async def update_extraction(
         try:
             from services.edit_validation_service import generate_edit_warnings
             ehr_code_for_warnings = None
-            if doctor_id:
-                from services.ehr_routing_service import get_doctor_ehr_config
-                ehr_config = await get_doctor_ehr_config(doctor_id, template_code)
+            if counsellor_id:
+                from services.ehr_routing_service import get_counsellor_ehr_config
+                ehr_config = await get_counsellor_ehr_config(counsellor_id, template_code)
                 ehr_code_for_warnings = ehr_config.get("ehr_code") if ehr_config else None
 
             edit_warnings = generate_edit_warnings(
@@ -1063,14 +1054,14 @@ async def update_extraction(
         # Publish edit to realtime table (fire-and-forget)
         try:
             from services.realtime_publisher_service import publish_extraction_response_fire_and_forget
-            from services.supabase_service import get_doctor_hospital_id_cached
+            from services.supabase_service import get_counsellor_school_id_cached
             import uuid as uuid_mod
 
-            _rt_hospital_id = get_doctor_hospital_id_cached(uuid_mod.UUID(doctor_id)) if doctor_id else None
+            _rt_hospital_id = get_counsellor_school_id_cached(uuid_mod.UUID(counsellor_id)) if counsellor_id else None
             if _rt_hospital_id:
                 _rt_recording_metadata = None
                 try:
-                    _me_result = supabase.table("medical_extractions").select(
+                    _me_result = supabase.table("extractions").select(
                         "recording_metadata_json"
                     ).eq("id", str(extraction_uuid)).limit(1).execute()
                     if _me_result.data:
@@ -1079,8 +1070,8 @@ async def update_extraction(
                     pass
                 asyncio.create_task(publish_extraction_response_fire_and_forget(
                     submission_id=str(extraction_uuid),
-                    hospital_id=_rt_hospital_id,
-                    doctor_id=doctor_id,
+                    school_id=_rt_hospital_id,
+                    counsellor_id=counsellor_id,
                     extraction_id=str(extraction_uuid),
                     insights=enriched_data,
                     recording_metadata=_rt_recording_metadata,
@@ -1095,20 +1086,20 @@ async def update_extraction(
                 asyncio.create_task(audit_service.log_phi_access(
                     client_context=client_ctx, request=http_request, response_status=200,
                     response_time_ms=0, resource_type="extraction", resource_id=extraction_id,
-                    action="update", doctor_id=uuid.UUID(doctor_id) if doctor_id else None,
+                    action="update", counsellor_id=uuid.UUID(counsellor_id) if counsellor_id else None,
                 ))
             except Exception:
                 pass
 
         # Fire-and-forget: compute accuracy metrics (Phase 3)
-        if original_extraction and doctor_id:
+        if original_extraction and counsellor_id:
             try:
                 from services.accuracy_metrics_service import compute_and_save_accuracy_metrics
                 asyncio.create_task(compute_and_save_accuracy_metrics(
                     extraction_id=extraction_uuid,
                     original_json=original_extraction,
                     edited_json=request.edited_data,
-                    doctor_id=doctor_id,
+                    counsellor_id=counsellor_id,
                 ))
             except Exception as e:
                 logger.warning(f"[EXTRACTIONS] Failed to schedule accuracy metrics: {e}")
@@ -1119,7 +1110,7 @@ async def update_extraction(
             "extraction_id": str(extraction_uuid),
             "edit_count": updated.get("edit_count", 0),
             "last_edited_at": updated.get("last_edited_at"),
-            "medicine_feedback_scheduled": bool(original_extraction and doctor_id),
+            "medicine_feedback_scheduled": bool(original_extraction and counsellor_id),
             "ehr_sync_scheduled": ehr_sync_scheduled,
             "warnings": edit_warnings
         }
@@ -1138,22 +1129,22 @@ async def update_extraction_by_submission(
     _auth = Depends(verify_submission_access)
 ):
     """
-    Update extraction with doctor's edits using submission_id.
+    Update extraction with counsellor's edits using submission_id.
 
     This is a wrapper around the main update endpoint for cases where
     the frontend only has the submission_id (from the recording workflow)
     and not the extraction_id.
 
-    **Direct lookup:** medical_extractions.submission_id -> extraction_id
-    (submission_id is stored directly in medical_extractions table)
+    **Direct lookup:** extractions.submission_id -> extraction_id
+    (submission_id is stored directly in extractions table)
 
     **See also:** PUT /{extraction_id} for direct extraction updates
     """
     try:
         submission_uuid = uuid.UUID(submission_id)
 
-        # Direct lookup: medical_extractions has submission_id column
-        extraction_result = supabase.table("medical_extractions")\
+        # Direct lookup: extractions has submission_id column
+        extraction_result = supabase.table("extractions")\
             .select("id")\
             .eq("submission_id", str(submission_uuid))\
             .limit(1)\
@@ -1194,7 +1185,7 @@ async def compare_extraction(
     - `edit_count`: Number of times edited
 
     **Use cases:**
-    - Review doctor edits vs AI output
+    - Review counsellor edits vs AI output
     - Audit trail for compliance
     - Quality assurance
     - Training data for model improvement
@@ -1219,7 +1210,7 @@ async def get_original_extraction(
     """
     Get ONLY the original AI-generated extraction (ignore edits).
 
-    **Use case:** Review what AI originally extracted before any doctor edits.
+    **Use case:** Review what AI originally extracted before any counsellor edits.
     """
     try:
         extraction_uuid = uuid.UUID(extraction_id)
@@ -1246,7 +1237,7 @@ async def get_edited_extraction(
     """
     Get ONLY the edited version (returns 404 if never edited).
 
-    **Use case:** Get latest doctor edits without original AI data.
+    **Use case:** Get latest counsellor edits without original AI data.
     """
     try:
         extraction_uuid = uuid.UUID(extraction_id)
@@ -1279,12 +1270,12 @@ async def get_ehr_payload(
 ):
     """
     Return the formatted EHR payload that was (or would be) sent to the
-    target hospital EHR API, alongside the edited and original extractions
+    target school EHR API, alongside the edited and original extractions
     for side-by-side comparison.
 
     **Use case:** verify that the EHR formatter produced the correct wire
-    shape from the doctor's edited JSON — useful when investigating why a
-    field shows up empty on the EHR side after a doctor edit.
+    shape from the counsellor's edited JSON — useful when investigating why a
+    field shows up empty on the EHR side after a counsellor edit.
 
     **Response:**
     - `extraction_id`
@@ -1302,7 +1293,7 @@ async def get_ehr_payload(
         extraction_uuid = uuid.UUID(extraction_id)
 
         result = (
-            supabase.table("medical_extractions")
+            supabase.table("extractions")
             .select(
                 "ehr_payload_json, edited_extraction_json, original_extraction_json, "
                 "edit_count, last_edited_at, last_edited_by, edited_by_type, "
@@ -1329,7 +1320,7 @@ async def get_ehr_payload(
         _rs = row.get("recording_sessions") or {}
         _template_code = _rs.get("template_code") if isinstance(_rs, dict) else None
 
-        # Transcript fallback: when medical_extractions.transcript_text is empty,
+        # Transcript fallback: when extractions.transcript_text is empty,
         # fall back to processing_jobs.transcript for the same session (mirrors
         # the precedence used by get_session_transcript()).
         transcript_text = row.get("transcript_text")
@@ -1456,13 +1447,13 @@ async def get_emotion_analysis(
     **Use cases:**
     - Display emotion analysis in UI modal
     - Clinical insights review
-    - Patient communication assessment
+    - Student communication assessment
     """
     try:
         extraction_uuid = uuid.UUID(extraction_id)
 
         # Get extraction status (include _started flags to detect mode)
-        ext_result = supabase.table("medical_extractions")\
+        ext_result = supabase.table("extractions")\
             .select(
                 "id, emotion_extraction_started, emotion_extraction_completed, "
                 "audio_emotion_extraction_started, audio_emotion_extraction_completed, "
@@ -1576,7 +1567,7 @@ async def get_extraction_interventions(
     _auth = Depends(verify_extraction_access)
 ):
     """
-    Get patient interventions for an extraction.
+    Get student interventions for an extraction.
 
     Returns interventions generated from consultation insights analysis.
 
@@ -1586,7 +1577,7 @@ async def get_extraction_interventions(
     - RX_REFILL: Prescription refill opportunities
     - DIAGNOSTICS_DUE: Diagnostic test opportunities (home collection, recurring tests)
     - ALLIED_HEALTH: Allied health referrals (nutrition, physio, mental health, etc.)
-    - RETENTION_RISK: Patient retention alerts (competitor risk, compliance, satisfaction)
+    - RETENTION_RISK: Student retention alerts (competitor risk, compliance, satisfaction)
     - QUALITY_RISK: Clinical quality/safety alerts (medication safety, documentation)
 
     Each intervention includes:
@@ -1601,7 +1592,7 @@ async def get_extraction_interventions(
         extraction_uuid = uuid.UUID(extraction_id)
 
         # Check if consultation insights is enabled for this extraction's consultation type
-        ext_check = supabase.table("medical_extractions").select(
+        ext_check = supabase.table("extractions").select(
             "consultation_type_id, consultation_types!inner(type_code, enable_consultation_insights)"
         ).eq("id", str(extraction_uuid)).single().execute()
 
@@ -1611,8 +1602,8 @@ async def get_extraction_interventions(
             insights_enabled = ct.get("enable_consultation_insights", True) if ct else True
 
         # Get interventions
-        from services.supabase_service import get_patient_interventions
-        interventions_data = get_patient_interventions(extraction_uuid)
+        from services.supabase_service import get_student_interventions
+        interventions_data = get_student_interventions(extraction_uuid)
 
         interventions = [
             InterventionResponse(
@@ -1682,8 +1673,8 @@ async def get_emotion_analysis_by_submission(
     1. Looks up the extraction_id from the submission_id
     2. Returns the same emotion analysis data as GET /{extraction_id}/emotions
 
-    **Direct lookup:** medical_extractions.submission_id -> extraction_id
-    (submission_id is stored directly in medical_extractions table)
+    **Direct lookup:** extractions.submission_id -> extraction_id
+    (submission_id is stored directly in extractions table)
 
     **Use cases:**
     - Frontend fallback when extraction_id is not available
@@ -1698,8 +1689,8 @@ async def get_emotion_analysis_by_submission(
     try:
         submission_uuid = uuid.UUID(submission_id)
 
-        # Direct lookup: medical_extractions has submission_id column
-        extraction_result = supabase.table("medical_extractions")\
+        # Direct lookup: extractions has submission_id column
+        extraction_result = supabase.table("extractions")\
             .select("id")\
             .eq("submission_id", str(submission_uuid))\
             .limit(1)\
@@ -1808,7 +1799,7 @@ async def get_edit_diff(
 
         # Get "from" version
         if from_version == 0:
-            from_result = supabase.table("medical_extractions")\
+            from_result = supabase.table("extractions")\
                 .select("original_extraction_json")\
                 .eq("id", str(extraction_uuid))\
                 .execute()
@@ -1914,7 +1905,7 @@ async def save_translation_edits_endpoint(
     _auth=Depends(verify_extraction_access),
 ) -> Dict[str, Any]:
     """
-    Save doctor edits to the translated version of an extraction.
+    Save counsellor edits to the translated version of an extraction.
     Edits are stored independently from the English version.
     """
     try:
@@ -1961,20 +1952,20 @@ async def retry_translation_endpoint(
     Used when English version was edited after translation, or when translation failed.
     """
     try:
-        from services.supabase_service import get_extraction_by_id, get_doctor_translation_language
+        from services.supabase_service import get_extraction_by_id, get_counsellor_translation_language
         from services.translation_service import schedule_translation
 
         extraction = get_extraction_by_id(uuid.UUID(extraction_id))
         if not extraction:
             raise HTTPException(status_code=404, detail="Extraction not found")
 
-        doctor_id = extraction.get("doctor_id")
-        if not doctor_id:
-            raise HTTPException(status_code=400, detail="Extraction has no associated doctor")
+        counsellor_id = extraction.get("counsellor_id")
+        if not counsellor_id:
+            raise HTTPException(status_code=400, detail="Extraction has no associated counsellor")
 
-        target_language = get_doctor_translation_language(uuid.UUID(doctor_id))
+        target_language = get_counsellor_translation_language(uuid.UUID(counsellor_id))
         if not target_language:
-            raise HTTPException(status_code=400, detail="No translation language configured for this doctor")
+            raise HTTPException(status_code=400, detail="No translation language configured for this counsellor")
 
         # Use the edited version if available, otherwise original
         extraction_data = extraction.get("edited_extraction_json") or extraction.get("original_extraction_json") or {}
@@ -1993,7 +1984,7 @@ async def retry_translation_endpoint(
         await schedule_translation(
             extraction_id=uuid.UUID(extraction_id),
             extraction_data=extraction_data,
-            doctor_id=doctor_id,
+            counsellor_id=counsellor_id,
             processing_mode_code=processing_mode,
         )
 

@@ -4,7 +4,7 @@
  * View Template Details Modal (Read-Only)
  *
  * Shows segment configurations for common templates without allowing edits.
- * Doctors can view the configuration but must clone to make changes.
+ * Counsellors can view the configuration but must clone to make changes.
  */
 
 import { useState, useEffect } from 'react';

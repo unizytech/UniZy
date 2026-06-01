@@ -60,7 +60,7 @@ def main():
 
     # Test tables
     tables_to_test = [
-        "doctors",
+        "counsellors",
         "consultation_types",
         "processing_modes",
         "templates",

@@ -1,7 +1,7 @@
 """
-KG Hospital Nephrology EHR Integration Service
+KG School Nephrology EHR Integration Service
 
-Transforms NEPHRO_INITIAL extraction output into KG Hospital Nephrology
+Transforms NEPHRO_INITIAL extraction output into KG School Nephrology
 Initial Assessment payload and POSTs it to the configured KG endpoint.
 
 NEPHRO_INITIAL segment mapping (mirrors CARDIO_INITIAL where possible):
@@ -130,7 +130,7 @@ def _format_diagnosis(diagnosis: Any) -> str:
 
     Tolerates two schemas:
       - List form (legacy AI output): [{name, code, type}, ...]
-      - Object form (doctor-edit iframes / new schema):
+      - Object form (counsellor-edit iframes / new schema):
         {primary_diagnosis: "...", interim_diagnosis: [...],
          secondary_diagnoses: [...], differential_diagnoses: [...]}
         → primary text first, then any named diagnoses, joined by "; ".
@@ -226,15 +226,15 @@ def _format_blood_profile(blood: Any) -> Dict[str, str]:
 
 def format_for_kg_nephro(
     extraction_data: Dict[str, Any],
-    patient_id: str = "",
-    doctor_id: str = "",
+    student_id: str = "",
+    counsellor_id: str = "",
     extraction_id: str = "",
-    doctor_name: str = "",
+    counsellor_name: str = "",
     uhid: str = "",
     visit_id: str = "",
     role: str = "",
 ) -> Dict[str, Any]:
-    """Format NEPHRO_INITIAL extraction into KG Hospital Nephrology payload.
+    """Format NEPHRO_INITIAL extraction into KG School Nephrology payload.
 
     Mirrors the cardio payload layout so downstream KG consumers can share
     infra — differences are in `form_type`, the nephro comorbidity checklist,
@@ -278,10 +278,10 @@ def format_for_kg_nephro(
 
     payload: Dict[str, Any] = {
         # Metadata
-        "patient_id": patient_id,
+        "student_id": student_id,
         "uhid": uhid,
         "visit_id": visit_id,
-        "doctor_id": doctor_id,
+        "counsellor_id": counsellor_id,
         "extraction_id": extraction_id,
         "role": role,
         "form_type": "NEPHROLOGY_INITIAL_ASSESSMENT",
@@ -357,7 +357,7 @@ def format_for_kg_nephro(
         "prescription": prescription_arr if isinstance(prescription_arr, list) else [],
 
         # Trailing metadata
-        "doctor_name": doctor_name,
+        "counsellor_name": counsellor_name,
         "time": now.strftime("%H:%M"),
         "review_on": review_date,
     }
@@ -382,15 +382,15 @@ def format_for_kg_nephro(
 
 def format_for_kg_nephro_reassess(
     extraction_data: Dict[str, Any],
-    patient_id: str = "",
-    doctor_id: str = "",
+    student_id: str = "",
+    counsellor_id: str = "",
     extraction_id: str = "",
-    doctor_name: str = "",
+    counsellor_name: str = "",
     uhid: str = "",
     visit_id: str = "",
     role: str = "",
 ) -> Dict[str, Any]:
-    """Format NEPHRO_REASSESS extraction into KG Hospital Nephrology
+    """Format NEPHRO_REASSESS extraction into KG School Nephrology
     Re-Assessment payload.
 
     The reassess template is intentionally narrow — only 4 segments wired
@@ -428,10 +428,10 @@ def format_for_kg_nephro_reassess(
 
     payload: Dict[str, Any] = {
         # Metadata — mirrors nephro_initial
-        "patient_id": patient_id,
+        "student_id": student_id,
         "uhid": uhid,
         "visit_id": visit_id,
-        "doctor_id": doctor_id,
+        "counsellor_id": counsellor_id,
         "extraction_id": extraction_id,
         "role": role,
         "form_type": "NEPHROLOGY_REASSESSMENT",
@@ -456,7 +456,7 @@ def format_for_kg_nephro_reassess(
         "consultants_referral": _to_str(treatment.get("consultants_referral")),
 
         # Trailing metadata — mirrors nephro_initial
-        "doctor_name": doctor_name,
+        "counsellor_name": counsellor_name,
         "time": now.strftime("%H:%M"),
         "review_on": review_date,
     }

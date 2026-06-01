@@ -820,8 +820,8 @@ def _extract_specific_warnings(
 async def calculate_and_save_care_quality(
     extraction_id: uuid.UUID,
     consultation_insights: Dict[str, Any],
-    doctor_id: Optional[uuid.UUID] = None,
-    patient_id: Optional[uuid.UUID] = None
+    counsellor_id: Optional[uuid.UUID] = None,
+    student_id: Optional[uuid.UUID] = None
 ) -> Optional[uuid.UUID]:
     """
     Calculate care quality risk using AI insights and save to database.
@@ -830,10 +830,10 @@ async def calculate_and_save_care_quality(
     Uses AI-extracted consultation insights for enhanced severity detection.
 
     Args:
-        extraction_id: UUID of the medical extraction
+        extraction_id: UUID of the extraction
         consultation_insights: AI-extracted consultation insights (REQUIRED)
-        doctor_id: Optional doctor UUID
-        patient_id: Optional patient UUID
+        counsellor_id: Optional counsellor UUID
+        student_id: Optional student UUID
 
     Returns:
         UUID of saved assessment, or None on error
@@ -892,8 +892,8 @@ async def calculate_and_save_care_quality(
         # Prepare data for database
         assessment_data = {
             "extraction_id": str(extraction_id),
-            "patient_id": str(patient_id) if patient_id else None,
-            "doctor_id": str(doctor_id) if doctor_id else None,
+            "student_id": str(student_id) if student_id else None,
+            "counsellor_id": str(counsellor_id) if counsellor_id else None,
             "care_quality_score": result.care_quality_score,
             "risk_level": result.risk_level.value,
             "is_medication_issue": result.is_medication_issue,

@@ -28,15 +28,15 @@ TARGET_DB="postgresql://postgres:${TARGET_PASSWORD}@db.${TARGET_REF}.supabase.co
 # ============================================
 TABLES=(
     # Base tables
-    "hospitals"
+    "schools"
     "processing_modes"
     "consultation_types"
 
     # Core entities
-    "doctors"
-    "nurses"
+    "counsellors"
+    "assistants"
     "api_clients"
-    "patients"
+    "students"
 
     # Prompt system
     "segment_definitions"
@@ -47,23 +47,23 @@ TABLES=(
     # Templates
     "templates"
     "template_segments"
-    "doctor_templates"
-    "nurse_templates"
+    "counsellor_templates"
+    "assistant_templates"
 
     # Junction tables
     "consultation_type_segments"
     "consultation_type_system_prompts"
 
     # Medicine/Investigation
-    "doctor_medicines"
-    "doctor_investigations"
+    "counsellor_medicines"
+    "counsellor_investigations"
     "hospital_medicine_list"
     "hospital_investigation_list"
     "medicine_list_uploads"
     "investigation_list_uploads"
 
     # Other
-    "nurse_doctors"
+    "assistant_counsellors"
     "intervention_definitions"
 )
 

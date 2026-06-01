@@ -150,11 +150,11 @@ def apply_terminology_modifier(prompt_text: str, terminology_style: str) -> str:
         return f"""
 {prompt_text}
 
-**TERMINOLOGY OVERRIDE (USER PREFERENCE): SIMPLE/PATIENT-FRIENDLY TERMS**
-- Use simple, patient-friendly language instead of medical jargon
+**TERMINOLOGY OVERRIDE (USER PREFERENCE): SIMPLE/STUDENT-FRIENDLY TERMS**
+- Use simple, student-friendly language instead of medical jargon
 - Examples: "stomach pain" instead of "abdominal pain", "breathlessness" instead of "dyspnea"
 - Avoid complex medical abbreviations (explain them if used)
-- This segment should be easily understandable by patients
+- This segment should be easily understandable by students
 """
     elif terminology_style == "as_spoken":
         return f"""
@@ -163,7 +163,7 @@ def apply_terminology_modifier(prompt_text: str, terminology_style: str) -> str:
 **TERMINOLOGY OVERRIDE (USER PREFERENCE): AS SPOKEN IN TRANSCRIPT**
 - Report terms exactly as spoken in the conversation
 - Do NOT translate lay terms to medical terminology
-- Examples: If patient says "stomach", write "stomach" (not "abdomen")
+- Examples: If student says "stomach", write "stomach" (not "abdomen")
 - Preserve the original language style and phrasing
 """
     else:  # medical_terms (default)

@@ -2,7 +2,7 @@
 Recordings Router - Endpoints for listing and reprocessing recordings
 
 This router provides:
-- GET /doctor/{doctor_id}: List recordings for a doctor (with optional patient filter)
+- GET /counsellor/{counsellor_id}: List recordings for a counsellor (with optional student filter)
 - POST /{session_id}/reprocess: Reprocess a recording with new template/settings
 """
 
@@ -16,7 +16,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 import uuid
 
-from services.supabase_service import list_recordings_for_doctor, list_recordings_for_nurse, get_session_transcript, get_session_chunks, get_chunk_count, supabase
+from services.supabase_service import list_recordings_for_counsellor, list_recordings_for_assistant, get_session_transcript, get_session_chunks, get_chunk_count, supabase
 from services.reprocess_service import reprocess_recording
 from services.audio_storage_service import fetch_audio_from_url
 from services.audio_stitcher import stitch_audio_chunks
@@ -24,34 +24,34 @@ from services.audio_stitcher import stitch_audio_chunks
 # Auth setup - conditionally enabled
 AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
-    from dependencies.auth import EHRDoctorAccessChecker, get_current_client
-    from services.auth_service import validate_ehr_doctor_access
+    from dependencies.auth import EHRCounsellorAccessChecker, get_current_client
+    from services.auth_service import validate_ehr_counsellor_access
     from typing import Optional as OptionalType
 
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: OptionalType[str] = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: OptionalType[str] = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
-    async def validate_doctor_from_path(http_request: Request, doctor_id: str):  # type: ignore[misc]
-        """Validate doctor_id access for path parameter."""
+    async def validate_counsellor_from_path(http_request: Request, counsellor_id: str):  # type: ignore[misc]
+        """Validate counsellor_id access for path parameter."""
         client = get_current_client(http_request)
         if client.client_type == "ehr":
-            doctor_uuid = uuid.UUID(doctor_id)
-            if not await validate_ehr_doctor_access(client, doctor_uuid):
+            counsellor_uuid = uuid.UUID(counsellor_id)
+            if not await validate_ehr_counsellor_access(client, counsellor_uuid):
                 raise HTTPException(
                     status_code=403,
                     detail="Access denied"
                 )
 else:
     # No-op dependencies when auth is disabled
-    async def verify_doctor_access(request: Request = None, doctor_id: str = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request = None, counsellor_id: str = None):  # type: ignore[misc]
         return None
 
-    async def validate_doctor_from_path(http_request: Request = None, doctor_id: str = None):  # type: ignore[misc]
+    async def validate_counsellor_from_path(http_request: Request = None, counsellor_id: str = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
 logger = logging.getLogger(__name__)
@@ -231,8 +231,8 @@ class RecordingInfo(BaseModel):
     """Single recording info in list response"""
     session_id: str
     correlation_id: Optional[str]
-    patient_id: Optional[str]
-    patient_identifier: Optional[str]
+    student_id: Optional[str]
+    student_identifier: Optional[str]
     patient_name: Optional[str]
     consultation_datetime: str
     completed_at: Optional[str]
@@ -315,21 +315,21 @@ class SessionChunksResponse(BaseModel):
 # Endpoints
 # ============================================================================
 
-@router.get("/doctor/{doctor_id}", response_model=RecordingsListResponse)
-async def list_doctor_recordings(
+@router.get("/counsellor/{counsellor_id}", response_model=RecordingsListResponse)
+async def list_counsellor_recordings(
     http_request: Request,
-    doctor_id: uuid.UUID,
-    patient_id: Optional[uuid.UUID] = Query(None, description="Filter by patient UUID"),
-    patient_identifier: Optional[str] = Query(None, description="Filter by external patient ID (e.g., MRN)"),
+    counsellor_id: uuid.UUID,
+    student_id: Optional[uuid.UUID] = Query(None, description="Filter by student UUID"),
+    student_identifier: Optional[str] = Query(None, description="Filter by external student ID (e.g., MRN)"),
     status: Optional[str] = Query("SUBMITTED", description="Filter by session status"),
     date_from: Optional[datetime] = Query(None, description="Filter recordings from this date (ISO format)"),
     date_to: Optional[datetime] = Query(None, description="Filter recordings until this date (ISO format)"),
     limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    _auth = Depends(verify_doctor_access),
+    _auth = Depends(verify_counsellor_access),
 ):
     """
-    List recordings for a doctor with optional filters.
+    List recordings for a counsellor with optional filters.
 
     Returns recordings with metadata about available data:
     - has_audio: True if full audio is stored (allows new_extraction)
@@ -340,14 +340,14 @@ async def list_doctor_recordings(
     - date_from: Filter recordings created on or after this date
     - date_to: Filter recordings created on or before this date
     """
-    # Validate EHR client has access to this doctor
-    await validate_doctor_from_path(http_request, str(doctor_id))
+    # Validate EHR client has access to this counsellor
+    await validate_counsellor_from_path(http_request, str(counsellor_id))
 
     try:
-        result = list_recordings_for_doctor(
-            doctor_id=doctor_id,
-            patient_id=patient_id,
-            patient_identifier=patient_identifier,
+        result = list_recordings_for_counsellor(
+            counsellor_id=counsellor_id,
+            student_id=student_id,
+            student_identifier=student_identifier,
             status=status,
             date_from=date_from,
             date_to=date_to,
@@ -365,28 +365,28 @@ async def list_doctor_recordings(
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
-@router.get("/nurse/{nurse_id}", response_model=RecordingsListResponse)
-async def list_nurse_recordings(
+@router.get("/assistant/{assistant_id}", response_model=RecordingsListResponse)
+async def list_assistant_recordings(
     http_request: Request,
-    nurse_id: uuid.UUID,
-    patient_id: Optional[uuid.UUID] = Query(None, description="Filter by patient UUID"),
-    patient_identifier: Optional[str] = Query(None, description="Filter by external patient ID (e.g., MRN)"),
+    assistant_id: uuid.UUID,
+    student_id: Optional[uuid.UUID] = Query(None, description="Filter by student UUID"),
+    student_identifier: Optional[str] = Query(None, description="Filter by external student ID (e.g., MRN)"),
     status: Optional[str] = Query("SUBMITTED", description="Filter by session status"),
     date_from: Optional[datetime] = Query(None, description="Filter recordings from this date (ISO format)"),
     date_to: Optional[datetime] = Query(None, description="Filter recordings until this date (ISO format)"),
     limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    _auth = Depends(verify_doctor_access),
+    _auth = Depends(verify_counsellor_access),
 ):
     """
-    List recordings for a nurse with optional filters.
-    Same structure as doctor recordings endpoint.
+    List recordings for an assistant with optional filters.
+    Same structure as counsellor recordings endpoint.
     """
     try:
-        result = list_recordings_for_nurse(
-            nurse_id=nurse_id,
-            patient_id=patient_id,
-            patient_identifier=patient_identifier,
+        result = list_recordings_for_assistant(
+            assistant_id=assistant_id,
+            student_id=student_id,
+            student_identifier=student_identifier,
             status=status,
             date_from=date_from,
             date_to=date_to,
@@ -400,7 +400,7 @@ async def list_nurse_recordings(
         )
 
     except Exception as e:
-        logger.error(f"[RECORDINGS] Failed to list nurse recordings: {e}", exc_info=True)
+        logger.error(f"[RECORDINGS] Failed to list assistant recordings: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
@@ -409,7 +409,7 @@ async def reprocess_recording_endpoint(
     http_request: Request,
     session_id: uuid.UUID,
     request: ReprocessRequest,
-    _auth = Depends(verify_doctor_access),
+    _auth = Depends(verify_counsellor_access),
 ):
     """
     Reprocess a recording with new template/settings.
@@ -431,14 +431,14 @@ async def reprocess_recording_endpoint(
     The endpoint returns immediately with a submission_id. Use the processing_jobs
     table (via Supabase Realtime) to track progress.
     """
-    # Auth: Look up session to get doctor_id and validate access
+    # Auth: Look up session to get counsellor_id and validate access
     if AUTH_ENABLED:
-        session_result = supabase.table("recording_sessions").select("doctor_id").eq("id", str(session_id)).execute()
+        session_result = supabase.table("recording_sessions").select("counsellor_id").eq("id", str(session_id)).execute()
         if not session_result.data:
             raise HTTPException(status_code=404, detail="Recording session not found")
-        doctor_id = session_result.data[0].get("doctor_id")
-        if doctor_id:
-            await validate_doctor_from_path(http_request, doctor_id)
+        counsellor_id = session_result.data[0].get("counsellor_id")
+        if counsellor_id:
+            await validate_counsellor_from_path(http_request, counsellor_id)
 
     # Validate mode
     if request.mode not in ["new_extraction", "reprocess_transcript"]:
@@ -479,7 +479,7 @@ async def get_recording_audio(
     http_request: Request,
     submission_id: uuid.UUID,
     audio_type: str = Query("original", description="'original' or 'processed'"),
-    _auth = Depends(verify_doctor_access),
+    _auth = Depends(verify_counsellor_access),
 ):
     """
     Retrieve the stitched audio data for a recording by submission ID.
@@ -513,7 +513,7 @@ async def get_recording_audio(
 
         # Get session data including fallback sources
         result = supabase.table("recording_sessions").select(
-            "id, doctor_id, full_audio_data, processed_audio_data, full_audio_url, full_audio_mime_type, full_audio_size_bytes, total_duration_seconds"
+            "id, counsellor_id, full_audio_data, processed_audio_data, full_audio_url, full_audio_mime_type, full_audio_size_bytes, total_duration_seconds"
         ).eq("id", str(session_id)).execute()
 
         if not result.data:
@@ -521,11 +521,11 @@ async def get_recording_audio(
 
         session = result.data[0]
 
-        # Validate EHR client has access to this doctor
+        # Validate EHR client has access to this counsellor
         if AUTH_ENABLED:
-            doctor_id = session.get("doctor_id")
-            if doctor_id:
-                await validate_doctor_from_path(http_request, doctor_id)
+            counsellor_id = session.get("counsellor_id")
+            if counsellor_id:
+                await validate_counsellor_from_path(http_request, counsellor_id)
 
         # Fetch transcript for the session
         transcript = get_session_transcript(uuid.UUID(session_id))
@@ -576,7 +576,7 @@ async def stream_recording_audio(
     http_request: Request,
     submission_id: uuid.UUID,
     audio_type: str = Query("original", description="'original' or 'processed'"),
-    _auth = Depends(verify_doctor_access),
+    _auth = Depends(verify_counsellor_access),
 ):
     """
     Stream the audio data for a recording by submission ID.
@@ -607,7 +607,7 @@ async def stream_recording_audio(
 
         # Get session data including fallback sources
         result = supabase.table("recording_sessions").select(
-            "id, doctor_id, full_audio_data, processed_audio_data, full_audio_url, full_audio_mime_type, full_audio_size_bytes"
+            "id, counsellor_id, full_audio_data, processed_audio_data, full_audio_url, full_audio_mime_type, full_audio_size_bytes"
         ).eq("id", str(session_id)).execute()
 
         if not result.data:
@@ -615,11 +615,11 @@ async def stream_recording_audio(
 
         session = result.data[0]
 
-        # Validate EHR client has access to this doctor
+        # Validate EHR client has access to this counsellor
         if AUTH_ENABLED:
-            doctor_id = session.get("doctor_id")
-            if doctor_id:
-                await validate_doctor_from_path(http_request, doctor_id)
+            counsellor_id = session.get("counsellor_id")
+            if counsellor_id:
+                await validate_counsellor_from_path(http_request, counsellor_id)
 
         # Handle processed audio request
         if audio_type == "processed":
@@ -683,7 +683,7 @@ async def stream_recording_audio(
 async def get_session_audio_chunks(
     http_request: Request,
     session_id: uuid.UUID,
-    _auth=Depends(verify_doctor_access),
+    _auth=Depends(verify_counsellor_access),
 ):
     """
     Get audio chunk metadata for a recording session.

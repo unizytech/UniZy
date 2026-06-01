@@ -30,17 +30,17 @@ from services.audit_service import audit_service
 # Conditional EHR auth imports
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
-    from dependencies.auth import EHRDoctorAccessChecker, EHRSubmissionAccessChecker, get_current_client
+    from dependencies.auth import EHRCounsellorAccessChecker, EHRSubmissionAccessChecker, get_current_client
 
-    _doctor_checker = EHRDoctorAccessChecker()
+    _doctor_checker = EHRCounsellorAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
 
-    async def verify_doctor_access(request: Request, doctor_id: Optional[str] = None):  # type: ignore[misc]
-        """Verify EHR client has access to doctor data."""
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id else None
+    async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):  # type: ignore[misc]
+        """Verify EHR client has access to counsellor data."""
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         # Resolve the client first, then pass to checker
         client = get_current_client(request)
-        return await _doctor_checker(request, doctor_uuid, client)
+        return await _doctor_checker(request, counsellor_uuid, client)
 
     async def verify_submission_access(request: Request, submission_id: Optional[str] = None):  # type: ignore[misc]
         """Verify EHR client has access to submission data."""
@@ -49,26 +49,26 @@ if AUTH_ENABLED:
         client = get_current_client(request)
         return await _submission_checker(request, submission_uuid, client)
 
-    def require_doctor_id_for_ehr(request: Request, doctor_id: Optional[str]):  # type: ignore[misc]
+    def require_counsellor_id_for_ehr(request: Request, counsellor_id: Optional[str]):  # type: ignore[misc]
         """
-        Require doctor_id for EHR clients.
-        Admin/Mobile/Web clients can access without doctor_id.
-        Raises HTTPException 400 if EHR client and no doctor_id.
+        Require counsellor_id for EHR clients.
+        Admin/Mobile/Web clients can access without counsellor_id.
+        Raises HTTPException 400 if EHR client and no counsellor_id.
         """
         client = get_current_client(request)
-        if client.client_type == "ehr" and not doctor_id:
+        if client.client_type == "ehr" and not counsellor_id:
             raise HTTPException(
                 status_code=400,
-                detail="doctor_id is required for EHR clients"
+                detail="counsellor_id is required for EHR clients"
             )
 else:
-    async def verify_doctor_access(request: Request = None, doctor_id: Optional[str] = None):  # type: ignore[misc]
+    async def verify_counsellor_access(request: Request = None, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
     async def verify_submission_access(request: Request = None, submission_id: Optional[str] = None):  # type: ignore[misc]
         return None
 
-    def require_doctor_id_for_ehr(request: Request = None, doctor_id: Optional[str] = None):  # type: ignore[misc]
+    def require_counsellor_id_for_ehr(request: Request = None, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         pass  # No-op when auth disabled
 
 from services.gemini_service import extract_summary_dynamic
@@ -105,13 +105,13 @@ from services.supabase_service import (
     # Cache invalidation functions
     invalidate_consultation_type_cache,
     invalidate_template_cache,
-    invalidate_doctor_hospital_cache,
+    invalidate_counsellor_school_cache,
     invalidate_processing_mode_cache,
     # Supabase client
     supabase
 )
-from services.uuid_utils import normalize_doctor_id
-from services.doctor_templates_service import activate_template_for_doctor
+from services.uuid_utils import normalize_counsellor_id
+from services.counsellor_templates_service import activate_template_for_counsellor
 
 router = APIRouter(prefix="/api/v1/summary", tags=["Medical Summary - Multi-Type"])
 logger = logging.getLogger(__name__)
@@ -135,14 +135,14 @@ class ExtractionRequest(BaseModel):
     - /live/session endpoint (WebSocket/RecordTab flow - where submission_id = correlation_id)
     """
     transcript: str = Field(..., min_length=10, description="Consultation transcript text")
-    doctor_id: Optional[str] = Field(None, description="Doctor ID for personalized configuration")
-    patient_id: Optional[str] = Field(None, description="Patient ID for Live API flow")
+    counsellor_id: Optional[str] = Field(None, description="Counsellor ID for personalized configuration")
+    student_id: Optional[str] = Field(None, description="Student ID for Live API flow")
     template_code: Optional[str] = Field(None, description="Doctor's activated template code (unique identifier for DB lookups)")
     template_name: Optional[str] = Field(None, description="Template display name (for human readability)")
     processing_mode: Optional[str] = Field(None, description="Processing mode code (fast, default, thorough, ultra, ultra_fast)")
     mode: str = Field("full", pattern="^(core|additional|full)$", description="Extraction mode")
     submission_id: Optional[str] = Field(None, description="Submission ID from processing_jobs (required - links extraction to recording session)")
-    nurse_id: Optional[str] = Field(None, description="Optional nurse UUID if extraction is initiated by a nurse")
+    assistant_id: Optional[str] = Field(None, description="Optional assistant UUID if extraction is initiated by an assistant")
 
 
 class CreateConsultationTypeRequest(BaseModel):
@@ -156,8 +156,8 @@ class CreateConsultationTypeRequest(BaseModel):
     color_code: Optional[str] = Field(None, max_length=20, description="Color code for UI theme (e.g., #4F46E5)")
     clone_from_consultation_type_id: Optional[str] = Field(None, description="UUID of consultation type to clone segments from")
     # Visibility controls (optional - if all empty/None, everyone can see this consultation type)
-    visible_to_hospitals: Optional[List[str]] = Field(None, description="Hospital UUIDs that can see this consultation type")
-    visible_to_doctors: Optional[List[str]] = Field(None, description="Doctor UUIDs that can see this consultation type")
+    visible_to_schools: Optional[List[str]] = Field(None, description="School UUIDs that can see this consultation type")
+    visible_to_counsellors: Optional[List[str]] = Field(None, description="Counsellor UUIDs that can see this consultation type")
     visible_to_specializations: Optional[List[str]] = Field(None, description="Specializations that can see this consultation type")
 
 
@@ -182,9 +182,9 @@ class CreateTemplateRequest(BaseModel):
     consultation_type_code: str = Field(..., description="Consultation type code (OP, DISCHARGE, RESPIRATORY)")
     use_case: Optional[str] = Field(None, max_length=100, description="Use case (e.g., 'quick_consultation')")
     specialization: Optional[str] = Field(None, max_length=100, description="Specialization for visibility filtering")
-    hospital_id: Optional[str] = Field(None, description="Hospital ID for hospital-specific templates")
+    school_id: Optional[str] = Field(None, description="School ID for school-specific templates")
     estimated_extraction_time_seconds: Optional[float] = Field(None, description="Performance hint")
-    is_active: bool = Field(True, description="Whether template is active and visible to doctors (default: true)")
+    is_active: bool = Field(True, description="Whether template is active and visible to counsellors (default: true)")
     inherit_from_type: Optional[str] = Field(None, pattern="^(consultation_type|template)$", description="Type to inherit from: 'consultation_type' or 'template'")
     inherit_from_id: Optional[str] = Field(None, description="Consultation type code or template code to inherit from")
     # Deprecated: kept for backwards compatibility
@@ -239,11 +239,11 @@ async def refresh_all_caches(
     This clears all in-memory caches without waiting for TTL expiry:
     - Consultation type cache
     - Template cache
-    - Doctor-hospital cache
+    - Counsellor-school cache
     - Processing mode cache
     - List availability cache (medicines/investigations)
-    - Medicine caches (doctor and hospital)
-    - Investigation caches (doctor and hospital)
+    - Medicine caches (counsellor and school)
+    - Investigation caches (counsellor and school)
     - Live prompt cache (RecordTab parallel prompt generation)
 
     **Use Cases:**
@@ -254,14 +254,14 @@ async def refresh_all_caches(
     **Note:** Gemini context cache (30-min TTL) is managed by Google API and cannot be invalidated here.
     """
     try:
-        from services.extraction_service import invalidate_list_cache_by_hospital
+        from services.extraction_service import invalidate_list_cache_by_school
         from services.medicine_service import (
-            invalidate_all_hospital_medicine_caches,
-            invalidate_all_doctor_medicine_caches,
+            invalidate_all_school_medicine_caches,
+            invalidate_all_counsellor_medicine_caches,
         )
         from services.investigation_service import (
-            invalidate_all_doctor_investigation_caches,
-            invalidate_all_hospital_investigation_caches,
+            invalidate_all_counsellor_investigation_caches,
+            invalidate_all_school_investigation_caches,
         )
         from routers.recording_session import invalidate_all_live_prompt_cache
 
@@ -275,33 +275,33 @@ async def refresh_all_caches(
         template_count = invalidate_template_cache()
         results["template_cache"] = template_count
 
-        # 3. Doctor-hospital cache
-        dh_count = invalidate_doctor_hospital_cache()
+        # 3. Counsellor-school cache
+        dh_count = invalidate_counsellor_school_cache()
         results["doctor_hospital_cache"] = dh_count
 
         # 4. Processing mode caches (extraction, triage, emotion, insights models)
         pm_count = invalidate_processing_mode_cache()
         results["processing_mode_cache"] = pm_count
 
-        # 5. Hospital medicine caches
-        hosp_med_count = invalidate_all_hospital_medicine_caches()
+        # 5. School medicine caches
+        hosp_med_count = invalidate_all_school_medicine_caches()
         results["hospital_medicine_cache"] = hosp_med_count
 
-        # 6. Doctor medicine caches
-        doc_med_count = invalidate_all_doctor_medicine_caches()
+        # 6. Counsellor medicine caches
+        doc_med_count = invalidate_all_counsellor_medicine_caches()
         results["doctor_medicine_cache"] = doc_med_count
 
         # 7. List availability cache (medicine/investigation existence checks)
-        # Pass a dummy UUID to clear all - invalidate_list_cache_by_hospital clears everything
-        list_count = invalidate_list_cache_by_hospital(uuid.UUID('00000000-0000-0000-0000-000000000000'))
+        # Pass a dummy UUID to clear all - invalidate_list_cache_by_school clears everything
+        list_count = invalidate_list_cache_by_school(uuid.UUID('00000000-0000-0000-0000-000000000000'))
         results["list_availability_cache"] = list_count
 
-        # 8. Hospital investigation caches
-        hosp_inv_count = invalidate_all_hospital_investigation_caches()
+        # 8. School investigation caches
+        hosp_inv_count = invalidate_all_school_investigation_caches()
         results["hospital_investigation_cache"] = hosp_inv_count
 
-        # 9. Doctor investigation caches
-        doc_inv_count = invalidate_all_doctor_investigation_caches()
+        # 9. Counsellor investigation caches
+        doc_inv_count = invalidate_all_counsellor_investigation_caches()
         results["doctor_investigation_cache"] = doc_inv_count
 
         # 10. Live prompt cache (RecordTab parallel prompt generation)
@@ -420,8 +420,8 @@ async def create_new_consultation_type(
             color_code=request.color_code,
             clone_from_consultation_type_id=request.clone_from_consultation_type_id,
             # Visibility controls (optional - if all empty/None, everyone can see it)
-            visible_to_hospitals=request.visible_to_hospitals,
-            visible_to_doctors=request.visible_to_doctors,
+            visible_to_schools=request.visible_to_schools,
+            visible_to_counsellors=request.visible_to_counsellors,
             visible_to_specializations=request.visible_to_specializations,
         )
 
@@ -456,7 +456,7 @@ async def toggle_emotion_analysis(
 
     This endpoint enables or disables background emotion extraction for a specific
     consultation type. When enabled, the system will automatically extract 5 emotion
-    segments 20 seconds after medical extraction completes.
+    segments 20 seconds after extraction completes.
 
     **Path Parameters:**
     - `consultation_type_code`: Consultation type code (OP, OP_CONCISE, DISCHARGE, RESPIRATORY)
@@ -617,7 +617,7 @@ async def update_consultation_insights_setting(
     - Gemini API extracts 14 clinical signal groups from transcript
     - Clinical severity assessment calculated
     - Allied health needs identified
-    - Patient dropoff risk assessed
+    - Student dropoff risk assessed
     - Care quality risk evaluated
     - REVENUE, RETENTION, and QUALITY interventions generated
 
@@ -773,21 +773,21 @@ async def extract_medical_summary(
        - A processing_job is created with submission_id
        - submission_id is returned to frontend
     3. Frontend calls this endpoint with the submission_id
-    4. Extraction is saved to `medical_extractions` table
+    4. Extraction is saved to `extractions` table
     5. Emotion analysis is scheduled based on consultation type settings
 
     **Request Parameters:**
     - `transcript`: Consultation transcript text (required)
     - `submission_id`: Processing job submission ID (required - from /chunk is_last=true or /live/session)
-    - `template_code`: Doctor's activated template code for segment configuration
+    - `template_code`: Counsellor's activated template code for segment configuration
     - `template_name`: Template display name for readability
     - `processing_mode`: Processing mode (fast, default, thorough, ultra, ultra_fast)
-    - `doctor_id`: Doctor ID for personalized configuration
+    - `counsellor_id`: Counsellor ID for personalized configuration
     - `mode`: Extraction mode - core, additional, or full
 
     **Features:**
     - Multi-consultation type support (OP, DISCHARGE, RESPIRATORY, etc.)
-    - Template-based extraction with doctor activation system
+    - Template-based extraction with counsellor activation system
     - User-customizable segment selection (CORE/ADDITIONAL/FULL)
     - Per-segment brevity control (concise/balanced/detailed)
     - Per-segment terminology control (medical_terms/simple_terms/as_spoken)
@@ -919,7 +919,7 @@ async def extract_medical_summary(
                                 session_id=session_id,
                                 consultation_type_id=session.get('consultation_type_id'),
                                 template_id=template_id,  # From session_context_json
-                                doctor_id=session.get('doctor_id'),
+                                counsellor_id=session.get('counsellor_id'),
                                 transcript=request.transcript,  # For combined emotion analysis
                                 extraction_id=extraction_id,  # Pre-generated extraction_id
                             )
@@ -953,13 +953,13 @@ async def extract_medical_summary(
             # Fetch audio quality from session (may be None if analysis not complete or failed)
             audio_quality = session.get('audio_quality_json')
 
-            # Lookup patient preferred_language
-            _extract_patient_id = session_info.get('patient_id')
+            # Lookup student preferred_language
+            _extract_patient_id = session_info.get('student_id')
             _extract_preferred_lang = None
             if _extract_patient_id:
                 try:
                     from services.supabase_service import supabase as _sb
-                    _plr = _sb.table("patients").select("preferred_language").eq("id", _extract_patient_id).limit(1).execute()
+                    _plr = _sb.table("students").select("preferred_language").eq("id", _extract_patient_id).limit(1).execute()
                     if _plr.data:
                         _extract_preferred_lang = _plr.data[0].get("preferred_language")
                 except Exception:
@@ -970,8 +970,8 @@ async def extract_medical_summary(
                 "submission_id": request.submission_id,
                 "extraction_id": result["extraction_id"],
                 "session_id": str(session_id),
-                "doctor_id": session_info.get('doctor_id'),
-                "patient_id": _extract_patient_id,  # External varchar, not DB id
+                "counsellor_id": session_info.get('counsellor_id'),
+                "student_id": _extract_patient_id,  # External varchar, not DB id
                 "template_code": session_info.get('template_code'),
                 "mode": session_info.get('extraction_mode'),
                 "segment_count": result["metadata"].get('segment_count', 0),
@@ -1004,12 +1004,12 @@ async def extract_medical_summary(
             # Send webhook with standardized metadata (also filter excluded segments)
             # Check if realtime is enabled (skip webhook if so)
             from services.webhook_service import send_insights_webhook
-            from services.realtime_publisher_service import is_realtime_enabled_for_hospital
-            from services.supabase_service import get_doctor_hospital_id_cached
-            _doctor_id = session_info.get('doctor_id')
-            _hospital_id = get_doctor_hospital_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-            if _hospital_id and is_realtime_enabled_for_hospital(_hospital_id):
-                logger.info(f"[EXTRACT:WEBHOOK] ⏭️ Skipping webhook - realtime subscription enabled for hospital")
+            from services.realtime_publisher_service import is_realtime_enabled_for_school
+            from services.supabase_service import get_counsellor_school_id_cached
+            _doctor_id = session_info.get('counsellor_id')
+            _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
+            if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+                logger.info(f"[EXTRACT:WEBHOOK] ⏭️ Skipping webhook - realtime subscription enabled for school")
             else:
                 await send_insights_webhook(
                     insights=filtered_insights,
@@ -1026,8 +1026,8 @@ async def extract_medical_summary(
                         client_context=client_ctx, request=http_request, response_status=200,
                         response_time_ms=0, resource_type="extraction", action="create",
                         resource_id=result.get("extraction_id"),
-                        doctor_id=uuid.UUID(_doctor_id) if _doctor_id else None,
-                        patient_id=session_info.get("patient_id"),
+                        counsellor_id=uuid.UUID(_doctor_id) if _doctor_id else None,
+                        student_id=session_info.get("student_id"),
                     ))
                 except Exception:
                     pass
@@ -1065,7 +1065,7 @@ async def get_processing_modes(
     Get all available processing modes from database.
 
     This is a global configuration endpoint - any authenticated client can access.
-    No doctor/hospital scoping required.
+    No counsellor/school scoping required.
 
     **Returns:**
     - List of processing modes with model configuration, description, and estimated time
@@ -1101,10 +1101,10 @@ async def get_processing_modes(
 async def get_segments(
     request: Request,
     consultation_type_code: str,
-    doctor_id: Optional[str] = Query(None, description="User ID for personalized config"),
+    counsellor_id: Optional[str] = Query(None, description="User ID for personalized config"),
     template_code: Optional[str] = Query(None, description="Template code for template-specific configuration (unique identifier)"),
     mode: str = Query("full", pattern="^(core|additional|full)$"),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
     Get segment definitions for a consultation type with optional user customization.
@@ -1113,7 +1113,7 @@ async def get_segments(
     - `consultation_type_code`: Consultation type (OP, DISCHARGE, RESPIRATORY)
 
     **Query Parameters:**
-    - `doctor_id`: Optional doctor ID for personalized configuration
+    - `counsellor_id`: Optional counsellor ID for personalized configuration
     - `template_code`: Optional template code for template-specific configuration (unique identifier)
     - `mode`: Filter by mode (core, additional, full)
 
@@ -1121,13 +1121,13 @@ async def get_segments(
     - List of segments with configuration (category, brevity, terminology)
 
     **EHR Access:**
-    EHR clients MUST provide doctor_id. Admin/Mobile/Web clients can access without.
+    EHR clients MUST provide counsellor_id. Admin/Mobile/Web clients can access without.
     """
     try:
-        # EHR clients must provide doctor_id
-        require_doctor_id_for_ehr(request, doctor_id)
+        # EHR clients must provide counsellor_id
+        require_counsellor_id_for_ehr(request, counsellor_id)
 
-        logger.info(f"[GET_SEGMENTS] Starting - consultation_type_code={consultation_type_code}, doctor_id={doctor_id}, template_code='{template_code}', mode={mode}")
+        logger.info(f"[GET_SEGMENTS] Starting - consultation_type_code={consultation_type_code}, counsellor_id={counsellor_id}, template_code='{template_code}', mode={mode}")
 
         # Get consultation type
         consultation_type = get_consultation_type_by_code(consultation_type_code)
@@ -1138,15 +1138,15 @@ async def get_segments(
         logger.debug(f"[GET_SEGMENTS] Found consultation type: {consultation_type.get('type_name')} (ID: {consultation_type.get('id')})")
 
         consultation_type_id = uuid.UUID(consultation_type["id"])
-        doctor_uuid = normalize_doctor_id(doctor_id) if doctor_id else None
+        counsellor_uuid = normalize_counsellor_id(counsellor_id) if counsellor_id else None
 
-        logger.debug(f"[GET_SEGMENTS] Normalized doctor_id: {doctor_uuid}")
+        logger.debug(f"[GET_SEGMENTS] Normalized counsellor_id: {counsellor_uuid}")
 
         # Get segments with template-specific configuration
         logger.debug(f"[GET_SEGMENTS] Calling get_segment_definitions with template_code='{template_code}'...")
         result = get_segment_definitions(
             consultation_type_id=consultation_type_id,
-            doctor_id=doctor_uuid,
+            counsellor_id=counsellor_uuid,
             template_code=template_code,
             mode=mode
         )
@@ -1192,36 +1192,36 @@ async def get_segments(
 @router.get("/templates")
 async def get_all_templates(
     request: Request,
-    doctor_id: Optional[str] = Query(None, description="Doctor ID for junction table filtering"),
-    filter_type: Optional[str] = Query(None, description="Filter type: 'admin', 'doctor', 'all', or None (defaults to 'doctor' if doctor_id provided)"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: Optional[str] = Query(None, description="Counsellor ID for junction table filtering"),
+    filter_type: Optional[str] = Query(None, description="Filter type: 'admin', 'doctor', 'all', or None (defaults to 'doctor' if counsellor_id provided)"),
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
     Get all available templates across all consultation types.
 
     **Filter Types:**
-    - 'admin': Only templates created by admin (doctor_id = NULL)
-    - 'doctor': Doctor's active templates (junction table with is_active=True + owned + global)
-    - 'all': All active templates (admin + doctor-owned, ignores doctor_id)
-    - None: Defaults to 'doctor' behavior if doctor_id provided, else all templates
+    - 'admin': Only templates created by admin (counsellor_id = NULL)
+    - 'doctor': Counsellor's active templates (junction table with is_active=True + owned + global)
+    - 'all': All active templates (admin + counsellor-owned, ignores counsellor_id)
+    - None: Defaults to 'doctor' behavior if counsellor_id provided, else all templates
 
-    If doctor_id is NOT provided and no filter_type, returns all templates (admin view).
+    If counsellor_id is NOT provided and no filter_type, returns all templates (admin view).
 
     **Query Parameters:**
-    - `doctor_id`: Optional doctor UUID for junction table filtering
+    - `counsellor_id`: Optional counsellor UUID for junction table filtering
     - `filter_type`: Optional filter type ('admin', 'doctor', 'all')
 
     **Performance Optimization:**
     When filter_type='doctor', uses optimized single-query approach instead of querying per consultation type.
 
     **EHR Access:**
-    EHR clients MUST provide doctor_id. Admin/Mobile/Web clients can access without.
+    EHR clients MUST provide counsellor_id. Admin/Mobile/Web clients can access without.
     """
     try:
-        # EHR clients must provide doctor_id
-        require_doctor_id_for_ehr(request, doctor_id)
+        # EHR clients must provide counsellor_id
+        require_counsellor_id_for_ehr(request, counsellor_id)
 
-        doctor_uuid = normalize_doctor_id(doctor_id) if doctor_id else None
+        counsellor_uuid = normalize_counsellor_id(counsellor_id) if counsellor_id else None
 
         # Run templates + consultation types queries in parallel
         loop = asyncio.get_event_loop()
@@ -1231,7 +1231,7 @@ async def get_all_templates(
                 _template_executor,
                 lambda: get_templates(
                     consultation_type_id=None,
-                    doctor_id=doctor_uuid,
+                    counsellor_id=counsellor_uuid,
                     filter_type=filter_type,
                 )
             ),
@@ -1256,7 +1256,7 @@ async def get_all_templates(
 
         return {
             "success": True,
-            "doctor_id": doctor_id,
+            "counsellor_id": counsellor_id,
             "templates": templates,
             "count": len(templates)
         }
@@ -1269,37 +1269,37 @@ async def get_all_templates(
 async def get_consultation_templates(
     request: Request,
     consultation_type_code: str,
-    doctor_id: Optional[str] = Query(None, description="Doctor ID for junction table filtering"),
+    counsellor_id: Optional[str] = Query(None, description="Counsellor ID for junction table filtering"),
     filter_type: Optional[str] = Query(None, description="Filter type: 'admin', 'doctor', 'all'"),
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
-    Get available templates for a consultation type with hospital-based visibility.
+    Get available templates for a consultation type with school-based visibility.
 
     **Filter Types:**
-    - `admin`: Only templates created by admin (doctor_id = NULL)
-    - `doctor`: Only templates from templates table with is_active=True (active doctor templates)
-    - `all`: Both admin and doctor templates (default)
-    - None: Hospital-based visibility filtering (if doctor_id provided)
+    - `admin`: Only templates created by admin (counsellor_id = NULL)
+    - `doctor`: Only templates from templates table with is_active=True (active counsellor templates)
+    - `all`: Both admin and counsellor templates (default)
+    - None: School-based visibility filtering (if counsellor_id provided)
 
-    **Visibility Rules (if doctor_id provided and no filter_type):**
+    **Visibility Rules (if counsellor_id provided and no filter_type):**
     1. Platform-wide common templates (specialization=NULL)
-    2. Specialization-specific templates matching doctor's specialization
-    3. Hospital-specific templates created by peers in the same hospital
+    2. Specialization-specific templates matching counsellor's specialization
+    3. School-specific templates created by peers in the same school
 
     **Path Parameters:**
     - `consultation_type_code`: Consultation type (OP, DISCHARGE, RESPIRATORY)
 
     **Query Parameters:**
-    - `doctor_id`: Optional doctor UUID for visibility filtering
+    - `counsellor_id`: Optional counsellor UUID for visibility filtering
     - `filter_type`: Optional filter ('admin', 'doctor', 'all')
 
     **EHR Access:**
-    EHR clients MUST provide doctor_id. Admin/Mobile/Web clients can access without.
+    EHR clients MUST provide counsellor_id. Admin/Mobile/Web clients can access without.
     """
     try:
-        # EHR clients must provide doctor_id
-        require_doctor_id_for_ehr(request, doctor_id)
+        # EHR clients must provide counsellor_id
+        require_counsellor_id_for_ehr(request, counsellor_id)
 
         # Get consultation type
         consultation_type = get_consultation_type_by_code(consultation_type_code)
@@ -1307,37 +1307,37 @@ async def get_consultation_templates(
             raise HTTPException(status_code=404, detail="Consultation type not found")
 
         consultation_type_id = uuid.UUID(consultation_type["id"])
-        doctor_uuid = normalize_doctor_id(doctor_id) if doctor_id else None
+        counsellor_uuid = normalize_counsellor_id(counsellor_id) if counsellor_id else None
 
-        # Validate doctor exists when filter_type='doctor' and doctor_id provided
-        if doctor_uuid and filter_type == 'doctor':
-            doctor_check = supabase.table("doctors")\
+        # Validate counsellor exists when filter_type='doctor' and counsellor_id provided
+        if counsellor_uuid and filter_type == 'doctor':
+            counsellor_check = supabase.table("counsellors")\
                 .select("id")\
-                .eq("id", str(doctor_uuid))\
+                .eq("id", str(counsellor_uuid))\
                 .limit(1)\
                 .execute()
-            if not doctor_check.data:
+            if not counsellor_check.data:
                 return {
                     "success": True,
                     "consultation_type_code": consultation_type_code,
-                    "doctor_id": doctor_id,
+                    "counsellor_id": counsellor_id,
                     "filter_type": filter_type,
                     "templates": [],
                     "count": 0,
-                    "message": "Doctor does not exist"
+                    "message": "Counsellor does not exist"
                 }
 
         # Get templates based on filter type
         templates = get_templates(
             consultation_type_id=consultation_type_id,
-            doctor_id=doctor_uuid,
+            counsellor_id=counsellor_uuid,
             filter_type=filter_type
         )
 
         return {
             "success": True,
             "consultation_type_code": consultation_type_code,
-            "doctor_id": doctor_id,
+            "counsellor_id": counsellor_id,
             "filter_type": filter_type,
             "templates": templates,
             "count": len(templates)
@@ -1354,9 +1354,9 @@ async def activate_template_endpoint(
     request: Request,
     consultation_type_code: str,
     template_code: str,
-    doctor_id: str = Query(..., description="Doctor ID"),
+    counsellor_id: str = Query(..., description="Counsellor ID"),
     request_body: Optional[Dict[str, Any]] = None,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
     Activate a template configuration for a user and consultation type.
@@ -1366,7 +1366,7 @@ async def activate_template_endpoint(
     - `template_code`: Template code (e.g., 'PSYCHIATRY_CORE', 'FULL_EXTRACTION')
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID (required)
+    - `counsellor_id`: Counsellor ID (required)
 
     **Request Body:**
     ```json
@@ -1376,8 +1376,8 @@ async def activate_template_endpoint(
     ```
 
     **Notes:**
-    - Doctors can activate the same template multiple times with different custom names
-    - Custom names must be unique per doctor
+    - Counsellors can activate the same template multiple times with different custom names
+    - Custom names must be unique per counsellor
     - Custom names are required and cannot be empty
     """
     try:
@@ -1400,23 +1400,23 @@ async def activate_template_endpoint(
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
 
-        doctor_uuid = normalize_doctor_id(doctor_id)
+        counsellor_uuid = normalize_counsellor_id(counsellor_id)
         template_id = uuid.UUID(template["id"])
         consultation_type_id = uuid.UUID(consultation_type["id"])
 
-        # Clone template with custom name (creates doctor-owned template)
+        # Clone template with custom name (creates counsellor-owned template)
         cloned_template = clone_template(
             source_template_id=template_id,
-            doctor_id=doctor_uuid,
+            counsellor_id=counsellor_uuid,
             new_template_name=custom_name,
-            new_template_code=f"{template['template_code']}_CLONE_{doctor_uuid}"[:50]
+            new_template_code=f"{template['template_code']}_CLONE_{counsellor_uuid}"[:50]
         )
 
         cloned_template_id = uuid.UUID(cloned_template["id"])
 
-        # Activate cloned template for doctor
-        activation_result = activate_template_for_doctor(
-            doctor_id=doctor_uuid,
+        # Activate cloned template for counsellor
+        activation_result = activate_template_for_counsellor(
+            counsellor_id=counsellor_uuid,
             template_id=cloned_template_id,
             consultation_type_id=consultation_type_id
         )
@@ -1442,18 +1442,18 @@ async def activate_template_endpoint(
 async def rename_template_instance(
     request: Request,
     active_template_id: str,
-    doctor_id: str = Query(..., description="Doctor ID"),
+    counsellor_id: str = Query(..., description="Counsellor ID"),
     request_body: Optional[Dict[str, Any]] = None,
-    _auth = Depends(verify_doctor_access)
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
-    Rename a specific activated template instance for a doctor.
+    Rename a specific activated template instance for a counsellor.
 
     **Path Parameters:**
     - `active_template_id`: Template ID (UUID from templates table)
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID (required)
+    - `counsellor_id`: Counsellor ID (required)
 
     **Request Body:**
     ```json
@@ -1466,8 +1466,8 @@ async def rename_template_instance(
     - Updated template instance information
 
     **Notes:**
-    - Since doctors can have multiple instances of the same template, we use the instance ID
-    - New name must be unique across all of doctor's activated templates
+    - Since counsellors can have multiple instances of the same template, we use the instance ID
+    - New name must be unique across all of counsellor's activated templates
     """
     try:
         from services.supabase_service import supabase, check_template_name_available
@@ -1483,16 +1483,16 @@ async def rename_template_instance(
 
         # Normalize IDs
         try:
-            doctor_uuid = uuid.UUID(doctor_id)
+            counsellor_uuid = uuid.UUID(counsellor_id)
             instance_uuid = uuid.UUID(active_template_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid ID format")
 
         # Check if new name is available (excluding current template)
-        if not check_template_name_available(doctor_uuid, new_name, exclude_template_id=instance_uuid):
+        if not check_template_name_available(counsellor_uuid, new_name, exclude_template_id=instance_uuid):
             raise HTTPException(
                 status_code=400,
-                detail="A template with this name already exists for this doctor"
+                detail="A template with this name already exists for this counsellor"
             )
 
         # Update template name in templates table
@@ -1500,14 +1500,14 @@ async def rename_template_instance(
             supabase.table("templates")
             .update({"template_name": new_name})
             .eq("id", str(instance_uuid))
-            .eq("doctor_id", str(doctor_uuid))
+            .eq("counsellor_id", str(counsellor_uuid))
             .execute()
         )
 
         if not response.data:
             raise HTTPException(
                 status_code=404,
-                detail="Template instance not found or does not belong to this doctor"
+                detail="Template instance not found or does not belong to this counsellor"
             )
 
         return {
@@ -1529,7 +1529,7 @@ async def rename_template_instance(
 @router.post("/admin/templates")
 async def create_new_template(
     request: CreateTemplateRequest,
-    doctor_id: Optional[str] = Query(None, description="Doctor creating the template"),
+    counsellor_id: Optional[str] = Query(None, description="Counsellor creating the template"),
     client: ClientContext = Depends(require_admin)
 ) -> Dict[str, Any]:
     """
@@ -1565,14 +1565,14 @@ async def create_new_template(
         consultation_type_id = uuid.UUID(consultation_type["id"])
 
         # Parse optional UUIDs
-        hospital_uuid = uuid.UUID(request.hospital_id) if request.hospital_id else None
-        # Only use doctor_id if it's a valid UUID (admin users like "admin-user-1" create global templates with NULL doctor_id)
+        school_uuid = uuid.UUID(request.school_id) if request.school_id else None
+        # Only use counsellor_id if it's a valid UUID (admin users like "admin-user-1" create global templates with NULL counsellor_id)
         from services.uuid_utils import is_valid_uuid
-        doctor_uuid = uuid.UUID(doctor_id) if doctor_id and is_valid_uuid(doctor_id) else None
+        counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id and is_valid_uuid(counsellor_id) else None
 
-        # ⭐ Validate template_code is unique (for doctor-owned or common templates)
+        # ⭐ Validate template_code is unique (for counsellor-owned or common templates)
         from services.supabase_service import check_template_code_available
-        if not check_template_code_available(doctor_uuid, request.template_code):
+        if not check_template_code_available(counsellor_uuid, request.template_code):
             raise HTTPException(
                 status_code=400,
                 detail="Template code is already in use. Please choose a different code."
@@ -1586,8 +1586,8 @@ async def create_new_template(
             consultation_type_id=consultation_type_id,
             use_case=request.use_case,
             specialization=request.specialization,
-            hospital_id=hospital_uuid,
-            doctor_id=doctor_uuid,  # ⭐ Now using doctor_id from query param
+            school_id=school_uuid,
+            counsellor_id=counsellor_uuid,  # ⭐ Now using counsellor_id from query param
             estimated_extraction_time_seconds=request.estimated_extraction_time_seconds,
             is_active=request.is_active
         )
@@ -2306,25 +2306,25 @@ async def bulk_update_template_field_config(
 
 
 # ============================================================================
-# Doctor Template Segment Configuration (EHR-authenticated)
-# These endpoints are for doctors to configure their own templates via EHR integration
+# Counsellor Template Segment Configuration (EHR-authenticated)
+# These endpoints are for counsellors to configure their own templates via EHR integration
 # ============================================================================
 
-@router.get("/doctor/templates/{template_code}/segments")
-async def get_doctor_template_segments(
+@router.get("/counsellor/templates/{template_code}/segments")
+async def get_counsellor_template_segments(
     request: Request,
     template_code: str,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
-    Get segment configuration for a doctor's template (EHR-authenticated).
+    Get segment configuration for a counsellor's template (EHR-authenticated).
 
     **Path Parameters:**
     - `template_code`: Template code
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID for EHR access verification
+    - `counsellor_id`: Counsellor ID for EHR access verification
 
     **Returns:**
     - List of segment configurations for the template
@@ -2360,24 +2360,24 @@ async def get_doctor_template_segments(
         raise HTTPException(status_code=500, detail="Failed to fetch template segments")
 
 
-@router.put("/doctor/templates/{template_code}/segments/{segment_code}")
-async def update_doctor_template_segment(
+@router.put("/counsellor/templates/{template_code}/segments/{segment_code}")
+async def update_counsellor_template_segment(
     request: Request,
     template_code: str,
     segment_code: str,
     config: TemplateSegmentConfigUpdate,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
-    Update a segment configuration for a doctor's template (EHR-authenticated).
+    Update a segment configuration for a counsellor's template (EHR-authenticated).
 
     **Path Parameters:**
     - `template_code`: Template code
     - `segment_code`: Segment code to update
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID for EHR access verification
+    - `counsellor_id`: Counsellor ID for EHR access verification
 
     **Request Body:**
     ```json
@@ -2420,22 +2420,22 @@ async def update_doctor_template_segment(
         raise HTTPException(status_code=500, detail="Segment update failed")
 
 
-@router.post("/doctor/templates/{template_code}/segments/bulk")
-async def bulk_update_doctor_segments(
+@router.post("/counsellor/templates/{template_code}/segments/bulk")
+async def bulk_update_counsellor_segments(
     request: Request,
     template_code: str,
     bulk_request: BulkSegmentUpdate,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
-    Bulk update segment configurations for a doctor's template (EHR-authenticated).
+    Bulk update segment configurations for a counsellor's template (EHR-authenticated).
 
     **Path Parameters:**
     - `template_code`: Template code
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID for EHR access verification
+    - `counsellor_id`: Counsellor ID for EHR access verification
 
     **Request Body:**
     ```json
@@ -2479,12 +2479,12 @@ async def bulk_update_doctor_segments(
         raise HTTPException(status_code=500, detail="Bulk update failed")
 
 
-@router.post("/doctor/templates/{template_code}/inherit")
-async def inherit_doctor_configuration(
+@router.post("/counsellor/templates/{template_code}/inherit")
+async def inherit_counsellor_configuration(
     request: Request,
     template_code: str,
-    doctor_id: str = Query(..., description="Doctor ID for EHR access verification"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID for EHR access verification"),
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
     Inherit segment configuration from consultation type defaults (EHR-authenticated).
@@ -2496,7 +2496,7 @@ async def inherit_doctor_configuration(
     - `template_code`: Template code
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID for EHR access verification
+    - `counsellor_id`: Counsellor ID for EHR access verification
 
     **Warning:** This will delete all existing segment configurations for the template.
     """
@@ -2536,22 +2536,22 @@ async def inherit_doctor_configuration(
 @router.get("/segments/validate")
 async def validate_config(
     request: Request,
-    doctor_id: str = Query(..., description="Doctor ID"),
-    _auth = Depends(verify_doctor_access)
+    counsellor_id: str = Query(..., description="Counsellor ID"),
+    _auth = Depends(verify_counsellor_access)
 ) -> Dict[str, Any]:
     """
-    Validate doctor's segment configuration for clinical safety.
+    Validate counsellor's segment configuration for clinical safety.
 
     **Query Parameters:**
-    - `doctor_id`: Doctor ID (required)
+    - `counsellor_id`: Counsellor ID (required)
 
     **Returns:**
     - Validation result with any errors or warnings
     """
     try:
-        doctor_uuid = normalize_doctor_id(doctor_id)
+        counsellor_uuid = normalize_counsellor_id(counsellor_id)
 
-        validation = validate_segment_configuration(doctor_uuid)
+        validation = validate_segment_configuration(counsellor_uuid)
 
         return {
             "success": True,
@@ -2999,7 +2999,7 @@ async def clone_segment(
         from services.supabase_service import clone_segment_with_parent_tracking, supabase
 
         logger.debug(f"[CLONE_SEGMENT] Normalizing admin_id: {admin_id}")
-        admin_uuid = normalize_doctor_id(admin_id)
+        admin_uuid = normalize_counsellor_id(admin_id)
         logger.debug(f"[CLONE_SEGMENT] Normalized admin_uuid: {admin_uuid}")
 
         # Look up the parent segment via junction table using source_consultation_type_id
@@ -3039,7 +3039,7 @@ async def clone_segment(
             new_segment_name=request.new_segment_name,
             consultation_type_id=request.consultation_type_id,
             template_id=request.template_id,
-            doctor_id=admin_uuid,  # Changed from created_by_doctor_id (migration 20251123000200)
+            counsellor_id=admin_uuid,  # Changed from created_by_counsellor_id (migration 20251123000200)
             parent_segment_data=parent_segment_data,  # Pass pre-fetched parent data
             custom_prompt_section_text=request.prompt_section_text,  # Optional custom prompt
             custom_schema_definition_json=request.schema_definition_json  # Optional custom schema
@@ -3153,7 +3153,7 @@ async def combine_segments(
 
         merge_prompt = f"""You are an expert at designing medical data extraction prompts and schemas.
 
-I need you to COMBINE the following {len(source_segments)} medical extraction segments into a SINGLE cohesive segment.
+I need you to COMBINE the following {len(source_segments)} extraction segments into a SINGLE cohesive segment.
 
 ## Source Segments to Combine:
 {''.join(segments_info)}
@@ -3328,7 +3328,7 @@ async def bulk_clone_segments_endpoint(
     - Returns detailed success/failure report
     """
     try:
-        admin_uuid = normalize_doctor_id(admin_id)
+        admin_uuid = normalize_counsellor_id(admin_id)
 
         result = bulk_clone_segments(
             source_consultation_type_code=request.source_consultation_type_code,
@@ -3861,7 +3861,7 @@ async def propagate_changes_to_children(
     try:
         from services.supabase_service import propagate_parent_changes
 
-        admin_uuid = normalize_doctor_id(admin_id)
+        admin_uuid = normalize_counsellor_id(admin_id)
 
         results = propagate_parent_changes(
             parent_segment_code=segment_code,
@@ -4195,7 +4195,7 @@ async def list_soft_deleted_entities(
         elif entity_type == "template":
             response = (
                 supabase.table("templates")
-                .select("id, template_code, template_name, consultation_type_id, doctor_id, created_at, updated_at")
+                .select("id, template_code, template_name, consultation_type_id, counsellor_id, created_at, updated_at")
                 .eq("is_active", False)
                 .order("updated_at", desc=True)
                 .execute()
@@ -4236,7 +4236,7 @@ async def get_entity_relationships(
 
     Shows:
     - For segments: consultation types, templates using this segment
-    - For templates: doctors who have activated this template, segments in this template
+    - For templates: counsellors who have activated this template, segments in this template
     - For consultation types: templates based on this type, segments linked to this type
     """
     try:
@@ -4284,37 +4284,37 @@ async def get_entity_relationships(
                 if template_ids:
                     templates = (
                         supabase.table("templates")
-                        .select("id, template_code, template_name, doctor_id")
+                        .select("id, template_code, template_name, counsellor_id")
                         .in_("id", template_ids)
                         .execute()
                     ).data or []
                     relationships["relationships"]["templates"] = templates
 
         elif entity_type == "template":
-            # Get doctors who activated this template
-            doctor_templates = (
-                supabase.table("doctor_templates")
-                .select("doctor_id, is_active")
+            # Get counsellors who activated this template
+            counsellor_templates = (
+                supabase.table("counsellor_templates")
+                .select("counsellor_id, is_active")
                 .eq("template_id", entity_id)
                 .eq("is_active", True)
                 .execute()
             ).data or []
 
-            # Get doctor details
-            if doctor_templates:
-                doctor_ids = [r["doctor_id"] for r in doctor_templates if r.get("doctor_id")]
-                if doctor_ids:
+            # Get counsellor details
+            if counsellor_templates:
+                counsellor_ids = [r["counsellor_id"] for r in counsellor_templates if r.get("counsellor_id")]
+                if counsellor_ids:
                     doctors = (
-                        supabase.table("doctors")
+                        supabase.table("counsellors")
                         .select("id, full_name, email, specialization")
-                        .in_("id", doctor_ids)
+                        .in_("id", counsellor_ids)
                         .execute()
                     ).data or []
                     # Normalize field names for frontend compatibility
                     for doc in doctors:
                         doc["name"] = doc.pop("full_name", "")
                         doc["specialty"] = doc.pop("specialization", "")
-                    relationships["relationships"]["doctors"] = doctors
+                    relationships["relationships"]["counsellors"] = doctors
 
             # Get segments in this template
             template_segments = (
@@ -4330,7 +4330,7 @@ async def get_entity_relationships(
             # Get templates based on this consultation type
             templates = (
                 supabase.table("templates")
-                .select("id, template_code, template_name, doctor_id")
+                .select("id, template_code, template_name, counsellor_id")
                 .eq("consultation_type_id", entity_id)
                 .execute()
             ).data or []
@@ -4347,17 +4347,17 @@ async def get_entity_relationships(
 
             relationships["relationships"]["segments"] = ct_segments
 
-            # Get medical extractions referencing this consultation type
+            # Get extractions referencing this consultation type
             try:
                 extractions = (
-                    supabase.table("medical_extractions")
+                    supabase.table("extractions")
                     .select("id, created_at")
                     .eq("consultation_type_id", entity_id)
                     .limit(100)
                     .execute()
                 ).data or []
                 if extractions:
-                    relationships["relationships"]["medical_extractions"] = {
+                    relationships["relationships"]["extractions"] = {
                         "count": len(extractions),
                         "note": "These extractions will have consultation_type_id set to NULL (data preserved)"
                     }
@@ -4393,7 +4393,7 @@ async def hard_delete_entity(
 
     Entity types:
     - **segment**: Deletes from segment_definitions, cascades to consultation_type_segments and template_segments
-    - **template**: Deletes from templates, cascades to template_segments and doctor_templates
+    - **template**: Deletes from templates, cascades to template_segments and counsellor_templates
     - **consultation_type**: Deletes from consultation_types, cascades to consultation_type_segments
     """
     import logging
@@ -4470,14 +4470,14 @@ async def hard_delete_entity(
             entity_name = entity.get("type_code")
 
             # Unlink/delete related records before deletion
-            # 1. Unlink medical_extractions (preserve extraction data)
+            # 1. Unlink extractions (preserve extraction data)
             try:
-                supabase.table("medical_extractions").update({
+                supabase.table("extractions").update({
                     "consultation_type_id": None
                 }).eq("consultation_type_id", entity_id).execute()
-                logger.debug(f"[HARD_DELETE] Unlinked medical_extractions from consultation_type {entity_id}")
+                logger.debug(f"[HARD_DELETE] Unlinked extractions from consultation_type {entity_id}")
             except Exception as e:
-                logger.warning(f"[HARD_DELETE] Could not unlink medical_extractions: {e}")
+                logger.warning(f"[HARD_DELETE] Could not unlink extractions: {e}")
 
             # 2. Unlink recording_sessions (preserve session data)
             try:

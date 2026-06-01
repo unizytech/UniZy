@@ -60,7 +60,7 @@ export function TemplateEhrConfigModal({ template, onClose }: TemplateEhrConfigM
   const fetchEhrTypes = useCallback(async () => {
     try {
       const token = getAccessToken();
-      const response = await authGet('/api/v1/hospitals/ehr-types', token);
+      const response = await authGet('/api/v1/schools/ehr-types', token);
 
       if (!response.ok) {
         throw new Error('Failed to fetch EHR types');
@@ -77,7 +77,7 @@ export function TemplateEhrConfigModal({ template, onClose }: TemplateEhrConfigM
   const fetchMappings = useCallback(async () => {
     try {
       const token = getAccessToken();
-      const response = await authGet(`/api/v1/hospitals/template-ehr?template_id=${template.id}`, token);
+      const response = await authGet(`/api/v1/schools/template-ehr?template_id=${template.id}`, token);
 
       if (!response.ok) {
         throw new Error('Failed to fetch template EHR mappings');
@@ -116,7 +116,7 @@ export function TemplateEhrConfigModal({ template, onClose }: TemplateEhrConfigM
     setSaving(true);
     try {
       const token = getAccessToken();
-      const response = await authPost('/api/v1/hospitals/template-ehr', token, {
+      const response = await authPost('/api/v1/schools/template-ehr', token, {
         template_id: template.id,
         ehr_type_id: newEhrTypeId,
         url_suffix: newUrlSuffix || null
@@ -144,7 +144,7 @@ export function TemplateEhrConfigModal({ template, onClose }: TemplateEhrConfigM
     setSaving(true);
     try {
       const token = getAccessToken();
-      const response = await authPut(`/api/v1/hospitals/template-ehr/${mappingId}`, token, {
+      const response = await authPut(`/api/v1/schools/template-ehr/${mappingId}`, token, {
         url_suffix: editUrlSuffix || null
       });
 
@@ -173,7 +173,7 @@ export function TemplateEhrConfigModal({ template, onClose }: TemplateEhrConfigM
     setSaving(true);
     try {
       const token = getAccessToken();
-      const response = await authDelete(`/api/v1/hospitals/template-ehr/${mappingId}`, token);
+      const response = await authDelete(`/api/v1/schools/template-ehr/${mappingId}`, token);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

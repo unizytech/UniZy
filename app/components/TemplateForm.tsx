@@ -297,7 +297,7 @@ export function TemplateForm({
               <p className="text-xs text-gray-500 mt-2">
                 Imports the template plus any missing segments, consultation type, and system prompt
                 rows. Re-assembles prompts on the target after insert. The new template is created
-                as a global (doctor_id = NULL) template.
+                as a global (counsellor_id = NULL) template.
               </p>
             </div>
 

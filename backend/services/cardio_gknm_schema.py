@@ -5,7 +5,7 @@ Matches the GKNM Cardiology consultation output format from Cardio.md
 
 from google.genai import types
 
-# Cardio GKNM Parameters Schema - Matches GKNM Hospital Cardiology format
+# Cardio GKNM Parameters Schema - Matches GKNM School Cardiology format
 CARDIO_GKNM_PARAMETERS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
@@ -66,7 +66,7 @@ CARDIO_GKNM_PARAMETERS_SCHEMA = types.Schema(
         "historyOfPresentIllness": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "last_visit": types.Schema(type=types.Type.STRING, description="Last visit date and doctor (e.g., 'Last visit 04/11/2025 under Dr. AP')"),
+                "last_visit": types.Schema(type=types.Type.STRING, description="Last visit date and counsellor (e.g., 'Last visit 04/11/2025 under Dr. AP')"),
                 "recent_labs": types.Schema(type=types.Type.STRING, description="Recent lab values (e.g., 'cr- 1.0, K+ 5.3, hb- 12.1')"),
                 "activity_status": types.Schema(type=types.Type.STRING, description="Activity status (e.g., 'Does not go for walk')"),
                 "current_complaints": types.Schema(type=types.Type.STRING, description="Current complaints with details (e.g., 'C/of right lower limb pain yesterday night...')"),
@@ -81,7 +81,7 @@ CARDIO_GKNM_PARAMETERS_SCHEMA = types.Schema(
                             "schedule": types.Schema(type=types.Type.STRING, description="Schedule (e.g., 'OD', 'BD', 'HS', 'SOS')")
                         }
                     ),
-                    description="Current medications patient is on ('On drugs' section)"
+                    description="Current medications student is on ('On drugs' section)"
                 ),
                 "other_specialty_medications": types.Schema(type=types.Type.STRING, description="Medications from other specialists (e.g., 'Nephro drugs under Dr. Goutam: TAB NACSAVE Q OD')")
             },
@@ -174,14 +174,14 @@ CARDIO_GKNM_PARAMETERS_SCHEMA = types.Schema(
                     "comment": types.Schema(type=types.Type.STRING, description="Additional comments or '-'")
                 }
             ),
-            description="Medication chart with GKNM hospital format"
+            description="Medication chart with GKNM school format"
         ),
 
         # Section 11: Care Plan and Advice
         "carePlanAndAdvice": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "patient_summary": types.Schema(type=types.Type.STRING, description="Brief summary (e.g., 'Patient history noted')"),
+                "patient_summary": types.Schema(type=types.Type.STRING, description="Brief summary (e.g., 'Student history noted')"),
                 "current_vitals_summary": types.Schema(type=types.Type.STRING, description="Key vitals (e.g., 'BP- 170/80 mmHg')"),
                 "ecg_summary": types.Schema(type=types.Type.STRING, description="ECG findings (e.g., 'ECG- AF with SVR, HR - 40bpm')"),
                 "labs_summary": types.Schema(type=types.Type.STRING, description="Key lab values (e.g., 'Blood reports:CR- 1.0, K+ 5.3')"),
@@ -209,7 +209,7 @@ CARDIO_GKNM_PARAMETERS_SCHEMA = types.Schema(
             type=types.Type.OBJECT,
             properties={
                 "review_with_reports": types.Schema(type=types.Type.STRING, description="Review date (e.g., '26/12/2025')"),
-                "doctor_name": types.Schema(type=types.Type.STRING, description="Doctor to follow up with (e.g., 'Dr.Prabhakaran OPD')"),
+                "counsellor_name": types.Schema(type=types.Type.STRING, description="Counsellor to follow up with (e.g., 'Dr.Prabhakaran OPD')"),
                 "reports_needed": types.Schema(type=types.Type.STRING, description="Reports to bring (e.g., 'ECG, creatinine, potassium reports')"),
                 "timeline": types.Schema(type=types.Type.STRING, description="Timeline (e.g., 'after 1 month')")
             },
@@ -233,11 +233,11 @@ CARDIO_GKNM_PARAMETERS_SCHEMA = types.Schema(
         "signature": types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "doctor_name": types.Schema(type=types.Type.STRING, description="Doctor's name (e.g., 'DR.CHA R')"),
+                "counsellor_name": types.Schema(type=types.Type.STRING, description="Doctor's name (e.g., 'DR.CHA R')"),
                 "qualifications": types.Schema(type=types.Type.STRING, description="Qualifications (e.g., 'MD, DM, Cardiology')"),
                 "date_time": types.Schema(type=types.Type.STRING, description="Date and time of signature (e.g., 'Nov 25, 2025@14:24')")
             },
-            description="Doctor signature information"
+            description="Counsellor signature information"
         )
     },
     required=[

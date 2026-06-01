@@ -32,8 +32,8 @@ class SessionInfo:
     """Recording session information"""
     session_id: uuid.UUID
     correlation_id: uuid.UUID
-    doctor_id: uuid.UUID
-    patient_id: str
+    counsellor_id: uuid.UUID
+    student_id: str
     status: str
     template_code: str
     template_name: Optional[str]

@@ -45,7 +45,7 @@ try:
     print("\n📋 Migration Summary:")
     print("  - Dropped old validate_segment_configuration RPC function")
     print("  - Created new template-based validate_segment_configuration RPC function")
-    print("  - Function now validates across activated templates (doctor_templates junction)")
+    print("  - Function now validates across activated templates (counsellor_templates junction)")
     print("  - No longer references dropped doctor_segment_configurations table")
 
 except Exception as e:

@@ -1,8 +1,8 @@
 /**
- * React Hook for Hospital Feature Flags
+ * React Hook for School Feature Flags
  *
- * Fetches feature flags for the current user's hospital.
- * Super admins (no hospital_id) get all features enabled by default.
+ * Fetches feature flags for the current user's school.
+ * Super admins (no school_id) get all features enabled by default.
  *
  * Usage:
  * ```tsx
@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@lib/auth';
-import { getHospitalFeatures } from '@/services/hospitalApi';
+import { getSchoolFeatures } from '@/services/schoolApi';
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from '@lib/types';
 
 // All-true flags for super admins
@@ -25,11 +25,11 @@ const ALL_ENABLED_FLAGS: FeatureFlags = Object.fromEntries(
 ) as FeatureFlags;
 
 export function useFeatureFlags() {
-  const { getAccessToken, isSuperAdmin, adminHospitalId } = useAuth();
+  const { getAccessToken, isSuperAdmin, adminSchoolId } = useAuth();
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(
     isSuperAdmin ? ALL_ENABLED_FLAGS : DEFAULT_FEATURE_FLAGS
   );
-  const [loading, setLoading] = useState(!isSuperAdmin && !!adminHospitalId);
+  const [loading, setLoading] = useState(!isSuperAdmin && !!adminSchoolId);
   const fetchedRef = useRef(false);
   const getTokenRef = useRef(getAccessToken);
   getTokenRef.current = getAccessToken;
@@ -42,8 +42,8 @@ export function useFeatureFlags() {
       return;
     }
 
-    // No hospital ID: use defaults
-    if (!adminHospitalId) {
+    // No school ID: use defaults
+    if (!adminSchoolId) {
       setFeatureFlags(DEFAULT_FEATURE_FLAGS);
       setLoading(false);
       return;
@@ -57,7 +57,7 @@ export function useFeatureFlags() {
     const fetchFlags = async () => {
       try {
         const token = getTokenRef.current();
-        const flags = await getHospitalFeatures(adminHospitalId, token);
+        const flags = await getSchoolFeatures(adminSchoolId, token);
         if (!cancelled) {
           setFeatureFlags({ ...DEFAULT_FEATURE_FLAGS, ...flags } as FeatureFlags);
           fetchedRef.current = true;
@@ -73,7 +73,7 @@ export function useFeatureFlags() {
 
     fetchFlags();
     return () => { cancelled = true; };
-  }, [isSuperAdmin, adminHospitalId]);
+  }, [isSuperAdmin, adminSchoolId]);
 
   const hasFeature = useCallback(
     (key: string): boolean => {

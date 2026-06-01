@@ -31,7 +31,7 @@ def format_ophthalmology(flat_data: Dict[str, Any]) -> Dict[str, Any]:
 
         nested = {}
 
-        # ========== SECTION 1: PATIENT DEMOGRAPHICS (RECONSTRUCT OBJECT) ==========
+        # ========== SECTION 1: STUDENT DEMOGRAPHICS (RECONSTRUCT OBJECT) ==========
         nested["patientDemographics"] = {
             "mrNumber": flat_data.get("patientDemographics_mrNumber", ""),
             "date": flat_data.get("patientDemographics_date", ""),

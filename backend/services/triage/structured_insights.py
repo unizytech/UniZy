@@ -47,10 +47,6 @@ CONSULTATION_TYPE_TO_SPECIALTY = {
     # Obstetrics & Gynecology
     "GKNM_OBG": "obstetrics",
 
-    # Neonatology
-    "NEONATAL_PROFORMA": "neonatology",
-    "NEONATAL_DAILY": "neonatology",
-
     # Ophthalmology
     "OPHTHALMOLOGY": "ophthalmology",
     "OPHTHAL_DISCHARGE": "ophthalmology",
@@ -90,8 +86,8 @@ class StructuredInsights:
     Attributes:
         specialty: Clinical specialty (general_medicine, psychiatry, etc.)
         consultation_type_code: Original consultation type code
-        patient_age: Patient age as string
-        patient_gender: Patient gender
+        patient_age: Student age as string
+        patient_gender: Student gender
         age_group: Derived age group (neonate, infant, child, adolescent, adult, elderly)
 
         chief_complaints: List of chief complaint strings
@@ -130,7 +126,7 @@ class StructuredInsights:
     consultation_type_code: str = ""
     extraction_id: str = ""
 
-    # Patient demographics
+    # Student demographics
     patient_age: str = ""
     patient_gender: str = ""
     age_group: str = "adult"
@@ -177,7 +173,7 @@ class StructuredInsights:
     created_at: Optional[str] = None
     raw_extraction: Dict[str, Any] = field(default_factory=dict)
 
-    # Patient historical context (populated by with_patient_history)
+    # Student historical context (populated by with_student_history)
     known_allergies: List[str] = field(default_factory=list)
     chronic_conditions: List[str] = field(default_factory=list)
     prior_intervention_outcomes: List[Dict[str, Any]] = field(default_factory=list)
@@ -186,7 +182,7 @@ class StructuredInsights:
     compliance_history: str = ""
     historical_emotions: List[str] = field(default_factory=list)
     total_consultations: int = 0
-    patient_id: Optional[str] = None
+    student_id: Optional[str] = None
 
     def derive_age_group(self) -> str:
         """Derive age group from patient_age string."""
@@ -276,7 +272,7 @@ class StructuredInsights:
             "caution": self.caution,
             "summary": self.summary,
             "created_at": self.created_at,
-            # Patient historical context
+            # Student historical context
             "known_allergies": self.known_allergies,
             "chronic_conditions": self.chronic_conditions,
             "prior_intervention_outcomes": self.prior_intervention_outcomes,
@@ -285,7 +281,7 @@ class StructuredInsights:
             "compliance_history": self.compliance_history,
             "historical_emotions": self.historical_emotions,
             "total_consultations": self.total_consultations,
-            "patient_id": self.patient_id,
+            "student_id": self.student_id,
         }
 
 
@@ -348,7 +344,7 @@ class StructuredInsightsMapper:
         )
 
         # Extract all fields dynamically
-        self._extract_patient_info(insights, ext_data)
+        self._extract_student_info(insights, ext_data)
         self._extract_chief_complaints(insights, ext_data)
         self._extract_history(insights, ext_data)
         self._extract_examination(insights, ext_data)
@@ -398,8 +394,8 @@ class StructuredInsightsMapper:
         # Default
         return "OP"
 
-    def _extract_patient_info(self, insights: StructuredInsights, data: Dict[str, Any]):
-        """Extract patient demographic information."""
+    def _extract_student_info(self, insights: StructuredInsights, data: Dict[str, Any]):
+        """Extract student demographic information."""
 
         # Try patientInformation segment
         patient_info = find_segment_value(
@@ -720,19 +716,19 @@ def map_extraction_to_insights(
     return mapper.map_extraction(extraction, consultation_type_code)
 
 
-async def map_extraction_with_patient_history(
+async def map_extraction_with_student_history(
     extraction: Dict[str, Any],
-    patient_id: str,
+    student_id: str,
     supabase_client,
     consultation_type_code: Optional[str] = None
 ) -> StructuredInsights:
     """
-    Map extraction to StructuredInsights enriched with patient's historical context.
+    Map extraction to StructuredInsights enriched with student's historical context.
 
-    This function queries historical patient data from:
+    This function queries historical student data from:
     - ALLERGIES, CAUTION segments → known_allergies
     - HISTORY segments → chronic_conditions
-    - patient_interventions table → prior_intervention_outcomes
+    - student_interventions table → prior_intervention_outcomes
     - ANXIETY_POST_CONSULTATION (combined mode with nested pre/post) → historical_anxiety_pattern
     - FINANCIAL_CONCERNS (combined mode) → financial_concerns_history
     - TREATMENT_COMPLIANCE_LIKELIHOOD (combined mode) → compliance_history
@@ -740,36 +736,36 @@ async def map_extraction_with_patient_history(
 
     Args:
         extraction: Extraction record from database
-        patient_id: UUID of the patient
+        student_id: UUID of the student
         supabase_client: Supabase client instance
         consultation_type_code: Optional consultation type code
 
     Returns:
-        StructuredInsights object enriched with historical patient context
+        StructuredInsights object enriched with historical student context
     """
     # First, get base insights from extraction
     mapper = StructuredInsightsMapper()
     insights = mapper.map_extraction(extraction, consultation_type_code)
-    insights.patient_id = patient_id
+    insights.student_id = student_id
 
-    if not patient_id:
-        logger.warning("[STRUCTURED_INSIGHTS] No patient_id provided, skipping history enrichment")
+    if not student_id:
+        logger.warning("[STRUCTURED_INSIGHTS] No student_id provided, skipping history enrichment")
         return insights
 
     try:
-        # Call RPC function to aggregate patient context from historical extractions
+        # Call RPC function to aggregate student context from historical extractions
         result = supabase_client.rpc(
-            'get_patient_triage_context',
-            {'p_patient_id': patient_id}
+            'get_student_triage_context',
+            {'p_student_id': student_id}
         ).execute()
 
         history = result.data if result.data else {}
 
         if not history:
-            logger.info(f"[STRUCTURED_INSIGHTS] No historical context found for patient {patient_id}")
+            logger.info(f"[STRUCTURED_INSIGHTS] No historical context found for student {student_id}")
             return insights
 
-        logger.info(f"[STRUCTURED_INSIGHTS] Enriching with patient history: {list(history.keys())}")
+        logger.info(f"[STRUCTURED_INSIGHTS] Enriching with student history: {list(history.keys())}")
 
         # Enrich with historical data from segments
         # - ALLERGIES, CAUTION → known_allergies
@@ -786,7 +782,7 @@ async def map_extraction_with_patient_history(
         elif chronic:
             insights.chronic_conditions = [str(chronic)]
 
-        # - patient_interventions → prior_intervention_outcomes
+        # - student_interventions → prior_intervention_outcomes
         interventions = history.get('intervention_outcomes', [])
         if isinstance(interventions, list):
             insights.prior_intervention_outcomes = interventions
@@ -815,11 +811,11 @@ async def map_extraction_with_patient_history(
         total = history.get('total_consultations', 0)
         insights.total_consultations = int(total) if total else 0
 
-        logger.info(f"[STRUCTURED_INSIGHTS] Patient history enriched: {insights.total_consultations} consultations, "
+        logger.info(f"[STRUCTURED_INSIGHTS] Student history enriched: {insights.total_consultations} consultations, "
                    f"{len(insights.known_allergies)} allergies, {len(insights.chronic_conditions)} chronic conditions")
 
     except Exception as e:
-        logger.error(f"[STRUCTURED_INSIGHTS] Error fetching patient history for {patient_id}: {e}")
+        logger.error(f"[STRUCTURED_INSIGHTS] Error fetching student history for {student_id}: {e}")
         # Continue without history - don't fail the whole process
 
     return insights

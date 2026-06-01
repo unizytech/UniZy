@@ -12,8 +12,8 @@ class WebhookSessionInfo(BaseModel):
     correlation_id: Optional[str] = Field(None, description="Recording session correlation ID")
     submission_id: Optional[str] = Field(None, description="Processing job submission ID")
     session_id: Optional[str] = Field(None, description="Recording session UUID")
-    doctor_id: Optional[str] = Field(None, description="Doctor UUID")
-    patient_id: Optional[str] = Field(None, description="Patient identifier")
+    counsellor_id: Optional[str] = Field(None, description="Counsellor UUID")
+    student_id: Optional[str] = Field(None, description="Student identifier")
     template_code: Optional[str] = Field(None, description="Activated template code (unique identifier for DB lookups)")
     template_name: Optional[str] = Field(None, description="Activated template name (display name)")
     extraction_mode: Optional[str] = Field(None, description="Extraction mode (core/additional/full)")
@@ -41,14 +41,14 @@ class WebhookPayload(BaseModel):
             "example": {
                 "insights": {
                     "diagnosis": {"data": "Primary diagnosis information"},
-                    "chief_complaints": {"data": "Patient complaints"},
+                    "chief_complaints": {"data": "Student complaints"},
                     "prescription": {"data": "Prescribed medications"}
                 },
                 "session_info": {
                     "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
                     "submission_id": "660e8400-e29b-41d4-a716-446655440000",
-                    "doctor_id": "770e8400-e29b-41d4-a716-446655440000",
-                    "patient_id": "PAT12345",
+                    "counsellor_id": "770e8400-e29b-41d4-a716-446655440000",
+                    "student_id": "PAT12345",
                     "template_code": "OP_PSYCH_STD_FULL",
                     "template_name": "Psychiatry Standard - Full",
                     "extraction_mode": "full",

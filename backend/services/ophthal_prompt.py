@@ -39,15 +39,15 @@ Extract complete ophthalmology consultation data from voice transcripts and retu
 
 **CRITICAL INSTRUCTION - Eye Laterality for Different Audiences:**
 
-### Patient-Facing Segments (Use Plain Language)
-In the following segments, ALWAYS use plain language terms for better patient understanding:
+### Student-Facing Segments (Use Plain Language)
+In the following segments, ALWAYS use plain language terms for better student understanding:
 - **Diagnosis** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Advice and Follow-up** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Medications/Prescriptions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 - **Treatment Recommendations** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
-- **Patient Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
+- **Student Instructions** → Use "Left Eye" or "Right Eye" (NOT "OS" or "OD")
 
-**Examples for Patient-Facing Text:**
+**Examples for Student-Facing Text:**
 ✅ CORRECT: "Left Eye shows early cataract changes - monitoring recommended"
 ❌ WRONG: "OS shows early cataract changes - monitoring recommended"
 
@@ -77,9 +77,9 @@ In clinical examination and measurement segments, use BOTH medical abbreviations
 
 **VALIDATION CHECKLIST:**
 Before finalizing output, verify:
-✅ All patient-facing text (diagnosis, medications, advice) uses "Left Eye"/"Right Eye" only
+✅ All student-facing text (diagnosis, medications, advice) uses "Left Eye"/"Right Eye" only
 ✅ All clinical measurement sections use "OD (Right Eye)"/"OS (Left Eye)" format
-✅ No abbreviations (OS, OD, OU) appear alone in patient instructions
+✅ No abbreviations (OS, OD, OU) appear alone in student instructions
 ✅ Consistency maintained throughout the document
 
 ---
@@ -92,7 +92,7 @@ Before finalizing output, verify:
 
 ### Refraction
 - **Objective Refraction**: Measured with retinoscopy or autorefractor
-- **Subjective Refraction**: Patient's preference through trial lenses
+- **Subjective Refraction**: Student's preference through trial lenses
 - **Notation**: Sphere / Cylinder × Axis (e.g., "+2.00 / -0.75 × 90")
 - **DS**: Diopter Sphere (no astigmatism)
 - **Plano/PL**: Zero power
@@ -157,12 +157,12 @@ Before finalizing output, verify:
 
 ## FIELD EXTRACTION GUIDELINES
 
-### 1. PATIENT DEMOGRAPHICS
+### 1. STUDENT DEMOGRAPHICS
 
 **mrNumber:**
 - Medical Record Number
 - Format: String (alphanumeric)
-- Keywords: "MR number", "medical record", "patient ID", "registration number"
+- Keywords: "MR number", "medical record", "student ID", "registration number"
 
 **date:**
 - Consultation date
@@ -170,12 +170,12 @@ Before finalizing output, verify:
 - Keywords: "today", "examination date", specific date mentioned
 
 **patientName:**
-- Full patient name
+- Full student name
 - Format: String
 - Extract complete name as stated
 
 **age:**
-- Patient age
+- Student age
 - Format: String (e.g., "45", "67 years")
 - Keywords: "age", "years old"
 
@@ -288,12 +288,12 @@ Before finalizing output, verify:
   - "-3.50 DS" (no astigmatism)
   - "Plano / -1.25 × 180"
 
-#### **Subjective Refraction (Patient Preference)**
+#### **Subjective Refraction (Student Preference)**
 
 **subjectiveRefractionDistanceOD & subjectiveRefractionDistanceOS:**
 - Subjective refraction for distance
 - Format: "Sphere / Cylinder × Axis"
-- Keywords: "subjective refraction", "patient prefers", "trial frame"
+- Keywords: "subjective refraction", "student prefers", "trial frame"
 
 **subjectiveRefractionNearOD & subjectiveRefractionNearOS:**
 - Subjective refraction for near (includes reading add)
@@ -357,16 +357,16 @@ Extract comprehensive ophthalmology consultation data from the voice transcript 
 
 **HIGHEST PRIORITY FIELDS** - Extract with 100% accuracy:
 - Visual acuity for both eyes (distance and near, exact Snellen notation)
-- Refraction: objective (retinoscopy/autorefractor) and subjective (patient preference)
+- Refraction: objective (retinoscopy/autorefractor) and subjective (student preference)
 - IOP measurements with mmHg units, time, and method
 - C/D ratios (decimal 0.0-1.0)
 - Slit lamp findings structured by anatomical components (lids, conjunctiva, cornea, AC, iris, lens)
 - Fundus examination: optic disc, macula, vessels, periphery
 
 **EYE LATERALITY RULES:**
-- Patient-facing text (diagnosis, medications, advice): Use "Right Eye" / "Left Eye" ONLY
+- Student-facing text (diagnosis, medications, advice): Use "Right Eye" / "Left Eye" ONLY
 - Clinical measurements: Use "OD (Right Eye)" / "OS (Left Eye)" format
-- NEVER use OD/OS abbreviations alone in patient instructions
+- NEVER use OD/OS abbreviations alone in student instructions
 
 **EXTRACTION RULES:**
 1. Separate OD (Right Eye) and OS (Left Eye) data completely throughout
@@ -397,17 +397,17 @@ Return ONLY the JSON object. No markdown, no explanations.
 OPHTHAL_PARAMETERS_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics
+        # Section 1: Student Demographics
         "patientDemographics": types.Schema(
             type=types.Type.OBJECT,
             properties={
                 "mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
                 "date": types.Schema(type=types.Type.STRING, description="Consultation date in YYYY-MM-DD or DD-MM-YYYY format or empty string"),
-                "patientName": types.Schema(type=types.Type.STRING, description="Full patient name or empty string"),
-                "age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years') or empty string"),
+                "patientName": types.Schema(type=types.Type.STRING, description="Full student name or empty string"),
+                "age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years') or empty string"),
                 "gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string")
             },
-            description="Patient identification and demographics"
+            description="Student identification and demographics"
         ),
 
         # Section 2: Clinical History
@@ -481,7 +481,7 @@ OPHTHAL_PARAMETERS_SCHEMA = types.Schema(
                             description="Left eye subjective refraction"
                         )
                     },
-                    description="Subjective refraction (patient preference)"
+                    description="Subjective refraction (student preference)"
                 )
             },
             description="Refraction measurements (objective and subjective)"
@@ -688,11 +688,11 @@ OPHTHAL_PARAMETERS_SCHEMA = types.Schema(
 OPHTHAL_PARAMETERS_SCHEMA_FLAT = types.Schema(
     type=types.Type.OBJECT,
     properties={
-        # Section 1: Patient Demographics (flattened)
+        # Section 1: Student Demographics (flattened)
         "patientDemographics_mrNumber": types.Schema(type=types.Type.STRING, description="Medical record number or empty string"),
         "patientDemographics_date": types.Schema(type=types.Type.STRING, description="Consultation date in YYYY-MM-DD or DD-MM-YYYY format or empty string"),
-        "patientDemographics_patientName": types.Schema(type=types.Type.STRING, description="Full patient name or empty string"),
-        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Patient age with unit (e.g., '45 years') or empty string"),
+        "patientDemographics_patientName": types.Schema(type=types.Type.STRING, description="Full student name or empty string"),
+        "patientDemographics_age": types.Schema(type=types.Type.STRING, description="Student age with unit (e.g., '45 years') or empty string"),
         "patientDemographics_gender": types.Schema(type=types.Type.STRING, description="Male, Female, Other, or empty string"),
 
         # Section 2: Clinical History (flattened)

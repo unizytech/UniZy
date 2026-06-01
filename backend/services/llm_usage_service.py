@@ -170,7 +170,7 @@ class LLMUsageData:
     # Context references (optional)
     session_id: Optional[uuid.UUID] = None
     extraction_id: Optional[uuid.UUID] = None
-    doctor_id: Optional[uuid.UUID] = None
+    counsellor_id: Optional[uuid.UUID] = None
     api_client_id: Optional[uuid.UUID] = None  # API client that made the request
 
     # Call classification
@@ -216,7 +216,7 @@ class LLMUsageData:
         """Convert to dictionary for database insertion."""
         data = asdict(self)
         # Convert UUID to string
-        for key in ['session_id', 'extraction_id', 'doctor_id', 'api_client_id']:
+        for key in ['session_id', 'extraction_id', 'counsellor_id', 'api_client_id']:
             if data[key] is not None:
                 data[key] = str(data[key])
         # Convert datetime to ISO string
@@ -406,7 +406,7 @@ def extract_usage_from_response(
     template_code: Optional[str] = None,
     session_id: Optional[uuid.UUID] = None,
     extraction_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
     audio_duration_seconds: Optional[float] = None,
     audio_size_bytes: Optional[int] = None,
@@ -427,8 +427,8 @@ def extract_usage_from_response(
         consultation_type_code: Consultation type code
         template_code: Template used
         session_id: Recording session ID
-        extraction_id: Medical extraction ID
-        doctor_id: Doctor ID
+        extraction_id: extraction ID
+        counsellor_id: Counsellor ID
         api_client_id: API client ID that made the request
         audio_duration_seconds: Audio duration (for transcription)
         audio_size_bytes: Audio size (for transcription)
@@ -499,7 +499,7 @@ def extract_usage_from_response(
         template_code=template_code,
         session_id=session_id,
         extraction_id=extraction_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         prompt_token_count=prompt_tokens,
         cached_content_token_count=cached_tokens,
@@ -531,7 +531,7 @@ def create_error_usage(
     api_duration_seconds: Optional[float] = None,
     session_id: Optional[uuid.UUID] = None,
     extraction_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
 ) -> LLMUsageData:
     """
@@ -544,8 +544,8 @@ def create_error_usage(
         error_message: Error description
         api_duration_seconds: Time before failure (optional)
         session_id: Recording session ID
-        extraction_id: Medical extraction ID
-        doctor_id: Doctor ID
+        extraction_id: extraction ID
+        counsellor_id: Counsellor ID
         api_client_id: API client ID that made the request
 
     Returns:
@@ -557,7 +557,7 @@ def create_error_usage(
         model=model,
         session_id=session_id,
         extraction_id=extraction_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         api_duration_seconds=api_duration_seconds,
         response_status="error",
@@ -684,7 +684,7 @@ def log_transcription_usage(
     audio_duration_seconds: float,
     audio_size_bytes: int,
     session_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
     error_message: Optional[str] = None,
     call_subtype: str = "audio_to_text",
@@ -706,7 +706,7 @@ def log_transcription_usage(
         audio_duration_seconds=audio_duration_seconds,
         audio_size_bytes=audio_size_bytes,
         session_id=session_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         error_message=error_message,
     )
@@ -721,7 +721,7 @@ def log_extraction_usage(
     template_code: Optional[str] = None,
     session_id: Optional[uuid.UUID] = None,
     extraction_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
     system_prompt_tokens: Optional[int] = None,
     user_prompt_tokens: Optional[int] = None,
@@ -743,7 +743,7 @@ def log_extraction_usage(
         template_code=template_code,
         session_id=session_id,
         extraction_id=extraction_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         system_prompt_tokens=system_prompt_tokens,
         user_prompt_tokens=user_prompt_tokens,
@@ -758,7 +758,7 @@ def log_emotion_usage(
     api_duration_seconds: float,
     extraction_id: Optional[uuid.UUID] = None,
     session_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
     audio_duration_seconds: Optional[float] = None,
     audio_size_bytes: Optional[int] = None,
@@ -777,7 +777,7 @@ def log_emotion_usage(
         api_duration_seconds=api_duration_seconds,
         session_id=session_id,
         extraction_id=extraction_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         audio_duration_seconds=audio_duration_seconds,
         audio_size_bytes=audio_size_bytes,
@@ -792,7 +792,7 @@ def log_merge_usage(
     consultation_type_code: Optional[str] = None,
     session_id: Optional[uuid.UUID] = None,
     extraction_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
     error_message: Optional[str] = None,
     call_subtype: Optional[str] = None,
@@ -811,7 +811,7 @@ def log_merge_usage(
         consultation_type_code=consultation_type_code,
         session_id=session_id,
         extraction_id=extraction_id,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         error_message=error_message,
     )
@@ -822,7 +822,7 @@ def create_live_api_usage(
     session_duration_seconds: float,
     audio_duration_seconds: Optional[float] = None,
     session_id: Optional[uuid.UUID] = None,
-    doctor_id: Optional[uuid.UUID] = None,
+    counsellor_id: Optional[uuid.UUID] = None,
     api_client_id: Optional[uuid.UUID] = None,
     consultation_type_code: Optional[str] = None,
     template_code: Optional[str] = None,
@@ -835,7 +835,7 @@ def create_live_api_usage(
     goes directly to Google. We track:
     - Session duration (how long the WebSocket was open)
     - Audio duration (estimated from recording time)
-    - Context (session_id, doctor_id)
+    - Context (session_id, counsellor_id)
 
     Cost estimation for Live API:
     - Native audio models (gemini-2.5-flash-native-audio) have different pricing
@@ -881,7 +881,7 @@ def create_live_api_usage(
         error_message=error_message,
         session_id=session_id,
         extraction_id=None,
-        doctor_id=doctor_id,
+        counsellor_id=counsellor_id,
         api_client_id=api_client_id,
         consultation_type_code=consultation_type_code,
         template_code=template_code,

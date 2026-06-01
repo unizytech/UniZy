@@ -57,7 +57,7 @@ interface TriageSuggestionsModalProps {
   data: TriageSuggestionsData;
   extractionId?: string | null;
   onRefresh?: () => void;
-  doctorId?: string | null; // Doctor ID for submitting feedback
+  doctorId?: string | null; // Counsellor ID for submitting feedback
   enableFeedback?: boolean; // Whether to show feedback buttons
 }
 
@@ -205,7 +205,7 @@ export function TriageSuggestionsModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           suggestion_id: suggestionId,
-          doctor_id: doctorId,
+          counsellor_id: doctorId,
           feedback_type: feedbackType,
           rejection_reason: rejectionReason,
           modified_text: modifiedText,

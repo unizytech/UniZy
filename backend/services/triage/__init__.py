@@ -9,8 +9,8 @@ Components:
 - structured_insights.py: Dynamic mapper from extraction JSON to triage-ready format
 - differential_trees.py: India-specific differential diagnosis trees
 - triage_engine.py: Main engine that generates suggestions (MVP)
-- doctor_practice_layer.py: Phase 1 - Doctor practice style learning
-- hospital_intelligence_layer.py: Phase 2 - Hospital/peer intelligence
+- counsellor_practice_layer.py: Phase 1 - Counsellor practice style learning
+- school_intelligence_layer.py: Phase 2 - School/peer intelligence
 - rag_guidelines_layer.py: Phase 3 - RAG clinical guidelines (simple)
 - multi_layer_orchestrator.py: Phase 4 - Multi-layer orchestration
 - guideline_ingestion_service.py: Phase 3 - Guideline ingestion pipeline (simple)
@@ -25,7 +25,7 @@ from .structured_insights import (
     StructuredInsights,
     StructuredInsightsMapper,
     map_extraction_to_insights,
-    map_extraction_with_patient_history,
+    map_extraction_with_student_history,
     CONSULTATION_TYPE_TO_SPECIALTY,
 )
 from .differential_trees import (
@@ -41,29 +41,29 @@ from .triage_engine import (
     TriageSuggestionEngine,
     TriageSuggestions,
     TriageSuggestion,
-    DoctorPreferences,
-    fetch_doctor_preferences,
+    CounsellorPreferences,
+    fetch_counsellor_preferences,
     generate_triage_suggestions,
     generate_triage_from_extraction,
     generate_triage_from_extraction_v2,
 )
 
-# Phase 1: Doctor Practice Style Layer
-from .doctor_practice_layer import (
-    DoctorPracticeLayer,
-    DoctorPracticeStyle,
+# Phase 1: Counsellor Practice Style Layer
+from .counsellor_practice_layer import (
+    CounsellorPracticeLayer,
+    CounsellorPracticeStyle,
     get_practice_layer,
 )
 
-# Phase 2: Hospital Intelligence Layer
-from .hospital_intelligence_layer import (
-    HospitalIntelligenceLayer,
-    HospitalPatterns,
+# Phase 2: School Intelligence Layer
+from .school_intelligence_layer import (
+    SchoolIntelligenceLayer,
+    SchoolPatterns,
     PeerComparison,
     OutlierFlag,
-    HospitalPatternAggregator,
-    get_hospital_intelligence_layer,
-    get_hospital_aggregator,
+    SchoolPatternAggregator,
+    get_school_intelligence_layer,
+    get_school_aggregator,
 )
 
 # Phase 3: RAG Guidelines Layer
@@ -116,7 +116,7 @@ __all__ = [
     'StructuredInsights',
     'StructuredInsightsMapper',
     'map_extraction_to_insights',
-    'map_extraction_with_patient_history',
+    'map_extraction_with_student_history',
     'CONSULTATION_TYPE_TO_SPECIALTY',
     # Differential Trees
     'DIFFERENTIAL_TREES',
@@ -130,23 +130,23 @@ __all__ = [
     'TriageSuggestionEngine',
     'TriageSuggestions',
     'TriageSuggestion',
-    'DoctorPreferences',
-    'fetch_doctor_preferences',
+    'CounsellorPreferences',
+    'fetch_counsellor_preferences',
     'generate_triage_suggestions',
     'generate_triage_from_extraction',
     'generate_triage_from_extraction_v2',
-    # Phase 1: Doctor Practice Style
-    'DoctorPracticeLayer',
-    'DoctorPracticeStyle',
+    # Phase 1: Counsellor Practice Style
+    'CounsellorPracticeLayer',
+    'CounsellorPracticeStyle',
     'get_practice_layer',
-    # Phase 2: Hospital Intelligence
-    'HospitalIntelligenceLayer',
-    'HospitalPatterns',
+    # Phase 2: School Intelligence
+    'SchoolIntelligenceLayer',
+    'SchoolPatterns',
     'PeerComparison',
     'OutlierFlag',
-    'HospitalPatternAggregator',
-    'get_hospital_intelligence_layer',
-    'get_hospital_aggregator',
+    'SchoolPatternAggregator',
+    'get_school_intelligence_layer',
+    'get_school_aggregator',
     # Phase 3: RAG Guidelines
     'RAGGuidelinesLayer',
     'GuidelineMatch',

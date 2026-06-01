@@ -26,7 +26,7 @@ from models.auth_models import (
     ClientRefreshResponse,
 )
 from dependencies.auth import get_current_client
-from services.supabase_service import supabase, retry_on_network_error, get_hospital_settings_cached
+from services.supabase_service import supabase, retry_on_network_error, get_school_settings_cached
 from services.auth_service import exchange_client_credentials, refresh_client_token
 
 logger = logging.getLogger(__name__)
@@ -53,8 +53,8 @@ class UserInfo(BaseModel):
     name: Optional[str] = None
     email: str
     role: str
-    hospital_id: Optional[str] = None
-    hospital_name: Optional[str] = None
+    school_id: Optional[str] = None
+    school_name: Optional[str] = None
 
 
 class LoginResponse(BaseModel):
@@ -80,8 +80,8 @@ class AuthValidateResponse(BaseModel):
     valid: bool = True
     client_type: str
     client_name: str
-    hospital_id: Optional[str] = None
-    allowed_doctor_ids: Optional[List[str]] = None
+    school_id: Optional[str] = None
+    allowed_counsellor_ids: Optional[List[str]] = None
     scopes: List[str] = []
     feature_flags: Optional[Dict[str, bool]] = None
 
@@ -95,7 +95,7 @@ async def login(request: LoginRequest):
     """
     Authenticate with email/password and get access + refresh tokens.
 
-    Returns user info including hospital_id for hospital-scoped admins.
+    Returns user info including school_id for school-scoped admins.
     No Supabase credentials needed by the caller.
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
@@ -125,7 +125,7 @@ async def login(request: LoginRequest):
         expires_at = data["expires_at"]
         auth_user_id = data["user"]["id"]
 
-        # Look up admin_users record for role and hospital_id
+        # Look up admin_users record for role and school_id
         result = retry_on_network_error(
             lambda: supabase.table("admin_users")
             .select("*")
@@ -140,18 +140,18 @@ async def login(request: LoginRequest):
 
         admin_user = result.data[0]
 
-        # Get hospital name if hospital-scoped
-        hospital_name = None
-        if admin_user.get("hospital_id"):
+        # Get school name if school-scoped
+        school_name = None
+        if admin_user.get("school_id"):
             h_result = retry_on_network_error(
-                lambda: supabase.table("hospitals")
-                .select("hospital_name")
-                .eq("id", admin_user["hospital_id"])
+                lambda: supabase.table("schools")
+                .select("school_name")
+                .eq("id", admin_user["school_id"])
                 .limit(1)
                 .execute()
             )
             if h_result.data:
-                hospital_name = h_result.data[0]["hospital_name"]
+                school_name = h_result.data[0]["school_name"]
 
         return LoginResponse(
             access_token=access_token,
@@ -161,8 +161,8 @@ async def login(request: LoginRequest):
                 name=admin_user.get("full_name"),
                 email=admin_user["email"],
                 role=admin_user.get("role", "admin"),
-                hospital_id=admin_user.get("hospital_id"),
-                hospital_name=hospital_name,
+                school_id=admin_user.get("school_id"),
+                school_name=school_name,
             ),
         )
 
@@ -301,25 +301,25 @@ async def get_me(client: ClientContext = Depends(get_current_client)):
 
         admin_user = result.data[0]
 
-        # Get hospital name if hospital-scoped
-        hospital_name = None
-        if admin_user.get("hospital_id"):
+        # Get school name if school-scoped
+        school_name = None
+        if admin_user.get("school_id"):
             h_result = retry_on_network_error(
-                lambda: supabase.table("hospitals")
-                .select("hospital_name")
-                .eq("id", admin_user["hospital_id"])
+                lambda: supabase.table("schools")
+                .select("school_name")
+                .eq("id", admin_user["school_id"])
                 .limit(1)
                 .execute()
             )
             if h_result.data:
-                hospital_name = h_result.data[0]["hospital_name"]
+                school_name = h_result.data[0]["school_name"]
 
         return UserInfo(
             name=admin_user.get("full_name"),
             email=admin_user["email"],
             role=admin_user.get("role", "admin"),
-            hospital_id=admin_user.get("hospital_id"),
-            hospital_name=hospital_name,
+            school_id=admin_user.get("school_id"),
+            school_name=school_name,
         )
 
     except HTTPException:
@@ -333,18 +333,18 @@ async def get_me(client: ClientContext = Depends(get_current_client)):
 async def validate_auth(client: ClientContext = Depends(get_current_client)):
     """Validate current authentication credentials. Returns client identity info and feature flags."""
     feature_flags = None
-    if client.hospital_id:
+    if client.school_id:
         try:
-            settings = get_hospital_settings_cached(str(client.hospital_id))
+            settings = get_school_settings_cached(str(client.school_id))
             feature_flags = settings.get("feature_flags")
         except Exception as e:
-            logger.warning(f"[AUTH] Failed to fetch feature flags for hospital {client.hospital_id}: {e}")
+            logger.warning(f"[AUTH] Failed to fetch feature flags for school {client.school_id}: {e}")
 
     return AuthValidateResponse(
         client_type=client.client_type,
         client_name=client.client_name,
-        hospital_id=str(client.hospital_id) if client.hospital_id else None,
-        allowed_doctor_ids=[str(d) for d in client.allowed_doctor_ids] if client.allowed_doctor_ids else None,
+        school_id=str(client.school_id) if client.school_id else None,
+        allowed_counsellor_ids=[str(d) for d in client.allowed_counsellor_ids] if client.allowed_counsellor_ids else None,
         scopes=client.scopes,
         feature_flags=feature_flags,
     )

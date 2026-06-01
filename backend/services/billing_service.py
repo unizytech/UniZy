@@ -5,7 +5,7 @@ This module handles:
 - OP bill generation from single extractions
 - IP merged bill generation from merged extractions
 - Line item creation from extraction JSON (prescriptions, investigations, procedures)
-- Price lookups against hospital masters (medicine, investigation, procedure fee)
+- Price lookups against school masters (medicine, investigation, procedure fee)
 - Confidence scoring and billing action determination
 - Bill supersession for merged workflows
 """
@@ -15,7 +15,7 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 
-from .supabase_service import supabase, get_doctor_hospital_id_cached
+from .supabase_service import supabase, get_counsellor_school_id_cached
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +61,9 @@ HIGH_VALUE_THRESHOLD = 5000.0
 
 def generate_bill(
     extraction_id: Optional[str],
-    hospital_id: str,
-    doctor_id: Optional[str],
-    patient_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    student_id: Optional[str],
     extraction_data: Dict[str, Any],
     consultation_type_code: Optional[str] = None,
     is_merged: bool = False,
@@ -76,9 +76,9 @@ def generate_bill(
 
     Args:
         extraction_id: UUID of the extraction (None for standalone bills)
-        hospital_id: UUID of the hospital
-        doctor_id: UUID of the doctor
-        patient_id: UUID of the patient
+        school_id: UUID of the school
+        counsellor_id: UUID of the counsellor
+        student_id: UUID of the student
         extraction_data: The extraction JSON data
         consultation_type_code: e.g. 'OP', 'DISCHARGE', etc.
         is_merged: Whether this is from a merged extraction
@@ -98,9 +98,9 @@ def generate_bill(
     # Build line items
     line_items = _build_line_items(
         extraction_data=extraction_data,
-        hospital_id=hospital_id,
-        doctor_id=doctor_id,
-        patient_id=patient_id,
+        school_id=school_id,
+        counsellor_id=counsellor_id,
+        student_id=student_id,
         bill_type=bill_type,
         confidence_lookup=confidence_lookup,
     )
@@ -125,9 +125,9 @@ def generate_bill(
     # Create bill record
     bill_data = {
         "extraction_id": extraction_id,
-        "hospital_id": hospital_id,
-        "patient_id": patient_id,
-        "doctor_id": doctor_id,
+        "school_id": school_id,
+        "student_id": student_id,
+        "counsellor_id": counsellor_id,
         "bill_type": bill_type,
         "bill_status": "draft",
         "consultation_type_code": consultation_type_code,
@@ -188,9 +188,9 @@ def generate_bill(
 def generate_merged_bill(
     extraction_id: str,
     source_extraction_ids: List[str],
-    hospital_id: str,
-    doctor_id: Optional[str],
-    patient_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    student_id: Optional[str],
     extraction_data: Dict[str, Any],
     consultation_type_code: Optional[str] = None,
     visit_id: Optional[str] = None,
@@ -203,9 +203,9 @@ def generate_merged_bill(
     Args:
         extraction_id: UUID of the merged extraction
         source_extraction_ids: UUIDs of source extractions
-        hospital_id: Hospital UUID
-        doctor_id: Doctor UUID
-        patient_id: Patient UUID
+        school_id: School UUID
+        counsellor_id: Counsellor UUID
+        student_id: Student UUID
         extraction_data: Merged extraction JSON
         consultation_type_code: Consultation type code
         visit_id: EHR visit ID from recording_metadata
@@ -218,9 +218,9 @@ def generate_merged_bill(
     # Generate the merged bill
     bill = generate_bill(
         extraction_id=extraction_id,
-        hospital_id=hospital_id,
-        doctor_id=doctor_id,
-        patient_id=patient_id,
+        school_id=school_id,
+        counsellor_id=counsellor_id,
+        student_id=student_id,
         extraction_data=extraction_data,
         consultation_type_code=consultation_type_code,
         is_merged=True,
@@ -273,9 +273,9 @@ def generate_merged_bill(
 
 def _build_line_items(
     extraction_data: Dict[str, Any],
-    hospital_id: str,
-    doctor_id: Optional[str],
-    patient_id: Optional[str],
+    school_id: str,
+    counsellor_id: Optional[str],
+    student_id: Optional[str],
     bill_type: str,
     confidence_lookup: Optional[Dict[str, float]] = None,
 ) -> List[Dict[str, Any]]:
@@ -284,38 +284,38 @@ def _build_line_items(
     confidence_lookup = confidence_lookup or {}
 
     # 1. Registration/Admission fee
-    line_items.extend(_add_registration_line_item(hospital_id, bill_type, patient_id))
+    line_items.extend(_add_registration_line_item(school_id, bill_type, student_id))
 
     # 2. Consultation fee
-    if doctor_id:
-        line_items.extend(_add_consultation_line_item(doctor_id, bill_type))
+    if counsellor_id:
+        line_items.extend(_add_consultation_line_item(counsellor_id, bill_type))
 
     # 3. Pharmacy (prescriptions)
-    line_items.extend(_add_pharmacy_line_items(extraction_data, hospital_id, confidence_lookup))
+    line_items.extend(_add_pharmacy_line_items(extraction_data, school_id, confidence_lookup))
 
     # 4. Investigations (lab + radiology)
-    line_items.extend(_add_investigation_line_items(extraction_data, hospital_id, confidence_lookup))
+    line_items.extend(_add_investigation_line_items(extraction_data, school_id, confidence_lookup))
 
     # 5. Procedures
-    line_items.extend(_add_procedure_line_items(extraction_data, hospital_id))
+    line_items.extend(_add_procedure_line_items(extraction_data, school_id))
 
     # 6. Room charges (IP only)
-    if bill_type == "IP" and patient_id:
-        line_items.extend(_add_room_line_items(patient_id, hospital_id))
+    if bill_type == "IP" and student_id:
+        line_items.extend(_add_room_line_items(student_id, school_id))
 
     return line_items
 
 
-def _add_registration_line_item(hospital_id: str, bill_type: str, patient_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Add registration (OP) or admission (IP) fee from hospital settings.
+def _add_registration_line_item(school_id: str, bill_type: str, student_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Add registration (OP) or admission (IP) fee from school settings.
 
-    OP registration is only charged for first-time patients (no prior bills).
+    OP registration is only charged for first-time students (no prior bills).
     IP admission is charged per admission.
     """
     try:
-        result = supabase.table("hospitals").select(
+        result = supabase.table("schools").select(
             "op_registration_fee, ip_admission_fee"
-        ).eq("id", hospital_id).limit(1).execute()
+        ).eq("id", school_id).limit(1).execute()
 
         if not result.data:
             return []
@@ -325,19 +325,19 @@ def _add_registration_line_item(hospital_id: str, bill_type: str, patient_id: Op
         if bill_type == "OP":
             fee = hospital.get("op_registration_fee")
             if fee is not None:
-                # Only charge OP registration for first-time patients
-                if patient_id:
+                # Only charge OP registration for first-time students
+                if student_id:
                     existing_bills = (
                         supabase.table("bills")
                         .select("id")
-                        .eq("patient_id", patient_id)
-                        .eq("hospital_id", hospital_id)
+                        .eq("student_id", student_id)
+                        .eq("school_id", school_id)
                         .neq("bill_status", "superseded")
                         .limit(1)
                         .execute()
                     )
                     if existing_bills.data:
-                        logger.info(f"[Billing] Skipping OP registration fee — patient {patient_id} has prior bills")
+                        logger.info(f"[Billing] Skipping OP registration fee — student {student_id} has prior bills")
                         return []
 
                 confidence, action = _determine_confidence("registration", float(fee), 1.0)
@@ -366,23 +366,23 @@ def _add_registration_line_item(hospital_id: str, bill_type: str, patient_id: Op
                     "source_segment": "registration",
                 }]
     except Exception as e:
-        logger.warning(f"[Billing] Failed to fetch hospital fees: {e}")
+        logger.warning(f"[Billing] Failed to fetch school fees: {e}")
 
     return []
 
 
-def _add_consultation_line_item(doctor_id: str, bill_type: str) -> List[Dict[str, Any]]:
-    """Add consultation fee from doctor record."""
+def _add_consultation_line_item(counsellor_id: str, bill_type: str) -> List[Dict[str, Any]]:
+    """Add consultation fee from counsellor record."""
     try:
-        result = supabase.table("doctors").select(
+        result = supabase.table("counsellors").select(
             "full_name, op_consultation_fee, ip_primary_consultation_fee, ip_secondary_consultation_fee"
-        ).eq("id", doctor_id).limit(1).execute()
+        ).eq("id", counsellor_id).limit(1).execute()
 
         if not result.data:
             return []
 
         doctor = result.data[0]
-        doctor_name = doctor.get("full_name", "Doctor")
+        counsellor_name = doctor.get("full_name", "Doctor")
 
         if bill_type == "OP":
             fee = doctor.get("op_consultation_fee")
@@ -393,7 +393,7 @@ def _add_consultation_line_item(doctor_id: str, bill_type: str) -> List[Dict[str
             confidence, action = _determine_confidence("consultation", float(fee), 1.0)
             return [{
                 "category": "consultation",
-                "description": f"Consultation Fee - {doctor_name}",
+                "description": f"Consultation Fee - {counsellor_name}",
                 "quantity": 1,
                 "unit_price": float(fee),
                 "total_price": float(fee),
@@ -402,16 +402,16 @@ def _add_consultation_line_item(doctor_id: str, bill_type: str) -> List[Dict[str
                 "source_segment": "doctor_identity",
             }]
     except Exception as e:
-        logger.warning(f"[Billing] Failed to fetch doctor fees: {e}")
+        logger.warning(f"[Billing] Failed to fetch counsellor fees: {e}")
 
     return []
 
 
-def _add_pharmacy_line_items(extraction_data: Dict[str, Any], hospital_id: str, confidence_lookup: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
-    """Map prescription items to line items using hospital medicine list prices.
+def _add_pharmacy_line_items(extraction_data: Dict[str, Any], school_id: str, confidence_lookup: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
+    """Map prescription items to line items using school medicine list prices.
 
     Price lookup is strictly by _external_id (set during extraction post-processing).
-    Hospital medicine lists must have external_id populated for billing to work.
+    School medicine lists must have external_id populated for billing to work.
     Match confidence is read from audit logs (confidence_lookup), not extraction JSON.
     """
     line_items = []
@@ -422,7 +422,7 @@ def _add_pharmacy_line_items(extraction_data: Dict[str, Any], hospital_id: str, 
         return []
 
     # Build lookup: external_id → {id, unit_price}
-    price_lookup = _get_medicine_price_lookup(hospital_id)
+    price_lookup = _get_medicine_price_lookup(school_id)
 
     for idx, med in enumerate(prescriptions):
         med_name = med.get("medicine_name") or med.get("name") or med.get("Medicine") or med.get("drug_name") or ""
@@ -443,7 +443,7 @@ def _add_pharmacy_line_items(extraction_data: Dict[str, Any], hospital_id: str, 
             lookup = price_lookup[str(external_id)]
             unit_price = lookup.get("unit_price")
             matched_master_id = lookup.get("id")
-            matched_table = "hospital_medicine_lists"
+            matched_table = "school_medicine_lists"
 
         # Build description
         description = med_name
@@ -469,17 +469,17 @@ def _add_pharmacy_line_items(extraction_data: Dict[str, Any], hospital_id: str, 
         }
 
         if matched_master_id and not unit_price:
-            item["notes"] = "No price configured in hospital medicine list"
+            item["notes"] = "No price configured in school medicine list"
         elif not external_id:
-            item["notes"] = "Medicine not matched to hospital list"
+            item["notes"] = "Medicine not matched to school list"
 
         line_items.append(item)
 
     return line_items
 
 
-def _add_investigation_line_items(extraction_data: Dict[str, Any], hospital_id: str, confidence_lookup: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
-    """Map investigation items to line items using hospital investigation list prices.
+def _add_investigation_line_items(extraction_data: Dict[str, Any], school_id: str, confidence_lookup: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
+    """Map investigation items to line items using school investigation list prices.
 
     Match confidence is read from audit logs (confidence_lookup), not extraction JSON.
     """
@@ -492,7 +492,7 @@ def _add_investigation_line_items(extraction_data: Dict[str, Any], hospital_id: 
         return []
 
     # Build price lookup
-    price_lookup = _get_investigation_price_lookup(hospital_id)
+    price_lookup = _get_investigation_price_lookup(school_id)
 
     for idx, inv in enumerate(investigations):
         inv_name = inv.get("name") or inv.get("investigation_name") or inv.get("Test") or inv.get("test_name") or ""
@@ -511,7 +511,7 @@ def _add_investigation_line_items(extraction_data: Dict[str, Any], hospital_id: 
             lookup = price_lookup[str(external_id)]
             unit_price = lookup.get("unit_price")
             matched_master_id = lookup.get("id")
-            matched_table = "hospital_investigation_lists"
+            matched_table = "school_investigation_lists"
 
         total_price = float(unit_price) if unit_price else None
         confidence, action = _determine_confidence("lab", unit_price, match_conf)
@@ -536,16 +536,16 @@ def _add_investigation_line_items(extraction_data: Dict[str, Any], hospital_id: 
         }
 
         if not unit_price:
-            item["notes"] = "No price configured in hospital investigation list"
+            item["notes"] = "No price configured in school investigation list"
         if not external_id:
-            item["notes"] = "Investigation not matched to hospital list"
+            item["notes"] = "Investigation not matched to school list"
 
         line_items.append(item)
 
     return line_items
 
 
-def _add_procedure_line_items(extraction_data: Dict[str, Any], hospital_id: str) -> List[Dict[str, Any]]:
+def _add_procedure_line_items(extraction_data: Dict[str, Any], school_id: str) -> List[Dict[str, Any]]:
     """Map procedure mentions to line items via procedure_fee_master."""
     line_items = []
 
@@ -558,7 +558,7 @@ def _add_procedure_line_items(extraction_data: Dict[str, Any], hospital_id: str)
     try:
         result = supabase.table("procedure_fee_master").select(
             "id, procedure_name, cpt_code, fee"
-        ).eq("hospital_id", hospital_id).eq("is_active", True).execute()
+        ).eq("school_id", school_id).eq("is_active", True).execute()
 
         fee_lookup = {}
         name_lookup = {}
@@ -617,15 +617,15 @@ def _add_procedure_line_items(extraction_data: Dict[str, Any], hospital_id: str)
     return line_items
 
 
-def _add_room_line_items(patient_id: str, hospital_id: str) -> List[Dict[str, Any]]:
-    """Add room charges for IP bills based on patient add_info."""
+def _add_room_line_items(student_id: str, school_id: str) -> List[Dict[str, Any]]:
+    """Add room charges for IP bills based on student add_info."""
     try:
-        # Get patient's room info from add_info
-        patient_result = supabase.table("patients").select(
+        # Get student's room info from add_info
+        student_result = supabase.table("students").select(
             "add_info"
-        ).eq("id", patient_id).limit(1).execute()
+        ).eq("id", student_id).limit(1).execute()
 
-        if not patient_result.data:
+        if not student_result.data:
             return [{
                 "category": "room",
                 "description": "Room Charges",
@@ -635,10 +635,10 @@ def _add_room_line_items(patient_id: str, hospital_id: str) -> List[Dict[str, An
                 "confidence": "low",
                 "billing_action": "flagged_manual",
                 "source_segment": "room",
-                "notes": "Patient record not found",
+                "notes": "Student record not found",
             }]
 
-        add_info = patient_result.data[0].get("add_info") or {}
+        add_info = student_result.data[0].get("add_info") or {}
         room_category = add_info.get("room_category")
         room_sub_category = add_info.get("room_sub_category")
 
@@ -652,14 +652,14 @@ def _add_room_line_items(patient_id: str, hospital_id: str) -> List[Dict[str, An
                 "confidence": "low",
                 "billing_action": "flagged_manual",
                 "source_segment": "room",
-                "notes": "Room category not in patient record",
+                "notes": "Room category not in student record",
             }]
 
         # Lookup room rate
         query = (
             supabase.table("room_rate_master")
             .select("id, rate_per_day, room_category, room_sub_category")
-            .eq("hospital_id", hospital_id)
+            .eq("school_id", school_id)
             .eq("room_category", room_category)
             .eq("is_active", True)
         )
@@ -896,12 +896,12 @@ def _safe_float(val) -> float:
         return 0.0
 
 
-def _get_medicine_price_lookup(hospital_id: str) -> Dict[str, Dict]:
-    """Build external_id → {id, unit_price} lookup from hospital medicine list."""
+def _get_medicine_price_lookup(school_id: str) -> Dict[str, Dict]:
+    """Build external_id → {id, unit_price} lookup from school medicine list."""
     try:
-        result = supabase.table("hospital_medicine_lists").select(
+        result = supabase.table("school_medicine_lists").select(
             "id, external_id, unit_price"
-        ).eq("hospital_id", hospital_id).eq("is_active", True).not_.is_("unit_price", "null").execute()
+        ).eq("school_id", school_id).eq("is_active", True).not_.is_("unit_price", "null").execute()
 
         lookup = {}
         if result.data:
@@ -918,12 +918,12 @@ def _get_medicine_price_lookup(hospital_id: str) -> Dict[str, Dict]:
         return {}
 
 
-def _get_investigation_price_lookup(hospital_id: str) -> Dict[str, Dict]:
-    """Build external_id → {id, unit_price} lookup from hospital investigation list."""
+def _get_investigation_price_lookup(school_id: str) -> Dict[str, Dict]:
+    """Build external_id → {id, unit_price} lookup from school investigation list."""
     try:
-        result = supabase.table("hospital_investigation_lists").select(
+        result = supabase.table("school_investigation_lists").select(
             "id, external_id, unit_price"
-        ).eq("hospital_id", hospital_id).eq("is_active", True).not_.is_("unit_price", "null").execute()
+        ).eq("school_id", school_id).eq("is_active", True).not_.is_("unit_price", "null").execute()
 
         lookup = {}
         if result.data:

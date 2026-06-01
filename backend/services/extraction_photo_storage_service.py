@@ -1,7 +1,7 @@
 """
 Extraction Photo Storage Service
 
-Stores user-uploaded photos attached to medical_extractions rows in the
+Stores user-uploaded photos attached to extractions rows in the
 Supabase Storage 'extraction-photos' bucket. Photos are permanent; deletion
 is explicit (per-photo or via cascade when the parent extraction is deleted).
 """

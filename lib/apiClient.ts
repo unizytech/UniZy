@@ -186,26 +186,26 @@ export const qaApi = {
   },
 
   /**
-   * Get patient visits for temporal/longitudinal queries
+   * Get student visits for temporal/longitudinal queries
    */
-  async getPatientVisits(
+  async getStudentVisits(
     auth: AuthOptions,
     patientId: string,
     hospitalId?: string,
     doctorId?: string,
     consultationTypeId?: string,
     limit: number = 20
-  ): Promise<{ success: boolean; patient_id: string; visits: any[]; count: number }> {
+  ): Promise<{ success: boolean; student_id: string; visits: any[]; count: number }> {
     const params = new URLSearchParams();
-    if (hospitalId) params.append('hospital_id', hospitalId);
-    if (doctorId) params.append('doctor_id', doctorId);
+    if (hospitalId) params.append('school_id', hospitalId);
+    if (doctorId) params.append('counsellor_id', doctorId);
     if (consultationTypeId) params.append('consultation_type_id', consultationTypeId);
     params.append('limit', limit.toString());
 
     const queryString = params.toString() ? `?${params.toString()}` : '';
-    const response = await authGet(`/api/v1/qa/patients/${patientId}/visits${queryString}`, auth);
+    const response = await authGet(`/api/v1/qa/students/${patientId}/visits${queryString}`, auth);
     if (!response.ok) {
-      throw new Error('Failed to fetch patient visits');
+      throw new Error('Failed to fetch student visits');
     }
     return response.json();
   }
@@ -232,7 +232,7 @@ export const qaSettingsApi = {
     auth: AuthOptions,
     hospitalId?: string
   ): Promise<EmbeddingModel> {
-    const params = hospitalId ? `?hospital_id=${hospitalId}` : '';
+    const params = hospitalId ? `?school_id=${hospitalId}` : '';
     const response = await authGet(`/api/v1/qa/settings/current-model${params}`, auth);
     if (!response.ok) {
       throw new Error('Failed to fetch current model');
@@ -241,7 +241,7 @@ export const qaSettingsApi = {
   },
 
   /**
-   * Set embedding model for hospital (admin only)
+   * Set embedding model for school (admin only)
    */
   async setEmbeddingModel(
     auth: AuthOptions,
@@ -249,7 +249,7 @@ export const qaSettingsApi = {
     modelCode: string
   ): Promise<{ success: boolean; message: string }> {
     const response = await authPost(
-      `/api/v1/qa/settings/embedding-model?hospital_id=${hospitalId}`,
+      `/api/v1/qa/settings/embedding-model?school_id=${hospitalId}`,
       auth,
       { model_code: modelCode }
     );
@@ -268,7 +268,7 @@ export const qaSettingsApi = {
     hospitalId: string
   ): Promise<{ success: boolean; job_id?: string; message: string }> {
     const response = await authPost('/api/v1/qa/settings/reembed', auth, {
-      hospital_id: hospitalId
+      school_id: hospitalId
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Failed to start re-embedding' }));
