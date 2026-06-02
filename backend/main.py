@@ -163,47 +163,13 @@ async def _periodic_chunk_cleanup():
 # Initialize FastAPI app
 app = FastAPI(
     title="Unizy API",
-    description="""
-    Backend API for medical audio transcription and insights extraction using Gemini AI.
-
-    ## Core Endpoints
-    - `/api/ephemeral-token` - Generate ephemeral tokens for secure client-side Gemini Live API access
-
-    ## Live Recording Endpoints
-    - `/api/v1/option1/recording/start` - Start recording session
-    - `/api/v1/option1/recording/chunk` - Upload audio chunk
-    - `/api/v1/option1/recording/processing/{id}/stream` - SSE progress stream
-    - `/api/v1/option1/recording/cancel` - Cancel recording session
-
-    ## Comparison Endpoints
-    - `/api/compare-transcribe` - Compare transcript accuracy (WER/CER metrics)
-
-    ## OP Summary Dynamic Extraction (LEGACY - use /api/v1/summary/* instead)
-    - `/api/v1/op/summary-dynamic` - Extract OP summary with user-configurable segments
-    - `/api/v1/op/summary-core` - Extract CORE segments only (fast ~25-35s)
-    - `/api/v1/op/summary-additional` - Extract ADDITIONAL segments (~30-45s)
-    - `/api/v1/op/segments` - List/configure segments with brevity and terminology control
-    - `/api/v1/op/templates` - Template configurations (Cardiology, Pediatrics, etc.)
-
-    ## Multi-Consultation Type Summary (NEW - Recommended)
-    - `/api/v1/summary/consultation-types` - List available consultation types (OP, DISCHARGE, RESPIRATORY)
-    - `/api/v1/summary/extract` - Extract medical summary for any consultation type
-    - `/api/v1/summary/segments/{type}` - List/configure segments per consultation type
-    - `/api/v1/summary/templates/{type}` - Templates per consultation type
-    - `/api/v1/summary/segments/{type}/move` - Move segments between CORE/ADDITIONAL
-    - `/api/v1/summary/segments/{type}/reset` - Reset configuration to defaults
-
-    ## Counsellor Management
-    - `/api/v1/counsellors` - List/create counsellors
-    - `/api/v1/counsellors/{id}` - Get/update/delete counsellor
-    - `/api/v1/counsellors/{id}/configurations` - Get counsellor's segment configurations (global + consultation-specific)
-
-    ## Extraction Merge (NEW)
-    - `/api/v1/extractions/merge` - Merge multiple extractions into consolidated output
-    - `/api/v1/extractions/merge/preview` - Preview merge without saving
-    - `/api/v1/extractions/student/{student_id}/timeline` - Get student extraction timeline
-    - `/api/v1/extractions/{extraction_id}/merge-info` - Get merge lineage information
-    """,
+    description=(
+        "Recording & Extraction integration API for the Career Counselling "
+        "(`CAREER_DISCUSSION`) flow: record a session, upload audio in chunks, and receive "
+        "structured extracted insights. Authentication uses OAuth 2.0 client-credentials with "
+        "short-lived access tokens and rotating refresh tokens. See the integration guide for the "
+        "full request/response contract."
+    ),
     version="3.3.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -414,6 +380,70 @@ async def health():
         "status": "healthy",
         "service": "Unizy API"
     }
+
+
+# ============================================================================
+# OpenAPI surface restriction (temporary): expose ONLY the documented integration
+# endpoints (Docs/RECORDING_EXTRACTION_API.md) via /openapi.json, /docs and /redoc.
+# Every other route still functions normally — it is just hidden from the public API
+# schema. Unreferenced component schemas are pruned so internal model shapes don't leak.
+# ============================================================================
+_PUBLIC_API_ENDPOINTS = {
+    ("/api/v1/auth/token", "post"),
+    ("/api/v1/auth/client-refresh", "post"),
+    ("/api/v1/option1/recording/start", "post"),
+    ("/api/v1/option1/recording/chunk", "post"),
+    ("/api/v1/option1/recording/status/{submission_id}", "get"),
+    ("/api/v1/recordings/{session_id}/reprocess", "post"),
+}
+
+_default_openapi = app.openapi
+
+
+def _collect_schema_refs(node, acc):
+    """Recursively collect #/components/schemas/<Name> references."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+            acc.add(ref.rsplit("/", 1)[-1])
+        for v in node.values():
+            _collect_schema_refs(v, acc)
+    elif isinstance(node, list):
+        for v in node:
+            _collect_schema_refs(v, acc)
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = _default_openapi()
+    # 1) keep only the documented (path, method) operations
+    kept_paths = {}
+    for path, ops in schema.get("paths", {}).items():
+        ops_kept = {m: op for m, op in ops.items() if (path, m.lower()) in _PUBLIC_API_ENDPOINTS}
+        if ops_kept:
+            kept_paths[path] = ops_kept
+    schema["paths"] = kept_paths
+    # 2) prune component schemas not reachable from the kept operations
+    all_schemas = (schema.get("components") or {}).get("schemas") or {}
+    referenced = set()
+    _collect_schema_refs(kept_paths, referenced)
+    changed = True
+    while changed:
+        changed = False
+        for name in list(referenced):
+            sub = set()
+            _collect_schema_refs(all_schemas.get(name, {}), sub)
+            for s in sub - referenced:
+                referenced.add(s)
+                changed = True
+    if schema.get("components", {}).get("schemas") is not None:
+        schema["components"]["schemas"] = {n: s for n, s in all_schemas.items() if n in referenced}
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi
 
 
 if __name__ == "__main__":
