@@ -127,8 +127,8 @@ export default function RecordTab() {
     const [selectedCounsellorId, setSelectedCounsellorId] = useState<string | null>(null);
 
     // Student selection
-    const [patientId, setStudentId] = useState<string>('');
-    const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+    const [studentId, setStudentId] = useState<string>('');
+    const [studentsList, setStudentsList] = useState<StudentSearchResult[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
 
     // Template selection
@@ -214,8 +214,8 @@ export default function RecordTab() {
             if (chunkIndex === 0 && selectedCounsellorId && selectedTemplate) {
                 payload.counsellor_id = selectedCounsellorId;
                 payload.template_code = selectedTemplate.template_code;
-                if (patientId?.trim()) {
-                    payload.student_id = patientId.trim();
+                if (studentId?.trim()) {
+                    payload.student_id = studentId.trim();
                 }
                 console.log('[RecordTab] First chunk - sending context for parallel prompt generation');
             }
@@ -236,7 +236,7 @@ export default function RecordTab() {
             // Non-fatal - emotion analysis will be skipped if chunks fail
             console.warn('[RecordTab] Chunk upload failed (non-fatal):', err);
         }
-    }, [getAccessToken, selectedCounsellorId, selectedTemplate, patientId]);
+    }, [getAccessToken, selectedCounsellorId, selectedTemplate, studentId]);
 
     const startRecording = useCallback(async () => {
         setError(null);
@@ -376,7 +376,7 @@ export default function RecordTab() {
                 getAccessToken(),
                 {
                     counsellor_id: selectedCounsellorId,
-                    student_id: patientId.trim() || 'LIVE_RECORDING',  // Use selected student or fallback
+                    student_id: studentId.trim() || 'LIVE_RECORDING',  // Use selected student or fallback
                     template_code: selectedTemplate.template_code,  // Template code for DB lookups (unique identifier)
                     template_name: selectedTemplate.template_name,  // Display name for readability
                     processing_mode: processingMode,
@@ -404,7 +404,7 @@ export default function RecordTab() {
             setError('Failed to create session. Extraction skipped.');
             setStatus('Session creation failed. Click to start a new recording.');
         }
-    }, [nativeTranscript, selectedTemplate, selectedCounsellorId, patientId, processingMode, extractionMode, sessionStartTime]);
+    }, [nativeTranscript, selectedTemplate, selectedCounsellorId, studentId, processingMode, extractionMode, sessionStartTime]);
 
     // Progressive extraction using new /api/v1/summary/extract endpoint
     const handleProgressiveExtraction = async (transcriptText: string, subId: string) => {
@@ -659,27 +659,27 @@ export default function RecordTab() {
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400 mr-2"></div>
                             <span className="text-sm text-slate-400">Loading students...</span>
                         </div>
-                    ) : patientsList.length > 0 ? (
+                    ) : studentsList.length > 0 ? (
                         <select
-                            value={patientId}
+                            value={studentId}
                             onChange={(e) => setStudentId(e.target.value)}
                             disabled={isRecording}
                             className="w-full bg-slate-700 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <option value="">No student (skip context injection)</option>
-                            {patientsList.map((patient) => (
-                                <option key={patient.id} value={patient.student_id}>
-                                    {patient.student_id}
-                                    {patient.full_name ? ` - ${patient.full_name}` : ''}
-                                    {patient.school_name ? ` (${patient.school_name})` : ''}
-                                    {patient.add_info?.roomNo ? ` [Room ${patient.add_info.roomNo}, Bed ${patient.add_info.bedNo}]` : ''}
+                            {studentsList.map((student) => (
+                                <option key={student.id} value={student.student_id}>
+                                    {student.student_id}
+                                    {student.full_name ? ` - ${student.full_name}` : ''}
+                                    {student.school_name ? ` (${student.school_name})` : ''}
+                                    {student.add_info?.roomNo ? ` [Room ${student.add_info.roomNo}, Bed ${student.add_info.bedNo}]` : ''}
                                 </option>
                             ))}
                         </select>
                     ) : (
                         <input
                             type="text"
-                            value={patientId}
+                            value={studentId}
                             onChange={(e) => setStudentId(e.target.value)}
                             placeholder="Enter student ID (e.g., PAT-12345) or leave empty"
                             disabled={isRecording}

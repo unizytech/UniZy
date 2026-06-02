@@ -267,9 +267,9 @@ async def get_filter_options(
             .execute()
         )
 
-        hospitals = []
+        schools = []
         for row in schools_result.data or []:
-            hospitals.append(SchoolOption(
+            schools.append(SchoolOption(
                 id=UUID(row["id"]),
                 school_name=row["school_name"],
                 school_code=row.get("school_code"),
@@ -284,9 +284,9 @@ async def get_filter_options(
             .execute()
         )
 
-        doctors = []
+        counsellors = []
         for row in counsellors_result.data or []:
-            doctors.append(CounsellorOption(
+            counsellors.append(CounsellorOption(
                 id=UUID(row["id"]),
                 full_name=row["full_name"],
                 specialization=row.get("specialization"),
@@ -296,8 +296,8 @@ async def get_filter_options(
 
         return FilterOptionsResponse(
             api_clients=api_clients,
-            schools=hospitals,
-            counsellors=doctors,
+            schools=schools,
+            counsellors=counsellors,
         )
 
     except Exception as e:

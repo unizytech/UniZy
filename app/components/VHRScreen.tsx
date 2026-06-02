@@ -44,15 +44,15 @@ export function VHRScreen() {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Student ID and list
-  const [patientId, setStudentId] = useState('');
-  const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+  const [studentId, setStudentId] = useState('');
+  const [studentsList, setStudentsList] = useState<StudentSearchResult[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Continuation mode (whether this recording continues a prior consultation)
   const [isContinuation, setIsContinuation] = useState(false);
 
   // Reset continuation toggle when student changes
-  useEffect(() => { setIsContinuation(false); }, [patientId]);
+  useEffect(() => { setIsContinuation(false); }, [studentId]);
 
   // Processing mode (determines model selection)
   const [processingMode, setProcessingMode] = useState<string>('default');
@@ -202,7 +202,7 @@ export function VHRScreen() {
   const [editedTranslationData, setEditedTranslationData] = useState<Record<string, unknown> | null>(null);
   const [translationOutdated, setTranslationOutdated] = useState(false);
   const [retranslating, setRetranslating] = useState(false);
-  const [doctorTranslationLanguage, setCounsellorTranslationLanguage] = useState<string | null>(null);
+  const [counsellorTranslationLanguage, setCounsellorTranslationLanguage] = useState<string | null>(null);
 
   // Cache refresh state
   const [isRefreshingCache, setIsRefreshingCache] = useState(false);
@@ -363,15 +363,15 @@ export function VHRScreen() {
       setLoadingTemplates(true);
       console.log('[DEBUG] Loading templates for assistant:', selectedAssistantId);
       const accessToken = getAccessToken();
-      const nurseTemplates = await getAssistantTemplates(selectedAssistantId, accessToken);
-      console.log('[DEBUG] Received assistant templates:', nurseTemplates);
-      console.log('[DEBUG] Assistant template count:', nurseTemplates.length);
+      const assistantTemplates = await getAssistantTemplates(selectedAssistantId, accessToken);
+      console.log('[DEBUG] Received assistant templates:', assistantTemplates);
+      console.log('[DEBUG] Assistant template count:', assistantTemplates.length);
 
       // Convert AssistantTemplate to CounsellorTemplate format for UI compatibility
       // Only include templates with 'use' access level
       // Deduplicate by template_id to avoid React key warnings
       const seenTemplateIds = new Set<string>();
-      const convertedTemplates: CounsellorTemplate[] = nurseTemplates
+      const convertedTemplates: CounsellorTemplate[] = assistantTemplates
         .filter(nt => nt.is_active)
         .filter(nt => {
           if (seenTemplateIds.has(nt.template_id)) {
@@ -1419,8 +1419,8 @@ export function VHRScreen() {
         const res = await authGet(`/api/v1/counsellors/${selectedCounsellorId}`, accessToken);
         if (res.ok) {
           const data = await res.json();
-          const doctor = data.doctor || data;
-          setCounsellorTranslationLanguage(doctor.translation_language || null);
+          const counsellor = data.doctor || data;
+          setCounsellorTranslationLanguage(counsellor.translation_language || null);
         }
       } catch {
         // Non-critical - translation toggle just won't show
@@ -1561,7 +1561,7 @@ export function VHRScreen() {
       selectedCounsellorId &&
       selectedTemplate &&
       processingMode &&
-      patientId.trim() &&
+      studentId.trim() &&
       !isRecording
     );
   };
@@ -1695,7 +1695,7 @@ export function VHRScreen() {
           templateName: templateNameToUse,  // Display name for readability
           doctorName: selectedCounsellorId || 'Unknown',
           nurseId: selectedAssistantId || undefined,  // Optional assistant_id if recording initiated by assistant
-          patientId: patientId,
+          patientId: studentId,
           transcriptionEngine: 'gemini',
           processingMode: processingMode,
           extractionMode: backendExtractionMode,  // undefined for progressive extraction
@@ -1719,7 +1719,7 @@ export function VHRScreen() {
     if (!recordingManagerRef.current) return;
 
     // Capture current session info before resetting
-    const currentStudentId = patientId;
+    const currentStudentId = studentId;
     const currentTemplateName = selectedTemplate?.template_name || 'Unknown';
 
     try {
@@ -1788,7 +1788,7 @@ export function VHRScreen() {
     if (!canStartRecording()) return;
 
     // Capture current session info before any state changes
-    const currentStudentId = patientId;
+    const currentStudentId = studentId;
     const currentTemplateName = selectedTemplate?.template_name || 'Unknown';
 
     setInputMode('upload');
@@ -1916,7 +1916,7 @@ export function VHRScreen() {
   if (showMergeScreen) {
     return (
       <ExtractionMergeScreen
-        initialStudentId={patientId}
+        initialStudentId={studentId}
         initialCounsellorId={selectedCounsellorId || undefined}
         onClose={() => setShowMergeScreen(false)}
       />
@@ -2199,27 +2199,27 @@ export function VHRScreen() {
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                 <span className="text-gray-500 text-sm">Loading students...</span>
               </div>
-            ) : patientsList.length > 0 ? (
+            ) : studentsList.length > 0 ? (
               <select
-                value={patientId}
+                value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
                 disabled={isRecording || isSubmitting}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 bg-white"
               >
                 <option value="">Select a student...</option>
-                {patientsList.map((patient) => (
-                  <option key={patient.id} value={patient.student_id}>
-                    {patient.student_id}
-                    {patient.full_name ? ` - ${patient.full_name}` : ''}
-                    {patient.school_name ? ` (${patient.school_name})` : ''}
-                    {patient.add_info?.roomNo ? ` [Room ${patient.add_info.roomNo}, Bed ${patient.add_info.bedNo}]` : ''}
+                {studentsList.map((student) => (
+                  <option key={student.id} value={student.student_id}>
+                    {student.student_id}
+                    {student.full_name ? ` - ${student.full_name}` : ''}
+                    {student.school_name ? ` (${student.school_name})` : ''}
+                    {student.add_info?.roomNo ? ` [Room ${student.add_info.roomNo}, Bed ${student.add_info.bedNo}]` : ''}
                   </option>
                 ))}
               </select>
             ) : (
               <input
                 type="text"
-                value={patientId}
+                value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
                 placeholder="Enter student ID (e.g., PAT-12345)"
                 disabled={isRecording || isSubmitting}
@@ -2229,7 +2229,7 @@ export function VHRScreen() {
           </div>
 
           {/* Continuation Toggle - only visible when a student is selected */}
-          {patientId && !isRecording && !isSubmitting && (
+          {studentId && !isRecording && !isSubmitting && (
             <div className="bg-white rounded-lg shadow-md p-4">
               <label className="flex items-center space-x-3 cursor-pointer">
                 <input
@@ -2408,7 +2408,7 @@ export function VHRScreen() {
               <h3 className="text-lg font-semibold text-gray-900">Extraction Results</h3>
               <div className="flex items-center space-x-3">
                 {/* Translation Toggle */}
-                {doctorTranslationLanguage && (coreExtractionData || additionalExtractionData) && currentExtractionId && (
+                {counsellorTranslationLanguage && (coreExtractionData || additionalExtractionData) && currentExtractionId && (
                   <div className="inline-flex items-center rounded-lg border border-gray-300 bg-gray-50 text-xs font-medium overflow-hidden">
                     <button
                       type="button"
@@ -2427,7 +2427,7 @@ export function VHRScreen() {
                         translationViewActive ? 'bg-white text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-100'
                       } ${translationLoading ? 'opacity-50' : ''}`}
                     >
-                      {translationLoading ? '...' : LANGUAGE_LABELS[doctorTranslationLanguage] || doctorTranslationLanguage}
+                      {translationLoading ? '...' : LANGUAGE_LABELS[counsellorTranslationLanguage] || counsellorTranslationLanguage}
                     </button>
                   </div>
                 )}
@@ -3015,7 +3015,7 @@ export function VHRScreen() {
                         template_code: selectedTemplate?.template_code,
                         processing_mode: processingMode,
                         extraction_model: processingModes.find(m => m.mode_code === processingMode)?.extraction_model || 'default',
-                        student_id: patientId,
+                        student_id: studentId,
                         counsellor_id: selectedCounsellorId,
                         core_segment_count: coreExtractionData?.metadata.segment_count || 0,
                         additional_segment_count: additionalExtractionData?.metadata.segment_count || 0,

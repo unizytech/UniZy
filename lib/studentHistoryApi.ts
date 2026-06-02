@@ -397,14 +397,14 @@ export function handleApiError(error: any): string {
  */
 export async function searchStudents(
   query?: string,
-  doctorId?: string,
+  counsellorId?: string,
   page: number = 1,
   pageSize: number = 20,
   accessToken?: string | null
 ): Promise<StudentSearchResponse> {
   const params = new URLSearchParams();
   if (query) params.append('query', query);
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
   params.append('page', page.toString());
   params.append('page_size', pageSize.toString());
 
@@ -426,19 +426,19 @@ export async function searchStudents(
  * Get consultation history for a student
  */
 export async function getConsultationHistory(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   page: number = 1,
   pageSize: number = 20,
   auth?: string | AuthOptions | null
 ): Promise<ConsultationHistoryResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
   params.append('page', page.toString());
   params.append('page_size', pageSize.toString());
 
   const response = await authGet(
-    `/api/v1/students/${encodeURIComponent(patientId)}/consultations?${params.toString()}`,
+    `/api/v1/students/${encodeURIComponent(studentId)}/consultations?${params.toString()}`,
     auth ?? null
   );
 
@@ -458,14 +458,14 @@ export async function getConsultationHistory(
  * Get last prescription for a student
  */
 export async function getLastPrescription(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<LastPrescriptionResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-prescription${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/last-prescription${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -480,14 +480,14 @@ export async function getLastPrescription(
  * Get last diagnosis for a student
  */
 export async function getLastDiagnosis(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<LastDiagnosisResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-diagnosis${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/last-diagnosis${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -502,14 +502,14 @@ export async function getLastDiagnosis(
  * Get last investigation results for a student
  */
 export async function getLastInvestigationsResults(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<LastInvestigationsResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-investigations-results${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/last-investigations-results${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -524,14 +524,14 @@ export async function getLastInvestigationsResults(
  * Get last investigations ordered for a student
  */
 export async function getLastInvestigationsOrdered(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<LastInvestigationsResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-investigations-ordered${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/last-investigations-ordered${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -546,14 +546,14 @@ export async function getLastInvestigationsOrdered(
  * Get last case summary for a student
  */
 export async function getLastCaseSummary(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<LastCaseSummaryResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-case-summary${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/last-case-summary${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -568,14 +568,14 @@ export async function getLastCaseSummary(
  * Get student context (case summary + emotions + interventions)
  */
 export async function getStudentContext(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<StudentContextResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/context${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/context${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -590,14 +590,14 @@ export async function getStudentContext(
  * Get all student history data in one request
  */
 export async function getAllStudentHistory(
-  patientId: string,
-  doctorId?: string,
+  studentId: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<StudentHistoryAllResponse> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/history/all${params.toString() ? '?' + params.toString() : ''}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/history/all${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -617,16 +617,16 @@ export async function getAllStudentHistory(
  * Analyzes diagnoses, complaints, and medications across multiple visits
  */
 export async function getMultiVisitPatterns(
-  patientId: string,
+  studentId: string,
   numVisits: number = 3,
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<MultiVisitPatternResponse> {
   const params = new URLSearchParams();
   params.append('num_visits', numVisits.toString());
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/patterns/multi-visit?${params.toString()}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/patterns/multi-visit?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -642,16 +642,16 @@ export async function getMultiVisitPatterns(
  * Analyzes anxiety scores and emotion data across visits
  */
 export async function getEmotionPatterns(
-  patientId: string,
+  studentId: string,
   numVisits: number = 5,
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<EmotionPatternResponse> {
   const params = new URLSearchParams();
   params.append('num_visits', numVisits.toString());
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/patterns/emotions?${params.toString()}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/patterns/emotions?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -667,16 +667,16 @@ export async function getEmotionPatterns(
  * Identifies recurring diagnoses across visits
  */
 export async function getDiagnosisPatterns(
-  patientId: string,
+  studentId: string,
   numVisits: number = 5,
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<DiagnosisPatternResponse> {
   const params = new URLSearchParams();
   params.append('num_visits', numVisits.toString());
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/patterns/diagnoses?${params.toString()}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/patterns/diagnoses?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -692,16 +692,16 @@ export async function getDiagnosisPatterns(
  * Identifies recurring complaints across visits
  */
 export async function getComplaintPatterns(
-  patientId: string,
+  studentId: string,
   numVisits: number = 5,
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<ComplaintPatternResponse> {
   const params = new URLSearchParams();
   params.append('num_visits', numVisits.toString());
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/patterns/complaints?${params.toString()}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/patterns/complaints?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -730,16 +730,16 @@ export async function getComplaintPatterns(
  * - "Recurring" = seen before but not in recent window
  */
 export async function getClinicalTimeline(
-  patientId: string,
+  studentId: string,
   numVisits: number = 5,
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<ClinicalTimelineResponse> {
   const params = new URLSearchParams();
   params.append('num_visits', numVisits.toString());
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/clinical-timeline?${params.toString()}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/clinical-timeline?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -764,19 +764,19 @@ export async function getClinicalTimeline(
  * 4. Student warning factors (CAUTION segment - allergies, contraindications)
  * 5. Past diagnosis summary (SUMMARY segment from last consultation)
  *
- * @param patientId - Student UUID
- * @param doctorId - Counsellor UUID (required - prescreen data is counsellor-specific)
+ * @param studentId - Student UUID
+ * @param counsellorId - Counsellor UUID (required - prescreen data is counsellor-specific)
  * @param auth - Bearer token or API key for authentication
  */
 export async function getStudentPrescreen(
-  patientId: string,
-  doctorId: string,
+  studentId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<PrescreenResponse> {
   const params = new URLSearchParams();
-  params.append('counsellor_id', doctorId);
+  params.append('counsellor_id', counsellorId);
 
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/prescreen?${params.toString()}`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/prescreen?${params.toString()}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {

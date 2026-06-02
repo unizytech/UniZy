@@ -312,10 +312,10 @@ async def get_high_risk_students_endpoint(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid counsellor_id format")
 
-    patients = get_high_risk_students(counsellor_id, limit)
+    students = get_high_risk_students(counsellor_id, limit)
 
     result = []
-    for item in patients:
+    for item in students:
         extraction_data = item.get("extractions", {}) or {}
         result.append(HighRiskStudent(
             id=item["id"],

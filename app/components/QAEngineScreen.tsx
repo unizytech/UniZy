@@ -41,22 +41,22 @@ export default function QAEngineScreen() {
   const accessToken = getAccessToken();
 
   // School state
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
-  const [hospitalsLoading, setSchoolsLoading] = useState(true);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
 
   // Counsellor and Student filter state
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
-  const [patients, setStudents] = useState<StudentSearchResult[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
+  const [students, setStudents] = useState<StudentSearchResult[]>([]);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [doctorsLoading, setCounsellorsLoading] = useState(false);
-  const [patientsLoading, setStudentsLoading] = useState(false);
+  const [counsellorsLoading, setCounsellorsLoading] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
   // Consultation Type and Visit filter state (for temporal/longitudinal queries)
   const [consultationTypes, setConsultationTypes] = useState<ConsultationType[]>([]);
   const [selectedConsultationTypeId, setSelectedConsultationTypeId] = useState<string | null>(null);
-  const [patientVisits, setStudentVisits] = useState<StudentVisit[]>([]);
+  const [studentVisits, setStudentVisits] = useState<StudentVisit[]>([]);
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
   const [visitsLoading, setVisitsLoading] = useState(false);
 
@@ -79,12 +79,12 @@ export default function QAEngineScreen() {
       if (!accessToken) return;
 
       try {
-        const hospitalList = await getSchools(accessToken);
-        setSchools(hospitalList);
+        const schoolList = await getSchools(accessToken);
+        setSchools(schoolList);
 
         // Auto-select first school or find a default
-        if (hospitalList.length > 0) {
-          const defaultSchool = hospitalList.find(h => h.school_name?.toLowerCase().includes('guru')) || hospitalList[0];
+        if (schoolList.length > 0) {
+          const defaultSchool = schoolList.find(h => h.school_name?.toLowerCase().includes('guru')) || schoolList[0];
           setSelectedSchoolId(defaultSchool.id);
         }
       } catch (err) {
@@ -107,8 +107,8 @@ export default function QAEngineScreen() {
 
       setCounsellorsLoading(true);
       try {
-        const doctorList = await getCounsellors({ hospitalId: selectedSchoolId }, accessToken);
-        setCounsellors(doctorList);
+        const counsellorList = await getCounsellors({ hospitalId: selectedSchoolId }, accessToken);
+        setCounsellors(counsellorList);
       } catch (err) {
         console.error('Failed to load counsellors:', err);
         setCounsellors([]);
@@ -400,7 +400,7 @@ export default function QAEngineScreen() {
   };
 
   // Show loading state while schools are loading
-  if (hospitalsLoading) {
+  if (schoolsLoading) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50">
         <div className="text-center p-8">
@@ -471,9 +471,9 @@ export default function QAEngineScreen() {
               }}
               className="w-[150px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700"
             >
-              {hospitals.map((hospital) => (
-                <option key={hospital.id} value={hospital.id}>
-                  {hospital.school_name || 'Unnamed School'}
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.school_name || 'Unnamed School'}
                 </option>
               ))}
             </select>
@@ -485,13 +485,13 @@ export default function QAEngineScreen() {
             <select
               value={selectedCounsellorId || ''}
               onChange={(e) => setSelectedCounsellorId(e.target.value || null)}
-              disabled={doctorsLoading || doctors.length === 0}
+              disabled={counsellorsLoading || counsellors.length === 0}
               className="w-[130px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">All Counsellors</option>
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.full_name || doctor.counsellor_name || 'Unknown'}
+              {counsellors.map((counsellor) => (
+                <option key={counsellor.id} value={counsellor.id}>
+                  {counsellor.full_name || counsellor.counsellor_name || 'Unknown'}
                 </option>
               ))}
             </select>
@@ -503,16 +503,16 @@ export default function QAEngineScreen() {
             <select
               value={selectedStudentId || ''}
               onChange={(e) => setSelectedStudentId(e.target.value || null)}
-              disabled={!selectedCounsellorId || patientsLoading}
+              disabled={!selectedCounsellorId || studentsLoading}
               className="w-[140px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">
                 {!selectedCounsellorId ? 'Select counsellor first' : 'All Students'}
               </option>
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.student_id}>
-                  {patient.full_name || patient.student_id || 'Unknown'}
-                  {patient.school_name ? ` (${patient.school_name})` : ''}
+              {students.map((student) => (
+                <option key={student.id} value={student.student_id}>
+                  {student.full_name || student.student_id || 'Unknown'}
+                  {student.school_name ? ` (${student.school_name})` : ''}
                 </option>
               ))}
             </select>
@@ -543,11 +543,11 @@ export default function QAEngineScreen() {
               <select
                 value={selectedVisitId || ''}
                 onChange={(e) => setSelectedVisitId(e.target.value || null)}
-                disabled={visitsLoading || patientVisits.length === 0}
+                disabled={visitsLoading || studentVisits.length === 0}
                 className="w-[180px] px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent bg-white text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="">All Visits</option>
-                {patientVisits.map((visit) => (
+                {studentVisits.map((visit) => (
                   <option key={visit.extraction_id} value={visit.extraction_id}>
                     {formatVisitDate(visit.created_at)} - {visit.consultation_type_name || 'Visit'}
                   </option>

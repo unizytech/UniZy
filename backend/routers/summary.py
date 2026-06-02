@@ -32,7 +32,7 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
     from dependencies.auth import EHRCounsellorAccessChecker, EHRSubmissionAccessChecker, get_current_client
 
-    _doctor_checker = EHRCounsellorAccessChecker()
+    _counsellor_checker = EHRCounsellorAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
 
     async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):  # type: ignore[misc]
@@ -40,7 +40,7 @@ if AUTH_ENABLED:
         counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         # Resolve the client first, then pass to checker
         client = get_current_client(request)
-        return await _doctor_checker(request, counsellor_uuid, client)
+        return await _counsellor_checker(request, counsellor_uuid, client)
 
     async def verify_submission_access(request: Request, submission_id: Optional[str] = None):  # type: ignore[misc]
         """Verify EHR client has access to submission data."""
@@ -137,7 +137,7 @@ class ExtractionRequest(BaseModel):
     transcript: str = Field(..., min_length=10, description="Consultation transcript text")
     counsellor_id: Optional[str] = Field(None, description="Counsellor ID for personalized configuration")
     student_id: Optional[str] = Field(None, description="Student ID for Live API flow")
-    template_code: Optional[str] = Field(None, description="Doctor's activated template code (unique identifier for DB lookups)")
+    template_code: Optional[str] = Field(None, description="Counsellor's activated template code (unique identifier for DB lookups)")
     template_name: Optional[str] = Field(None, description="Template display name (for human readability)")
     processing_mode: Optional[str] = Field(None, description="Processing mode code (fast, default, thorough, ultra, ultra_fast)")
     mode: str = Field("full", pattern="^(core|additional|full)$", description="Extraction mode")
@@ -954,12 +954,12 @@ async def extract_medical_summary(
             audio_quality = session.get('audio_quality_json')
 
             # Lookup student preferred_language
-            _extract_patient_id = session_info.get('student_id')
+            _extract_student_id = session_info.get('student_id')
             _extract_preferred_lang = None
-            if _extract_patient_id:
+            if _extract_student_id:
                 try:
                     from services.supabase_service import supabase as _sb
-                    _plr = _sb.table("students").select("preferred_language").eq("id", _extract_patient_id).limit(1).execute()
+                    _plr = _sb.table("students").select("preferred_language").eq("id", _extract_student_id).limit(1).execute()
                     if _plr.data:
                         _extract_preferred_lang = _plr.data[0].get("preferred_language")
                 except Exception:
@@ -971,7 +971,7 @@ async def extract_medical_summary(
                 "extraction_id": result["extraction_id"],
                 "session_id": str(session_id),
                 "counsellor_id": session_info.get('counsellor_id'),
-                "student_id": _extract_patient_id,  # External varchar, not DB id
+                "student_id": _extract_student_id,  # External varchar, not DB id
                 "template_code": session_info.get('template_code'),
                 "mode": session_info.get('extraction_mode'),
                 "segment_count": result["metadata"].get('segment_count', 0),
@@ -1006,9 +1006,9 @@ async def extract_medical_summary(
             from services.webhook_service import send_insights_webhook
             from services.realtime_publisher_service import is_realtime_enabled_for_school
             from services.supabase_service import get_counsellor_school_id_cached
-            _doctor_id = session_info.get('counsellor_id')
-            _hospital_id = get_counsellor_school_id_cached(uuid.UUID(_doctor_id)) if _doctor_id else None
-            if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+            _counsellor_id = session_info.get('counsellor_id')
+            _school_id = get_counsellor_school_id_cached(uuid.UUID(_counsellor_id)) if _counsellor_id else None
+            if _school_id and is_realtime_enabled_for_school(_school_id):
                 logger.info(f"[EXTRACT:WEBHOOK] ⏭️ Skipping webhook - realtime subscription enabled for school")
             else:
                 await send_insights_webhook(
@@ -1026,7 +1026,7 @@ async def extract_medical_summary(
                         client_context=client_ctx, request=http_request, response_status=200,
                         response_time_ms=0, resource_type="extraction", action="create",
                         resource_id=result.get("extraction_id"),
-                        counsellor_id=uuid.UUID(_doctor_id) if _doctor_id else None,
+                        counsellor_id=uuid.UUID(_counsellor_id) if _counsellor_id else None,
                         student_id=session_info.get("student_id"),
                     ))
                 except Exception:
@@ -2356,7 +2356,7 @@ async def get_counsellor_template_segments(
             "type": type(e).__name__,
             "traceback": traceback.format_exc()
         }
-        logger.error(f"[DOCTOR_TEMPLATE_SEGMENTS] Error fetching segments for template '{template_code}': {error_detail}")
+        logger.error(f"[COUNSELLOR_TEMPLATE_SEGMENTS] Error fetching segments for template '{template_code}': {error_detail}")
         raise HTTPException(status_code=500, detail="Failed to fetch template segments")
 
 
@@ -4304,17 +4304,17 @@ async def get_entity_relationships(
             if counsellor_templates:
                 counsellor_ids = [r["counsellor_id"] for r in counsellor_templates if r.get("counsellor_id")]
                 if counsellor_ids:
-                    doctors = (
+                    counsellors = (
                         supabase.table("counsellors")
                         .select("id, full_name, email, specialization")
                         .in_("id", counsellor_ids)
                         .execute()
                     ).data or []
                     # Normalize field names for frontend compatibility
-                    for doc in doctors:
-                        doc["name"] = doc.pop("full_name", "")
-                        doc["specialty"] = doc.pop("specialization", "")
-                    relationships["relationships"]["counsellors"] = doctors
+                    for counsellor in counsellors:
+                        counsellor["name"] = counsellor.pop("full_name", "")
+                        counsellor["specialty"] = counsellor.pop("specialization", "")
+                    relationships["relationships"]["counsellors"] = counsellors
 
             # Get segments in this template
             template_segments = (

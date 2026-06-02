@@ -15,7 +15,7 @@ import { getSchools } from '@/services/counsellorApi';
 interface CreateAssistantModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: (nurseId: string) => void;
+  onCreated: (assistantId: string) => void;
 }
 
 interface School {
@@ -31,7 +31,7 @@ export default function CreateAssistantModal({
   const { getAccessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
 
   const [form, setForm] = useState({
     full_name: '',
@@ -70,14 +70,14 @@ export default function CreateAssistantModal({
 
     try {
       const token = getAccessToken();
-      const nurse = await createAssistant({
+      const assistant = await createAssistant({
         full_name: form.full_name.trim(),
         email: form.email.trim().toLowerCase(),
         qualification: form.qualification.trim() || undefined,
         school_id: form.school_id || undefined
       }, token);
 
-      onCreated(nurse.id);
+      onCreated(assistant.id);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -181,9 +181,9 @@ export default function CreateAssistantModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
               <option value="">Select school (optional)</option>
-              {hospitals.map((hospital) => (
-                <option key={hospital.id} value={hospital.id}>
-                  {hospital.school_name}
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.school_name}
                 </option>
               ))}
             </select>

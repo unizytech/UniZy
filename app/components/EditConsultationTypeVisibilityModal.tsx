@@ -38,8 +38,8 @@ export function EditConsultationTypeVisibilityModal({
   const [success, setSuccess] = useState<string | null>(null);
 
   // Data fetching states
-  const [doctors, setCounsellors] = useState<CounsellorListItem[]>([]);
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [counsellors, setCounsellors] = useState<CounsellorListItem[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [specializations, setSpecializations] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,13 +56,13 @@ export function EditConsultationTypeVisibilityModal({
     try {
       setLoading(true);
       const token = getAccessToken();
-      const [doctorsData, hospitalsData, specializationsData] = await Promise.all([
+      const [counsellorsData, schoolsData, specializationsData] = await Promise.all([
         getAllCounsellorsForSharing(token),
         getSchools(token),
         getSpecializations(token)
       ]);
-      setCounsellors(doctorsData);
-      setSchools(hospitalsData);
+      setCounsellors(counsellorsData);
+      setSchools(schoolsData);
       setSpecializations(specializationsData);
     } catch (err) {
       setError('Failed to load data: ' + (err as Error).message);
@@ -145,19 +145,19 @@ export function EditConsultationTypeVisibilityModal({
     onClose();
   };
 
-  const toggleCounsellor = (doctorId: string) => {
+  const toggleCounsellor = (counsellorId: string) => {
     setSelectedCounsellors(prev =>
-      prev.includes(doctorId)
-        ? prev.filter(id => id !== doctorId)
-        : [...prev, doctorId]
+      prev.includes(counsellorId)
+        ? prev.filter(id => id !== counsellorId)
+        : [...prev, counsellorId]
     );
   };
 
-  const toggleSchool = (hospitalId: string) => {
+  const toggleSchool = (schoolId: string) => {
     setSelectedSchools(prev =>
-      prev.includes(hospitalId)
-        ? prev.filter(id => id !== hospitalId)
-        : [...prev, hospitalId]
+      prev.includes(schoolId)
+        ? prev.filter(id => id !== schoolId)
+        : [...prev, schoolId]
     );
   };
 
@@ -169,8 +169,8 @@ export function EditConsultationTypeVisibilityModal({
     );
   };
 
-  // Filter doctors based on search query
-  const filteredCounsellors = doctors.filter(doc =>
+  // Filter counsellors based on search query
+  const filteredCounsellors = counsellors.filter(doc =>
     doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     doc.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (doc.specialization && doc.specialization.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -309,7 +309,7 @@ export function EditConsultationTypeVisibilityModal({
                       />
                     </div>
 
-                    {/* Doctors List */}
+                    {/* Counsellors List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {filteredCounsellors.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
@@ -317,22 +317,22 @@ export function EditConsultationTypeVisibilityModal({
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {filteredCounsellors.map((doctor) => (
+                          {filteredCounsellors.map((counsellor) => (
                             <label
-                              key={doctor.id}
+                              key={counsellor.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedCounsellors.includes(doctor.id)}
-                                onChange={() => toggleCounsellor(doctor.id)}
+                                checked={selectedCounsellors.includes(counsellor.id)}
+                                onChange={() => toggleCounsellor(counsellor.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{doctor.full_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{counsellor.full_name}</div>
                                 <div className="text-xs text-gray-500">
-                                  {doctor.email}
-                                  {doctor.specialization && ` • ${doctor.specialization}`}
+                                  {counsellor.email}
+                                  {counsellor.specialization && ` • ${counsellor.specialization}`}
                                 </div>
                               </div>
                             </label>
@@ -345,29 +345,29 @@ export function EditConsultationTypeVisibilityModal({
 
                 {activeTab === 'schools' && (
                   <div className="space-y-4">
-                    {/* Hospitals List */}
+                    {/* Schools List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-                      {hospitals.length === 0 ? (
+                      {schools.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">No schools available.</div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {hospitals.map((hospital) => (
+                          {schools.map((school) => (
                             <label
-                              key={hospital.id}
+                              key={school.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedSchools.includes(hospital.id)}
-                                onChange={() => toggleSchool(hospital.id)}
+                                checked={selectedSchools.includes(school.id)}
+                                onChange={() => toggleSchool(school.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{hospital.school_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{school.school_name}</div>
                                 <div className="text-xs text-gray-500">
-                                  {hospital.city && hospital.state
-                                    ? `${hospital.city}, ${hospital.state}`
-                                    : hospital.city || hospital.state || 'Location not specified'}
+                                  {school.city && school.state
+                                    ? `${school.city}, ${school.state}`
+                                    : school.city || school.state || 'Location not specified'}
                                 </div>
                               </div>
                             </label>

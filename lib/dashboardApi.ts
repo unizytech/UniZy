@@ -567,20 +567,20 @@ export async function getCounsellors(
   }
 
   const data = await response.json();
-  let doctors = data.counsellors || [];
+  let counsellors = data.counsellors || [];
 
   // Filter by school if specified
   if (options.hospitalId) {
-    doctors = doctors.filter((d: Counsellor) => d.school_id === options.hospitalId);
+    counsellors = counsellors.filter((d: Counsellor) => d.school_id === options.hospitalId);
   }
 
   // Map full_name to counsellor_name for backwards compatibility
-  doctors = doctors.map((d: any) => ({
+  counsellors = counsellors.map((d: any) => ({
     ...d,
     counsellor_name: d.full_name || d.counsellor_name,
   }));
 
-  return doctors;
+  return counsellors;
 }
 
 /**
@@ -618,10 +618,10 @@ export interface StudentLastVisitInfo {
  * Uses existing student history endpoint
  */
 export async function getStudentLastVisitInfo(
-  patientId: string,
+  studentId: string,
   auth?: string | AuthOptions | null
 ): Promise<StudentLastVisitInfo> {
-  const endpoint = `/api/v1/students/${encodeURIComponent(patientId)}/last-diagnosis`;
+  const endpoint = `/api/v1/students/${encodeURIComponent(studentId)}/last-diagnosis`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {

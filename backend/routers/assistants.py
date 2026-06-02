@@ -238,12 +238,12 @@ async def list_assistants(
     - List of assistant records with metadata
     """
     try:
-        nurses = get_all_assistants(is_active=active_only, school_id=school_id)
+        assistants = get_all_assistants(is_active=active_only, school_id=school_id)
 
         return {
             "success": True,
-            "assistants": nurses,
-            "count": len(nurses)
+            "assistants": assistants,
+            "count": len(assistants)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to fetch assistants")
@@ -337,14 +337,14 @@ async def get_assistant_endpoint(
     - Assistant record with full details
     """
     try:
-        nurse = get_assistant(assistant_id)
+        assistant = get_assistant(assistant_id)
 
-        if not nurse:
+        if not assistant:
             raise HTTPException(status_code=404, detail="Assistant not found")
 
         return {
             "success": True,
-            "nurse": nurse
+            "nurse": assistant
         }
     except HTTPException:
         raise
@@ -378,7 +378,7 @@ async def create_assistant_endpoint(
     - Email must be unique
     """
     try:
-        nurse = create_assistant(
+        assistant = create_assistant(
             email=request.email,
             full_name=request.full_name,
             qualification=request.qualification,
@@ -386,12 +386,12 @@ async def create_assistant_endpoint(
         )
 
         # Assign default template to newly created assistant
-        _assign_default_template_to_assistant(nurse["id"], request.full_name, request.school_id)
+        _assign_default_template_to_assistant(assistant["id"], request.full_name, request.school_id)
 
         return {
             "success": True,
             "message": f"Assistant '{request.full_name}' created successfully",
-            "nurse": nurse
+            "nurse": assistant
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid request")
@@ -682,7 +682,7 @@ async def update_assistant_endpoint(
                 .eq("id", assistant_id)\
                 .execute()
 
-        nurse = update_assistant(
+        assistant = update_assistant(
             assistant_id=assistant_id,
             email=request.email,
             full_name=request.full_name,
@@ -694,7 +694,7 @@ async def update_assistant_endpoint(
         return {
             "success": True,
             "message": "Assistant updated successfully",
-            "nurse": nurse
+            "nurse": assistant
         }
     except HTTPException:
         raise
@@ -723,12 +723,12 @@ async def deactivate_assistant_endpoint(
     - Assistant will not appear in active assistant lists
     """
     try:
-        nurse = deactivate_assistant(assistant_id)
+        assistant = deactivate_assistant(assistant_id)
 
         return {
             "success": True,
-            "message": f"Assistant '{nurse['full_name']}' deactivated successfully",
-            "nurse": nurse
+            "message": f"Assistant '{assistant['full_name']}' deactivated successfully",
+            "nurse": assistant
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail="Not found")
@@ -756,18 +756,18 @@ async def list_assistant_counsellors(
     """
     try:
         # Verify assistant exists
-        nurse = get_assistant(assistant_id)
-        if not nurse:
+        assistant = get_assistant(assistant_id)
+        if not assistant:
             raise HTTPException(status_code=404, detail="Assistant not found")
 
         associations = get_assistant_counsellors(assistant_id)
 
         # Extract counsellor info from associations
-        doctors = []
+        counsellors = []
         for assoc in associations:
             counsellor_info = assoc.get("counsellors", {})
             if counsellor_info:
-                doctors.append({
+                counsellors.append({
                     "association_id": assoc.get("id"),
                     "counsellor_id": assoc.get("counsellor_id"),
                     "counsellor_name": counsellor_info.get("full_name"),  # Frontend expects counsellor_name
@@ -781,8 +781,8 @@ async def list_assistant_counsellors(
         return {
             "success": True,
             "assistant_id": assistant_id,
-            "counsellors": doctors,
-            "count": len(doctors)
+            "counsellors": counsellors,
+            "count": len(counsellors)
         }
     except HTTPException:
         raise
@@ -836,22 +836,22 @@ async def link_assistant_to_counsellor_endpoint(
                 .select("id, default_template_id, school_id")\
                 .eq("id", assistant_id).limit(1).execute()
             if assistant_record.data:
-                nurse = assistant_record.data[0]
+                assistant = assistant_record.data[0]
                 should_reassign = False
 
-                if not nurse.get("default_template_id"):
+                if not assistant.get("default_template_id"):
                     should_reassign = True
                 else:
                     # Check if current default is a PRESCREEN template
                     current_tmpl = supabase.table("templates")\
                         .select("template_code")\
-                        .eq("id", nurse["default_template_id"]).limit(1).execute()
+                        .eq("id", assistant["default_template_id"]).limit(1).execute()
                     if current_tmpl.data and "PRESCREEN" in (current_tmpl.data[0].get("template_code") or "").upper():
                         should_reassign = True
 
                 if should_reassign:
                     _assign_default_template_to_assistant(
-                        assistant_id, "", nurse.get("school_id")
+                        assistant_id, "", assistant.get("school_id")
                     )
                     logger.info(f"[NURSE_LINK] Reassigned default template for assistant {assistant_id} after linking counsellor {counsellor_id}")
         except Exception as e:
@@ -970,12 +970,12 @@ async def set_assistant_default_template(
         if not assistant_result.data or len(assistant_result.data) == 0:
             raise HTTPException(status_code=404, detail="Assistant not found")
 
-        nurse = assistant_result.data[0]
+        assistant = assistant_result.data[0]
         template_id = body.template_id if body else None
 
         # EHR clients can only update assistants in their own school
         if client.client_type == "ehr":
-            assistant_school_id = nurse.get("school_id")
+            assistant_school_id = assistant.get("school_id")
             if client.school_id is None or str(client.school_id) != assistant_school_id:
                 raise HTTPException(status_code=403, detail="Access denied")
 
@@ -1017,13 +1017,13 @@ async def set_assistant_default_template(
         if template_id:
             return {
                 "success": True,
-                "message": f"Default template set for assistant '{nurse['full_name']}'",
+                "message": f"Default template set for assistant '{assistant['full_name']}'",
                 "default_template_id": template_id
             }
         else:
             return {
                 "success": True,
-                "message": f"Default template cleared for assistant '{nurse['full_name']}'",
+                "message": f"Default template cleared for assistant '{assistant['full_name']}'",
                 "default_template_id": None
             }
 

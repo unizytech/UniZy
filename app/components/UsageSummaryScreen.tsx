@@ -78,8 +78,8 @@ export function UsageSummaryScreen() {
 
   // Filter options
   const [apiClients, setApiClients] = useState<FilterOption[]>([]);
-  const [hospitals, setSchools] = useState<FilterOption[]>([]);
-  const [doctors, setCounsellors] = useState<FilterOption[]>([]);
+  const [schools, setSchools] = useState<FilterOption[]>([]);
+  const [counsellors, setCounsellors] = useState<FilterOption[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(true);
 
   // Export state
@@ -349,7 +349,7 @@ export function UsageSummaryScreen() {
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Schools</option>
-              {hospitals.map((h) => (
+              {schools.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}
                 </option>
@@ -367,7 +367,7 @@ export function UsageSummaryScreen() {
               className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Counsellors</option>
-              {doctors.map((d) => (
+              {counsellors.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>

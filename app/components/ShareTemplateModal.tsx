@@ -32,7 +32,7 @@ interface ShareTemplateModalProps {
   onShareComplete?: () => void;
 }
 
-type ShareTab = 'individual' | 'hospital' | 'specialization' | 'assistants';
+type ShareTab = 'individual' | 'school' | 'specialization' | 'assistants';
 
 export function ShareTemplateModal({
   template,
@@ -60,13 +60,13 @@ export function ShareTemplateModal({
   const [initialSpecializations, setInitialSpecializations] = useState<string[]>([]);
 
   // Data fetching states
-  const [doctors, setCounsellors] = useState<CounsellorListItem[]>([]);
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [counsellors, setCounsellors] = useState<CounsellorListItem[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [specializations, setSpecializations] = useState<string[]>([]);
-  const [nurses, setAssistants] = useState<AssistantListItem[]>([]);
+  const [assistants, setAssistants] = useState<AssistantListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [nurseSearchQuery, setAssistantSearchQuery] = useState('');
+  const [assistantSearchQuery, setAssistantSearchQuery] = useState('');
 
   // Assistant selection state
   const [selectedAssistants, setSelectedAssistants] = useState<string[]>([]);
@@ -84,7 +84,7 @@ export function ShareTemplateModal({
     try {
       setLoading(true);
       const token = getAccessToken();
-      const [doctorsData, hospitalsData, specializationsData, sharesData, nursesData, nurseSharesData] = await Promise.all([
+      const [counsellorsData, schoolsData, specializationsData, sharesData, assistantsData, assistantSharesData] = await Promise.all([
         getAllCounsellorsForSharing(token),
         getSchools(token),
         getSpecializations(token),
@@ -93,10 +93,10 @@ export function ShareTemplateModal({
         getTemplateAssistantShares(template.id, token)
       ]);
 
-      setCounsellors(doctorsData);
-      setSchools(hospitalsData);
+      setCounsellors(counsellorsData);
+      setSchools(schoolsData);
       setSpecializations(specializationsData);
-      setAssistants(nursesData);
+      setAssistants(assistantsData);
 
       // Set existing counsellor shares
       if (sharesData.success) {
@@ -113,10 +113,10 @@ export function ShareTemplateModal({
       }
 
       // Set existing assistant shares
-      if (nurseSharesData && nurseSharesData.length > 0) {
-        setSharedAssistants(nurseSharesData);
-        setSelectedAssistants(nurseSharesData.map(s => s.assistant_id));
-        setInitialAssistantIds(nurseSharesData.map(s => s.assistant_id));
+      if (assistantSharesData && assistantSharesData.length > 0) {
+        setSharedAssistants(assistantSharesData);
+        setSelectedAssistants(assistantSharesData.map(s => s.assistant_id));
+        setInitialAssistantIds(assistantSharesData.map(s => s.assistant_id));
       }
     } catch (err) {
       setError('Failed to load data: ' + (err as Error).message);
@@ -155,13 +155,13 @@ export function ShareTemplateModal({
         // COUNSELLORS TAB: Add/remove individual counsellor shares
         // Ignore schools and specializations state completely
         const existingCounsellorIds = sharedCounsellors.map(d => d.counsellor_id);
-        const doctorsToAdd = selectedCounsellors.filter(id => !existingCounsellorIds.includes(id));
-        const doctorsToRemove = existingCounsellorIds.filter(id => !selectedCounsellors.includes(id));
+        const counsellorsToAdd = selectedCounsellors.filter(id => !existingCounsellorIds.includes(id));
+        const counsellorsToRemove = existingCounsellorIds.filter(id => !selectedCounsellors.includes(id));
 
         // Add new shares (with ownership assignment for global templates)
         const token = getAccessToken();
-        if (doctorsToAdd.length > 0) {
-          const result = await shareTemplate(sharingCounsellorId, template.id, doctorsToAdd, newOwnerId, token);
+        if (counsellorsToAdd.length > 0) {
+          const result = await shareTemplate(sharingCounsellorId, template.id, counsellorsToAdd, newOwnerId, token);
           totalShared = result.shared_count;
           if (result.ownership_assigned) {
             ownershipAssigned = true;
@@ -176,15 +176,15 @@ export function ShareTemplateModal({
         }
 
         // Remove unchecked shares
-        if (doctorsToRemove.length > 0) {
-          for (const doctorId of doctorsToRemove) {
-            await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
+        if (counsellorsToRemove.length > 0) {
+          for (const counsellorId of counsellorsToRemove) {
+            await revokeTemplateAccess(sharingCounsellorId, counsellorId, template.id, token);
             totalRemoved++;
           }
         }
 
         if (ownershipAssigned) {
-          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
+          const ownerName = counsellors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
           setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s)${totalRemoved > 0 ? `, removed ${totalRemoved}` : ''}`);
         } else if (totalShared > 0 && totalRemoved > 0) {
           setSuccess(`Updated shares: Added ${totalShared}, removed ${totalRemoved}`);
@@ -196,20 +196,20 @@ export function ShareTemplateModal({
           setSuccess('No changes made');
         }
 
-      } else if (activeTab === 'hospital') {
+      } else if (activeTab === 'school') {
         // SCHOOL TAB: Add/remove school shares
         // Ignore counsellors and specializations state completely
         const token = getAccessToken();
 
         // Determine which schools to add and which to remove
-        const hospitalsToAdd = selectedSchools.filter(id => !initialSchoolIds.includes(id));
-        const hospitalsToRemove = initialSchoolIds.filter(id => !selectedSchools.includes(id));
+        const schoolsToAdd = selectedSchools.filter(id => !initialSchoolIds.includes(id));
+        const schoolsToRemove = initialSchoolIds.filter(id => !selectedSchools.includes(id));
 
         // Add new school shares (pass owner on first share for global templates)
         let ownerPassedOnce = false;
-        for (const hospitalId of hospitalsToAdd) {
+        for (const schoolId of schoolsToAdd) {
           const ownerForThisCall = (!ownerPassedOnce && newOwnerId) ? newOwnerId : undefined;
-          const result = await shareTemplateWithSchool(sharingCounsellorId, template.id, hospitalId, ownerForThisCall, token);
+          const result = await shareTemplateWithSchool(sharingCounsellorId, template.id, schoolId, ownerForThisCall, token);
           totalShared += result.shared_count;
           if (result.ownership_assigned) {
             ownershipAssigned = true;
@@ -218,7 +218,7 @@ export function ShareTemplateModal({
         }
 
         // If no schools to add but we need to assign ownership, do it via individual share
-        if (hospitalsToAdd.length === 0 && newOwnerId) {
+        if (schoolsToAdd.length === 0 && newOwnerId) {
           const result = await shareTemplate(sharingCounsellorId, template.id, [newOwnerId], newOwnerId, token);
           if (result.ownership_assigned) {
             ownershipAssigned = true;
@@ -226,28 +226,28 @@ export function ShareTemplateModal({
         }
 
         // Remove unchecked school shares (revoke from ALL counsellors in those schools)
-        for (const hospitalId of hospitalsToRemove) {
+        for (const schoolId of schoolsToRemove) {
           // Get all counsellors in this school from the sharedCounsellors list
-          const doctorsInSchool = sharedCounsellors
-            .filter(d => d.school_id === hospitalId)
+          const counsellorsInSchool = sharedCounsellors
+            .filter(d => d.school_id === schoolId)
             .map(d => d.counsellor_id);
 
           // Revoke access from each counsellor
-          for (const doctorId of doctorsInSchool) {
-            await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
+          for (const counsellorId of counsellorsInSchool) {
+            await revokeTemplateAccess(sharingCounsellorId, counsellorId, template.id, token);
             totalRemoved++;
           }
         }
 
         if (ownershipAssigned) {
-          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
-          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s) across ${hospitalsToAdd.length} school(s)`);
+          const ownerName = counsellors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
+          setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s) across ${schoolsToAdd.length} school(s)`);
         } else if (totalShared > 0 && totalRemoved > 0) {
           setSuccess(`Updated shares: Added ${totalShared}, removed ${totalRemoved}`);
         } else if (totalShared > 0) {
-          setSuccess(`Template shared with ${totalShared} counsellor(s) across ${hospitalsToAdd.length} school(s)`);
+          setSuccess(`Template shared with ${totalShared} counsellor(s) across ${schoolsToAdd.length} school(s)`);
         } else if (totalRemoved > 0) {
-          setSuccess(`Removed template from ${totalRemoved} counsellor(s) in ${hospitalsToRemove.length} school(s)`);
+          setSuccess(`Removed template from ${totalRemoved} counsellor(s) in ${schoolsToRemove.length} school(s)`);
         } else {
           setSuccess('No changes made');
         }
@@ -284,19 +284,19 @@ export function ShareTemplateModal({
         // Remove unchecked specialization shares (revoke from ALL counsellors with those specializations)
         for (const spec of specsToRemove) {
           // Get all counsellors with this specialization from the sharedCounsellors list
-          const doctorsWithSpec = sharedCounsellors
+          const counsellorsWithSpec = sharedCounsellors
             .filter(d => d.specialization === spec)
             .map(d => d.counsellor_id);
 
           // Revoke access from each counsellor
-          for (const doctorId of doctorsWithSpec) {
-            await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
+          for (const counsellorId of counsellorsWithSpec) {
+            await revokeTemplateAccess(sharingCounsellorId, counsellorId, template.id, token);
             totalRemoved++;
           }
         }
 
         if (ownershipAssigned) {
-          const ownerName = doctors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
+          const ownerName = counsellors.find(d => d.id === selectedOwner)?.full_name || 'selected counsellor';
           setSuccess(`Template ownership assigned to ${ownerName}. Shared with ${totalShared} counsellor(s) across ${specsToAdd.length} specialization(s)`);
         } else if (totalShared > 0 && totalRemoved > 0) {
           setSuccess(`Updated shares: Added ${totalShared}, removed ${totalRemoved}`);
@@ -312,23 +312,23 @@ export function ShareTemplateModal({
         // Ignore counsellors, schools, and specializations state completely
 
         // Determine which assistants to add and which to remove
-        const nursesToAdd = selectedAssistants.filter(id => !initialAssistantIds.includes(id));
-        const nursesToRemove = initialAssistantIds.filter(id => !selectedAssistants.includes(id));
+        const assistantsToAdd = selectedAssistants.filter(id => !initialAssistantIds.includes(id));
+        const assistantsToRemove = initialAssistantIds.filter(id => !selectedAssistants.includes(id));
 
         // Add new assistant shares
-        if (nursesToAdd.length > 0) {
+        if (assistantsToAdd.length > 0) {
           const result = await shareTemplateWithAssistants(
             template.id,
             template.template_code,
-            nursesToAdd,
+            assistantsToAdd,
             getAccessToken()
           );
           totalShared = result.shared_count;
         }
 
         // Remove unchecked assistant shares
-        for (const nurseId of nursesToRemove) {
-          await revokeAssistantTemplateAccess(nurseId, template.id, getAccessToken());
+        for (const assistantId of assistantsToRemove) {
+          await revokeAssistantTemplateAccess(assistantId, template.id, getAccessToken());
           totalRemoved++;
         }
 
@@ -357,7 +357,7 @@ export function ShareTemplateModal({
     }
   };
 
-  const handleRevoke = async (doctorId: string) => {
+  const handleRevoke = async (counsellorId: string) => {
     try {
       // The sharing counsellor is the template owner
       const sharingCounsellorId = template.counsellor_id;
@@ -366,11 +366,11 @@ export function ShareTemplateModal({
         return;
       }
       const token = getAccessToken();
-      await revokeTemplateAccess(sharingCounsellorId, doctorId, template.id, token);
+      await revokeTemplateAccess(sharingCounsellorId, counsellorId, template.id, token);
       setSuccess('Access revoked successfully');
       // Remove from both sharedCounsellors AND selectedCounsellors to prevent re-adding on share
-      setSharedCounsellors(sharedCounsellors.filter(d => d.counsellor_id !== doctorId));
-      setSelectedCounsellors(prev => prev.filter(id => id !== doctorId));
+      setSharedCounsellors(sharedCounsellors.filter(d => d.counsellor_id !== counsellorId));
+      setSelectedCounsellors(prev => prev.filter(id => id !== counsellorId));
     } catch (err) {
       setError(handleApiError(err));
     }
@@ -392,19 +392,19 @@ export function ShareTemplateModal({
     onClose();
   };
 
-  const toggleCounsellor = (doctorId: string) => {
+  const toggleCounsellor = (counsellorId: string) => {
     setSelectedCounsellors(prev =>
-      prev.includes(doctorId)
-        ? prev.filter(id => id !== doctorId)
-        : [...prev, doctorId]
+      prev.includes(counsellorId)
+        ? prev.filter(id => id !== counsellorId)
+        : [...prev, counsellorId]
     );
   };
 
-  const toggleSchool = (hospitalId: string) => {
+  const toggleSchool = (schoolId: string) => {
     setSelectedSchools(prev =>
-      prev.includes(hospitalId)
-        ? prev.filter(id => id !== hospitalId)
-        : [...prev, hospitalId]
+      prev.includes(schoolId)
+        ? prev.filter(id => id !== schoolId)
+        : [...prev, schoolId]
     );
   };
 
@@ -416,11 +416,11 @@ export function ShareTemplateModal({
     );
   };
 
-  const toggleAssistant = (nurseId: string) => {
+  const toggleAssistant = (assistantId: string) => {
     setSelectedAssistants(prev =>
-      prev.includes(nurseId)
-        ? prev.filter(id => id !== nurseId)
-        : [...prev, nurseId]
+      prev.includes(assistantId)
+        ? prev.filter(id => id !== assistantId)
+        : [...prev, assistantId]
     );
   };
 
@@ -436,7 +436,7 @@ export function ShareTemplateModal({
   };
 
   const selectAllSchools = () => {
-    setSelectedSchools(hospitals.map(h => h.id));
+    setSelectedSchools(schools.map(h => h.id));
   };
 
   const deselectAllSchools = () => {
@@ -462,17 +462,17 @@ export function ShareTemplateModal({
   };
 
   // Filter counsellors based on search query
-  const filteredCounsellors = doctors.filter(doc =>
+  const filteredCounsellors = counsellors.filter(doc =>
     doc.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     doc.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (doc.specialization && doc.specialization.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Filter assistants based on search query
-  const filteredAssistants = nurses.filter(nurse =>
-    nurse.full_name.toLowerCase().includes(nurseSearchQuery.toLowerCase()) ||
-    nurse.email.toLowerCase().includes(nurseSearchQuery.toLowerCase()) ||
-    (nurse.qualification && nurse.qualification.toLowerCase().includes(nurseSearchQuery.toLowerCase()))
+  const filteredAssistants = assistants.filter(assistant =>
+    assistant.full_name.toLowerCase().includes(assistantSearchQuery.toLowerCase()) ||
+    assistant.email.toLowerCase().includes(assistantSearchQuery.toLowerCase()) ||
+    (assistant.qualification && assistant.qualification.toLowerCase().includes(assistantSearchQuery.toLowerCase()))
   );
 
   return (
@@ -558,9 +558,9 @@ export function ShareTemplateModal({
                     Individual Counsellors ({selectedCounsellors.length})
                   </button>
                   <button
-                    onClick={() => setActiveTab('hospital')}
+                    onClick={() => setActiveTab('school')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === 'hospital'
+                      activeTab === 'school'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
@@ -590,7 +590,7 @@ export function ShareTemplateModal({
                 </nav>
               </div>
 
-              {/* Owner Selection for Global Templates (not needed for Nurses tab) */}
+              {/* Owner Selection for Global Templates (not needed for Assistants tab) */}
               {isGlobalTemplate && activeTab !== 'assistants' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
@@ -615,9 +615,9 @@ export function ShareTemplateModal({
                           className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-gray-900 bg-white"
                         >
                           <option value="">-- Select owner --</option>
-                          {doctors.map((doctor) => (
-                            <option key={doctor.id} value={doctor.id}>
-                              {doctor.full_name} {doctor.specialization ? `(${doctor.specialization})` : ''}
+                          {counsellors.map((counsellor) => (
+                            <option key={counsellor.id} value={counsellor.id}>
+                              {counsellor.full_name} {counsellor.specialization ? `(${counsellor.specialization})` : ''}
                             </option>
                           ))}
                         </select>
@@ -649,7 +649,7 @@ export function ShareTemplateModal({
                     {filteredCounsellors.length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
-                          {selectedCounsellors.length} of {doctors.length} selected
+                          {selectedCounsellors.length} of {counsellors.length} selected
                           {searchQuery && ` (showing ${filteredCounsellors.length})`}
                         </span>
                         <div className="flex gap-2">
@@ -679,22 +679,22 @@ export function ShareTemplateModal({
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {filteredCounsellors.map((doctor) => (
+                          {filteredCounsellors.map((counsellor) => (
                             <label
-                              key={doctor.id}
+                              key={counsellor.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedCounsellors.includes(doctor.id)}
-                                onChange={() => toggleCounsellor(doctor.id)}
+                                checked={selectedCounsellors.includes(counsellor.id)}
+                                onChange={() => toggleCounsellor(counsellor.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{doctor.full_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{counsellor.full_name}</div>
                                 <div className="text-xs text-gray-500">
-                                  {doctor.email}
-                                  {doctor.specialization && ` • ${doctor.specialization}`}
+                                  {counsellor.email}
+                                  {counsellor.specialization && ` • ${counsellor.specialization}`}
                                 </div>
                               </div>
                             </label>
@@ -705,13 +705,13 @@ export function ShareTemplateModal({
                   </div>
                 )}
 
-                {activeTab === 'hospital' && (
+                {activeTab === 'school' && (
                   <div className="space-y-4">
                     {/* Select All / Deselect All */}
-                    {hospitals.length > 0 && (
+                    {schools.length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
-                          {selectedSchools.length} of {hospitals.length} selected
+                          {selectedSchools.length} of {schools.length} selected
                         </span>
                         <div className="flex gap-2">
                           <button
@@ -734,27 +734,27 @@ export function ShareTemplateModal({
 
                     {/* Schools List */}
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
-                      {hospitals.length === 0 ? (
+                      {schools.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">No schools available.</div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {hospitals.map((hospital) => (
+                          {schools.map((school) => (
                             <label
-                              key={hospital.id}
+                              key={school.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedSchools.includes(hospital.id)}
-                                onChange={() => toggleSchool(hospital.id)}
+                                checked={selectedSchools.includes(school.id)}
+                                onChange={() => toggleSchool(school.id)}
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{hospital.school_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{school.school_name}</div>
                                 <div className="text-xs text-gray-500">
-                                  {hospital.city && hospital.state
-                                    ? `${hospital.city}, ${hospital.state}`
-                                    : hospital.city || hospital.state || 'Location not specified'}
+                                  {school.city && school.state
+                                    ? `${school.city}, ${school.state}`
+                                    : school.city || school.state || 'Location not specified'}
                                 </div>
                               </div>
                             </label>
@@ -832,7 +832,7 @@ export function ShareTemplateModal({
                     <div>
                       <input
                         type="text"
-                        value={nurseSearchQuery}
+                        value={assistantSearchQuery}
                         onChange={(e) => setAssistantSearchQuery(e.target.value)}
                         placeholder="Search assistants by name, email, or qualification..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 bg-white"
@@ -843,8 +843,8 @@ export function ShareTemplateModal({
                     {filteredAssistants.length > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
-                          {selectedAssistants.length} of {nurses.length} selected
-                          {nurseSearchQuery && ` (showing ${filteredAssistants.length})`}
+                          {selectedAssistants.length} of {assistants.length} selected
+                          {assistantSearchQuery && ` (showing ${filteredAssistants.length})`}
                         </span>
                         <div className="flex gap-2">
                           <button
@@ -852,14 +852,14 @@ export function ShareTemplateModal({
                             onClick={selectAllAssistants}
                             className="px-3 py-1 text-xs font-medium text-teal-600 hover:bg-teal-50 rounded transition-colors"
                           >
-                            Select All{nurseSearchQuery ? ' Visible' : ''}
+                            Select All{assistantSearchQuery ? ' Visible' : ''}
                           </button>
                           <button
                             type="button"
                             onClick={deselectAllAssistants}
                             className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded transition-colors"
                           >
-                            Deselect All{nurseSearchQuery ? ' Visible' : ''}
+                            Deselect All{assistantSearchQuery ? ' Visible' : ''}
                           </button>
                         </div>
                       </div>
@@ -869,30 +869,30 @@ export function ShareTemplateModal({
                     <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                       {filteredAssistants.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
-                          {nurseSearchQuery ? 'No assistants found matching your search.' : 'No assistants available.'}
+                          {assistantSearchQuery ? 'No assistants found matching your search.' : 'No assistants available.'}
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-200">
-                          {filteredAssistants.map((nurse) => (
+                          {filteredAssistants.map((assistant) => (
                             <label
-                              key={nurse.id}
+                              key={assistant.id}
                               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedAssistants.includes(nurse.id)}
-                                onChange={() => toggleAssistant(nurse.id)}
+                                checked={selectedAssistants.includes(assistant.id)}
+                                onChange={() => toggleAssistant(assistant.id)}
                                 className="w-4 h-4 text-teal-600 focus:ring-teal-500 rounded"
                               />
                               <div className="ml-3 flex-1">
-                                <div className="font-medium text-sm text-gray-900">{nurse.full_name}</div>
+                                <div className="font-medium text-sm text-gray-900">{assistant.full_name}</div>
                                 <div className="text-xs text-gray-500">
-                                  {nurse.email}
-                                  {nurse.qualification && ` • ${nurse.qualification}`}
+                                  {assistant.email}
+                                  {assistant.qualification && ` • ${assistant.qualification}`}
                                 </div>
                               </div>
                               {/* Show if already shared */}
-                              {sharedAssistants.some(s => s.assistant_id === nurse.id) && (
+                              {sharedAssistants.some(s => s.assistant_id === assistant.id) && (
                                 <span className="text-xs text-teal-600 bg-teal-50 px-2 py-0.5 rounded">
                                   Shared
                                 </span>

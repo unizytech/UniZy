@@ -32,7 +32,7 @@ if AUTH_ENABLED:
     from services.auth_service import validate_ehr_correlation_access, validate_ehr_counsellor_access
     from models.auth_models import ClientContext
 
-    _doctor_checker = EHRCounsellorAccessChecker()
+    _counsellor_checker = EHRCounsellorAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
     _correlation_checker = EHRCorrelationAccessChecker()
 
@@ -40,7 +40,7 @@ if AUTH_ENABLED:
         """Verify EHR client has access to counsellor data."""
         counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, counsellor_uuid, client)
+        return await _counsellor_checker(request, counsellor_uuid, client)
 
     async def verify_submission_access(request: Request, submission_id: Optional[str] = None):  # type: ignore[misc]
         """Verify EHR client has access to submission data."""
@@ -486,20 +486,20 @@ async def _validate_session_background(
                     # ASSISTANT FALLBACK (when assistant_id present)
                     if assistant_id:
                         from services.assistant_templates_service import get_assistant_default_template
-                        nurse_default = get_assistant_default_template(uuid.UUID(assistant_id), counsellor_uuid)
-                        if nurse_default:
-                            assistant_code = nurse_default["template_code"]
+                        assistant_default = get_assistant_default_template(uuid.UUID(assistant_id), counsellor_uuid)
+                        if assistant_default:
+                            assistant_code = assistant_default["template_code"]
                             for t in active_templates:
                                 if t.get("template_code") == assistant_code:
                                     matched_template = t
-                                    fallback_source = "nurse_default"
+                                    fallback_source = "assistant_default"
                                     break
                             if not matched_template:
                                 template_code_to_use = assistant_code
-                                fallback_source = "nurse_default"
+                                fallback_source = "assistant_default"
 
                     # COUNSELLOR FALLBACK (existing, runs if assistant didn't resolve)
-                    if not matched_template and fallback_source != "nurse_default":
+                    if not matched_template and fallback_source != "assistant_default":
                         from services.counsellor_templates_service import get_counsellor_default_template
                         default_template_info = get_counsellor_default_template(counsellor_uuid)
 
@@ -571,8 +571,8 @@ async def _validate_session_background(
                     from services.assistant_templates_service import validate_assistant_template_access
                     from services.assistant_service import get_assistant
 
-                    nurse = get_assistant(assistant_id)
-                    if not nurse:
+                    assistant = get_assistant(assistant_id)
+                    if not assistant:
                         logger.warning(f"[VALIDATE_BG] Assistant '{assistant_id}' not found")
                     else:
                         template_id = session_context["template_id"]
@@ -732,11 +732,11 @@ async def start_recording(
             if request.assistant_id:
                 from services.assistant_templates_service import get_assistant_default_template
                 assistant_uuid = uuid.UUID(request.assistant_id)
-                nurse_default = await asyncio.to_thread(
+                assistant_default = await asyncio.to_thread(
                     get_assistant_default_template, assistant_uuid, counsellor_uuid
                 )
-                if nurse_default:
-                    resolved_template_code = nurse_default["template_code"]
+                if assistant_default:
+                    resolved_template_code = assistant_default["template_code"]
                     logger.info(f"[START_RECORDING] Resolved via assistant fallback: {resolved_template_code}")
 
             # Counsellor fallback (runs if assistant didn't resolve)
@@ -1805,13 +1805,13 @@ async def _run_background_processing(
             import uuid as uuid_mod
             _session = locals().get('session')
             _sess_data = _session if isinstance(_session, dict) else {}
-            _doctor_id = _sess_data.get("counsellor_id")
-            _hospital_id = get_counsellor_school_id_cached(uuid_mod.UUID(_doctor_id)) if _doctor_id else None
-            if _hospital_id and submission_id_str:
+            _counsellor_id = _sess_data.get("counsellor_id")
+            _school_id = get_counsellor_school_id_cached(uuid_mod.UUID(_counsellor_id)) if _counsellor_id else None
+            if _school_id and submission_id_str:
                 asyncio.create_task(publish_error_response_fire_and_forget(
                     submission_id=submission_id_str,
-                    school_id=_hospital_id,
-                    counsellor_id=_doctor_id,
+                    school_id=_school_id,
+                    counsellor_id=_counsellor_id,
                     error_message=f"Background processing failed: {str(e)}",
                     error_code="BACKGROUND_PROCESSING_FAILED",
                     session_id=str(_session_id) if _session_id else None,
@@ -1979,8 +1979,8 @@ async def create_live_session(
             from services.assistant_service import get_assistant
 
             # Verify assistant exists
-            nurse = get_assistant(assistant_id_to_use)
-            if not nurse:
+            assistant = get_assistant(assistant_id_to_use)
+            if not assistant:
                 raise HTTPException(
                     status_code=404,
                     detail="Assistant not found"
@@ -2152,8 +2152,8 @@ async def upload_live_chunk(
             if request.student_id:
                 from routers.student_history import resolve_student_id
                 from services.supabase_service import get_counsellor_school_id_cached
-                _hospital_id = get_counsellor_school_id_cached(request.counsellor_id) if request.counsellor_id else None
-                resolved_student_uuid = resolve_student_id(request.student_id, school_id=_hospital_id)
+                _school_id = get_counsellor_school_id_cached(request.counsellor_id) if request.counsellor_id else None
+                resolved_student_uuid = resolve_student_id(request.student_id, school_id=_school_id)
                 if resolved_student_uuid:
                     logger.debug(f"[LIVE_CHUNK] Resolved student_id '{request.student_id}' -> UUID {str(resolved_student_uuid)[:8]}...")
                 else:

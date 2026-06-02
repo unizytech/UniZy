@@ -28,12 +28,12 @@ export default function CounsellorManageScreen() {
   const { getAccessToken } = useAuth();
 
   // Data
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [selectedCounsellor, setSelectedCounsellor] = useState<Counsellor | null>(null);
 
   // Filters
-  const [hospitalFilter, setSchoolFilter] = useState<string>('');
+  const [schoolFilter, setSchoolFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Loading
@@ -65,14 +65,14 @@ export default function CounsellorManageScreen() {
 
   const refreshCounsellors = async () => {
     const token = getTokenRef.current();
-    const doctorList = await getCounsellors(true, token);
-    setCounsellors(doctorList);
+    const counsellorList = await getCounsellors(true, token);
+    setCounsellors(counsellorList);
   };
 
   const refreshSchools = async () => {
     const token = getTokenRef.current();
-    const hospitalList = await getSchools(token);
-    setSchools(hospitalList);
+    const schoolList = await getSchools(token);
+    setSchools(schoolList);
   };
 
   // Load data on mount
@@ -84,13 +84,13 @@ export default function CounsellorManageScreen() {
       setError(null);
       try {
         const token = getTokenRef.current();
-        const [doctorList, hospitalList] = await Promise.all([
+        const [counsellorList, schoolList] = await Promise.all([
           getCounsellors(true, token),
           getSchools(token),
         ]);
         if (!cancelled) {
-          setCounsellors(doctorList);
-          setSchools(hospitalList);
+          setCounsellors(counsellorList);
+          setSchools(schoolList);
         }
       } catch (err) {
         console.error('CounsellorManageScreen load error:', err);
@@ -106,13 +106,13 @@ export default function CounsellorManageScreen() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleSelectCounsellor = async (doctorId: string) => {
+  const handleSelectCounsellor = async (counsellorId: string) => {
     setLoading(true);
     setError(null);
     setIsEditing(false);
     try {
       const token = getAccessToken();
-      const doc = await getCounsellor(doctorId, token);
+      const doc = await getCounsellor(counsellorId, token);
       setSelectedCounsellor(doc);
       setEditForm({
         full_name: doc.full_name,
@@ -206,8 +206,8 @@ export default function CounsellorManageScreen() {
   };
 
   // Filtered counsellors
-  const filteredCounsellors = doctors.filter((d) => {
-    const matchesSchool = !hospitalFilter || d.school_id === hospitalFilter;
+  const filteredCounsellors = counsellors.filter((d) => {
+    const matchesSchool = !schoolFilter || d.school_id === schoolFilter;
     const matchesSearch =
       !searchQuery ||
       d.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,9 +216,9 @@ export default function CounsellorManageScreen() {
   });
 
   // Get school name for a counsellor
-  const getSchoolName = (hospitalId: string | null) => {
-    if (!hospitalId) return 'Not assigned';
-    const h = hospitals.find((h) => h.id === hospitalId);
+  const getSchoolName = (schoolId: string | null) => {
+    if (!schoolId) return 'Not assigned';
+    const h = schools.find((h) => h.id === schoolId);
     return h?.school_name || 'Unknown';
   };
 
@@ -236,12 +236,12 @@ export default function CounsellorManageScreen() {
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">Filter by School</label>
             <select
-              value={hospitalFilter}
+              value={schoolFilter}
               onChange={(e) => setSchoolFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             >
               <option value="">All Schools</option>
-              {hospitals.map((h) => (
+              {schools.map((h) => (
                 <option key={h.id} value={h.id}>{h.school_name}</option>
               ))}
             </select>
@@ -526,7 +526,7 @@ export default function CounsellorManageScreen() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 >
                   <option value="">Select school...</option>
-                  {hospitals.map((h) => (
+                  {schools.map((h) => (
                     <option key={h.id} value={h.school_code || ''}>
                       {h.school_name} ({h.school_code})
                     </option>

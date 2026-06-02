@@ -20,7 +20,7 @@ import { useAuth } from '@lib/auth';
 
 interface CounsellorSelectorProps {
   selectedCounsellorId: string | null;
-  onCounsellorSelect: (doctorId: string | null) => void;
+  onCounsellorSelect: (counsellorId: string | null) => void;
   className?: string;
   required?: boolean;
 }
@@ -32,7 +32,7 @@ export default function CounsellorSelector({
   required = false
 }: CounsellorSelectorProps) {
   const { getAccessToken, loading: authLoading } = useAuth();
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
   const [filteredCounsellors, setFilteredCounsellors] = useState<Counsellor[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -54,18 +54,18 @@ export default function CounsellorSelector({
   // Filter counsellors based on search query
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredCounsellors(doctors);
+      setFilteredCounsellors(counsellors);
     } else {
       const query = searchQuery.toLowerCase();
-      const filtered = doctors.filter(
-        (doctor) =>
-          doctor.full_name.toLowerCase().includes(query) ||
-          doctor.email.toLowerCase().includes(query) ||
-          (doctor.specialization && doctor.specialization.toLowerCase().includes(query))
+      const filtered = counsellors.filter(
+        (counsellor) =>
+          counsellor.full_name.toLowerCase().includes(query) ||
+          counsellor.email.toLowerCase().includes(query) ||
+          (counsellor.specialization && counsellor.specialization.toLowerCase().includes(query))
       );
       setFilteredCounsellors(filtered);
     }
-  }, [searchQuery, doctors]);
+  }, [searchQuery, counsellors]);
 
   const loadCounsellors = async () => {
     try {
@@ -83,13 +83,13 @@ export default function CounsellorSelector({
     }
   };
 
-  const handleSelectCounsellor = (doctorId: string | null) => {
-    onCounsellorSelect(doctorId);
+  const handleSelectCounsellor = (counsellorId: string | null) => {
+    onCounsellorSelect(counsellorId);
     setIsOpen(false);
     setSearchQuery('');
   };
 
-  const selectedCounsellor = doctors.find((d) => d.id === selectedCounsellorId);
+  const selectedCounsellor = counsellors.find((d) => d.id === selectedCounsellorId);
 
   return (
     <div className={`relative ${className}`}>
@@ -174,30 +174,30 @@ export default function CounsellorSelector({
                 {searchQuery ? 'No counsellors found matching your search' : 'No active counsellors available'}
               </div>
             ) : (
-              filteredCounsellors.map((doctor) => (
+              filteredCounsellors.map((counsellor) => (
                 <button
-                  key={doctor.id}
+                  key={counsellor.id}
                   type="button"
-                  onClick={() => handleSelectCounsellor(doctor.id)}
+                  onClick={() => handleSelectCounsellor(counsellor.id)}
                   className={`w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
-                    selectedCounsellorId === doctor.id
+                    selectedCounsellorId === counsellor.id
                       ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500'
                       : ''
                   }`}
                 >
                   <div className="font-medium text-gray-900 dark:text-white">
-                    {doctor.full_name}
-                    {selectedCounsellorId === doctor.id && (
+                    {counsellor.full_name}
+                    {selectedCounsellorId === counsellor.id && (
                       <span className="ml-2 text-blue-600 dark:text-blue-400">✓</span>
                     )}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                    {doctor.specialization && (
+                    {counsellor.specialization && (
                       <span className="inline-block mr-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium">
-                        {doctor.specialization}
+                        {counsellor.specialization}
                       </span>
                     )}
-                    {doctor.email}
+                    {counsellor.email}
                   </div>
                 </button>
               ))

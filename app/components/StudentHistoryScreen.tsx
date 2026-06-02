@@ -858,7 +858,7 @@ export function StudentHistoryScreen() {
   const [selectedStudent, setSelectedStudent] = useState<StudentSearchResult | null>(null);
 
   // Counsellor's students list (for dropdown when counsellor is selected)
-  const [doctorStudents, setCounsellorStudents] = useState<StudentSearchResult[]>([]);
+  const [counsellorStudents, setCounsellorStudents] = useState<StudentSearchResult[]>([]);
   const [isLoadingCounsellorStudents, setIsLoadingCounsellorStudents] = useState(false);
 
   // Student history data
@@ -957,28 +957,28 @@ export function StudentHistoryScreen() {
     }
   };
 
-  const handleSelectStudent = async (patient: StudentSearchResult) => {
-    setSelectedStudent(patient);
+  const handleSelectStudent = async (student: StudentSearchResult) => {
+    setSelectedStudent(student);
     setSearchQuery('');
     setSearchResults([]);
     // Clear prescreen data when switching students
     setPrescreenData(null);
     // Use external student_id (not database UUID) for API calls
-    await loadStudentHistory(patient.student_id);
+    await loadStudentHistory(student.student_id);
     // Always load prescreen data since we only have prescreen view
     if (selectedCounsellorId) {
-      loadPrescreenData(patient.student_id);
+      loadPrescreenData(student.student_id);
     }
   };
 
-  const loadStudentHistory = async (patientId: string) => {
+  const loadStudentHistory = async (studentId: string) => {
     try {
       setIsLoadingHistory(true);
       setError(null);
 
       // Load consultation history for sidebar
       const accessToken = getAccessToken();
-      const consultations = await getConsultationHistory(patientId, selectedCounsellorId || undefined, 1, 10, accessToken);
+      const consultations = await getConsultationHistory(studentId, selectedCounsellorId || undefined, 1, 10, accessToken);
       setConsultationHistory(consultations.consultations);
     } catch (err: any) {
       setError(err.message || 'Failed to load student history');
@@ -1005,7 +1005,7 @@ export function StudentHistoryScreen() {
   };
 
   // Load prescreen data when tab is clicked
-  const loadPrescreenData = async (patientId: string) => {
+  const loadPrescreenData = async (studentId: string) => {
     if (!selectedCounsellorId) {
       setError('Please select a counsellor to view prescreen data');
       return;
@@ -1014,7 +1014,7 @@ export function StudentHistoryScreen() {
     try {
       setIsLoadingPrescreen(true);
       setError(null);
-      const prescreen = await getStudentPrescreen(patientId, selectedCounsellorId, getAccessToken());
+      const prescreen = await getStudentPrescreen(studentId, selectedCounsellorId, getAccessToken());
       setPrescreenData(prescreen);
     } catch (err: any) {
       setError(err.message || 'Failed to load prescreen data');
@@ -1087,8 +1087,8 @@ export function StudentHistoryScreen() {
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <CounsellorSelector
                 selectedCounsellorId={selectedCounsellorId}
-                onCounsellorSelect={(doctorId) => {
-                  setSelectedCounsellorId(doctorId);
+                onCounsellorSelect={(counsellorId) => {
+                  setSelectedCounsellorId(counsellorId);
                   // Clear student selection when counsellor changes
                   setSelectedStudent(null);
                   setConsultationHistory([]);
@@ -1127,56 +1127,56 @@ export function StudentHistoryScreen() {
                 )}
               </div>
 
-              {/* Student Dropdown - When counsellor is selected, show filtered list from doctorStudents */}
-              {selectedCounsellorId && doctorStudents.length > 0 && (
+              {/* Student Dropdown - When counsellor is selected, show filtered list from counsellorStudents */}
+              {selectedCounsellorId && counsellorStudents.length > 0 && (
                 <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                  {doctorStudents
-                    .filter(patient => {
+                  {counsellorStudents
+                    .filter(student => {
                       if (!searchQuery.trim()) return true;
                       const query = searchQuery.toLowerCase();
                       return (
-                        (patient.full_name?.toLowerCase().includes(query)) ||
-                        (patient.student_id?.toLowerCase().includes(query))
+                        (student.full_name?.toLowerCase().includes(query)) ||
+                        (student.student_id?.toLowerCase().includes(query))
                       );
                     })
-                    .map((patient) => (
+                    .map((student) => (
                       <button
-                        key={patient.id}
-                        onClick={() => handleSelectStudent(patient)}
+                        key={student.id}
+                        onClick={() => handleSelectStudent(student)}
                         className={`w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                          selectedStudent?.id === patient.id ? 'bg-blue-50' : ''
+                          selectedStudent?.id === student.id ? 'bg-blue-50' : ''
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-gray-900">
-                              {patient.full_name || patient.student_id}
+                              {student.full_name || student.student_id}
                             </p>
                             <p className="text-sm text-gray-500">
-                              ID: {patient.student_id}
-                              {patient.gender && ` | ${patient.gender}`}
-                              {patient.school_name && ` | ${patient.school_name}`}
+                              ID: {student.student_id}
+                              {student.gender && ` | ${student.gender}`}
+                              {student.school_name && ` | ${student.school_name}`}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-600">
-                              {patient.consultation_count} visits
+                              {student.consultation_count} visits
                             </p>
-                            {patient.last_visit_date && (
+                            {student.last_visit_date && (
                               <p className="text-xs text-gray-400">
-                                Last: {formatDate(patient.last_visit_date)}
+                                Last: {formatDate(student.last_visit_date)}
                               </p>
                             )}
                           </div>
                         </div>
                       </button>
                     ))}
-                  {doctorStudents.filter(patient => {
+                  {counsellorStudents.filter(student => {
                     if (!searchQuery.trim()) return true;
                     const query = searchQuery.toLowerCase();
                     return (
-                      (patient.full_name?.toLowerCase().includes(query)) ||
-                      (patient.student_id?.toLowerCase().includes(query))
+                      (student.full_name?.toLowerCase().includes(query)) ||
+                      (student.student_id?.toLowerCase().includes(query))
                     );
                   }).length === 0 && (
                     <p className="px-4 py-3 text-sm text-gray-500 italic">No students match your search</p>
@@ -1185,37 +1185,37 @@ export function StudentHistoryScreen() {
               )}
 
               {/* Show empty state when counsellor selected but no students */}
-              {selectedCounsellorId && !isLoadingCounsellorStudents && doctorStudents.length === 0 && (
+              {selectedCounsellorId && !isLoadingCounsellorStudents && counsellorStudents.length === 0 && (
                 <p className="mt-2 text-sm text-gray-500 italic">No students found for this counsellor</p>
               )}
 
               {/* Search Results Dropdown - When no counsellor selected, show search results */}
               {!selectedCounsellorId && searchResults.length > 0 && (
                 <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                  {searchResults.map((patient) => (
+                  {searchResults.map((student) => (
                     <button
-                      key={patient.id}
-                      onClick={() => handleSelectStudent(patient)}
+                      key={student.id}
+                      onClick={() => handleSelectStudent(student)}
                       className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {patient.full_name || patient.student_id}
+                            {student.full_name || student.student_id}
                           </p>
                           <p className="text-sm text-gray-500">
-                            ID: {patient.student_id}
-                            {patient.gender && ` | ${patient.gender}`}
-                            {patient.school_name && ` | ${patient.school_name}`}
+                            ID: {student.student_id}
+                            {student.gender && ` | ${student.gender}`}
+                            {student.school_name && ` | ${student.school_name}`}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-gray-600">
-                            {patient.consultation_count} visits
+                            {student.consultation_count} visits
                           </p>
-                          {patient.last_visit_date && (
+                          {student.last_visit_date && (
                             <p className="text-xs text-gray-400">
-                              Last: {formatDate(patient.last_visit_date)}
+                              Last: {formatDate(student.last_visit_date)}
                             </p>
                           )}
                         </div>

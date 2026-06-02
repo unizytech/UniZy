@@ -372,7 +372,7 @@ class TriageSuggestionEngine:
             student_context_parts.append(f"{insights.patient_age}")
         if insights.patient_gender:
             student_context_parts.append(insights.patient_gender.lower())
-        student_desc = " ".join(student_context_parts) if student_context_parts else "patient"
+        student_desc = " ".join(student_context_parts) if student_context_parts else "student"
 
         cc_summary = ", ".join(insights.chief_complaints[:2]) if insights.chief_complaints else "current symptoms"
         diagnoses_summary = ", ".join([

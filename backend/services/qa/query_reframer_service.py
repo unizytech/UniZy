@@ -193,7 +193,7 @@ ABBREVIATION_MAP = {
     "crp": "c-reactive protein",
 
     # Other
-    "pt": "patient",
+    "pt": "student",
     "pts": "students",
     "f/u": "follow up",
     "fu": "follow up",
@@ -290,8 +290,8 @@ TYPO_MAP = {
     "investigaton": "investigation",
     "consultaton": "consultation",
     "consultaion": "consultation",
-    "paitent": "patient",
-    "patiant": "patient",
+    "paitent": "student",
+    "patiant": "student",
     "presure": "pressure",
     "pressue": "pressure",
 }

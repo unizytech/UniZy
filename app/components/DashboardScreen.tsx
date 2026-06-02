@@ -52,13 +52,13 @@ import {
 // Types
 // ============================================================================
 
-type DashboardView = 'command-center' | 'patient-info' | 'tracking';
+type DashboardView = 'command-center' | 'student-info' | 'tracking';
 
 interface FilterState {
   period: TimePeriod;
-  hospitalId?: string;
+  schoolId?: string;
   departmentId?: string;
-  doctorId?: string;
+  counsellorId?: string;
   selectedCategory?: InterventionCategory;
 }
 
@@ -88,13 +88,13 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Filter options state
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [counsellors, setCounsellorsData] = useState<Counsellor[]>([]);
   const [specializations, setSpecializations] = useState<string[]>([]);
-  const [hospitalsLoading, setSchoolsLoading] = useState(true);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
 
   // Breakdown view state (for department/counsellor/student table toggle)
-  const [breakdownView, setBreakdownView] = useState<'department' | 'doctor' | 'patient'>('department');
+  const [breakdownView, setBreakdownView] = useState<'department' | 'counsellor' | 'student'>('department');
 
   // Data state
   const [summary, setSummary] = useState<InterventionSummaryResponse | null>(null);
@@ -113,18 +113,18 @@ export default function DashboardScreen() {
         getInterventionSummary(
           {
             period: filters.period,
-            hospitalId: filters.hospitalId,
+            hospitalId: filters.schoolId,
             departmentId: filters.departmentId,
-            doctorId: filters.doctorId,
+            doctorId: filters.counsellorId,
           },
           accessToken
         ),
         getOutcomeMetrics(
           {
             period: filters.period,
-            hospitalId: filters.hospitalId,
+            hospitalId: filters.schoolId,
             departmentId: filters.departmentId,
-            doctorId: filters.doctorId,
+            doctorId: filters.counsellorId,
           },
           accessToken
         ),
@@ -134,17 +134,17 @@ export default function DashboardScreen() {
       setOutcomes(outcomesData);
 
       // Always fetch students (with or without category filter)
-      const patientsData = await getStudentsByCategory(
+      const studentsData = await getStudentsByCategory(
         filters.selectedCategory, // undefined = all categories
         {
-          hospitalId: filters.hospitalId,
+          hospitalId: filters.schoolId,
           departmentId: filters.departmentId,
-          doctorId: filters.doctorId,
+          doctorId: filters.counsellorId,
           period: filters.period,
         },
         accessToken
       );
-      setStudents(patientsData);
+      setStudents(studentsData);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -156,10 +156,10 @@ export default function DashboardScreen() {
   // Only fetch dashboard data after schools are loaded and a school is selected
   useEffect(() => {
     // Wait for schools to load and be selected before fetching dashboard
-    if (!hospitalsLoading && filters.hospitalId) {
+    if (!schoolsLoading && filters.schoolId) {
       fetchData();
     }
-  }, [fetchData, hospitalsLoading, filters.hospitalId]);
+  }, [fetchData, schoolsLoading, filters.schoolId]);
 
   // Fetch schools on mount and set default
   useEffect(() => {
@@ -170,26 +170,26 @@ export default function DashboardScreen() {
       try {
         if (isSchoolAdmin && adminSchoolId) {
           // School admin: set their school directly, fetch only their school name
-          setFilters((prev) => ({ ...prev, hospitalId: adminSchoolId }));
-          const hospitalList = await getSchools(accessToken);
-          const mySchool = hospitalList.find((h) => h.id === adminSchoolId);
+          setFilters((prev) => ({ ...prev, schoolId: adminSchoolId }));
+          const schoolList = await getSchools(accessToken);
+          const mySchool = schoolList.find((h) => h.id === adminSchoolId);
           if (mySchool) {
             setSchools([mySchool]);
           }
         } else {
           // Super admin: load all schools, default to "Guru School"
-          const hospitalList = await getSchools(accessToken);
-          setSchools(hospitalList);
+          const schoolList = await getSchools(accessToken);
+          setSchools(schoolList);
 
-          const guruSchool = hospitalList.find(
+          const guruSchool = schoolList.find(
             (h) => h.school_name.toLowerCase().includes('guru') ||
                    h.school_code.toLowerCase().includes('guru')
           );
 
           if (guruSchool) {
-            setFilters((prev) => ({ ...prev, hospitalId: guruSchool.id }));
-          } else if (hospitalList.length > 0) {
-            setFilters((prev) => ({ ...prev, hospitalId: hospitalList[0].id }));
+            setFilters((prev) => ({ ...prev, schoolId: guruSchool.id }));
+          } else if (schoolList.length > 0) {
+            setFilters((prev) => ({ ...prev, schoolId: schoolList[0].id }));
           }
         }
       } catch (err) {
@@ -205,21 +205,21 @@ export default function DashboardScreen() {
   // Fetch counsellors and specializations when school changes
   useEffect(() => {
     async function loadCounsellorsAndSpecializations() {
-      if (!accessToken || !filters.hospitalId) return;
+      if (!accessToken || !filters.schoolId) return;
 
       try {
-        const [doctorList, specList] = await Promise.all([
-          getCounsellors({ hospitalId: filters.hospitalId }, accessToken),
+        const [counsellorList, specList] = await Promise.all([
+          getCounsellors({ hospitalId: filters.schoolId }, accessToken),
           getSpecializations(accessToken),
         ]);
 
-        setCounsellorsData(doctorList);
+        setCounsellorsData(counsellorList);
 
         // Filter specializations to those used by counsellors in this school
-        const hospitalSpecializations = new Set(
-          doctorList.map((d) => d.specialization).filter(Boolean)
+        const schoolSpecializations = new Set(
+          counsellorList.map((d) => d.specialization).filter(Boolean)
         );
-        const filteredSpecs = specList.filter((s) => hospitalSpecializations.has(s));
+        const filteredSpecs = specList.filter((s) => schoolSpecializations.has(s));
         setSpecializations(filteredSpecs.length > 0 ? filteredSpecs : specList);
       } catch (err) {
         console.error('Error loading counsellors/specializations:', err);
@@ -227,7 +227,7 @@ export default function DashboardScreen() {
     }
 
     loadCounsellorsAndSpecializations();
-  }, [accessToken, filters.hospitalId]);
+  }, [accessToken, filters.schoolId]);
 
   // Handle category click
   const handleCategoryClick = async (category: InterventionCategory | string) => {
@@ -239,21 +239,21 @@ export default function DashboardScreen() {
     }
 
     setFilters((prev) => ({ ...prev, selectedCategory: category as InterventionCategory }));
-    setActiveView('patient-info');
+    setActiveView('student-info');
 
     if (accessToken) {
       try {
-        const patientsData = await getStudentsByCategory(
+        const studentsData = await getStudentsByCategory(
           category ? (category as InterventionCategory) : undefined,
           {
-            hospitalId: filters.hospitalId,
+            hospitalId: filters.schoolId,
             departmentId: filters.departmentId,
-            doctorId: filters.doctorId,
+            doctorId: filters.counsellorId,
             period: filters.period,
           },
           accessToken
         );
-        setStudents(patientsData);
+        setStudents(studentsData);
       } catch (err) {
         console.error('Error fetching students:', err);
       }
@@ -285,12 +285,12 @@ export default function DashboardScreen() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               {activeView === 'command-center' && 'Command Center'}
-              {activeView === 'patient-info' && 'Student Info'}
+              {activeView === 'student-info' && 'Student Info'}
               {activeView === 'tracking' && 'Tracking'}
             </h1>
             <p className="text-sm text-gray-500">
               {activeView === 'command-center' && 'School intelligence overview'}
-              {activeView === 'patient-info' && 'At-risk students'}
+              {activeView === 'student-info' && 'At-risk students'}
               {activeView === 'tracking' && 'Intervention management'}
             </p>
           </div>
@@ -300,28 +300,28 @@ export default function DashboardScreen() {
               <span className="text-sm text-gray-500">🏥</span>
               {isSchoolAdmin ? (
                 <span className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 font-medium text-gray-900 min-w-48">
-                  {hospitals[0]?.school_name || 'Loading...'}
+                  {schools[0]?.school_name || 'Loading...'}
                 </span>
               ) : (
                 <select
-                  value={filters.hospitalId || ''}
+                  value={filters.schoolId || ''}
                   onChange={(e) => setFilters((prev) => ({
                     ...prev,
-                    hospitalId: e.target.value || undefined,
+                    schoolId: e.target.value || undefined,
                     departmentId: undefined,
-                    doctorId: undefined,
+                    counsellorId: undefined,
                   }))}
                   className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium text-gray-900 min-w-48"
-                  disabled={hospitalsLoading}
+                  disabled={schoolsLoading}
                 >
-                  {hospitalsLoading ? (
+                  {schoolsLoading ? (
                     <option>Loading schools...</option>
-                  ) : hospitals.length === 0 ? (
+                  ) : schools.length === 0 ? (
                     <option value="">No schools found</option>
                   ) : (
-                    hospitals.map((hospital) => (
-                      <option key={hospital.id} value={hospital.id}>
-                        {hospital.school_name}
+                    schools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.school_name}
                       </option>
                     ))
                   )}
@@ -335,7 +335,7 @@ export default function DashboardScreen() {
                 onChange={(e) => setFilters((prev) => ({
                   ...prev,
                   departmentId: e.target.value || undefined,
-                  doctorId: undefined,
+                  counsellorId: undefined,
                 }))}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-700"
               >
@@ -350,19 +350,19 @@ export default function DashboardScreen() {
             {/* Counsellor Selector */}
             <div className="flex items-center gap-2">
               <select
-                value={filters.doctorId || ''}
+                value={filters.counsellorId || ''}
                 onChange={(e) => setFilters((prev) => ({
                   ...prev,
-                  doctorId: e.target.value || undefined,
+                  counsellorId: e.target.value || undefined,
                 }))}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-700"
               >
                 <option value="">All Counsellors</option>
                 {counsellors
                   .filter((d) => !filters.departmentId || d.specialization === filters.departmentId)
-                  .map((doctor) => (
-                    <option key={doctor.id} value={doctor.id}>
-                      {doctor.counsellor_name}
+                  .map((counsellor) => (
+                    <option key={counsellor.id} value={counsellor.id}>
+                      {counsellor.counsellor_name}
                     </option>
                   ))}
               </select>
@@ -376,7 +376,7 @@ export default function DashboardScreen() {
         <nav className="flex gap-6">
           {[
             { key: 'command-center', label: 'Command Center', icon: '📊' },
-            { key: 'patient-info', label: 'Student Info', icon: '👥' },
+            { key: 'student-info', label: 'Student Info', icon: '👥' },
             { key: 'tracking', label: 'Tracking', icon: '📋' },
           ].map((tab) => (
             <button
@@ -447,7 +447,7 @@ export default function DashboardScreen() {
                 accessToken={accessToken}
               />
             )}
-            {activeView === 'patient-info' && (
+            {activeView === 'student-info' && (
               <StudentInfoView
                 students={students}
                 selectedCategory={filters.selectedCategory}
@@ -464,9 +464,9 @@ export default function DashboardScreen() {
                 students={students}
                 onCategoryClick={handleCategoryClick}
                 filters={{
-                  hospitalId: filters.hospitalId,
+                  schoolId: filters.schoolId,
                   departmentId: filters.departmentId,
-                  doctorId: filters.doctorId,
+                  counsellorId: filters.counsellorId,
                   period: filters.period,
                 }}
                 accessToken={accessToken}
@@ -494,8 +494,8 @@ function CommandCenterView({
   summary: InterventionSummaryResponse | null;
   outcomes: OutcomeMetricsResponse | null;
   onCategoryClick: (category: InterventionCategory) => void;
-  breakdownView: 'department' | 'doctor' | 'patient';
-  setBreakdownView: (view: 'department' | 'doctor' | 'patient') => void;
+  breakdownView: 'department' | 'counsellor' | 'student';
+  setBreakdownView: (view: 'department' | 'counsellor' | 'student') => void;
   accessToken: string | null;
 }) {
   if (!summary) return null;
@@ -563,9 +563,9 @@ function CommandCenterView({
               🏢 By Department
             </button>
             <button
-              onClick={() => setBreakdownView('doctor')}
+              onClick={() => setBreakdownView('counsellor')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                breakdownView === 'doctor'
+                breakdownView === 'counsellor'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
@@ -573,9 +573,9 @@ function CommandCenterView({
               👨‍⚕️ By Counsellor
             </button>
             <button
-              onClick={() => setBreakdownView('patient')}
+              onClick={() => setBreakdownView('student')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                breakdownView === 'patient'
+                breakdownView === 'student'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
@@ -583,7 +583,7 @@ function CommandCenterView({
               👤 By Student
             </button>
           </div>
-          {breakdownView !== 'patient' && (
+          {breakdownView !== 'student' && (
             <input
               type="text"
               placeholder={`Search ${breakdownView === 'department' ? 'departments' : 'counsellors'}...`}
@@ -592,7 +592,7 @@ function CommandCenterView({
           )}
         </div>
 
-        {breakdownView === 'patient' ? (
+        {breakdownView === 'student' ? (
           <ByStudentTable students={summary.by_patient || []} accessToken={accessToken} />
         ) : (
           <div className="overflow-x-auto">
@@ -657,30 +657,30 @@ function CommandCenterView({
                 ) : (
                   <>
                     {(summary.by_doctor?.length || 0) > 0 ? (
-                      summary.by_doctor.map((doctor) => (
-                        <tr key={doctor.id} className="hover:bg-gray-50">
+                      summary.by_doctor.map((counsellor) => (
+                        <tr key={counsellor.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium text-sm mr-3">
-                                {doctor.name?.charAt(0) || '?'}
+                                {counsellor.name?.charAt(0) || '?'}
                               </div>
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{doctor.name || 'Unknown'}</div>
-                                <div className="text-xs text-gray-500">{doctor.specialization || 'General'}</div>
+                                <div className="text-sm font-medium text-gray-900">{counsellor.name || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500">{counsellor.specialization || 'General'}</div>
                               </div>
                             </div>
                           </td>
                           {summary.by_category?.map((cat) => (
                             <td key={cat.category} className="px-4 py-4 whitespace-nowrap text-center">
                               <span className={`text-sm font-medium ${
-                                (doctor.by_category?.[cat.category] || 0) > 0 ? 'text-gray-900' : 'text-gray-400'
+                                (counsellor.by_category?.[cat.category] || 0) > 0 ? 'text-gray-900' : 'text-gray-400'
                               }`}>
-                                {doctor.by_category?.[cat.category] || 0}
+                                {counsellor.by_category?.[cat.category] || 0}
                               </span>
                             </td>
                           ))}
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900">
-                            {doctor.total_at_risk}
+                            {counsellor.total_at_risk}
                           </td>
                         </tr>
                       ))
@@ -850,21 +850,21 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
 
   // Student info modal state
   const [selectedStudentForInfo, setSelectedStudentForInfo] = useState<string | null>(null);
-  const [patientInfoData, setStudentInfoData] = useState<{
+  const [studentInfoData, setStudentInfoData] = useState<{
     found: boolean;
     diagnosis: any;
     counsellor_name: string | null;
     visit_date: string | null;
     preferred_language: string | null;
   } | null>(null);
-  const [patientInfoLoading, setStudentInfoLoading] = useState(false);
+  const [studentInfoLoading, setStudentInfoLoading] = useState(false);
 
-  const handleShowStudentInfo = async (patientId: string) => {
-    setSelectedStudentForInfo(patientId);
+  const handleShowStudentInfo = async (studentId: string) => {
+    setSelectedStudentForInfo(studentId);
     setStudentInfoData(null);
     setStudentInfoLoading(true);
     try {
-      const data = await getStudentLastVisitInfo(patientId, accessToken);
+      const data = await getStudentLastVisitInfo(studentId, accessToken);
       setStudentInfoData(data);
     } catch {
       setStudentInfoData({ found: false, diagnosis: null, counsellor_name: null, visit_date: null, preferred_language: null });
@@ -976,24 +976,24 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
                 </td>
               </tr>
             ) : (
-              paginated.map((patient) => (
-                <tr key={patient.student_id} className="hover:bg-gray-50">
+              paginated.map((student) => (
+                <tr key={student.student_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <div>
                         <p
                           className="text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                          onClick={() => setNudgeStudentId(patient.student_id)}
+                          onClick={() => setNudgeStudentId(student.student_id)}
                           title="Open Nudge Engine"
                         >
-                          {patient.patient_name}
+                          {student.patient_name}
                         </p>
-                        {patient.mrn && (
-                          <p className="text-xs text-gray-500">MRN: {patient.mrn}</p>
+                        {student.mrn && (
+                          <p className="text-xs text-gray-500">MRN: {student.mrn}</p>
                         )}
                       </div>
                       <button
-                        onClick={() => handleShowStudentInfo(patient.student_id)}
+                        onClick={() => handleShowStudentInfo(student.student_id)}
                         className="ml-1 text-gray-400 hover:text-blue-500 transition-colors"
                         title="View student info"
                       >
@@ -1004,21 +1004,21 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getComplianceColor(patient.compliance_likelihood)}`}>
-                      {patient.compliance_likelihood || 'N/A'}
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getComplianceColor(student.compliance_likelihood)}`}>
+                      {student.compliance_likelihood || 'N/A'}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`text-sm ${getDropoffColor(patient.dropoff_probability)}`}>
-                      {patient.dropoff_probability !== null
-                        ? `${patient.dropoff_probability.toFixed(0)}%`
+                    <span className={`text-sm ${getDropoffColor(student.dropoff_probability)}`}>
+                      {student.dropoff_probability !== null
+                        ? `${student.dropoff_probability.toFixed(0)}%`
                         : 'N/A'}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center">
-                    {patient.has_followup_due ? (
+                    {student.has_followup_due ? (
                       <span className="px-2.5 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-medium">
-                        Yes{patient.followup_count > 1 && ` (${patient.followup_count})`}
+                        Yes{student.followup_count > 1 && ` (${student.followup_count})`}
                       </span>
                     ) : (
                       <span className="px-2.5 py-1 bg-gray-100 text-gray-400 rounded-full text-xs font-medium">
@@ -1027,7 +1027,7 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center">
-                    {patient.is_surgery_candidate ? (
+                    {student.is_surgery_candidate ? (
                       <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
                         Yes
                       </span>
@@ -1038,10 +1038,10 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getHealthLevelColor(patient.health_service_level)}`}>
-                      {patient.health_service_level}
-                      {patient.health_service_count > 0 && (
-                        <span className="ml-1 text-gray-500">({patient.health_service_count})</span>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getHealthLevelColor(student.health_service_level)}`}>
+                      {student.health_service_level}
+                      {student.health_service_count > 0 && (
+                        <span className="ml-1 text-gray-500">({student.health_service_count})</span>
                       )}
                     </span>
                   </td>
@@ -1129,17 +1129,17 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
               </button>
             </div>
             <div className="px-6 py-5">
-              {patientInfoLoading ? (
+              {studentInfoLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 </div>
-              ) : patientInfoData && patientInfoData.found ? (
+              ) : studentInfoData && studentInfoData.found ? (
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Visit Date</p>
                     <p className="mt-1 text-sm text-gray-900">
-                      {patientInfoData.visit_date
-                        ? new Date(patientInfoData.visit_date).toLocaleDateString('en-IN', {
+                      {studentInfoData.visit_date
+                        ? new Date(studentInfoData.visit_date).toLocaleDateString('en-IN', {
                             day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                           })
                         : 'N/A'}
@@ -1147,18 +1147,18 @@ function ByStudentTable({ students, accessToken }: { students: StudentMetricRow[
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Counsellor</p>
-                    <p className="mt-1 text-sm text-gray-900">{patientInfoData.counsellor_name || 'N/A'}</p>
+                    <p className="mt-1 text-sm text-gray-900">{studentInfoData.counsellor_name || 'N/A'}</p>
                   </div>
-                  {patientInfoData.preferred_language && (
+                  {studentInfoData.preferred_language && (
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Preferred Language</p>
-                      <p className="mt-1 text-sm text-gray-900">{patientInfoData.preferred_language}</p>
+                      <p className="mt-1 text-sm text-gray-900">{studentInfoData.preferred_language}</p>
                     </div>
                   )}
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Diagnosis</p>
                     <p className="mt-1 text-sm text-gray-900">
-                      {patientInfoData.diagnosis || <span className="text-gray-400">No diagnosis available</span>}
+                      {studentInfoData.diagnosis || <span className="text-gray-400">No diagnosis available</span>}
                     </p>
                   </div>
                 </div>
@@ -1312,10 +1312,10 @@ function StudentInfoView({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {students?.students?.map((patient) => (
+            {students?.students?.map((student) => (
               <StudentRow
-                key={patient.student_id}
-                patient={patient}
+                key={student.student_id}
+                student={student}
                 onStatusUpdate={onStatusUpdate}
               />
             ))}
@@ -1371,28 +1371,28 @@ function StatsCard({
 // ============================================================================
 
 function StudentRow({
-  patient,
+  student,
   onStatusUpdate,
 }: {
-  patient: StudentWithInterventions;
+  student: StudentWithInterventions;
   onStatusUpdate: (interventionId: string, newStatus: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [reasonExpanded, setReasonExpanded] = useState(false);
 
   const maxDays = Math.max(
-    ...patient.interventions.map((i) => i.days_since_generated),
+    ...student.interventions.map((i) => i.days_since_generated),
     0
   );
   const daysInfo = getDaysOverdueText(maxDays);
 
   // Deduplicate interventions by code (keep first occurrence)
-  const uniqueInterventions = patient.interventions.reduce((acc, intervention) => {
+  const uniqueInterventions = student.interventions.reduce((acc, intervention) => {
     if (!acc.find((i) => i.code === intervention.code)) {
       acc.push(intervention);
     }
     return acc;
-  }, [] as typeof patient.interventions);
+  }, [] as typeof student.interventions);
 
   // Get primary intervention info
   const primaryIntervention = uniqueInterventions[0];
@@ -1409,10 +1409,10 @@ function StudentRow({
       <td className="px-3 py-3">
         <div>
           <p className="font-medium text-gray-900 text-xs">
-            {patient.mrn ? `MRN: ${patient.mrn}` : patient.student_id?.slice(0, 8)}
+            {student.mrn ? `MRN: ${student.mrn}` : student.student_id?.slice(0, 8)}
           </p>
-          {patient.counsellor_name && (
-            <p className="text-xs text-gray-500">{patient.counsellor_name}</p>
+          {student.counsellor_name && (
+            <p className="text-xs text-gray-500">{student.counsellor_name}</p>
           )}
         </div>
       </td>
@@ -1534,26 +1534,26 @@ function TrackingView({
   outcomes: OutcomeMetricsResponse | null;
   students: StudentsListResponse | null;
   onCategoryClick: (category: InterventionCategory) => void;
-  filters: { hospitalId?: string; departmentId?: string; doctorId?: string; period: TimePeriod };
+  filters: { schoolId?: string; departmentId?: string; counsellorId?: string; period: TimePeriod };
   accessToken: string | null;
 }) {
-  const [viewMode, setViewMode] = useState<'intervention' | 'patient'>('intervention');
+  const [viewMode, setViewMode] = useState<'intervention' | 'student'>('intervention');
   const [allStudents, setAllStudents] = useState<StudentsListResponse | null>(null);
   const [loadingMatrix, setLoadingMatrix] = useState(false);
 
   // Fetch ALL students when switching to Student Matrix view
   useEffect(() => {
     async function fetchAllStudents() {
-      if (viewMode !== 'patient' || !accessToken) return;
+      if (viewMode !== 'student' || !accessToken) return;
 
       setLoadingMatrix(true);
       try {
         const data = await getStudentsByCategory(
           undefined, // No category filter - get ALL students
           {
-            hospitalId: filters.hospitalId,
+            hospitalId: filters.schoolId,
             departmentId: filters.departmentId,
-            doctorId: filters.doctorId,
+            doctorId: filters.counsellorId,
             period: filters.period,
             pageSize: 100, // Get more students for the matrix
           },
@@ -1568,7 +1568,7 @@ function TrackingView({
     }
 
     fetchAllStudents();
-  }, [viewMode, accessToken, filters.hospitalId, filters.departmentId, filters.doctorId, filters.period]);
+  }, [viewMode, accessToken, filters.schoolId, filters.departmentId, filters.counsellorId, filters.period]);
 
   const totalInterventions = outcomes?.total_interventions || 0;
   const pendingCount = outcomes?.by_status?.PENDING || 0;
@@ -1670,9 +1670,9 @@ function TrackingView({
             📊 Intervention View
           </button>
           <button
-            onClick={() => setViewMode('patient')}
+            onClick={() => setViewMode('student')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'patient'
+              viewMode === 'student'
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
@@ -1767,29 +1767,29 @@ function StudentMatrixView({
   ];
 
   // Build student matrix data - group interventions by dashboard category for each student
-  const patientData = students?.students?.map((patient) => {
+  const studentData = students?.students?.map((student) => {
     const interventionsByCategory: Record<string, { status: string; id: string } | null> = {};
 
     allCategories.forEach((cat) => {
       // Find any intervention whose DB category maps to this dashboard category
-      const intervention = patient.interventions.find((i) => mapToDisplayCategory(i.category) === cat);
+      const intervention = student.interventions.find((i) => mapToDisplayCategory(i.category) === cat);
       interventionsByCategory[cat] = intervention
         ? { status: intervention.status || 'PENDING', id: intervention.id }
         : null;
     });
 
     return {
-      ...patient,
+      ...student,
       interventionsByCategory,
     };
   }) || [];
 
   // Get student initials
-  const getInitials = (mrn: string | null | undefined, patientId: string | null | undefined): string => {
+  const getInitials = (mrn: string | null | undefined, studentId: string | null | undefined): string => {
     if (mrn) {
       return mrn.slice(0, 2).toUpperCase();
     }
-    return patientId?.slice(0, 2).toUpperCase() || '??';
+    return studentId?.slice(0, 2).toUpperCase() || '??';
   };
 
   return (
@@ -1844,34 +1844,34 @@ function StudentMatrixView({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {patientData.length === 0 ? (
+            {studentData.length === 0 ? (
               <tr>
                 <td colSpan={allCategories.length + 2} className="px-6 py-12 text-center text-gray-500">
                   No students found for the selected filters.
                 </td>
               </tr>
             ) : (
-              patientData.map((patient) => (
-                <tr key={patient.student_id} className="hover:bg-gray-50">
+              studentData.map((student) => (
+                <tr key={student.student_id} className="hover:bg-gray-50">
                   {/* Student Info - Sticky */}
                   <td className="px-4 py-3 sticky left-0 bg-white z-10">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium text-xs">
-                        {getInitials(patient.mrn, patient.student_id)}
+                        {getInitials(student.mrn, student.student_id)}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {patient.mrn ? `MRN: ${patient.mrn}` : patient.student_id?.slice(0, 8)}
+                          {student.mrn ? `MRN: ${student.mrn}` : student.student_id?.slice(0, 8)}
                         </p>
-                        {patient.counsellor_name && (
-                          <p className="text-xs text-gray-500 truncate">{patient.counsellor_name}</p>
+                        {student.counsellor_name && (
+                          <p className="text-xs text-gray-500 truncate">{student.counsellor_name}</p>
                         )}
                       </div>
                     </div>
                   </td>
                   {/* Category Cells */}
                   {allCategories.map((cat) => {
-                    const intervention = patient.interventionsByCategory[cat];
+                    const intervention = student.interventionsByCategory[cat];
                     if (!intervention) {
                       return (
                         <td key={cat} className="px-2 py-3 text-center">

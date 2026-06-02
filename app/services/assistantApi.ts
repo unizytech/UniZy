@@ -71,12 +71,12 @@ export interface AssistantCounsellor {
  */
 export async function getAssistants(
   activeOnly: boolean = true,
-  hospitalId?: string,
+  schoolId?: string,
   accessToken?: string | null
 ): Promise<Assistant[]> {
   let url = `/api/v1/assistants?active_only=${activeOnly}`;
-  if (hospitalId) {
-    url += `&school_id=${hospitalId}`;
+  if (schoolId) {
+    url += `&school_id=${schoolId}`;
   }
 
   const response = await authGet(url, accessToken ?? null);
@@ -113,9 +113,9 @@ export async function searchAssistants(query: string, accessToken?: string | nul
 /**
  * Get assistant by ID
  */
-export async function getAssistant(nurseId: string, accessToken?: string | null): Promise<Assistant> {
+export async function getAssistant(assistantId: string, accessToken?: string | null): Promise<Assistant> {
   const response = await authGet(
-    `/api/v1/assistants/${nurseId}`,
+    `/api/v1/assistants/${assistantId}`,
     accessToken ?? null
   );
 
@@ -150,12 +150,12 @@ export async function createAssistant(request: CreateAssistantRequest, accessTok
  * Update assistant
  */
 export async function updateAssistant(
-  nurseId: string,
+  assistantId: string,
   request: UpdateAssistantRequest,
   accessToken?: string | null
 ): Promise<Assistant> {
   const response = await authPut(
-    `/api/v1/assistants/${nurseId}`,
+    `/api/v1/assistants/${assistantId}`,
     accessToken ?? null,
     request
   );
@@ -172,9 +172,9 @@ export async function updateAssistant(
 /**
  * Deactivate assistant (soft delete)
  */
-export async function deactivateAssistant(nurseId: string, accessToken?: string | null): Promise<Assistant> {
+export async function deactivateAssistant(assistantId: string, accessToken?: string | null): Promise<Assistant> {
   const response = await authDelete(
-    `/api/v1/assistants/${nurseId}`,
+    `/api/v1/assistants/${assistantId}`,
     accessToken ?? null
   );
 
@@ -211,9 +211,9 @@ export async function getAllAssistantsForSharing(accessToken?: string | null): P
 /**
  * Get counsellors linked to an assistant
  */
-export async function getAssistantCounsellors(nurseId: string, accessToken?: string | null): Promise<AssistantCounsellor[]> {
+export async function getAssistantCounsellors(assistantId: string, accessToken?: string | null): Promise<AssistantCounsellor[]> {
   const response = await authGet(
-    `/api/v1/assistants/${nurseId}/counsellors`,
+    `/api/v1/assistants/${assistantId}/counsellors`,
     accessToken ?? null
   );
 
@@ -229,12 +229,12 @@ export async function getAssistantCounsellors(nurseId: string, accessToken?: str
  * Link assistant to a counsellor
  */
 export async function linkAssistantToCounsellor(
-  nurseId: string,
-  doctorId: string,
+  assistantId: string,
+  counsellorId: string,
   accessToken?: string | null
 ): Promise<void> {
   const response = await authPost(
-    `/api/v1/assistants/${nurseId}/counsellors/${doctorId}`,
+    `/api/v1/assistants/${assistantId}/counsellors/${counsellorId}`,
     accessToken ?? null,
     {}
   );
@@ -249,12 +249,12 @@ export async function linkAssistantToCounsellor(
  * Unlink assistant from a counsellor
  */
 export async function unlinkAssistantFromCounsellor(
-  nurseId: string,
-  doctorId: string,
+  assistantId: string,
+  counsellorId: string,
   accessToken?: string | null
 ): Promise<void> {
   const response = await authDelete(
-    `/api/v1/assistants/${nurseId}/counsellors/${doctorId}`,
+    `/api/v1/assistants/${assistantId}/counsellors/${counsellorId}`,
     accessToken ?? null
   );
 
@@ -271,9 +271,9 @@ export async function unlinkAssistantFromCounsellor(
 /**
  * Get templates accessible by an assistant
  */
-export async function getAssistantTemplates(nurseId: string, accessToken?: string | null): Promise<AssistantTemplate[]> {
+export async function getAssistantTemplates(assistantId: string, accessToken?: string | null): Promise<AssistantTemplate[]> {
   const response = await authGet(
-    `/api/v1/assistant-templates/accessible?assistant_id=${nurseId}`,
+    `/api/v1/assistant-templates/accessible?assistant_id=${assistantId}`,
     accessToken ?? null
   );
 
@@ -288,9 +288,9 @@ export async function getAssistantTemplates(nurseId: string, accessToken?: strin
 /**
  * Get the active template for an assistant
  */
-export async function getAssistantActiveTemplate(nurseId: string, accessToken?: string | null): Promise<AssistantTemplate | null> {
+export async function getAssistantActiveTemplate(assistantId: string, accessToken?: string | null): Promise<AssistantTemplate | null> {
   const response = await authGet(
-    `/api/v1/assistant-templates/active?assistant_id=${nurseId}`,
+    `/api/v1/assistant-templates/active?assistant_id=${assistantId}`,
     accessToken ?? null
   );
 
@@ -319,7 +319,7 @@ export interface ShareTemplateWithAssistantsResult {
 export async function shareTemplateWithAssistants(
   templateId: string,
   templateCode: string,
-  nurseIds: string[],
+  assistantIds: string[],
   accessToken?: string | null
 ): Promise<ShareTemplateWithAssistantsResult> {
   const response = await authPost(
@@ -328,7 +328,7 @@ export async function shareTemplateWithAssistants(
     {
       template_id: templateId,
       template_code: templateCode,
-      assistant_ids: nurseIds,
+      assistant_ids: assistantIds,
     }
   );
 
@@ -344,7 +344,7 @@ export async function shareTemplateWithAssistants(
  * Activate template for assistant
  */
 export async function activateAssistantTemplate(
-  nurseId: string,
+  assistantId: string,
   templateId: string,
   accessToken?: string | null
 ): Promise<{ success: boolean; is_active: boolean }> {
@@ -352,7 +352,7 @@ export async function activateAssistantTemplate(
     `/api/v1/assistant-templates/activate`,
     accessToken ?? null,
     {
-      assistant_id: nurseId,
+      assistant_id: assistantId,
       template_id: templateId,
     }
   );
@@ -369,7 +369,7 @@ export async function activateAssistantTemplate(
  * Deactivate template for assistant
  */
 export async function deactivateAssistantTemplate(
-  nurseId: string,
+  assistantId: string,
   templateId: string,
   accessToken?: string | null
 ): Promise<{ success: boolean; is_active: boolean }> {
@@ -377,7 +377,7 @@ export async function deactivateAssistantTemplate(
     `/api/v1/assistant-templates/deactivate`,
     accessToken ?? null,
     {
-      assistant_id: nurseId,
+      assistant_id: assistantId,
       template_id: templateId,
     }
   );
@@ -394,12 +394,12 @@ export async function deactivateAssistantTemplate(
  * Revoke assistant's access to a template
  */
 export async function revokeAssistantTemplateAccess(
-  nurseId: string,
+  assistantId: string,
   templateId: string,
   accessToken?: string | null
 ): Promise<void> {
   const response = await authDelete(
-    `/api/v1/assistant-templates/revoke?assistant_id=${nurseId}&template_id=${templateId}`,
+    `/api/v1/assistant-templates/revoke?assistant_id=${assistantId}&template_id=${templateId}`,
     accessToken ?? null
   );
 
@@ -413,12 +413,12 @@ export async function revokeAssistantTemplateAccess(
  * Validate if assistant has access to use a template
  */
 export async function validateAssistantTemplateAccess(
-  nurseId: string,
+  assistantId: string,
   templateId: string,
   accessToken?: string | null
 ): Promise<{ has_access: boolean }> {
   const response = await authGet(
-    `/api/v1/assistant-templates/validate-access?assistant_id=${nurseId}&template_id=${templateId}`,
+    `/api/v1/assistant-templates/validate-access?assistant_id=${assistantId}&template_id=${templateId}`,
     accessToken ?? null
   );
 

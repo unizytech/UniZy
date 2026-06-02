@@ -31,13 +31,13 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 if AUTH_ENABLED:
     from dependencies.auth import EHRCounsellorAccessChecker, get_current_client
 
-    _doctor_checker = EHRCounsellorAccessChecker()
+    _counsellor_checker = EHRCounsellorAccessChecker()
 
     async def verify_counsellor_access(request: Request, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         """Verify EHR client has access to counsellor data."""
         counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, counsellor_uuid, client)
+        return await _counsellor_checker(request, counsellor_uuid, client)
 else:
     async def verify_counsellor_access(request: Request = None, counsellor_id: Optional[str] = None):  # type: ignore[misc]
         return None
@@ -249,12 +249,12 @@ async def list_counsellors(
     - List of counsellor records with metadata
     """
     try:
-        doctors = get_all_counsellors(is_active=active_only)
+        counsellors = get_all_counsellors(is_active=active_only)
 
         return {
             "success": True,
-            "counsellors": doctors,
-            "count": len(doctors)
+            "counsellors": counsellors,
+            "count": len(counsellors)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to fetch counsellors")
@@ -431,8 +431,8 @@ async def list_specializations(
 
         # Extract unique non-null specializations
         specializations = set()
-        for doctor in (response.data or []):
-            spec = doctor.get("specialization")
+        for counsellor in (response.data or []):
+            spec = counsellor.get("specialization")
             if spec and spec.strip():
                 specializations.add(spec.strip())
 
@@ -463,14 +463,14 @@ async def get_counsellor_endpoint(
     - Counsellor record with full details
     """
     try:
-        doctor = get_counsellor(counsellor_id)
+        counsellor = get_counsellor(counsellor_id)
 
-        if not doctor:
+        if not counsellor:
             raise HTTPException(status_code=404, detail="Counsellor not found")
 
         return {
             "success": True,
-            "doctor": doctor
+            "doctor": counsellor
         }
     except HTTPException:
         raise
@@ -506,7 +506,7 @@ async def create_counsellor_endpoint(
     - Email must be unique
     """
     try:
-        doctor = create_counsellor(
+        counsellor = create_counsellor(
             email=request.email,
             full_name=request.full_name,
             specialization=request.specialization,
@@ -518,7 +518,7 @@ async def create_counsellor_endpoint(
         return {
             "success": True,
             "message": f"Counsellor '{request.full_name}' created successfully",
-            "doctor": doctor
+            "doctor": counsellor
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid request")
@@ -806,7 +806,7 @@ async def update_counsellor_endpoint(
     - Updated counsellor record
     """
     try:
-        doctor = update_counsellor(
+        counsellor = update_counsellor(
             counsellor_id=counsellor_id,
             email=request.email,
             full_name=request.full_name,
@@ -824,7 +824,7 @@ async def update_counsellor_endpoint(
         return {
             "success": True,
             "message": f"Counsellor updated successfully",
-            "doctor": doctor
+            "doctor": counsellor
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid request")
@@ -970,12 +970,12 @@ async def deactivate_counsellor_endpoint(
     - Counsellor will not appear in active counsellor lists
     """
     try:
-        doctor = deactivate_counsellor(counsellor_id)
+        counsellor = deactivate_counsellor(counsellor_id)
 
         return {
             "success": True,
-            "message": f"Counsellor '{doctor['full_name']}' deactivated successfully",
-            "doctor": doctor
+            "message": f"Counsellor '{counsellor['full_name']}' deactivated successfully",
+            "doctor": counsellor
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail="Counsellor not found")
@@ -1176,8 +1176,8 @@ async def create_counsellor_template(
         from services.supabase_service import supabase
 
         # Verify counsellor exists
-        doctor = get_counsellor(counsellor_id)
-        if not doctor:
+        counsellor = get_counsellor(counsellor_id)
+        if not counsellor:
             raise ValueError("Counsellor not found")
 
         # Create template
@@ -1624,7 +1624,7 @@ async def set_counsellor_default_template(
         if not counsellor_result.data or len(counsellor_result.data) == 0:
             raise HTTPException(status_code=404, detail="Counsellor not found")
 
-        doctor = counsellor_result.data[0]
+        counsellor = counsellor_result.data[0]
         template_id = body.template_id if body else None
 
         # If template_id provided, validate counsellor has access to it
@@ -1668,13 +1668,13 @@ async def set_counsellor_default_template(
         if template_id:
             return {
                 "success": True,
-                "message": f"Default template set for counsellor '{doctor['full_name']}'",
+                "message": f"Default template set for counsellor '{counsellor['full_name']}'",
                 "default_template_id": template_id
             }
         else:
             return {
                 "success": True,
-                "message": f"Default template cleared for counsellor '{doctor['full_name']}'",
+                "message": f"Default template cleared for counsellor '{counsellor['full_name']}'",
                 "default_template_id": None
             }
 
@@ -1740,7 +1740,7 @@ async def update_counsellor_ehr_type(
         if not counsellor_result.data or len(counsellor_result.data) == 0:
             raise HTTPException(status_code=404, detail="Counsellor not found")
 
-        doctor = counsellor_result.data[0]
+        counsellor = counsellor_result.data[0]
         ehr_type_id = body.ehr_type_id if body else None
 
         # If ehr_type_id provided, validate it exists and is configured for this school
@@ -1763,7 +1763,7 @@ async def update_counsellor_ehr_type(
             school_ehr_result = (
                 supabase.table("school_ehr")
                 .select("id")
-                .eq("school_id", doctor["school_id"])
+                .eq("school_id", counsellor["school_id"])
                 .eq("ehr_type_id", ehr_type_id)
                 .eq("is_enabled", True)
                 .execute()
@@ -1789,13 +1789,13 @@ async def update_counsellor_ehr_type(
         if ehr_type_id:
             return {
                 "success": True,
-                "message": f"EHR type assigned to counsellor '{doctor['full_name']}'",
+                "message": f"EHR type assigned to counsellor '{counsellor['full_name']}'",
                 "ehr_type_id": ehr_type_id
             }
         else:
             return {
                 "success": True,
-                "message": f"EHR type removed for counsellor '{doctor['full_name']}'",
+                "message": f"EHR type removed for counsellor '{counsellor['full_name']}'",
                 "ehr_type_id": None
             }
 
@@ -1836,13 +1836,13 @@ async def get_counsellor_ehr_type(
         if not result.data or len(result.data) == 0:
             raise HTTPException(status_code=404, detail="Counsellor not found")
 
-        doctor = result.data[0]
-        ehr_type = doctor.get("ehr_types")
+        counsellor = result.data[0]
+        ehr_type = counsellor.get("ehr_types")
 
         return {
             "success": True,
             "counsellor_id": counsellor_id,
-            "counsellor_name": doctor["full_name"],
+            "counsellor_name": counsellor["full_name"],
             "ehr_type": ehr_type
         }
 

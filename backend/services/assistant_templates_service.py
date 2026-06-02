@@ -55,7 +55,7 @@ def share_template_with_assistant(
         )
 
     # Verify assistant exists
-    nurse = (
+    assistant = (
         supabase.table("assistants")
         .select("id, full_name")
         .eq("id", str(assistant_id))
@@ -63,7 +63,7 @@ def share_template_with_assistant(
         .execute()
     )
 
-    if not nurse.data:
+    if not assistant.data:
         raise ValueError(f"Assistant {assistant_id} not found")
 
     # Check if already shared
@@ -526,10 +526,10 @@ def get_assistant_default_template(
     if not assistant_result.data:
         return None
 
-    nurse = assistant_result.data[0]
+    assistant = assistant_result.data[0]
 
     # Priority 1: Assistant's own default_template_id
-    default_template_id = nurse.get("default_template_id")
+    default_template_id = assistant.get("default_template_id")
     if default_template_id:
         template_result = (
             supabase.table("templates")
@@ -540,7 +540,7 @@ def get_assistant_default_template(
             .execute()
         )
         if template_result.data:
-            logger.info(f"[NURSE_DEFAULT] Resolved via assistant default_template_id for assistant {assistant_id}")
+            logger.info(f"[ASSISTANT_DEFAULT] Resolved via assistant default_template_id for assistant {assistant_id}")
             return {
                 "id": template_result.data[0]["id"],
                 "template_code": template_result.data[0]["template_code"]
@@ -575,16 +575,16 @@ def get_assistant_default_template(
                             .execute()
                         )
                         if template_result.data:
-                            logger.info(f"[NURSE_DEFAULT] Resolved via linked counsellor {linked_counsellor_id} default for assistant {assistant_id}")
+                            logger.info(f"[ASSISTANT_DEFAULT] Resolved via linked counsellor {linked_counsellor_id} default for assistant {assistant_id}")
                             return {
                                 "id": template_result.data[0]["id"],
                                 "template_code": template_result.data[0]["template_code"]
                             }
     except Exception as e:
-        logger.warning(f"[NURSE_DEFAULT] Error checking linked counsellors: {e}")
+        logger.warning(f"[ASSISTANT_DEFAULT] Error checking linked counsellors: {e}")
 
     # Priority 3: School default
-    school_id = nurse.get("school_id")
+    school_id = assistant.get("school_id")
     if school_id:
         school_result = (
             supabase.table("schools")
@@ -605,7 +605,7 @@ def get_assistant_default_template(
                     .execute()
                 )
                 if template_result.data:
-                    logger.info(f"[NURSE_DEFAULT] Resolved via school default for assistant {assistant_id}")
+                    logger.info(f"[ASSISTANT_DEFAULT] Resolved via school default for assistant {assistant_id}")
                     return {
                         "id": template_result.data[0]["id"],
                         "template_code": template_result.data[0]["template_code"]
@@ -622,13 +622,13 @@ def get_assistant_default_template(
             .execute()
         )
         if op_core_result.data:
-            logger.info(f"[NURSE_DEFAULT] Resolved via OP_CORE fallback for assistant {assistant_id}")
+            logger.info(f"[ASSISTANT_DEFAULT] Resolved via OP_CORE fallback for assistant {assistant_id}")
             return {
                 "id": op_core_result.data[0]["id"],
                 "template_code": op_core_result.data[0]["template_code"]
             }
     except Exception as e:
-        logger.warning(f"[NURSE_DEFAULT] Error fetching OP_CORE fallback: {e}")
+        logger.warning(f"[ASSISTANT_DEFAULT] Error fetching OP_CORE fallback: {e}")
 
     return None
 
@@ -650,10 +650,10 @@ def get_template_assistant_shares(template_id: uuid.UUID) -> Dict[str, Any]:
         .execute()
     )
 
-    nurses = []
+    assistants = []
     for share in (assistant_shares.data or []):
         assistant_info = share.get("assistants", {})
-        nurses.append({
+        assistants.append({
             "id": share["id"],
             "assistant_id": share["assistant_id"],
             "assistant_name": assistant_info.get("full_name", "Unknown"),
@@ -666,6 +666,6 @@ def get_template_assistant_shares(template_id: uuid.UUID) -> Dict[str, Any]:
         })
 
     return {
-        "assistants": nurses,
-        "total_shares": len(nurses)
+        "assistants": assistants,
+        "total_shares": len(assistants)
     }

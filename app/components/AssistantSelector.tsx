@@ -20,10 +20,10 @@ import { useAuth } from '@lib/auth';
 
 interface AssistantSelectorProps {
   selectedAssistantId: string | null;
-  onAssistantSelect: (nurseId: string | null) => void;
+  onAssistantSelect: (assistantId: string | null) => void;
   className?: string;
   required?: boolean;
-  hospitalId?: string;  // Optional filter by school
+  schoolId?: string;  // Optional filter by school
 }
 
 export default function AssistantSelector({
@@ -31,10 +31,10 @@ export default function AssistantSelector({
   onAssistantSelect,
   className = '',
   required = false,
-  hospitalId
+  schoolId
 }: AssistantSelectorProps) {
   const { getAccessToken, loading: authLoading } = useAuth();
-  const [nurses, setAssistants] = useState<Assistant[]>([]);
+  const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [filteredAssistants, setFilteredAssistants] = useState<Assistant[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -42,10 +42,10 @@ export default function AssistantSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
-  // Load assistants when auth is ready (only once, or when hospitalId changes)
+  // Load assistants when auth is ready (only once, or when schoolId changes)
   useEffect(() => {
     // Prevent re-fetching if already loaded (avoids loop on auth state changes)
-    if (hasLoaded && !hospitalId) return;
+    if (hasLoaded && !schoolId) return;
 
     if (!authLoading) {
       const token = getAccessToken();
@@ -56,30 +56,30 @@ export default function AssistantSelector({
     }
     // Note: getAccessToken excluded from deps to prevent loop on auth state changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, hospitalId]);
+  }, [authLoading, schoolId]);
 
   // Filter assistants based on search query
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredAssistants(nurses);
+      setFilteredAssistants(assistants);
     } else {
       const query = searchQuery.toLowerCase();
-      const filtered = nurses.filter(
-        (nurse) =>
-          nurse.full_name.toLowerCase().includes(query) ||
-          nurse.email.toLowerCase().includes(query) ||
-          (nurse.qualification && nurse.qualification.toLowerCase().includes(query))
+      const filtered = assistants.filter(
+        (assistant) =>
+          assistant.full_name.toLowerCase().includes(query) ||
+          assistant.email.toLowerCase().includes(query) ||
+          (assistant.qualification && assistant.qualification.toLowerCase().includes(query))
       );
       setFilteredAssistants(filtered);
     }
-  }, [searchQuery, nurses]);
+  }, [searchQuery, assistants]);
 
   const loadAssistants = async () => {
     try {
       setIsLoading(true);
       setError(null);
       const accessToken = getAccessToken();
-      const data = await getAssistants(true, hospitalId, accessToken); // Active assistants only
+      const data = await getAssistants(true, schoolId, accessToken); // Active assistants only
       setAssistants(data);
       setFilteredAssistants(data);
     } catch (err) {
@@ -90,13 +90,13 @@ export default function AssistantSelector({
     }
   };
 
-  const handleSelectAssistant = (nurseId: string | null) => {
-    onAssistantSelect(nurseId);
+  const handleSelectAssistant = (assistantId: string | null) => {
+    onAssistantSelect(assistantId);
     setIsOpen(false);
     setSearchQuery('');
   };
 
-  const selectedAssistant = nurses.find((n) => n.id === selectedAssistantId);
+  const selectedAssistant = assistants.find((n) => n.id === selectedAssistantId);
 
   // Qualification badge color mapping
   const getQualificationColor = (qualification: string | null): string => {
@@ -192,30 +192,30 @@ export default function AssistantSelector({
                 {searchQuery ? 'No assistants found matching your search' : 'No active assistants available'}
               </div>
             ) : (
-              filteredAssistants.map((nurse) => (
+              filteredAssistants.map((assistant) => (
                 <button
-                  key={nurse.id}
+                  key={assistant.id}
                   type="button"
-                  onClick={() => handleSelectAssistant(nurse.id)}
+                  onClick={() => handleSelectAssistant(assistant.id)}
                   className={`w-full px-4 py-3 text-left hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors ${
-                    selectedAssistantId === nurse.id
+                    selectedAssistantId === assistant.id
                       ? 'bg-teal-50 dark:bg-teal-900/30 border-l-4 border-teal-500'
                       : ''
                   }`}
                 >
                   <div className="font-medium text-gray-900 dark:text-white">
-                    {nurse.full_name}
-                    {selectedAssistantId === nurse.id && (
+                    {assistant.full_name}
+                    {selectedAssistantId === assistant.id && (
                       <span className="ml-2 text-teal-600 dark:text-teal-400">✓</span>
                     )}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                    {nurse.qualification && (
-                      <span className={`inline-block mr-2 px-2 py-0.5 rounded text-xs font-medium ${getQualificationColor(nurse.qualification)}`}>
-                        {nurse.qualification}
+                    {assistant.qualification && (
+                      <span className={`inline-block mr-2 px-2 py-0.5 rounded text-xs font-medium ${getQualificationColor(assistant.qualification)}`}>
+                        {assistant.qualification}
                       </span>
                     )}
-                    {nurse.email}
+                    {assistant.email}
                   </div>
                 </button>
               ))

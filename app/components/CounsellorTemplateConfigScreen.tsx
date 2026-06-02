@@ -102,7 +102,7 @@ export default function CounsellorTemplateConfigScreen() {
 
     try {
       const token = getAccessToken();
-      const [response, doctor] = await Promise.all([
+      const [response, counsellor] = await Promise.all([
         getCounsellorDashboard(selectedCounsellorId, token),
         getCounsellor(selectedCounsellorId, token).catch(() => null),
       ]);
@@ -116,7 +116,7 @@ export default function CounsellorTemplateConfigScreen() {
       // Counsellor record carries default_template_id (FK column on counsellors table).
       // The legacy `default_template` string field is unrelated.
       setDefaultTemplateId(
-        (doctor && (doctor as { default_template_id?: string | null }).default_template_id) || null
+        (counsellor && (counsellor as { default_template_id?: string | null }).default_template_id) || null
       );
     } catch (err) {
       const errorMessage = handleApiError(err);

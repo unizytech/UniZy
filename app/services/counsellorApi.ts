@@ -92,9 +92,9 @@ export async function searchCounsellors(query: string, accessToken?: string | nu
 /**
  * Get counsellor by ID
  */
-export async function getCounsellor(doctorId: string, accessToken?: string | null): Promise<Counsellor> {
+export async function getCounsellor(counsellorId: string, accessToken?: string | null): Promise<Counsellor> {
   const response = await authGet(
-    `/api/v1/counsellors/${doctorId}`,
+    `/api/v1/counsellors/${counsellorId}`,
     accessToken ?? null
   );
 
@@ -129,12 +129,12 @@ export async function createCounsellor(request: CreateCounsellorRequest, accessT
  * Update counsellor
  */
 export async function updateCounsellor(
-  doctorId: string,
+  counsellorId: string,
   request: UpdateCounsellorRequest,
   accessToken?: string | null
 ): Promise<Counsellor> {
   const response = await authPut(
-    `/api/v1/counsellors/${doctorId}`,
+    `/api/v1/counsellors/${counsellorId}`,
     accessToken ?? null,
     request
   );
@@ -151,9 +151,9 @@ export async function updateCounsellor(
 /**
  * Deactivate counsellor (soft delete)
  */
-export async function deactivateCounsellor(doctorId: string, accessToken?: string | null): Promise<Counsellor> {
+export async function deactivateCounsellor(counsellorId: string, accessToken?: string | null): Promise<Counsellor> {
   const response = await authDelete(
-    `/api/v1/counsellors/${doctorId}`,
+    `/api/v1/counsellors/${counsellorId}`,
     accessToken ?? null
   );
 
@@ -169,9 +169,9 @@ export async function deactivateCounsellor(doctorId: string, accessToken?: strin
 /**
  * Permanently delete a counsellor (hard delete)
  */
-export async function deleteCounsellorPermanently(doctorId: string, accessToken?: string | null): Promise<void> {
+export async function deleteCounsellorPermanently(counsellorId: string, accessToken?: string | null): Promise<void> {
   const response = await authDelete(
-    `/api/v1/counsellors/${doctorId}/permanent`,
+    `/api/v1/counsellors/${counsellorId}/permanent`,
     accessToken ?? null
   );
 
@@ -185,11 +185,11 @@ export async function deleteCounsellorPermanently(doctorId: string, accessToken?
  * Get counsellor's configurations (global + consultation-specific)
  */
 export async function getCounsellorConfigurations(
-  doctorId: string,
+  counsellorId: string,
   accessToken?: string | null
 ): Promise<CounsellorConfiguration> {
   const response = await authGet(
-    `/api/v1/counsellors/${doctorId}/configurations`,
+    `/api/v1/counsellors/${counsellorId}/configurations`,
     accessToken ?? null
   );
 
@@ -224,11 +224,11 @@ export interface CounsellorTemplate {
 }
 
 export async function getCounsellorTemplates(
-  doctorId: string,
+  counsellorId: string,
   accessToken?: string | null
 ): Promise<CounsellorTemplate[]> {
   const response = await authGet(
-    `/api/v1/summary/templates?counsellor_id=${doctorId}&filter_type=doctor`,
+    `/api/v1/summary/templates?counsellor_id=${counsellorId}&filter_type=doctor`,
     accessToken ?? null
   );
 
@@ -338,11 +338,11 @@ export async function createCounsellorForSchool(
  * Get counsellors filtered by school
  */
 export async function getCounsellorsBySchool(
-  hospitalId: string,
+  schoolId: string,
   accessToken?: string | null
 ): Promise<CounsellorListItem[]> {
   const response = await authGet(
-    `/api/v1/counsellors/list-all?school_id=${hospitalId}`,
+    `/api/v1/counsellors/list-all?school_id=${schoolId}`,
     accessToken ?? null
   );
 
@@ -355,12 +355,12 @@ export async function getCounsellorsBySchool(
 }
 
 export async function setCounsellorDefaultTemplate(
-  doctorId: string,
+  counsellorId: string,
   templateId: string | null,
   accessToken?: string | null
 ): Promise<{ default_template_id: string | null }> {
   const response = await authPut(
-    `/api/v1/counsellors/${doctorId}/default-template`,
+    `/api/v1/counsellors/${counsellorId}/default-template`,
     accessToken ?? null,
     { template_id: templateId }
   );

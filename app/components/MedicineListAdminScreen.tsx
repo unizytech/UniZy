@@ -57,7 +57,7 @@ interface FeedbackRecord {
   created_at: string;
 }
 
-type ViewMode = 'doctor-medicines' | 'hospital-medicines' | 'feedback-review';
+type ViewMode = 'counsellor-medicines' | 'school-medicines' | 'feedback-review';
 
 const MEDICINE_CATEGORIES = [
   'Antihypertensive',
@@ -100,19 +100,19 @@ const MEDICINE_FORMS = [
 
 export function MedicineListAdminScreen() {
   const { getAccessToken } = useAuth();
-  const [viewMode, setViewMode] = useState<ViewMode>('doctor-medicines');
+  const [viewMode, setViewMode] = useState<ViewMode>('counsellor-medicines');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Counsellor selection
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<string>('');
 
   // School selection
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
-  const [hospitalMedicines, setSchoolMedicines] = useState<Medicine[]>([]);
+  const [schoolMedicines, setSchoolMedicines] = useState<Medicine[]>([]);
 
   // Data states
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -142,7 +142,7 @@ export function MedicineListAdminScreen() {
   // Load data when counsellor, view mode, or filters change
   useEffect(() => {
     if (selectedCounsellorId) {
-      if (viewMode === 'doctor-medicines') {
+      if (viewMode === 'counsellor-medicines') {
         loadCounsellorMedicines();
       } else if (viewMode === 'feedback-review') {
         loadFeedbackRecords();
@@ -152,7 +152,7 @@ export function MedicineListAdminScreen() {
 
   // Load school medicines when school is selected
   useEffect(() => {
-    if (selectedSchoolId && viewMode === 'hospital-medicines') {
+    if (selectedSchoolId && viewMode === 'school-medicines') {
       loadSchoolMedicines();
     }
   }, [selectedSchoolId, viewMode]);
@@ -375,7 +375,7 @@ export function MedicineListAdminScreen() {
     return true;
   });
 
-  const filteredSchoolMedicines = hospitalMedicines.filter(med => {
+  const filteredSchoolMedicines = schoolMedicines.filter(med => {
     if (searchQuery.trim()) {
       const search = searchQuery.toLowerCase();
       return (
@@ -447,14 +447,14 @@ export function MedicineListAdminScreen() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Medicine List Management</h1>
             <p className="text-sm text-gray-600 mt-1">
-              {viewMode === 'doctor-medicines'
+              {viewMode === 'counsellor-medicines'
                 ? 'Manage personal medicine lists for counsellors'
-                : viewMode === 'hospital-medicines'
+                : viewMode === 'school-medicines'
                 ? 'Manage school-wide shared medicine lists'
                 : 'Review and process medicine matching feedback'}
             </p>
           </div>
-          {viewMode === 'doctor-medicines' && selectedCounsellorId && (
+          {viewMode === 'counsellor-medicines' && selectedCounsellorId && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -473,7 +473,7 @@ export function MedicineListAdminScreen() {
               </button>
             </div>
           )}
-          {viewMode === 'hospital-medicines' && selectedSchoolId && (
+          {viewMode === 'school-medicines' && selectedSchoolId && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -507,9 +507,9 @@ export function MedicineListAdminScreen() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex gap-2">
           <button
-            onClick={() => setViewMode('doctor-medicines')}
+            onClick={() => setViewMode('counsellor-medicines')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'doctor-medicines'
+              viewMode === 'counsellor-medicines'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -517,9 +517,9 @@ export function MedicineListAdminScreen() {
             Counsellor Medicines
           </button>
           <button
-            onClick={() => setViewMode('hospital-medicines')}
+            onClick={() => setViewMode('school-medicines')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'hospital-medicines'
+              viewMode === 'school-medicines'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -540,7 +540,7 @@ export function MedicineListAdminScreen() {
       </div>
 
       {/* Counsellor Selector */}
-      {(viewMode === 'doctor-medicines' || viewMode === 'feedback-review') && (
+      {(viewMode === 'counsellor-medicines' || viewMode === 'feedback-review') && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Counsellor
@@ -552,13 +552,13 @@ export function MedicineListAdminScreen() {
             style={{ color: '#111827' }}
           >
             <option value="" style={{ color: '#111827' }}>-- Select a Counsellor --</option>
-            {doctors.map(doctor => (
-              <option key={doctor.id} value={doctor.id} style={{ color: '#111827' }}>
-                {doctor.full_name} {doctor.specialization ? `(${doctor.specialization})` : ''}
+            {counsellors.map(counsellor => (
+              <option key={counsellor.id} value={counsellor.id} style={{ color: '#111827' }}>
+                {counsellor.full_name} {counsellor.specialization ? `(${counsellor.specialization})` : ''}
               </option>
             ))}
           </select>
-          {doctors.length === 0 && (
+          {counsellors.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
               No counsellors found. Make sure the backend is running and counsellors exist in the database.
             </p>
@@ -579,7 +579,7 @@ export function MedicineListAdminScreen() {
       )}
 
       {/* Counsellor Medicines View */}
-      {viewMode === 'doctor-medicines' && selectedCounsellorId && (
+      {viewMode === 'counsellor-medicines' && selectedCounsellorId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -768,7 +768,7 @@ export function MedicineListAdminScreen() {
       )}
 
       {/* School Selector */}
-      {viewMode === 'hospital-medicines' && (
+      {viewMode === 'school-medicines' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select School
@@ -780,13 +780,13 @@ export function MedicineListAdminScreen() {
             style={{ color: '#111827' }}
           >
             <option value="" style={{ color: '#111827' }}>-- Select a School --</option>
-            {hospitals.map(hospital => (
-              <option key={hospital.id} value={hospital.id} style={{ color: '#111827' }}>
-                {hospital.school_name}
+            {schools.map(school => (
+              <option key={school.id} value={school.id} style={{ color: '#111827' }}>
+                {school.school_name}
               </option>
             ))}
           </select>
-          {hospitals.length === 0 && (
+          {schools.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
               No schools found. Make sure the backend is running and schools exist in the database.
             </p>
@@ -795,12 +795,12 @@ export function MedicineListAdminScreen() {
       )}
 
       {/* School Medicines View */}
-      {viewMode === 'hospital-medicines' && selectedSchoolId && (
+      {viewMode === 'school-medicines' && selectedSchoolId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                School Medicine List ({hospitalMedicines.length})
+                School Medicine List ({schoolMedicines.length})
               </h2>
               <select
                 value={categoryFilter}
@@ -926,7 +926,7 @@ export function MedicineListAdminScreen() {
           onSave={async (data) => {
             try {
               // Determine if we're in school or counsellor context
-              const isSchoolContext = viewMode === 'hospital-medicines';
+              const isSchoolContext = viewMode === 'school-medicines';
 
               if (isSchoolContext) {
                 // School medicine save
@@ -979,9 +979,9 @@ export function MedicineListAdminScreen() {
       {showUploadModal && (
         <UploadModal
           onClose={() => { setShowUploadModal(false); setError(null); }}
-          onUpload={viewMode === 'hospital-medicines' ? handleSchoolFileUpload : handleFileUpload}
+          onUpload={viewMode === 'school-medicines' ? handleSchoolFileUpload : handleFileUpload}
           fileInputRef={fileInputRef}
-          isSchoolUpload={viewMode === 'hospital-medicines'}
+          isSchoolUpload={viewMode === 'school-medicines'}
           isUploading={isUploading}
           uploadError={error}
         />

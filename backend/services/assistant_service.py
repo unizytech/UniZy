@@ -252,13 +252,13 @@ def link_assistant_to_counsellor(assistant_id: str, counsellor_id: str) -> Dict[
         ValueError: If assistant or counsellor not found
     """
     # Verify assistant exists
-    nurse = get_assistant(assistant_id)
-    if not nurse:
+    assistant = get_assistant(assistant_id)
+    if not assistant:
         raise ValueError(f"Assistant with ID '{assistant_id}' not found")
 
     # Verify counsellor exists
-    doctor = supabase.table("counsellors").select("id").eq("id", counsellor_id).execute()
-    if not doctor.data:
+    counsellor = supabase.table("counsellors").select("id").eq("id", counsellor_id).execute()
+    if not counsellor.data:
         raise ValueError(f"Counsellor with ID '{counsellor_id}' not found")
 
     # Check if association already exists

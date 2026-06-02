@@ -451,17 +451,17 @@ class SemanticSearchService:
 
         results = []
         for row in result.data or []:
-            patient = row.get("students") or {}
-            doctor = row.get("counsellors") or {}
+            student = row.get("students") or {}
+            counsellor = row.get("counsellors") or {}
             ct = row.get("consultation_types") or {}
 
             results.append(SearchResultItem(
                 extraction_id=UUID(row["id"]),
                 student_id=UUID(row["student_id"]) if row.get("student_id") else None,
-                patient_name=patient.get("full_name"),
-                student_external_id=patient.get("student_id"),
+                patient_name=student.get("full_name"),
+                student_external_id=student.get("student_id"),
                 counsellor_id=UUID(row["counsellor_id"]) if row.get("counsellor_id") else None,
-                counsellor_name=doctor.get("full_name"),
+                counsellor_name=counsellor.get("full_name"),
                 consultation_type_name=ct.get("type_name"),
                 created_at=row["created_at"],
                 similarity_score=0.5  # Placeholder score

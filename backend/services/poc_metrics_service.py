@@ -94,12 +94,12 @@ def _fetch_core_dataset(
     start_iso, end_iso = _range_utc_bounds(start, end)
 
     # ---- Counsellors in this school (for name lookup + school filter) ----
-    docs_res = supabase.table("counsellors")\
+    counsellors_res = supabase.table("counsellors")\
         .select("id, full_name, school_id")\
         .eq("school_id", school_id)\
         .execute()
-    doctors = docs_res.data or []
-    counsellor_by_id = {d["id"]: d["full_name"] for d in doctors}
+    counsellors = counsellors_res.data or []
+    counsellor_by_id = {d["id"]: d["full_name"] for d in counsellors}
     counsellor_ids_in_school = list(counsellor_by_id.keys())
     if not counsellor_ids_in_school:
         return []
@@ -172,19 +172,19 @@ def _fetch_core_dataset(
         me = latest_me.get(s["id"], {})
         acc = accuracy_by_ext.get(me.get("id")) if me else None
         # Name shown in the Tracker's "Name" column = whoever recorded the session
-        _nurse_id = s.get("assistant_id")
-        _doctor_id = s.get("counsellor_id")
-        if _nurse_id and _nurse_id in assistant_by_id:
-            display_name = assistant_by_id[_nurse_id]
+        _assistant_id = s.get("assistant_id")
+        _counsellor_id = s.get("counsellor_id")
+        if _assistant_id and _assistant_id in assistant_by_id:
+            display_name = assistant_by_id[_assistant_id]
         else:
-            display_name = counsellor_by_id.get(_doctor_id, "")
+            display_name = counsellor_by_id.get(_counsellor_id, "")
 
         dataset.append({
             "session_id": s["id"],
             "created_at": s["created_at"],
-            "counsellor_id": _doctor_id,
-            "counsellor_name": counsellor_by_id.get(_doctor_id, ""),
-            "assistant_id": _nurse_id,
+            "counsellor_id": _counsellor_id,
+            "counsellor_name": counsellor_by_id.get(_counsellor_id, ""),
+            "assistant_id": _assistant_id,
             "display_name": display_name,
             "template_code": s.get("template_code") or "",
             "total_duration_seconds": float(s["total_duration_seconds"] or 0),

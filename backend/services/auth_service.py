@@ -765,15 +765,18 @@ async def create_api_client(data: APIClientCreate) -> APIKeyCreateResponse:
             detail="EHR clients must be associated with a school"
         )
 
-    # Determine auth_mode: only EHR clients can use 'token', others always use JWT
-    auth_mode = data.auth_mode if data.client_type == "ehr" else "api_key"
+    # auth_mode is honoured for all client types:
+    #   'token'   -> OAuth client-credentials (access + refresh JWT via /auth/token)
+    #   'api_key' -> static API key (EHR) or Service JWT (mobile/web)
+    auth_mode = data.auth_mode
 
     # Generate credentials based on client type and auth mode
     client_secret_plaintext = None
     client_secret_hash = None
 
-    if data.client_type == "ehr" and auth_mode == "token":
-        # Token-mode EHR: generate client_secret + jwt_secret (no API key)
+    if auth_mode == "token":
+        # Token mode (any client type): client_secret + jwt_secret, no static API key.
+        # Access tokens obtained via POST /api/v1/auth/token (+ /auth/client-refresh).
         full_key = None
         key_prefix = None
         key_hash = None
@@ -821,8 +824,8 @@ async def create_api_client(data: APIClientCreate) -> APIKeyCreateResponse:
 
         client = result.data[0]
 
-        # Token-mode EHR: return client_id + client_secret
-        if data.client_type == "ehr" and auth_mode == "token":
+        # Token mode (any client type): return client_id + client_secret
+        if auth_mode == "token":
             return APIKeyCreateResponse(
                 client_id=UUID(client["id"]),
                 client_name=client["client_name"],

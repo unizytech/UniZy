@@ -40,10 +40,10 @@ export function StudentCreateScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Counsellor multi-select state
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
   const [selectedCounsellorIds, setSelectedCounsellorIds] = useState<string[]>([]);
   const [isCounsellorsLoading, setIsCounsellorsLoading] = useState(true);
-  const [doctorSearchQuery, setCounsellorSearchQuery] = useState('');
+  const [counsellorSearchQuery, setCounsellorSearchQuery] = useState('');
 
   // Load counsellors on mount
   useEffect(() => {
@@ -64,21 +64,21 @@ export function StudentCreateScreen() {
   }, []); // Only run once on mount
 
   // Filter counsellors based on search
-  const filteredCounsellors = doctors.filter(doctor => {
-    if (!doctorSearchQuery.trim()) return true;
-    const query = doctorSearchQuery.toLowerCase();
+  const filteredCounsellors = counsellors.filter(counsellor => {
+    if (!counsellorSearchQuery.trim()) return true;
+    const query = counsellorSearchQuery.toLowerCase();
     return (
-      doctor.full_name.toLowerCase().includes(query) ||
-      doctor.email.toLowerCase().includes(query) ||
-      (doctor.specialization && doctor.specialization.toLowerCase().includes(query))
+      counsellor.full_name.toLowerCase().includes(query) ||
+      counsellor.email.toLowerCase().includes(query) ||
+      (counsellor.specialization && counsellor.specialization.toLowerCase().includes(query))
     );
   });
 
-  const toggleCounsellorSelection = (doctorId: string) => {
+  const toggleCounsellorSelection = (counsellorId: string) => {
     setSelectedCounsellorIds(prev =>
-      prev.includes(doctorId)
-        ? prev.filter(id => id !== doctorId)
-        : [...prev, doctorId]
+      prev.includes(counsellorId)
+        ? prev.filter(id => id !== counsellorId)
+        : [...prev, counsellorId]
     );
   };
 
@@ -309,7 +309,7 @@ export function StudentCreateScreen() {
                   {/* Search input */}
                   <input
                     type="text"
-                    value={doctorSearchQuery}
+                    value={counsellorSearchQuery}
                     onChange={(e) => setCounsellorSearchQuery(e.target.value)}
                     placeholder="Search counsellors..."
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent text-sm"
@@ -319,13 +319,13 @@ export function StudentCreateScreen() {
                   {selectedCounsellorIds.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {selectedCounsellorIds.map(id => {
-                        const doctor = doctors.find(d => d.id === id);
-                        return doctor ? (
+                        const counsellor = counsellors.find(d => d.id === id);
+                        return counsellor ? (
                           <span
                             key={id}
                             className="inline-flex items-center gap-1 px-2 py-1 bg-lime-600/30 text-lime-300 rounded text-xs"
                           >
-                            {doctor.full_name}
+                            {counsellor.full_name}
                             <button
                               type="button"
                               onClick={() => toggleCounsellorSelection(id)}
@@ -346,23 +346,23 @@ export function StudentCreateScreen() {
                     {filteredCounsellors.length === 0 ? (
                       <div className="px-3 py-2 text-slate-500 text-sm">No counsellors found</div>
                     ) : (
-                      filteredCounsellors.map(doctor => (
+                      filteredCounsellors.map(counsellor => (
                         <label
-                          key={doctor.id}
+                          key={counsellor.id}
                           className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-700 transition-colors ${
-                            selectedCounsellorIds.includes(doctor.id) ? 'bg-slate-700/50' : ''
+                            selectedCounsellorIds.includes(counsellor.id) ? 'bg-slate-700/50' : ''
                           }`}
                         >
                           <input
                             type="checkbox"
-                            checked={selectedCounsellorIds.includes(doctor.id)}
-                            onChange={() => toggleCounsellorSelection(doctor.id)}
+                            checked={selectedCounsellorIds.includes(counsellor.id)}
+                            onChange={() => toggleCounsellorSelection(counsellor.id)}
                             className="rounded border-slate-500 bg-slate-600 text-lime-500 focus:ring-lime-500"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm text-white truncate">{doctor.full_name}</div>
+                            <div className="text-sm text-white truncate">{counsellor.full_name}</div>
                             <div className="text-xs text-slate-400 truncate">
-                              {doctor.specialization || doctor.email}
+                              {counsellor.specialization || counsellor.email}
                             </div>
                           </div>
                         </label>
@@ -507,10 +507,10 @@ export function StudentCreateScreen() {
                         <span className="text-slate-400 text-xs">Linked Counsellors:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {(result.patient.counsellor_ids as string[]).map((docId: string) => {
-                            const doctor = doctors.find(d => d.id === docId);
+                            const counsellor = counsellors.find(d => d.id === docId);
                             return (
                               <span key={docId} className="px-2 py-0.5 bg-lime-600/20 text-lime-300 rounded text-xs">
-                                {doctor ? doctor.full_name : docId}
+                                {counsellor ? counsellor.full_name : docId}
                               </span>
                             );
                           })}

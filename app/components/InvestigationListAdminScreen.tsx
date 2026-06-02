@@ -56,7 +56,7 @@ interface FeedbackRecord {
   created_at: string;
 }
 
-type ViewMode = 'doctor-investigations' | 'hospital-investigations' | 'feedback-review';
+type ViewMode = 'counsellor-investigations' | 'school-investigations' | 'feedback-review';
 
 const INVESTIGATION_TYPES = [
   { value: 'laboratory', label: 'Laboratory Tests' },
@@ -86,19 +86,19 @@ const INVESTIGATION_CATEGORIES = [
 
 export function InvestigationListAdminScreen() {
   const { getAccessToken } = useAuth();
-  const [viewMode, setViewMode] = useState<ViewMode>('doctor-investigations');
+  const [viewMode, setViewMode] = useState<ViewMode>('counsellor-investigations');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Counsellor selection
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<string>('');
 
   // School selection
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
-  const [hospitalInvestigations, setSchoolInvestigations] = useState<Investigation[]>([]);
+  const [schoolInvestigations, setSchoolInvestigations] = useState<Investigation[]>([]);
 
   // Data states
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
@@ -129,7 +129,7 @@ export function InvestigationListAdminScreen() {
   // Load data when counsellor, view mode, or filters change
   useEffect(() => {
     if (selectedCounsellorId) {
-      if (viewMode === 'doctor-investigations') {
+      if (viewMode === 'counsellor-investigations') {
         loadCounsellorInvestigations();
       } else if (viewMode === 'feedback-review') {
         loadFeedbackRecords();
@@ -139,7 +139,7 @@ export function InvestigationListAdminScreen() {
 
   // Load school investigations when school is selected
   useEffect(() => {
-    if (selectedSchoolId && viewMode === 'hospital-investigations') {
+    if (selectedSchoolId && viewMode === 'school-investigations') {
       loadSchoolInvestigations();
     }
   }, [selectedSchoolId, viewMode, typeFilter, categoryFilter]);
@@ -367,7 +367,7 @@ export function InvestigationListAdminScreen() {
     return true;
   });
 
-  const filteredSchoolInvestigations = hospitalInvestigations.filter(inv => {
+  const filteredSchoolInvestigations = schoolInvestigations.filter(inv => {
     if (searchQuery.trim()) {
       const search = searchQuery.toLowerCase();
       return (
@@ -380,7 +380,7 @@ export function InvestigationListAdminScreen() {
   });
 
   const handleDeleteSchoolInvestigation = async (investigationId: string) => {
-    if (!confirm('Are you sure you want to delete this hospital investigation?')) return;
+    if (!confirm('Are you sure you want to delete this school investigation?')) return;
 
     try {
       const response = await authDelete(
@@ -452,14 +452,14 @@ export function InvestigationListAdminScreen() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Investigation List Management</h1>
             <p className="text-sm text-gray-600 mt-1">
-              {viewMode === 'doctor-investigations'
+              {viewMode === 'counsellor-investigations'
                 ? 'Manage personal investigation lists for counsellors'
-                : viewMode === 'hospital-investigations'
+                : viewMode === 'school-investigations'
                 ? 'Manage school-wide shared investigation lists'
                 : 'Review and process investigation matching feedback'}
             </p>
           </div>
-          {viewMode === 'doctor-investigations' && selectedCounsellorId && (
+          {viewMode === 'counsellor-investigations' && selectedCounsellorId && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -478,7 +478,7 @@ export function InvestigationListAdminScreen() {
               </button>
             </div>
           )}
-          {viewMode === 'hospital-investigations' && selectedSchoolId && (
+          {viewMode === 'school-investigations' && selectedSchoolId && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -512,9 +512,9 @@ export function InvestigationListAdminScreen() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex gap-2">
           <button
-            onClick={() => setViewMode('doctor-investigations')}
+            onClick={() => setViewMode('counsellor-investigations')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'doctor-investigations'
+              viewMode === 'counsellor-investigations'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -522,9 +522,9 @@ export function InvestigationListAdminScreen() {
             Counsellor Investigations
           </button>
           <button
-            onClick={() => setViewMode('hospital-investigations')}
+            onClick={() => setViewMode('school-investigations')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'hospital-investigations'
+              viewMode === 'school-investigations'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -545,7 +545,7 @@ export function InvestigationListAdminScreen() {
       </div>
 
       {/* Counsellor Selector */}
-      {(viewMode === 'doctor-investigations' || viewMode === 'feedback-review') && (
+      {(viewMode === 'counsellor-investigations' || viewMode === 'feedback-review') && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Counsellor
@@ -557,13 +557,13 @@ export function InvestigationListAdminScreen() {
             style={{ color: '#111827' }}
           >
             <option value="" style={{ color: '#111827' }}>-- Select a Counsellor --</option>
-            {doctors.map(doctor => (
-              <option key={doctor.id} value={doctor.id} style={{ color: '#111827' }}>
-                {doctor.full_name} {doctor.specialization ? `(${doctor.specialization})` : ''}
+            {counsellors.map(counsellor => (
+              <option key={counsellor.id} value={counsellor.id} style={{ color: '#111827' }}>
+                {counsellor.full_name} {counsellor.specialization ? `(${counsellor.specialization})` : ''}
               </option>
             ))}
           </select>
-          {doctors.length === 0 && (
+          {counsellors.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
               No counsellors found. Make sure the backend is running and counsellors exist in the database.
             </p>
@@ -584,7 +584,7 @@ export function InvestigationListAdminScreen() {
       )}
 
       {/* Counsellor Investigations View */}
-      {viewMode === 'doctor-investigations' && selectedCounsellorId && (
+      {viewMode === 'counsellor-investigations' && selectedCounsellorId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -801,7 +801,7 @@ export function InvestigationListAdminScreen() {
       )}
 
       {/* School Selector */}
-      {viewMode === 'hospital-investigations' && (
+      {viewMode === 'school-investigations' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select School
@@ -813,13 +813,13 @@ export function InvestigationListAdminScreen() {
             style={{ color: '#111827' }}
           >
             <option value="" style={{ color: '#111827' }}>-- Select a School --</option>
-            {hospitals.map(hospital => (
-              <option key={hospital.id} value={hospital.id} style={{ color: '#111827' }}>
-                {hospital.school_name}
+            {schools.map(school => (
+              <option key={school.id} value={school.id} style={{ color: '#111827' }}>
+                {school.school_name}
               </option>
             ))}
           </select>
-          {hospitals.length === 0 && (
+          {schools.length === 0 && (
             <p className="text-sm text-amber-600 mt-2">
               No schools found. Make sure the backend is running and schools exist in the database.
             </p>
@@ -828,12 +828,12 @@ export function InvestigationListAdminScreen() {
       )}
 
       {/* School Investigations View */}
-      {viewMode === 'hospital-investigations' && selectedSchoolId && (
+      {viewMode === 'school-investigations' && selectedSchoolId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                School Investigation List ({hospitalInvestigations.length})
+                School Investigation List ({schoolInvestigations.length})
               </h2>
               <div className="flex gap-2">
                 <select
@@ -974,7 +974,7 @@ export function InvestigationListAdminScreen() {
           onSave={async (data) => {
             try {
               // Determine if we're in school or counsellor context
-              const isSchoolContext = viewMode === 'hospital-investigations';
+              const isSchoolContext = viewMode === 'school-investigations';
 
               if (isSchoolContext) {
                 // School investigation save
@@ -1027,9 +1027,9 @@ export function InvestigationListAdminScreen() {
       {showUploadModal && (
         <UploadModal
           onClose={() => { setShowUploadModal(false); setError(null); }}
-          onUpload={viewMode === 'hospital-investigations' ? handleSchoolFileUpload : handleFileUpload}
+          onUpload={viewMode === 'school-investigations' ? handleSchoolFileUpload : handleFileUpload}
           fileInputRef={fileInputRef}
-          isSchoolUpload={viewMode === 'hospital-investigations'}
+          isSchoolUpload={viewMode === 'school-investigations'}
           isUploading={isUploading}
           uploadError={error}
         />

@@ -529,12 +529,12 @@ async def update_school(
         if not existing.data or len(existing.data) == 0:
             raise HTTPException(status_code=404, detail="School not found")
 
-        hospital = existing.data[0]
+        school = existing.data[0]
 
         # Build update payload
         update_data = {}
 
-        if request.school_code is not None and request.school_code != hospital["school_code"]:
+        if request.school_code is not None and request.school_code != school["school_code"]:
             # Check uniqueness of new code
             code_check = (
                 supabase.table("schools")
@@ -550,7 +550,7 @@ async def update_school(
                 )
             update_data["school_code"] = request.school_code
 
-        if request.school_name is not None and request.school_name != hospital["school_name"]:
+        if request.school_name is not None and request.school_name != school["school_name"]:
             # Check uniqueness of new name
             name_check = (
                 supabase.table("schools")
@@ -730,9 +730,9 @@ async def deactivate_school(
         if not existing.data or len(existing.data) == 0:
             raise HTTPException(status_code=404, detail="School not found")
 
-        hospital = existing.data[0]
+        school = existing.data[0]
 
-        if not hospital.get("is_active"):
+        if not school.get("is_active"):
             raise HTTPException(status_code=400, detail="School is already inactive")
 
         # Soft-delete
@@ -740,7 +740,7 @@ async def deactivate_school(
 
         return {
             "success": True,
-            "message": f"School '{hospital['school_name']}' deactivated successfully"
+            "message": f"School '{school['school_name']}' deactivated successfully"
         }
 
     except HTTPException:
@@ -799,7 +799,7 @@ async def set_school_default_template(
         if not school_result.data or len(school_result.data) == 0:
             raise HTTPException(status_code=404, detail="School not found")
 
-        hospital = school_result.data[0]
+        school = school_result.data[0]
         template_id = request.template_id if request else None
 
         # If template_id provided, validate it exists and is active
@@ -830,7 +830,7 @@ async def set_school_default_template(
             raise HTTPException(status_code=500, detail="Failed to update school default template")
 
         # Auto-share template with all counsellors in this school (optimized batch operation)
-        doctors_shared = 0
+        counsellors_shared = 0
         if template_id:
             # Query 1: Get all active counsellor IDs in this school
             counsellors_result = (
@@ -870,19 +870,19 @@ async def set_school_default_template(
                         for counsellor_id in counsellors_to_share
                     ]
                     supabase.table("counsellor_templates").insert(insert_data).execute()
-                    doctors_shared = len(counsellors_to_share)
+                    counsellors_shared = len(counsellors_to_share)
 
         if template_id:
             return {
                 "success": True,
-                "message": f"Default template set for school '{hospital['school_name']}'. Auto-shared with {doctors_shared} counsellor(s).",
+                "message": f"Default template set for school '{school['school_name']}'. Auto-shared with {counsellors_shared} counsellor(s).",
                 "default_template_id": template_id,
-                "doctors_shared": doctors_shared
+                "doctors_shared": counsellors_shared
             }
         else:
             return {
                 "success": True,
-                "message": f"Default template cleared for school '{hospital['school_name']}'",
+                "message": f"Default template cleared for school '{school['school_name']}'",
                 "default_template_id": None
             }
 
@@ -941,7 +941,7 @@ async def update_school_settings(
         if not school_result.data or len(school_result.data) == 0:
             raise HTTPException(status_code=404, detail="School not found")
 
-        hospital = school_result.data[0]
+        school = school_result.data[0]
 
         # Build update payload with only provided fields
         update_data = {}
@@ -1003,7 +1003,7 @@ async def update_school_settings(
 
         return {
             "success": True,
-            "message": f"Settings updated for school '{hospital['school_name']}'",
+            "message": f"Settings updated for school '{school['school_name']}'",
             "settings": update_data
         }
 
@@ -1137,7 +1137,7 @@ async def create_school_ehr_integration(
         if not school_result.data:
             raise HTTPException(status_code=404, detail="School not found")
 
-        hospital = school_result.data[0]
+        school = school_result.data[0]
 
         # Validate ehr_type_id exists
         ehr_type_result = (
@@ -1192,7 +1192,7 @@ async def create_school_ehr_integration(
 
         return {
             "success": True,
-            "message": f"EHR integration '{ehr_type['ehr_name']}' created for school '{hospital['school_name']}'",
+            "message": f"EHR integration '{ehr_type['ehr_name']}' created for school '{school['school_name']}'",
             "integration": {
                 "id": created["id"],
                 "school_id": created["school_id"],
@@ -1985,8 +1985,8 @@ async def update_school_features(
         if not existing.data or len(existing.data) == 0:
             raise HTTPException(status_code=404, detail="School not found")
 
-        hospital = existing.data[0]
-        current_flags = hospital.get("feature_flags") or {}
+        school = existing.data[0]
+        current_flags = school.get("feature_flags") or {}
 
         # Merge: existing flags + new flags (new wins)
         merged_flags = {**current_flags, **request.feature_flags}
@@ -2011,7 +2011,7 @@ async def update_school_features(
             "success": True,
             "school_id": school_id,
             "feature_flags": merged_flags,
-            "message": f"Feature flags updated for '{hospital['school_name']}'",
+            "message": f"Feature flags updated for '{school['school_name']}'",
         }
 
     except HTTPException:

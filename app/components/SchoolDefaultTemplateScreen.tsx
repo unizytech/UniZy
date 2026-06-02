@@ -68,7 +68,7 @@ export function SchoolDefaultTemplateScreen() {
   const { getAccessToken } = useAuth();
 
   // State
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +82,7 @@ export function SchoolDefaultTemplateScreen() {
 
   // Quality Metrics modal state
   const [metricsSchoolId, setMetricsSchoolId] = useState<string | null>(null);
-  const metricsSchool = hospitals.find(h => h.id === metricsSchoolId);
+  const metricsSchool = schools.find(h => h.id === metricsSchoolId);
 
   // EHR Types (fetched from API)
   const [ehrTypes, setEhrTypes] = useState<EhrType[]>([]);
@@ -101,7 +101,7 @@ export function SchoolDefaultTemplateScreen() {
   });
 
   // Counsellor EHR assignment state
-  const [hospitalCounsellors, setSchoolCounsellors] = useState<Record<string, Counsellor[]>>({});
+  const [schoolCounsellors, setSchoolCounsellors] = useState<Record<string, Counsellor[]>>({});
   const [loadingCounsellorsSchoolId, setLoadingCounsellorsSchoolId] = useState<string | null>(null);
   const [updatingCounsellorId, setUpdatingCounsellorId] = useState<string | null>(null);
 
@@ -157,11 +157,11 @@ export function SchoolDefaultTemplateScreen() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch counsellors for a school
-  const fetchSchoolCounsellors = useCallback(async (hospitalId: string) => {
-    setLoadingCounsellorsSchoolId(hospitalId);
+  const fetchSchoolCounsellors = useCallback(async (schoolId: string) => {
+    setLoadingCounsellorsSchoolId(schoolId);
     try {
       const token = getAccessToken();
-      const response = await authGet(`/api/v1/counsellors/list-all?school_id=${hospitalId}`, token);
+      const response = await authGet(`/api/v1/counsellors/list-all?school_id=${schoolId}`, token);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch counsellors: ${response.statusText}`);
@@ -170,7 +170,7 @@ export function SchoolDefaultTemplateScreen() {
       const data = await response.json();
       setSchoolCounsellors(prev => ({
         ...prev,
-        [hospitalId]: (data.counsellors || []).map((d: { id: string; full_name: string; ehr_type_id?: string | null }) => ({
+        [schoolId]: (data.counsellors || []).map((d: { id: string; full_name: string; ehr_type_id?: string | null }) => ({
           id: d.id,
           counsellor_name: d.full_name,
           ehr_type_id: d.ehr_type_id || null
@@ -199,19 +199,19 @@ export function SchoolDefaultTemplateScreen() {
       if (!ehrIntegrations[expandedSchoolId]) {
         fetchEhrIntegrations(expandedSchoolId);
       }
-      if (!hospitalCounsellors[expandedSchoolId]) {
+      if (!schoolCounsellors[expandedSchoolId]) {
         fetchSchoolCounsellors(expandedSchoolId);
       }
     }
   }, [expandedSchoolId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set default template for school
-  const handleSetDefaultTemplate = async (hospitalId: string, templateId: string | null) => {
-    setUpdatingSchoolId(hospitalId);
+  const handleSetDefaultTemplate = async (schoolId: string, templateId: string | null) => {
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/schools/${hospitalId}/default-template`,
+        `/api/v1/schools/${schoolId}/default-template`,
         token,
         { template_id: templateId }
       );
@@ -223,7 +223,7 @@ export function SchoolDefaultTemplateScreen() {
 
       // Update local state
       setSchools(prev => prev.map(h =>
-        h.id === hospitalId ? { ...h, default_template_id: templateId } : h
+        h.id === schoolId ? { ...h, default_template_id: templateId } : h
       ));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update default template');
@@ -233,12 +233,12 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Toggle FFmpeg stitching for school
-  const handleToggleFFmpeg = async (hospitalId: string, enabled: boolean) => {
-    setUpdatingSchoolId(hospitalId);
+  const handleToggleFFmpeg = async (schoolId: string, enabled: boolean) => {
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/schools/${hospitalId}/settings`,
+        `/api/v1/schools/${schoolId}/settings`,
         token,
         { use_ffmpeg_stitching: enabled }
       );
@@ -250,7 +250,7 @@ export function SchoolDefaultTemplateScreen() {
 
       // Update local state
       setSchools(prev => prev.map(h =>
-        h.id === hospitalId ? { ...h, use_ffmpeg_stitching: enabled } : h
+        h.id === schoolId ? { ...h, use_ffmpeg_stitching: enabled } : h
       ));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update FFmpeg setting');
@@ -261,7 +261,7 @@ export function SchoolDefaultTemplateScreen() {
 
   // Update audio quality settings
   const handleUpdateQualitySettings = async (
-    hospitalId: string,
+    schoolId: string,
     settings: {
       audio_quality_block_threshold?: 'poor' | 'fair' | 'none';
       min_transcript_length?: number;
@@ -276,11 +276,11 @@ export function SchoolDefaultTemplateScreen() {
       enable_audio_validation?: boolean;
     }
   ) => {
-    setUpdatingSchoolId(hospitalId);
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/schools/${hospitalId}/settings`,
+        `/api/v1/schools/${schoolId}/settings`,
         token,
         settings
       );
@@ -292,7 +292,7 @@ export function SchoolDefaultTemplateScreen() {
 
       // Update local state
       setSchools(prev => prev.map(h =>
-        h.id === hospitalId ? { ...h, ...settings } : h
+        h.id === schoolId ? { ...h, ...settings } : h
       ));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update quality settings');
@@ -302,11 +302,11 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Fetch EHR integrations for a school
-  const fetchEhrIntegrations = useCallback(async (hospitalId: string) => {
-    setLoadingEhrSchoolId(hospitalId);
+  const fetchEhrIntegrations = useCallback(async (schoolId: string) => {
+    setLoadingEhrSchoolId(schoolId);
     try {
       const token = getAccessToken();
-      const response = await authGet(`/api/v1/schools/${hospitalId}/ehr-integrations`, token);
+      const response = await authGet(`/api/v1/schools/${schoolId}/ehr-integrations`, token);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch EHR integrations: ${response.statusText}`);
@@ -315,7 +315,7 @@ export function SchoolDefaultTemplateScreen() {
       const data = await response.json();
       setEhrIntegrations(prev => ({
         ...prev,
-        [hospitalId]: data.integrations || []
+        [schoolId]: data.integrations || []
       }));
     } catch (err) {
       console.error('Failed to fetch EHR integrations:', err);
@@ -325,17 +325,17 @@ export function SchoolDefaultTemplateScreen() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Create EHR integration
-  const handleCreateEhrIntegration = async (hospitalId: string) => {
+  const handleCreateEhrIntegration = async (schoolId: string) => {
     if (!ehrFormData.ehr_type_id) {
       alert('Please select an EHR type');
       return;
     }
 
-    setUpdatingSchoolId(hospitalId);
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPost(
-        `/api/v1/schools/${hospitalId}/ehr-integrations`,
+        `/api/v1/schools/${schoolId}/ehr-integrations`,
         token,
         {
           ehr_type_id: ehrFormData.ehr_type_id,
@@ -352,7 +352,7 @@ export function SchoolDefaultTemplateScreen() {
       }
 
       // Refresh integrations list
-      await fetchEhrIntegrations(hospitalId);
+      await fetchEhrIntegrations(schoolId);
       setAddingEhrSchoolId(null);
       setEhrFormData({ ehr_type_id: '', api_url: '', api_key: '', is_enabled: true, is_default: false });
     } catch (err) {
@@ -363,12 +363,12 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Update EHR integration
-  const handleUpdateEhrIntegration = async (hospitalId: string, integrationId: string) => {
-    setUpdatingSchoolId(hospitalId);
+  const handleUpdateEhrIntegration = async (schoolId: string, integrationId: string) => {
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/schools/${hospitalId}/ehr-integrations/${integrationId}`,
+        `/api/v1/schools/${schoolId}/ehr-integrations/${integrationId}`,
         token,
         {
           api_url: ehrFormData.api_url || null,
@@ -384,7 +384,7 @@ export function SchoolDefaultTemplateScreen() {
       }
 
       // Refresh integrations list
-      await fetchEhrIntegrations(hospitalId);
+      await fetchEhrIntegrations(schoolId);
       setEditingEhrId(null);
       setEhrFormData({ ehr_type_id: '', api_url: '', api_key: '', is_enabled: true, is_default: false });
     } catch (err) {
@@ -395,16 +395,16 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Delete EHR integration
-  const handleDeleteEhrIntegration = async (hospitalId: string, integrationId: string, ehrType: string) => {
+  const handleDeleteEhrIntegration = async (schoolId: string, integrationId: string, ehrType: string) => {
     if (!confirm(`Are you sure you want to delete the ${ehrType.toUpperCase()} integration?`)) {
       return;
     }
 
-    setUpdatingSchoolId(hospitalId);
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authDelete(
-        `/api/v1/schools/${hospitalId}/ehr-integrations/${integrationId}`,
+        `/api/v1/schools/${schoolId}/ehr-integrations/${integrationId}`,
         token
       );
 
@@ -414,7 +414,7 @@ export function SchoolDefaultTemplateScreen() {
       }
 
       // Refresh integrations list
-      await fetchEhrIntegrations(hospitalId);
+      await fetchEhrIntegrations(schoolId);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete EHR integration');
     } finally {
@@ -423,12 +423,12 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Toggle EHR integration enabled/disabled
-  const handleToggleEhrEnabled = async (hospitalId: string, integration: EhrIntegration) => {
-    setUpdatingSchoolId(hospitalId);
+  const handleToggleEhrEnabled = async (schoolId: string, integration: EhrIntegration) => {
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/schools/${hospitalId}/ehr-integrations/${integration.id}`,
+        `/api/v1/schools/${schoolId}/ehr-integrations/${integration.id}`,
         token,
         { is_enabled: !integration.is_enabled }
       );
@@ -439,7 +439,7 @@ export function SchoolDefaultTemplateScreen() {
       }
 
       // Refresh integrations list
-      await fetchEhrIntegrations(hospitalId);
+      await fetchEhrIntegrations(schoolId);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to toggle EHR integration');
     } finally {
@@ -460,12 +460,12 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Set EHR integration as default
-  const handleSetDefaultEhr = async (hospitalId: string, integrationId: string) => {
-    setUpdatingSchoolId(hospitalId);
+  const handleSetDefaultEhr = async (schoolId: string, integrationId: string) => {
+    setUpdatingSchoolId(schoolId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/schools/${hospitalId}/ehr-integrations/${integrationId}`,
+        `/api/v1/schools/${schoolId}/ehr-integrations/${integrationId}`,
         token,
         { is_default: true }
       );
@@ -476,7 +476,7 @@ export function SchoolDefaultTemplateScreen() {
       }
 
       // Refresh integrations list
-      await fetchEhrIntegrations(hospitalId);
+      await fetchEhrIntegrations(schoolId);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to set default EHR');
     } finally {
@@ -485,12 +485,12 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Update counsellor's EHR type
-  const handleUpdateCounsellorEhrType = async (hospitalId: string, doctorId: string, ehrTypeId: string | null) => {
-    setUpdatingCounsellorId(doctorId);
+  const handleUpdateCounsellorEhrType = async (schoolId: string, counsellorId: string, ehrTypeId: string | null) => {
+    setUpdatingCounsellorId(counsellorId);
     try {
       const token = getAccessToken();
       const response = await authPut(
-        `/api/v1/counsellors/${doctorId}/ehr-type`,
+        `/api/v1/counsellors/${counsellorId}/ehr-type`,
         token,
         { ehr_type_id: ehrTypeId }
       );
@@ -503,8 +503,8 @@ export function SchoolDefaultTemplateScreen() {
       // Update local state
       setSchoolCounsellors(prev => ({
         ...prev,
-        [hospitalId]: (prev[hospitalId] || []).map(d =>
-          d.id === doctorId ? { ...d, ehr_type_id: ehrTypeId } : d
+        [schoolId]: (prev[schoolId] || []).map(d =>
+          d.id === counsellorId ? { ...d, ehr_type_id: ehrTypeId } : d
         )
       }));
     } catch (err) {
@@ -522,8 +522,8 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Get configured EHR type IDs for a school (to disable in add dropdown)
-  const getConfiguredEhrTypeIds = (hospitalId: string) => {
-    const integrations = ehrIntegrations[hospitalId] || [];
+  const getConfiguredEhrTypeIds = (schoolId: string) => {
+    const integrations = ehrIntegrations[schoolId] || [];
     return integrations.map(i => i.ehr_type_id);
   };
 
@@ -535,16 +535,16 @@ export function SchoolDefaultTemplateScreen() {
   };
 
   // Get configured EHR type IDs for a school (for counsellor assignment dropdown)
-  const getSchoolEhrTypeIds = (hospitalId: string) => {
-    const integrations = ehrIntegrations[hospitalId] || [];
+  const getSchoolEhrTypeIds = (schoolId: string) => {
+    const integrations = ehrIntegrations[schoolId] || [];
     return integrations.filter(i => i.is_enabled).map(i => i.ehr_type_id);
   };
 
   // Filter schools by search
-  const filteredSchools = hospitals.filter(hospital =>
-    hospital.school_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    hospital.school_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (hospital.city && hospital.city.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredSchools = schools.filter(school =>
+    school.school_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    school.school_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (school.city && school.city.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
@@ -626,26 +626,26 @@ export function SchoolDefaultTemplateScreen() {
                   </td>
                 </tr>
               ) : (
-                filteredSchools.map((hospital) => (
-                  <React.Fragment key={hospital.id}>
+                filteredSchools.map((school) => (
+                  <React.Fragment key={school.id}>
                     <tr className="hover:bg-slate-800/30 transition-colors">
                       <td className="px-3 py-3">
-                        <span className="font-medium text-white text-sm truncate block">{hospital.school_name}</span>
+                        <span className="font-medium text-white text-sm truncate block">{school.school_name}</span>
                       </td>
                       <td className="px-3 py-3">
                         <code className="px-1.5 py-0.5 bg-slate-900 rounded text-xs text-slate-300">
-                          {hospital.school_code}
+                          {school.school_code}
                         </code>
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-1">
                           <select
-                            value={hospital.default_template_id || ''}
+                            value={school.default_template_id || ''}
                             onChange={(e) => handleSetDefaultTemplate(
-                              hospital.id,
+                              school.id,
                               e.target.value || null
                             )}
-                            disabled={updatingSchoolId === hospital.id}
+                            disabled={updatingSchoolId === school.id}
                             className="w-full px-2 py-1.5 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 truncate"
                           >
                             <option value="">No default template</option>
@@ -655,12 +655,12 @@ export function SchoolDefaultTemplateScreen() {
                               </option>
                             ))}
                           </select>
-                          {updatingSchoolId === hospital.id && (
+                          {updatingSchoolId === school.id && (
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                           )}
-                          {hospital.default_template_id && updatingSchoolId !== hospital.id && (
+                          {school.default_template_id && updatingSchoolId !== school.id && (
                             <button
-                              onClick={() => handleSetDefaultTemplate(hospital.id, null)}
+                              onClick={() => handleSetDefaultTemplate(school.id, null)}
                               className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                               title="Clear default template"
                             >
@@ -673,59 +673,59 @@ export function SchoolDefaultTemplateScreen() {
                       </td>
                       <td className="px-2 py-3 text-center">
                         <button
-                          onClick={() => handleUpdateQualitySettings(hospital.id, {
-                            enable_realtime_subscription: !hospital.enable_realtime_subscription
+                          onClick={() => handleUpdateQualitySettings(school.id, {
+                            enable_realtime_subscription: !school.enable_realtime_subscription
                           })}
-                          disabled={updatingSchoolId === hospital.id}
+                          disabled={updatingSchoolId === school.id}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-50 ${
-                            hospital.enable_realtime_subscription ? 'bg-blue-600' : 'bg-slate-600'
+                            school.enable_realtime_subscription ? 'bg-blue-600' : 'bg-slate-600'
                           }`}
-                          title={hospital.enable_realtime_subscription ? 'Realtime subscription enabled' : 'Realtime subscription disabled'}
+                          title={school.enable_realtime_subscription ? 'Realtime subscription enabled' : 'Realtime subscription disabled'}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              hospital.enable_realtime_subscription ? 'translate-x-6' : 'translate-x-1'
+                              school.enable_realtime_subscription ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <button
-                          onClick={() => handleToggleFFmpeg(hospital.id, !hospital.use_ffmpeg_stitching)}
-                          disabled={updatingSchoolId === hospital.id}
+                          onClick={() => handleToggleFFmpeg(school.id, !school.use_ffmpeg_stitching)}
+                          disabled={updatingSchoolId === school.id}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-50 ${
-                            hospital.use_ffmpeg_stitching ? 'bg-blue-600' : 'bg-slate-600'
+                            school.use_ffmpeg_stitching ? 'bg-blue-600' : 'bg-slate-600'
                           }`}
-                          title={hospital.use_ffmpeg_stitching ? 'FFmpeg stitching enabled' : 'FFmpeg stitching disabled'}
+                          title={school.use_ffmpeg_stitching ? 'FFmpeg stitching enabled' : 'FFmpeg stitching disabled'}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              hospital.use_ffmpeg_stitching ? 'translate-x-6' : 'translate-x-1'
+                              school.use_ffmpeg_stitching ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <button
-                          onClick={() => handleUpdateQualitySettings(hospital.id, {
-                            enable_audio_validation: !(hospital.enable_audio_validation !== false)
+                          onClick={() => handleUpdateQualitySettings(school.id, {
+                            enable_audio_validation: !(school.enable_audio_validation !== false)
                           })}
-                          disabled={updatingSchoolId === hospital.id}
+                          disabled={updatingSchoolId === school.id}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-50 ${
-                            hospital.enable_audio_validation !== false ? 'bg-green-600' : 'bg-slate-600'
+                            school.enable_audio_validation !== false ? 'bg-green-600' : 'bg-slate-600'
                           }`}
-                          title={hospital.enable_audio_validation !== false ? 'Audio validation enabled' : 'Audio validation disabled'}
+                          title={school.enable_audio_validation !== false ? 'Audio validation enabled' : 'Audio validation disabled'}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              hospital.enable_audio_validation !== false ? 'translate-x-6' : 'translate-x-1'
+                              school.enable_audio_validation !== false ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <button
-                          onClick={() => setMetricsSchoolId(hospital.id)}
+                          onClick={() => setMetricsSchoolId(school.id)}
                           className="text-xs text-teal-600 hover:text-teal-800 font-medium px-2 py-1 rounded hover:bg-teal-50 transition-colors"
                         >
                           Quality Metrics
@@ -734,13 +734,13 @@ export function SchoolDefaultTemplateScreen() {
                       <td className="px-2 py-3 text-center">
                         <button
                           onClick={() => setExpandedSchoolId(
-                            expandedSchoolId === hospital.id ? null : hospital.id
+                            expandedSchoolId === school.id ? null : school.id
                           )}
                           className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
                           title="Audio validation settings"
                         >
                           <svg
-                            className={`w-5 h-5 transition-transform ${expandedSchoolId === hospital.id ? 'rotate-180' : ''}`}
+                            className={`w-5 h-5 transition-transform ${expandedSchoolId === school.id ? 'rotate-180' : ''}`}
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -751,7 +751,7 @@ export function SchoolDefaultTemplateScreen() {
                       </td>
                     </tr>
                     {/* Expanded Settings Row */}
-                    {expandedSchoolId === hospital.id && (
+                    {expandedSchoolId === school.id && (
                       <tr className="bg-slate-800/40">
                         <td colSpan={8} className="px-2 py-4 space-y-4 overflow-hidden">
                           {/* Audio Validation Settings */}
@@ -761,18 +761,18 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Min SNR (dB) */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Min SNR (dB): {(hospital.min_snr_db ?? 10).toFixed(0)}
+                                  Min SNR (dB): {(school.min_snr_db ?? 10).toFixed(0)}
                                 </label>
                                 <input
                                   type="range"
                                   min={-10}
                                   max={30}
                                   step={1}
-                                  value={hospital.min_snr_db ?? 10}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={school.min_snr_db ?? 10}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     min_snr_db: parseFloat(e.target.value)
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -789,11 +789,11 @@ export function SchoolDefaultTemplateScreen() {
                                   type="number"
                                   min={0}
                                   max={500}
-                                  value={hospital.min_transcript_length ?? 20}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={school.min_transcript_length ?? 20}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     min_transcript_length: parseInt(e.target.value) || 0
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -804,17 +804,17 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Max Silence Ratio */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Max Silence Ratio: {((hospital.max_silence_ratio ?? 0.9) * 100).toFixed(0)}%
+                                  Max Silence Ratio: {((school.max_silence_ratio ?? 0.9) * 100).toFixed(0)}%
                                 </label>
                                 <input
                                   type="range"
                                   min={50}
                                   max={100}
-                                  value={(hospital.max_silence_ratio ?? 0.9) * 100}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={(school.max_silence_ratio ?? 0.9) * 100}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     max_silence_ratio: parseInt(e.target.value) / 100
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -825,18 +825,18 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Min Volume (RMS dB) */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Min Volume (dB): {(hospital.min_rms_db ?? -57).toFixed(0)}
+                                  Min Volume (dB): {(school.min_rms_db ?? -57).toFixed(0)}
                                 </label>
                                 <input
                                   type="range"
                                   min={-60}
                                   max={0}
                                   step={1}
-                                  value={hospital.min_rms_db ?? -57}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={school.min_rms_db ?? -57}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     min_rms_db: parseFloat(e.target.value)
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -847,17 +847,17 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Min Speech Ratio */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Min Speech Ratio: {((hospital.min_speech_ratio ?? 0.10) * 100).toFixed(0)}%
+                                  Min Speech Ratio: {((school.min_speech_ratio ?? 0.10) * 100).toFixed(0)}%
                                 </label>
                                 <input
                                   type="range"
                                   min={0}
                                   max={50}
-                                  value={(hospital.min_speech_ratio ?? 0.10) * 100}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={(school.min_speech_ratio ?? 0.10) * 100}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     min_speech_ratio: parseInt(e.target.value) / 100
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -875,18 +875,18 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Silence Threshold (dBFS) */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Silence Threshold (dBFS): {(hospital.silence_thresh_dbfs ?? -57).toFixed(0)}
+                                  Silence Threshold (dBFS): {(school.silence_thresh_dbfs ?? -57).toFixed(0)}
                                 </label>
                                 <input
                                   type="range"
                                   min={-80}
                                   max={-20}
                                   step={1}
-                                  value={hospital.silence_thresh_dbfs ?? -57}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={school.silence_thresh_dbfs ?? -57}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     silence_thresh_dbfs: parseFloat(e.target.value)
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -897,18 +897,18 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Min Silence Length (ms) */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Min Silence Length: {((hospital.min_silence_len_ms ?? 5000) / 1000).toFixed(1)}s
+                                  Min Silence Length: {((school.min_silence_len_ms ?? 5000) / 1000).toFixed(1)}s
                                 </label>
                                 <input
                                   type="range"
                                   min={500}
                                   max={30000}
                                   step={500}
-                                  value={hospital.min_silence_len_ms ?? 5000}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={school.min_silence_len_ms ?? 5000}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     min_silence_len_ms: parseInt(e.target.value)
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -919,18 +919,18 @@ export function SchoolDefaultTemplateScreen() {
                               {/* Silence Padding (ms) */}
                               <div>
                                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                                  Speech Padding: {(hospital.silence_padding_ms ?? 200)}ms
+                                  Speech Padding: {(school.silence_padding_ms ?? 200)}ms
                                 </label>
                                 <input
                                   type="range"
                                   min={0}
                                   max={2000}
                                   step={50}
-                                  value={hospital.silence_padding_ms ?? 200}
-                                  onChange={(e) => handleUpdateQualitySettings(hospital.id, {
+                                  value={school.silence_padding_ms ?? 200}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
                                     silence_padding_ms: parseInt(e.target.value)
                                   })}
-                                  disabled={updatingSchoolId === hospital.id}
+                                  disabled={updatingSchoolId === school.id}
                                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
@@ -947,7 +947,7 @@ export function SchoolDefaultTemplateScreen() {
                               {!addingEhrSchoolId && (
                                 <button
                                   onClick={() => {
-                                    setAddingEhrSchoolId(hospital.id);
+                                    setAddingEhrSchoolId(school.id);
                                     setEhrFormData({ ehr_type_id: '', api_url: '', api_key: '', is_enabled: true, is_default: false });
                                   }}
                                   className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
@@ -958,14 +958,14 @@ export function SchoolDefaultTemplateScreen() {
                             </div>
 
                             {/* Loading state */}
-                            {loadingEhrSchoolId === hospital.id && (
+                            {loadingEhrSchoolId === school.id && (
                               <div className="flex items-center justify-center py-4">
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                               </div>
                             )}
 
                             {/* Add new integration form */}
-                            {addingEhrSchoolId === hospital.id && (
+                            {addingEhrSchoolId === school.id && (
                               <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-600">
                                 <h5 className="text-xs font-medium text-slate-300 mb-3">Add New Integration</h5>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -989,9 +989,9 @@ export function SchoolDefaultTemplateScreen() {
                                         <option
                                           key={type.id}
                                           value={type.id}
-                                          disabled={getConfiguredEhrTypeIds(hospital.id).includes(type.id)}
+                                          disabled={getConfiguredEhrTypeIds(school.id).includes(type.id)}
                                         >
-                                          {type.ehr_name} {getConfiguredEhrTypeIds(hospital.id).includes(type.id) ? '(configured)' : ''}
+                                          {type.ehr_name} {getConfiguredEhrTypeIds(school.id).includes(type.id) ? '(configured)' : ''}
                                         </option>
                                       ))}
                                     </select>
@@ -1030,8 +1030,8 @@ export function SchoolDefaultTemplateScreen() {
                                   </div>
                                   <div className="flex items-end gap-2">
                                     <button
-                                      onClick={() => handleCreateEhrIntegration(hospital.id)}
-                                      disabled={updatingSchoolId === hospital.id || !ehrFormData.ehr_type_id}
+                                      onClick={() => handleCreateEhrIntegration(school.id)}
+                                      disabled={updatingSchoolId === school.id || !ehrFormData.ehr_type_id}
                                       className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
                                     >
                                       Save
@@ -1051,13 +1051,13 @@ export function SchoolDefaultTemplateScreen() {
                             )}
 
                             {/* Existing integrations list */}
-                            {loadingEhrSchoolId !== hospital.id && (
+                            {loadingEhrSchoolId !== school.id && (
                               <>
-                                {(ehrIntegrations[hospital.id] || []).length === 0 ? (
+                                {(ehrIntegrations[school.id] || []).length === 0 ? (
                                   <p className="text-sm text-slate-500 italic">No EHR integrations configured</p>
                                 ) : (
                                   <div className="space-y-2">
-                                    {(ehrIntegrations[hospital.id] || []).map((integration) => (
+                                    {(ehrIntegrations[school.id] || []).map((integration) => (
                                       <div
                                         key={integration.id}
                                         className={`p-3 rounded-lg border ${
@@ -1114,8 +1114,8 @@ export function SchoolDefaultTemplateScreen() {
                                             </div>
                                             <div className="flex items-end gap-2">
                                               <button
-                                                onClick={() => handleUpdateEhrIntegration(hospital.id, integration.id)}
-                                                disabled={updatingSchoolId === hospital.id}
+                                                onClick={() => handleUpdateEhrIntegration(school.id, integration.id)}
+                                                disabled={updatingSchoolId === school.id}
                                                 className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
                                               >
                                                 Save
@@ -1156,8 +1156,8 @@ export function SchoolDefaultTemplateScreen() {
                                               {/* Set as Default button */}
                                               {!integration.is_default && integration.is_enabled && (
                                                 <button
-                                                  onClick={() => handleSetDefaultEhr(hospital.id, integration.id)}
-                                                  disabled={updatingSchoolId === hospital.id}
+                                                  onClick={() => handleSetDefaultEhr(school.id, integration.id)}
+                                                  disabled={updatingSchoolId === school.id}
                                                   className="px-2 py-1 text-xs text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors disabled:opacity-50"
                                                   title="Set as default for new counsellors"
                                                 >
@@ -1166,8 +1166,8 @@ export function SchoolDefaultTemplateScreen() {
                                               )}
                                               {/* Enable/Disable toggle */}
                                               <button
-                                                onClick={() => handleToggleEhrEnabled(hospital.id, integration)}
-                                                disabled={updatingSchoolId === hospital.id}
+                                                onClick={() => handleToggleEhrEnabled(school.id, integration)}
+                                                disabled={updatingSchoolId === school.id}
                                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
                                                   integration.is_enabled ? 'bg-green-600' : 'bg-slate-600'
                                                 }`}
@@ -1191,8 +1191,8 @@ export function SchoolDefaultTemplateScreen() {
                                               </button>
                                               {/* Delete button */}
                                               <button
-                                                onClick={() => handleDeleteEhrIntegration(hospital.id, integration.id, integration.ehr_code || '')}
-                                                disabled={updatingSchoolId === hospital.id}
+                                                onClick={() => handleDeleteEhrIntegration(school.id, integration.id, integration.ehr_code || '')}
+                                                disabled={updatingSchoolId === school.id}
                                                 className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                                                 title="Delete"
                                               >
@@ -1220,46 +1220,46 @@ export function SchoolDefaultTemplateScreen() {
                             </p>
 
                             {/* Loading state */}
-                            {loadingCounsellorsSchoolId === hospital.id && (
+                            {loadingCounsellorsSchoolId === school.id && (
                               <div className="flex items-center justify-center py-4">
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                               </div>
                             )}
 
                             {/* Counsellors list */}
-                            {loadingCounsellorsSchoolId !== hospital.id && (
+                            {loadingCounsellorsSchoolId !== school.id && (
                               <>
-                                {(hospitalCounsellors[hospital.id] || []).length === 0 ? (
+                                {(schoolCounsellors[school.id] || []).length === 0 ? (
                                   <p className="text-sm text-slate-500 italic">No counsellors found for this school</p>
                                 ) : (
                                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {(hospitalCounsellors[hospital.id] || []).map((doctor) => (
+                                    {(schoolCounsellors[school.id] || []).map((counsellor) => (
                                       <div
-                                        key={doctor.id}
+                                        key={counsellor.id}
                                         className="flex items-center justify-between p-2 bg-slate-800/30 rounded-lg"
                                       >
-                                        <span className="text-sm text-slate-200">{doctor.counsellor_name}</span>
+                                        <span className="text-sm text-slate-200">{counsellor.counsellor_name}</span>
                                         <div className="flex items-center gap-2">
                                           <select
-                                            value={doctor.ehr_type_id || ''}
+                                            value={counsellor.ehr_type_id || ''}
                                             onChange={(e) => handleUpdateCounsellorEhrType(
-                                              hospital.id,
-                                              doctor.id,
+                                              school.id,
+                                              counsellor.id,
                                               e.target.value || null
                                             )}
-                                            disabled={updatingCounsellorId === doctor.id}
+                                            disabled={updatingCounsellorId === counsellor.id}
                                             className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-w-[120px]"
                                           >
                                             <option value="">No EHR</option>
                                             {ehrTypes
-                                              .filter(et => getSchoolEhrTypeIds(hospital.id).includes(et.id))
+                                              .filter(et => getSchoolEhrTypeIds(school.id).includes(et.id))
                                               .map(ehrType => (
                                                 <option key={ehrType.id} value={ehrType.id}>
                                                   {ehrType.ehr_name}
                                                 </option>
                                               ))}
                                           </select>
-                                          {updatingCounsellorId === doctor.id && (
+                                          {updatingCounsellorId === counsellor.id && (
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                                           )}
                                         </div>
@@ -1302,8 +1302,8 @@ export function SchoolDefaultTemplateScreen() {
       {/* Quality Metrics Modal */}
       {metricsSchool && (
         <QualityMetricsModal
-          hospitalId={metricsSchool.id}
-          hospitalName={metricsSchool.school_name}
+          schoolId={metricsSchool.id}
+          schoolName={metricsSchool.school_name}
           onClose={() => setMetricsSchoolId(null)}
         />
       )}

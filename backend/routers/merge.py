@@ -37,8 +37,8 @@ if AUTH_ENABLED:
     from services.auth_service import validate_ehr_counsellor_access
     from models.auth_models import ClientContext
 
-    _doctor_checker = EHRCounsellorAccessChecker()
-    _patient_checker = EHRStudentAccessChecker()
+    _counsellor_checker = EHRCounsellorAccessChecker()
+    _student_checker = EHRStudentAccessChecker()
     _extraction_checker = EHRExtractionAccessChecker()
     _submission_checker = EHRSubmissionAccessChecker()
 
@@ -46,13 +46,13 @@ if AUTH_ENABLED:
         """Verify EHR client has access to counsellor data."""
         counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, counsellor_uuid, client)
+        return await _counsellor_checker(request, counsellor_uuid, client)
 
     async def verify_student_access(request: Request, student_id: str = None):  # type: ignore[misc]
         """Verify EHR client has access to student data."""
         # EHRStudentAccessChecker expects str, not UUID
         client = get_current_client(request)
-        return await _patient_checker(request, student_id, client)
+        return await _student_checker(request, student_id, client)
 
     async def verify_extraction_access(request: Request, extraction_id: str = None):  # type: ignore[misc]
         """Verify EHR client has access to extraction data."""
@@ -517,12 +517,12 @@ async def _run_background_merge(
             from datetime import datetime
 
             # Lookup student preferred_language for webhook
-            _merge_patient_id = result.get('student_id') or student_id
+            _merge_student_id = result.get('student_id') or student_id
             _merge_preferred_language = None
-            if _merge_patient_id:
+            if _merge_student_id:
                 try:
                     from services.supabase_service import supabase as sb
-                    _plang_res = sb.table("students").select("preferred_language").eq("id", _merge_patient_id).limit(1).execute()
+                    _plang_res = sb.table("students").select("preferred_language").eq("id", _merge_student_id).limit(1).execute()
                     if _plang_res.data:
                         _merge_preferred_language = _plang_res.data[0].get("preferred_language")
                 except Exception:
@@ -535,7 +535,7 @@ async def _run_background_merge(
                 "extraction_id": extraction_id,
                 "session_id": None,  # Merges don't have a single session
                 "counsellor_id": counsellor_id,
-                "student_id": _merge_patient_id,
+                "student_id": _merge_student_id,
                 "template_code": target_template_code,  # Target template for merge
                 "mode": "merge",  # Special mode for merged extractions
                 "segment_count": len(result.get('merged_data', {})),
@@ -548,8 +548,8 @@ async def _run_background_merge(
             from services.realtime_publisher_service import is_realtime_enabled_for_school
             from services.supabase_service import get_counsellor_school_id_cached
             import uuid as uuid_mod
-            _hospital_id = get_counsellor_school_id_cached(uuid_mod.UUID(counsellor_id)) if counsellor_id else None
-            if _hospital_id and is_realtime_enabled_for_school(_hospital_id):
+            _school_id = get_counsellor_school_id_cached(uuid_mod.UUID(counsellor_id)) if counsellor_id else None
+            if _school_id and is_realtime_enabled_for_school(_school_id):
                 logger.debug(f"[MergeAPI] Skipping webhook - realtime subscription enabled for school")
             else:
                 await send_insights_webhook(
@@ -571,10 +571,10 @@ async def _run_background_merge(
             if school_id_for_realtime:
                 # Look up UHID from students table
                 _merge_uhid = ""
-                _merge_patient_id = result.get('student_id') or student_id
-                if _merge_patient_id:
+                _merge_student_id = result.get('student_id') or student_id
+                if _merge_student_id:
                     try:
-                        _p_result = supabase.table("students").select("student_id").eq("id", _merge_patient_id).limit(1).execute()
+                        _p_result = supabase.table("students").select("student_id").eq("id", _merge_student_id).limit(1).execute()
                         if _p_result.data:
                             _merge_uhid = _p_result.data[0].get("student_id", "")
                     except Exception:
@@ -605,18 +605,18 @@ async def _run_background_merge(
             from services.ehr_routing_service import schedule_ehr_sync
 
             # Build patient_info from students table + most recent source extraction metadata
-            _ehr_patient_info = {}
-            _ehr_patient_uuid = result.get('student_id') or student_id
-            if _ehr_patient_uuid:
+            _ehr_student_info = {}
+            _ehr_student_uuid = result.get('student_id') or student_id
+            if _ehr_student_uuid:
                 try:
-                    _p_result = supabase.table("students").select("student_id, add_info").eq("id", _ehr_patient_uuid).limit(1).execute()
+                    _p_result = supabase.table("students").select("student_id, add_info").eq("id", _ehr_student_uuid).limit(1).execute()
                     if _p_result.data:
-                        _ehr_patient_info["student_id"] = _p_result.data[0].get("student_id", "")  # UHID
+                        _ehr_student_info["student_id"] = _p_result.data[0].get("student_id", "")  # UHID
                         _add_info = _p_result.data[0].get("add_info") or {}
-                        _ehr_patient_info["neopead_add_info"] = _add_info
-                        _ehr_patient_info["visit_number"] = _add_info.get("visit_number", "")
-                        _ehr_patient_info["consultant_id"] = _add_info.get("consultant_id", 0)
-                        _ehr_patient_info["modified_user_id"] = _add_info.get("modified_user_id", 0)
+                        _ehr_student_info["neopead_add_info"] = _add_info
+                        _ehr_student_info["visit_number"] = _add_info.get("visit_number", "")
+                        _ehr_student_info["consultant_id"] = _add_info.get("consultant_id", 0)
+                        _ehr_student_info["modified_user_id"] = _add_info.get("modified_user_id", 0)
                 except Exception:
                     pass
 
@@ -648,53 +648,53 @@ async def _run_background_merge(
 
             if _rec_meta:
                 # Aosta fields
-                _ehr_patient_info["ip_id"] = _rec_meta.get("ip_id")
-                _ehr_patient_info["op_id"] = _rec_meta.get("op_id")
+                _ehr_student_info["ip_id"] = _rec_meta.get("ip_id")
+                _ehr_student_info["op_id"] = _rec_meta.get("op_id")
                 # KG fields (visit_id + role are required by the KG formatter)
-                _ehr_patient_info["visit_id"] = _rec_meta.get("visit_id", "")
-                _ehr_patient_info["role"] = _rec_meta.get("role", "")
-                _ehr_patient_info["school_code"] = _rec_meta.get("school_code", "")
+                _ehr_student_info["visit_id"] = _rec_meta.get("visit_id", "")
+                _ehr_student_info["role"] = _rec_meta.get("role", "")
+                _ehr_student_info["school_code"] = _rec_meta.get("school_code", "")
                 # Raster fields — recording_metadata wins over students.add_info defaults
                 if "visit_number" in _rec_meta:
-                    _ehr_patient_info["visit_number"] = _rec_meta.get("visit_number", "")
+                    _ehr_student_info["visit_number"] = _rec_meta.get("visit_number", "")
                 if "consultant_id" in _rec_meta:
-                    _ehr_patient_info["consultant_id"] = _rec_meta.get("consultant_id", 0)
+                    _ehr_student_info["consultant_id"] = _rec_meta.get("consultant_id", 0)
                 _rm_cuid = _rec_meta.get("created_user_id") or _rec_meta.get("modified_user_id")
                 if _rm_cuid is not None:
-                    _ehr_patient_info["created_user_id"] = _rm_cuid
-                    _ehr_patient_info["modified_user_id"] = _rm_cuid
+                    _ehr_student_info["created_user_id"] = _rm_cuid
+                    _ehr_student_info["modified_user_id"] = _rm_cuid
                 if "sex" in _rec_meta:
-                    _ehr_patient_info["sex"] = _rec_meta.get("sex")
+                    _ehr_student_info["sex"] = _rec_meta.get("sex")
                 from services.raster_api_service import extract_raster_template_id
-                _ehr_patient_info["template_id_raster"] = extract_raster_template_id(_rec_meta)
+                _ehr_student_info["template_id_raster"] = extract_raster_template_id(_rec_meta)
                 # GEM_CASE_SHEET / GCC_REVIEW fields (sent to Aosta URL with Template_id/Template_Name)
-                _ehr_patient_info["template_id_aosta"] = _rec_meta.get("template_id") or _rec_meta.get("Template_id") or ""
-                _ehr_patient_info["template_name_aosta"] = _rec_meta.get("template_name") or _rec_meta.get("Template_Name") or ""
+                _ehr_student_info["template_id_aosta"] = _rec_meta.get("template_id") or _rec_meta.get("Template_id") or ""
+                _ehr_student_info["template_name_aosta"] = _rec_meta.get("template_name") or _rec_meta.get("Template_Name") or ""
 
             # KG requires patient_uuid (the extractions.student_id UUID, not the UHID string)
-            if _ehr_patient_uuid:
-                _ehr_patient_info["patient_uuid"] = _ehr_patient_uuid
+            if _ehr_student_uuid:
+                _ehr_student_info["patient_uuid"] = _ehr_student_uuid
 
             # school_code: prefer the counsellor's school (mirrors extraction_service.py:2018-2024).
             # KG source extractions don't store school_code in recording_metadata_json, so the
             # _rec_meta fallback above resolves to "" — fetch from the counsellors → schools join instead.
-            if counsellor_id and not _ehr_patient_info.get("school_code"):
+            if counsellor_id and not _ehr_student_info.get("school_code"):
                 try:
                     _doc = supabase.table("counsellors")\
                         .select("schools(school_code)")\
                         .eq("id", str(counsellor_id)).limit(1).execute()
                     if _doc.data:
                         _h = _doc.data[0].get("schools") or {}
-                        _ehr_patient_info["school_code"] = _h.get("school_code", "")
+                        _ehr_student_info["school_code"] = _h.get("school_code", "")
                 except Exception as _e:
                     logger.warning(f"[MergeAPI] Failed to fetch school_code from counsellor join: {_e}")
 
-            _ehr_patient_info["counsellor_id"] = counsellor_id
+            _ehr_student_info["counsellor_id"] = counsellor_id
 
             _ehr_scheduled = schedule_ehr_sync(
                 counsellor_id=counsellor_id,
                 extraction_data=result['merged_data'],
-                patient_info=_ehr_patient_info,
+                patient_info=_ehr_student_info,
                 template_code=target_template_code,
                 is_edit=False,
                 extraction_id=extraction_id,

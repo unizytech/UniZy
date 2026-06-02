@@ -165,19 +165,19 @@ export async function getSegments(
 /**
  * Get available templates for a consultation type
  * @param consultationTypeCode - Consultation type code
- * @param doctorId - Optional counsellor ID for visibility filtering (school, specialization, platform-wide)
+ * @param counsellorId - Optional counsellor ID for visibility filtering (school, specialization, platform-wide)
  * @param filterType - Optional filter ('admin', 'doctor', 'all')
  * @param auth - Bearer token or API key for authentication
  */
 export async function getTemplates(
   consultationTypeCode: ConsultationTypeCode,
-  doctorId?: string,
+  counsellorId?: string,
   filterType?: 'admin' | 'doctor' | 'all',
   auth?: string | AuthOptions | null
 ): Promise<TemplateListResponse> {
   const params = new URLSearchParams();
-  if (doctorId) {
-    params.append('counsellor_id', doctorId);
+  if (counsellorId) {
+    params.append('counsellor_id', counsellorId);
   }
   if (filterType) {
     params.append('filter_type', filterType);
@@ -196,20 +196,20 @@ export async function getTemplates(
 /**
  * Get all templates across all consultation types
  * @param filterType - Optional filter ('admin', 'doctor', 'all')
- * @param doctorId - Optional counsellor ID for visibility filtering
+ * @param counsellorId - Optional counsellor ID for visibility filtering
  * @param auth - Bearer token or API key for authentication
  */
 export async function getAllTemplates(
   filterType?: 'admin' | 'doctor' | 'all',
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<TemplateListResponse> {
   const params = new URLSearchParams();
   if (filterType) {
     params.append('filter_type', filterType);
   }
-  if (doctorId) {
-    params.append('counsellor_id', doctorId);
+  if (counsellorId) {
+    params.append('counsellor_id', counsellorId);
   }
 
   const endpoint = `/api/v1/summary/templates${params.toString() ? `?${params.toString()}` : ''}`;
@@ -285,11 +285,11 @@ export interface TemplateSegmentConfig {
  */
 export async function createTemplate(
   data: CreateTemplateData,
-  doctorId?: string,
+  counsellorId?: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; template: any; segments_configured?: number }> {
   const params = new URLSearchParams();
-  if (doctorId) params.append('counsellor_id', doctorId);
+  if (counsellorId) params.append('counsellor_id', counsellorId);
 
   const endpoint = `/api/v1/summary/admin/templates${params.toString() ? '?' + params.toString() : ''}`;
   const response = await authPost(endpoint, auth ?? null, data);
@@ -681,10 +681,10 @@ export async function bulkUpdateTemplateFieldConfig(
  */
 export async function getCounsellorTemplateSegments(
   templateCode: string,
-  doctorId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; template_code: string; template_name: string; segments: any[]; count: number }> {
-  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments?counsellor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments?counsellor_id=${encodeURIComponent(counsellorId)}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -702,10 +702,10 @@ export async function updateCounsellorTemplateSegment(
   templateCode: string,
   segmentCode: string,
   config: TemplateSegmentConfig,
-  doctorId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; configuration: any }> {
-  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments/${encodeURIComponent(segmentCode)}?counsellor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments/${encodeURIComponent(segmentCode)}?counsellor_id=${encodeURIComponent(counsellorId)}`;
   const response = await authPut(endpoint, auth ?? null, config);
 
   if (!response.ok) {
@@ -722,10 +722,10 @@ export async function updateCounsellorTemplateSegment(
 export async function bulkUpdateCounsellorTemplateSegments(
   templateCode: string,
   segments: Array<{ segment_code: string } & TemplateSegmentConfig>,
-  doctorId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; configurations: any[] }> {
-  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments/bulk?counsellor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/segments/bulk?counsellor_id=${encodeURIComponent(counsellorId)}`;
   const response = await authPost(endpoint, auth ?? null, { segments });
 
   if (!response.ok) {
@@ -741,10 +741,10 @@ export async function bulkUpdateCounsellorTemplateSegments(
  */
 export async function inheritCounsellorTemplateConfiguration(
   templateCode: string,
-  doctorId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; message: string; segments_configured: number; segments: any[] }> {
-  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/inherit?counsellor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/counsellor/templates/${encodeURIComponent(templateCode)}/inherit?counsellor_id=${encodeURIComponent(counsellorId)}`;
   const response = await authPost(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1368,11 +1368,11 @@ export async function syncSegmentFromParent(
  * Get all templates for a counsellor
  */
 export async function getActivatedTemplates(
-  doctorId: string,
+  counsellorId: string,
   accessToken?: string | null
 ): Promise<{ success: boolean; templates: ActivatedTemplate[]; count: number }> {
   const response = await authGet(
-    `/api/v1/summary/templates?counsellor_id=${doctorId}&filter_type=doctor`,
+    `/api/v1/summary/templates?counsellor_id=${counsellorId}&filter_type=doctor`,
     accessToken ?? null
   );
 
@@ -1400,15 +1400,15 @@ export async function getActivatedTemplates(
  * Uses the existing /templates endpoint and transforms the response
  * to a simplified format for dropdown display.
  *
- * @param doctorId - Counsellor UUID
+ * @param counsellorId - Counsellor UUID
  * @param auth - Bearer token or API key for authentication
  */
 export async function getCounsellorTemplates(
-  doctorId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<CounsellorTemplatesResponse> {
   // Use existing endpoint with filter_type=doctor
-  const endpoint = `/api/v1/summary/templates?filter_type=doctor&counsellor_id=${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/summary/templates?filter_type=doctor&counsellor_id=${encodeURIComponent(counsellorId)}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1436,14 +1436,14 @@ export async function getCounsellorTemplates(
  * Get all templates accessible to a counsellor (owned, shared, common)
  */
 export async function getCounsellorAccessibleTemplates(
-  doctorId: string,
+  counsellorId: string,
   consultationTypeId?: string,
   includeCommon: boolean = true,
   activeOnly: boolean = false,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; templates: any[]; count: number }> {
   const params = new URLSearchParams({
-    counsellor_id: doctorId,
+    counsellor_id: counsellorId,
     include_common: includeCommon.toString(),
     active_only: activeOnly.toString(),
   });
@@ -1503,7 +1503,7 @@ export async function getTemplateShares(
 export async function shareTemplate(
   sharingCounsellorId: string,
   templateId: string,
-  doctorIds: string[],
+  counsellorIds: string[],
   newOwnerId?: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; shared_count: number; failed_count: number; failures: any[]; ownership_assigned?: any }> {
@@ -1511,7 +1511,7 @@ export async function shareTemplate(
   const response = await authPost(endpoint, auth ?? null, {
     sharing_counsellor_id: sharingCounsellorId,
     template_id: templateId,
-    counsellor_ids: doctorIds,
+    counsellor_ids: counsellorIds,
     new_owner_id: newOwnerId || null,
   });
 
@@ -1529,7 +1529,7 @@ export async function shareTemplate(
 export async function shareTemplateWithSchool(
   sharingCounsellorId: string,
   templateId: string,
-  hospitalId: string,
+  schoolId: string,
   newOwnerId?: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean; shared_count: number; ownership_assigned?: any }> {
@@ -1537,7 +1537,7 @@ export async function shareTemplateWithSchool(
   const response = await authPost(endpoint, auth ?? null, {
     sharing_counsellor_id: sharingCounsellorId,
     template_id: templateId,
-    school_id: hospitalId,
+    school_id: schoolId,
     new_owner_id: newOwnerId || null,
   });
 
@@ -1579,7 +1579,7 @@ export async function shareTemplateWithSpecialization(
  * Activate a template for a counsellor
  */
 export async function activateCounsellorTemplate(
-  doctorId: string,
+  counsellorId: string,
   templateId: string,
   consultationTypeId: string,
   auth?: string | AuthOptions | null
@@ -1592,7 +1592,7 @@ export async function activateCounsellorTemplate(
 }> {
   const endpoint = `/api/v1/counsellor-templates/activate`;
   const response = await authPost(endpoint, auth ?? null, {
-    counsellor_id: doctorId,
+    counsellor_id: counsellorId,
     template_id: templateId,
     consultation_type_id: consultationTypeId,
   });
@@ -1609,7 +1609,7 @@ export async function activateCounsellorTemplate(
  * Deactivate a template for a counsellor
  */
 export async function deactivateCounsellorTemplate(
-  doctorId: string,
+  counsellorId: string,
   templateId: string,
   auth?: string | AuthOptions | null
 ): Promise<{
@@ -1618,7 +1618,7 @@ export async function deactivateCounsellorTemplate(
   message: string;
 }> {
   const params = new URLSearchParams({
-    counsellor_id: doctorId,
+    counsellor_id: counsellorId,
     template_id: templateId,
   });
 
@@ -1638,13 +1638,13 @@ export async function deactivateCounsellorTemplate(
  */
 export async function revokeTemplateAccess(
   sharingCounsellorId: string,
-  doctorId: string,
+  counsellorId: string,
   templateId: string,
   auth?: string | AuthOptions | null
 ): Promise<{ success: boolean }> {
   const params = new URLSearchParams({
     sharing_counsellor_id: sharingCounsellorId,
-    counsellor_id: doctorId,
+    counsellor_id: counsellorId,
     template_id: templateId,
   });
 
@@ -1663,7 +1663,7 @@ export async function revokeTemplateAccess(
  * Activate from consultation type - Create counsellor-owned template from consultation type
  */
 export async function activateFromConsultationType(
-  doctorId: string,
+  counsellorId: string,
   consultationTypeId: string,
   templateName?: string,
   auth?: string | AuthOptions | null
@@ -1674,7 +1674,7 @@ export async function activateFromConsultationType(
 }> {
   const endpoint = `/api/v1/counsellor-templates/activate-from-consultation-type`;
   const response = await authPost(endpoint, auth ?? null, {
-    counsellor_id: doctorId,
+    counsellor_id: counsellorId,
     consultation_type_id: consultationTypeId,
     template_name: templateName,
   });
@@ -1691,7 +1691,7 @@ export async function activateFromConsultationType(
  * Clone template - Create counsellor-owned copy of an existing template
  */
 export async function cloneTemplate(
-  doctorId: string,
+  counsellorId: string,
   sourceTemplateId: string,
   templateName?: string,
   auth?: string | AuthOptions | null
@@ -1702,7 +1702,7 @@ export async function cloneTemplate(
 }> {
   const endpoint = `/api/v1/counsellor-templates/clone`;
   const response = await authPost(endpoint, auth ?? null, {
-    counsellor_id: doctorId,
+    counsellor_id: counsellorId,
     source_template_id: sourceTemplateId,
     template_name: templateName,
   });
@@ -1719,7 +1719,7 @@ export async function cloneTemplate(
  * Get counsellor dashboard - Returns visible consultation types and accessible templates
  */
 export async function getCounsellorDashboard(
-  doctorId: string,
+  counsellorId: string,
   auth?: string | AuthOptions | null
 ): Promise<{
   success: boolean;
@@ -1737,7 +1737,7 @@ export async function getCounsellorDashboard(
   consultation_types_count: number;
   templates_count: number;
 }> {
-  const endpoint = `/api/v1/counsellor-templates/dashboard/${encodeURIComponent(doctorId)}`;
+  const endpoint = `/api/v1/counsellor-templates/dashboard/${encodeURIComponent(counsellorId)}`;
   const response = await authGet(endpoint, auth ?? null);
 
   if (!response.ok) {
@@ -1998,7 +1998,7 @@ export interface UpdateExtractionResponse {
 }
 
 /**
- * Save doctor's edits to an extraction
+ * Save counsellor's edits to an extraction
  *
  * This stores the edits in `edited_extraction_json` field while preserving
  * the original AI-generated extraction. Also schedules background task to
@@ -2027,7 +2027,7 @@ export async function saveExtractionEdits(
 }
 
 /**
- * Save doctor's edits to an extraction using submission_id
+ * Save counsellor's edits to an extraction using submission_id
  *
  * This is a wrapper for cases where only submission_id is available
  * (from the recording workflow) and not the extraction_id.

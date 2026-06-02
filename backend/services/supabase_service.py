@@ -2808,7 +2808,7 @@ def clone_template(
     source = source_template.data[0]
 
     # Get counsellor details for naming
-    doctor = (
+    counsellor = (
         supabase.table("counsellors")
         .select("full_name")
         .eq("id", str(counsellor_id))
@@ -2816,7 +2816,7 @@ def clone_template(
         .execute()
     )
 
-    counsellor_name = doctor.data[0]["full_name"] if doctor.data else str(counsellor_id)[:8]
+    counsellor_name = counsellor.data[0]["full_name"] if counsellor.data else str(counsellor_id)[:8]
 
     # Generate new template name and code
     final_template_name = new_template_name or f"{source['template_name']} - {counsellor_name} Copy"
@@ -10424,7 +10424,7 @@ def list_recordings_for_counsellor(
             session_id = session["id"]
             job = jobs_by_session.get(session_id, {})
             extraction = extractions_by_session.get(session_id, {})
-            patient = session.get("students") or {}  # Handle None from left join
+            student = session.get("students") or {}  # Handle None from left join
             chunk_info = chunks_by_session.get(session_id, {"count": 0, "last_chunk_at": None})
             chunk_count = chunk_info["count"]
             last_chunk_at = chunk_info.get("last_chunk_at")
@@ -10441,7 +10441,7 @@ def list_recordings_for_counsellor(
                 "correlation_id": session.get("correlation_id"),
                 "student_id": session.get("student_id"),
                 "student_identifier": session.get("student_identifier"),
-                "patient_name": patient.get("full_name"),
+                "patient_name": student.get("full_name"),
                 "consultation_datetime": session.get("created_at"),
                 "completed_at": session.get("completed_at"),
                 "template_code": session.get("template_code"),
@@ -10514,13 +10514,13 @@ def list_recordings_for_counsellor(
                 for me in (merge_response.data or []):
                     meta = me.get("merge_metadata") or {}
                     tcode = meta.get("target_template_code")
-                    mpatient = me.get("students") or {}
+                    mstudent = me.get("students") or {}
                     recordings.append({
                         "session_id": me["id"],  # use extraction id as row key
                         "correlation_id": None,
                         "student_id": me.get("student_id"),
-                        "student_identifier": mpatient.get("student_id"),
-                        "patient_name": mpatient.get("full_name"),
+                        "student_identifier": mstudent.get("student_id"),
+                        "patient_name": mstudent.get("full_name"),
                         "consultation_datetime": me.get("created_at"),
                         "completed_at": me.get("created_at"),
                         "template_code": tcode,
@@ -10673,7 +10673,7 @@ def list_recordings_for_assistant(
             session_id = session["id"]
             job = jobs_by_session.get(session_id, {})
             extraction = extractions_by_session.get(session_id, {})
-            patient = session.get("students") or {}
+            student = session.get("students") or {}
             chunk_info = chunks_by_session.get(session_id, {"count": 0, "last_chunk_at": None})
             chunk_count = chunk_info["count"]
             last_chunk_at = chunk_info.get("last_chunk_at")
@@ -10687,7 +10687,7 @@ def list_recordings_for_assistant(
                 "correlation_id": session.get("correlation_id"),
                 "student_id": session.get("student_id"),
                 "student_identifier": session.get("student_identifier"),
-                "patient_name": patient.get("full_name"),
+                "patient_name": student.get("full_name"),
                 "consultation_datetime": session.get("created_at"),
                 "completed_at": session.get("completed_at"),
                 "template_code": session.get("template_code"),

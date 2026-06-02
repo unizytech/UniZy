@@ -59,12 +59,12 @@ export async function createSchool(
  * Update a school's name or code
  */
 export async function updateSchool(
-  hospitalId: string,
+  schoolId: string,
   request: { school_code?: string; school_name?: string },
   accessToken?: string | null
 ): Promise<School> {
   const response = await authPut(
-    `/api/v1/schools/${hospitalId}`,
+    `/api/v1/schools/${schoolId}`,
     accessToken ?? null,
     request
   );
@@ -82,11 +82,11 @@ export async function updateSchool(
  * Deactivate a school (soft delete)
  */
 export async function deactivateSchool(
-  hospitalId: string,
+  schoolId: string,
   accessToken?: string | null
 ): Promise<void> {
   const response = await authDelete(
-    `/api/v1/schools/${hospitalId}`,
+    `/api/v1/schools/${schoolId}`,
     accessToken ?? null
   );
 
@@ -100,11 +100,11 @@ export async function deactivateSchool(
  * Permanently delete a school (hard delete)
  */
 export async function deleteSchoolPermanently(
-  hospitalId: string,
+  schoolId: string,
   accessToken?: string | null
 ): Promise<void> {
   const response = await authDelete(
-    `/api/v1/schools/${hospitalId}/permanent`,
+    `/api/v1/schools/${schoolId}/permanent`,
     accessToken ?? null
   );
 
@@ -118,11 +118,11 @@ export async function deleteSchoolPermanently(
  * Get feature flags for a school
  */
 export async function getSchoolFeatures(
-  hospitalId: string,
+  schoolId: string,
   accessToken?: string | null
 ): Promise<Record<string, boolean>> {
   const response = await authGet(
-    `/api/v1/schools/${hospitalId}/features`,
+    `/api/v1/schools/${schoolId}/features`,
     accessToken ?? null
   );
 
@@ -138,12 +138,12 @@ export async function getSchoolFeatures(
  * Update feature flags for a school (partial merge)
  */
 export async function updateSchoolFeatures(
-  hospitalId: string,
+  schoolId: string,
   flags: Record<string, boolean>,
   accessToken?: string | null
 ): Promise<Record<string, boolean>> {
   const response = await authPut(
-    `/api/v1/schools/${hospitalId}/features`,
+    `/api/v1/schools/${schoolId}/features`,
     accessToken ?? null,
     { feature_flags: flags }
   );

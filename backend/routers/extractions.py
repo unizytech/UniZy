@@ -342,10 +342,10 @@ async def get_extraction_history(
             consultation_types[ct["id"]] = ct["type_name"]
 
         # Get counsellors for names
-        doctors = {}
+        counsellors = {}
         doc_result = supabase.table("counsellors").select("id, full_name").execute()
         for doc in (doc_result.data or []):
-            doctors[doc["id"]] = doc["full_name"]
+            counsellors[doc["id"]] = doc["full_name"]
 
         # Get templates for codes and recording durations
         templates = {}
@@ -489,7 +489,7 @@ async def get_extraction_history(
                 template_code=templates.get(session_id) if session_id else None,
                 recording_duration_seconds=recording_durations.get(session_id) if session_id else None,
                 counsellor_id=ext.get("counsellor_id"),
-                counsellor_name=doctors.get(ext.get("counsellor_id")) if ext.get("counsellor_id") else None,
+                counsellor_name=counsellors.get(ext.get("counsellor_id")) if ext.get("counsellor_id") else None,
                 student_id=ext.get("student_id"),
                 extraction_mode=ext["extraction_mode"],
                 segment_count=ext["segment_count"],
@@ -893,13 +893,13 @@ async def update_extraction(
 
         original_extraction = None
         counsellor_id = None
-        patient_uuid = None
+        student_uuid = None
         recording_metadata = None
         template_code = None
         if original_result.data:
             original_extraction = original_result.data[0].get("original_extraction_json")
             counsellor_id = original_result.data[0].get("counsellor_id")
-            patient_uuid = original_result.data[0].get("student_id")
+            student_uuid = original_result.data[0].get("student_id")
             recording_metadata = original_result.data[0].get("recording_metadata_json") or {}
             session_info = original_result.data[0].get("recording_sessions") or {}
             template_code = session_info.get("template_code")
@@ -934,19 +934,19 @@ async def update_extraction(
                 from services.supabase_service import get_counsellor_school_id_cached
                 from services.aosta_service import get_student_external_id, get_school_code
 
-                # Build patient_info dict with all fields needed by various EHRs
-                patient_info = {}
+                # Build student_info dict with all fields needed by various EHRs
+                student_info = {}
 
                 # Get student external ID (UHID)
-                if patient_uuid:
-                    patient_info["student_id"] = get_student_external_id(patient_uuid) or ""
+                if student_uuid:
+                    student_info["student_id"] = get_student_external_id(student_uuid) or ""
 
                 # Get school_id and school_code
                 school_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
                 if school_id:
-                    patient_info["school_code"] = get_school_code(str(school_id)) or ""
+                    student_info["school_code"] = get_school_code(str(school_id)) or ""
 
-                patient_info["counsellor_id"] = counsellor_id
+                student_info["counsellor_id"] = counsellor_id
 
                 # All EHR-specific fields from recording_metadata
                 # (each EHR routing function picks only the fields it needs)
@@ -954,15 +954,15 @@ async def update_extraction(
                     for key in ("ip_id", "op_id", "visit_id", "visit_number",
                                 "consultant_id", "modified_user_id", "created_user_id", "sex"):
                         if key in recording_metadata:
-                            patient_info[key] = recording_metadata[key]
+                            student_info[key] = recording_metadata[key]
                     # Raster templateId — iframe sends under "template_id" (not "template_id_raster")
                     from services.raster_api_service import extract_raster_template_id
                     _tid_raster = extract_raster_template_id(recording_metadata)
                     if _tid_raster is not None:
-                        patient_info["template_id_raster"] = _tid_raster
+                        student_info["template_id_raster"] = _tid_raster
                     # GEM_CASE_SHEET / GCC_REVIEW fields (sent to Aosta URL with Template_id/Template_Name)
-                    patient_info["template_id_aosta"] = recording_metadata.get("template_id") or recording_metadata.get("Template_id") or ""
-                    patient_info["template_name_aosta"] = recording_metadata.get("template_name") or recording_metadata.get("Template_Name") or ""
+                    student_info["template_id_aosta"] = recording_metadata.get("template_id") or recording_metadata.get("Template_id") or ""
+                    student_info["template_name_aosta"] = recording_metadata.get("template_name") or recording_metadata.get("Template_Name") or ""
 
                 # Re-match medicines and investigations against counsellor/school lists
                 # to ensure _external_id and other enrichment fields are current
@@ -1017,7 +1017,7 @@ async def update_extraction(
                 ehr_sync_scheduled = schedule_ehr_sync(
                     counsellor_id=counsellor_id,
                     extraction_data=enriched_data,
-                    patient_info=patient_info,
+                    patient_info=student_info,
                     template_code=template_code,
                     is_edit=True,
                     extraction_id=str(extraction_uuid),

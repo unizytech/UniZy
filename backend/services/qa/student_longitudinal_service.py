@@ -26,14 +26,14 @@ class StudentLongitudinalService:
 
         # Compare two visits
         comparison = await service.compare_visits(
-            student_id=patient_uuid,
+            student_id=student_uuid,
             extraction_id_1=visit1_uuid,
             extraction_id_2=visit2_uuid
         )
 
         # Get changes since a baseline visit
         changes = await service.get_changes_since_visit(
-            student_id=patient_uuid,
+            student_id=student_uuid,
             baseline_extraction_id=baseline_uuid,
             school_id=school_uuid
         )
@@ -563,7 +563,7 @@ Generate a clear narrative answering the user's question about this specific vis
             for med_entry in medication_history:
                 visit_date = med_entry.get("date", "Unknown")[:10] if med_entry.get("date") else "Unknown"
                 meds = med_entry.get("medications", [])
-                doctor = med_entry.get("counsellor_name", "Unknown counsellor")
+                counsellor = med_entry.get("counsellor_name", "Unknown counsellor")
                 consult_type = med_entry.get("consultation_type", "")
                 if meds:
                     med_str = ", ".join(meds[:5])
@@ -580,8 +580,8 @@ Generate a clear narrative answering the user's question about this specific vis
             for v in visits:
                 visit_date = v.get("created_at", "Unknown date")[:10]
                 consult_type = v.get("consultation_type_name", "")
-                doctor = v.get("counsellor_name", "")
-                visit_summaries.append(f"- {visit_date}: {consult_type} with {doctor}" if doctor else f"- {visit_date}: {consult_type}")
+                counsellor = v.get("counsellor_name", "")
+                visit_summaries.append(f"- {visit_date}: {consult_type} with {counsellor}" if counsellor else f"- {visit_date}: {consult_type}")
 
             visit_timeline = "\n".join(visit_summaries) if visit_summaries else "No visits found"
 

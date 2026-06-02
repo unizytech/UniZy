@@ -295,24 +295,24 @@ class QASynthesisService:
         ]
 
         # Group by student if available
-        patients = {}
+        students = {}
         for result in results[:10]:
             student_key = result.patient_name or result.student_external_id or "Unknown"
-            if student_key not in patients:
-                patients[student_key] = []
-            patients[student_key].append(result)
+            if student_key not in students:
+                students[student_key] = []
+            students[student_key].append(result)
 
-        narrative_parts.append(f"Results span {len(patients)} students:")
+        narrative_parts.append(f"Results span {len(students)} students:")
 
-        for patient, student_results in list(patients.items())[:5]:
+        for student, student_results in list(students.items())[:5]:
             result = student_results[0]
             narrative_parts.append(
-                f"- {patient}: {result.consultation_type_name or 'Consultation'} "
+                f"- {student}: {result.consultation_type_name or 'Consultation'} "
                 f"({result.created_at[:10] if result.created_at else 'Unknown date'})"
             )
 
-        if len(patients) > 5:
-            narrative_parts.append(f"... and {len(patients) - 5} more students")
+        if len(students) > 5:
+            narrative_parts.append(f"... and {len(students) - 5} more students")
 
         return "\n".join(narrative_parts)
 

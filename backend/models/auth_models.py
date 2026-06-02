@@ -70,7 +70,7 @@ class APIClientCreate(BaseModel):
     client_type: Literal["ehr", "mobile_app", "web_app"]
     auth_mode: Literal["api_key", "token"] = Field(
         default="api_key",
-        description="Authentication mode: 'api_key' (static) or 'token' (OAuth 2.0 client credentials). Only applies to EHR clients."
+        description="Authentication mode: 'api_key' (static API key for EHR / Service JWT for mobile/web) or 'token' (OAuth 2.0 client credentials with access + refresh tokens). Supported for all client types."
     )
     school_id: Optional[UUID] = Field(
         None,
@@ -94,7 +94,7 @@ class APIClientCreate(BaseModel):
         default=120,
         ge=1,
         le=1440,
-        description="Access token lifetime in minutes (1-1440). Only applies to token-mode EHR clients."
+        description="Access token lifetime in minutes (1-1440). Applies to token-mode clients."
     )
     contact_email: Optional[EmailStr] = Field(None, description="Contact email for the client")
     description: Optional[str] = Field(None, max_length=500, description="Description of the client")

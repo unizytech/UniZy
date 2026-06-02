@@ -68,12 +68,12 @@ const daysAgo = (n: number) => {
 export function PocMetricsScreen() {
   const { getAccessToken } = useAuth();
 
-  const [hospitals, setSchools] = useState<School[]>([]);
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
-  const [nurses, setAssistants] = useState<Assistant[]>([]);
-  const [hospitalId, setSchoolId] = useState<string>('');
-  const [doctorId, setCounsellorId] = useState<string | null>(null);
-  const [nurseId, setAssistantId] = useState<string>('');
+  const [schools, setSchools] = useState<School[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
+  const [assistants, setAssistants] = useState<Assistant[]>([]);
+  const [schoolId, setSchoolId] = useState<string>('');
+  const [counsellorId, setCounsellorId] = useState<string | null>(null);
+  const [assistantId, setAssistantId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>(today());
   const [endDate, setEndDate] = useState<string>(today());
 
@@ -87,15 +87,15 @@ export function PocMetricsScreen() {
   const [drillDown, setDrillDown] = useState<DrillDown | null>(null);
 
   const filters: PocMetricsFilters | null = useMemo(() => {
-    if (!hospitalId || !startDate || !endDate) return null;
+    if (!schoolId || !startDate || !endDate) return null;
     return {
-      hospitalId,
-      doctorId: doctorId || undefined,
-      nurseId: nurseId || undefined,
+      hospitalId: schoolId,
+      doctorId: counsellorId || undefined,
+      nurseId: assistantId || undefined,
       startDate,
       endDate,
     };
-  }, [hospitalId, doctorId, nurseId, startDate, endDate]);
+  }, [schoolId, counsellorId, assistantId, startDate, endDate]);
 
   // Load schools + assistants once
   useEffect(() => {
@@ -128,17 +128,17 @@ export function PocMetricsScreen() {
     })();
   }, [getAccessToken]);
 
-  const doctorsForSchool = useMemo(() => {
-    if (!Array.isArray(doctors)) return [];
-    if (!hospitalId) return doctors;
-    return doctors.filter(d => !d.school_id || d.school_id === hospitalId);
-  }, [doctors, hospitalId]);
+  const counsellorsForSchool = useMemo(() => {
+    if (!Array.isArray(counsellors)) return [];
+    if (!schoolId) return counsellors;
+    return counsellors.filter(d => !d.school_id || d.school_id === schoolId);
+  }, [counsellors, schoolId]);
 
-  const nursesForSchool = useMemo(() => {
-    if (!Array.isArray(nurses)) return [];
-    if (!hospitalId) return nurses;
-    return nurses.filter(n => !n.school_id || n.school_id === hospitalId);
-  }, [nurses, hospitalId]);
+  const assistantsForSchool = useMemo(() => {
+    if (!Array.isArray(assistants)) return [];
+    if (!schoolId) return assistants;
+    return assistants.filter(n => !n.school_id || n.school_id === schoolId);
+  }, [assistants, schoolId]);
 
   const fetchAll = useCallback(async () => {
     if (!filters) return;
@@ -209,7 +209,7 @@ export function PocMetricsScreen() {
           <div>
             <label className={labelCls}>School</label>
             <select
-              value={hospitalId}
+              value={schoolId}
               onChange={(e) => {
                 setSchoolId(e.target.value);
                 setCounsellorId(null);
@@ -218,7 +218,7 @@ export function PocMetricsScreen() {
               className={inputCls}
             >
               <option value="">Select school...</option>
-              {hospitals.map(h => (
+              {schools.map(h => (
                 <option key={h.id} value={h.id}>{h.school_name}</option>
               ))}
             </select>
@@ -227,13 +227,13 @@ export function PocMetricsScreen() {
           <div>
             <label className={labelCls}>Counsellor (optional)</label>
             <select
-              value={doctorId || ''}
+              value={counsellorId || ''}
               onChange={(e) => setCounsellorId(e.target.value || null)}
-              disabled={!hospitalId}
+              disabled={!schoolId}
               className={`${inputCls} disabled:opacity-50`}
             >
               <option value="">— all counsellors —</option>
-              {doctorsForSchool.map(d => (
+              {counsellorsForSchool.map(d => (
                 <option key={d.id} value={d.id}>
                   {d.full_name}{d.specialization ? ` (${d.specialization})` : ''}
                 </option>
@@ -244,13 +244,13 @@ export function PocMetricsScreen() {
           <div>
             <label className={labelCls}>Assistant (optional)</label>
             <select
-              value={nurseId}
+              value={assistantId}
               onChange={(e) => setAssistantId(e.target.value)}
-              disabled={!hospitalId}
+              disabled={!schoolId}
               className={`${inputCls} disabled:opacity-50`}
             >
               <option value="">— none —</option>
-              {nursesForSchool.map(n => (
+              {assistantsForSchool.map(n => (
                 <option key={n.id} value={n.id}>{n.full_name}</option>
               ))}
             </select>

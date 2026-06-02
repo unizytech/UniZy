@@ -40,7 +40,7 @@ interface Counsellor {
 export default function AssistantConfigScreen() {
   const { getAccessToken } = useAuth();
   const [selectedAssistantId, setSelectedAssistantId] = useState<string | null>(null);
-  const [nurse, setAssistant] = useState<Assistant | null>(null);
+  const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [linkedCounsellors, setLinkedCounsellors] = useState<AssistantCounsellor[]>([]);
   const [templates, setTemplates] = useState<AssistantTemplate[]>([]);
   const [allCounsellors, setAllCounsellors] = useState<Counsellor[]>([]);
@@ -79,8 +79,8 @@ export default function AssistantConfigScreen() {
   const loadAllCounsellors = async () => {
     try {
       const token = getAccessToken();
-      const doctors = await getCounsellors(true, token);
-      setAllCounsellors(doctors);
+      const counsellors = await getCounsellors(true, token);
+      setAllCounsellors(counsellors);
     } catch (err) {
       console.error('Failed to load counsellors:', err);
     }
@@ -94,21 +94,21 @@ export default function AssistantConfigScreen() {
 
     try {
       const token = getAccessToken();
-      const [nurseData, doctorsData, templatesData] = await Promise.all([
+      const [assistantData, counsellorsData, templatesData] = await Promise.all([
         getAssistant(selectedAssistantId, token),
         getAssistantCounsellors(selectedAssistantId, token),
         getAssistantTemplates(selectedAssistantId, token)
       ]);
 
-      setAssistant(nurseData);
-      setLinkedCounsellors(doctorsData);
+      setAssistant(assistantData);
+      setLinkedCounsellors(counsellorsData);
       setTemplates(templatesData);
 
       // Initialize edit form
       setEditForm({
-        full_name: nurseData.full_name,
-        email: nurseData.email,
-        qualification: nurseData.qualification || ''
+        full_name: assistantData.full_name,
+        email: assistantData.email,
+        qualification: assistantData.qualification || ''
       });
     } catch (err) {
       setError('Failed to load assistant data: ' + (err as Error).message);
@@ -119,7 +119,7 @@ export default function AssistantConfigScreen() {
   };
 
   const handleUpdateAssistant = async () => {
-    if (!selectedAssistantId || !nurse) return;
+    if (!selectedAssistantId || !assistant) return;
 
     setActionLoading('update');
     try {
@@ -139,9 +139,9 @@ export default function AssistantConfigScreen() {
   };
 
   const handleDeactivateAssistant = async () => {
-    if (!selectedAssistantId || !nurse) return;
+    if (!selectedAssistantId || !assistant) return;
 
-    if (!confirm(`Are you sure you want to deactivate ${nurse.full_name}? They will no longer be able to record or access templates.`)) {
+    if (!confirm(`Are you sure you want to deactivate ${assistant.full_name}? They will no longer be able to record or access templates.`)) {
       return;
     }
 
@@ -174,13 +174,13 @@ export default function AssistantConfigScreen() {
     }
   };
 
-  const handleUnlinkCounsellor = async (doctorId: string) => {
+  const handleUnlinkCounsellor = async (counsellorId: string) => {
     if (!selectedAssistantId) return;
 
-    setActionLoading(`unlink-${doctorId}`);
+    setActionLoading(`unlink-${counsellorId}`);
     try {
       const token = getAccessToken();
-      await unlinkAssistantFromCounsellor(selectedAssistantId, doctorId, token);
+      await unlinkAssistantFromCounsellor(selectedAssistantId, counsellorId, token);
       loadAssistantData();
     } catch (err) {
       alert('Failed to unlink counsellor: ' + (err as Error).message);
@@ -280,7 +280,7 @@ export default function AssistantConfigScreen() {
       )}
 
       {/* Main Content */}
-      {selectedAssistantId && nurse && !loading && !error && (
+      {selectedAssistantId && assistant && !loading && !error && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* LEFT PANEL: Assistant Details */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -346,9 +346,9 @@ export default function AssistantConfigScreen() {
                     onClick={() => {
                       setIsEditing(false);
                       setEditForm({
-                        full_name: nurse.full_name,
-                        email: nurse.email,
-                        qualification: nurse.qualification || ''
+                        full_name: assistant.full_name,
+                        email: assistant.email,
+                        qualification: assistant.qualification || ''
                       });
                     }}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
@@ -361,29 +361,29 @@ export default function AssistantConfigScreen() {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Full Name</p>
-                  <p className="text-gray-900 font-medium">{nurse.full_name}</p>
+                  <p className="text-gray-900 font-medium">{assistant.full_name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
-                  <p className="text-gray-900">{nurse.email}</p>
+                  <p className="text-gray-900">{assistant.email}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Qualification</p>
-                  <p className="text-gray-900">{nurse.qualification || 'Not specified'}</p>
+                  <p className="text-gray-900">{assistant.qualification || 'Not specified'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    nurse.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    assistant.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                   }`}>
-                    {nurse.is_active ? 'Active' : 'Inactive'}
+                    {assistant.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
               </div>
             )}
 
             {/* Deactivate Button */}
-            {!isEditing && nurse.is_active && (
+            {!isEditing && assistant.is_active && (
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleDeactivateAssistant}
@@ -410,9 +410,9 @@ export default function AssistantConfigScreen() {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   >
                     <option value="">Select counsellor to link...</option>
-                    {availableCounsellorsToLink.map((doctor) => (
-                      <option key={doctor.id} value={doctor.id}>
-                        {doctor.full_name} {doctor.specialization ? `(${doctor.specialization})` : ''}
+                    {availableCounsellorsToLink.map((counsellor) => (
+                      <option key={counsellor.id} value={counsellor.id}>
+                        {counsellor.full_name} {counsellor.specialization ? `(${counsellor.specialization})` : ''}
                       </option>
                     ))}
                   </select>
@@ -567,9 +567,9 @@ export default function AssistantConfigScreen() {
         <CreateAssistantModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
-          onCreated={(nurseId) => {
+          onCreated={(assistantId) => {
             setShowCreateModal(false);
-            setSelectedAssistantId(nurseId);
+            setSelectedAssistantId(assistantId);
           }}
         />
       )}

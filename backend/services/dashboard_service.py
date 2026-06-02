@@ -367,13 +367,13 @@ def get_intervention_summary(
 
         # Map counsellor breakdown
         by_counsellor_raw = rpc_data.get("by_doctor", []) or []
-        for doc_data in by_counsellor_raw:
+        for counsellor_data in by_counsellor_raw:
             summary.by_doctor.append(BreakdownStats(
-                id=doc_data.get("id", ""),
-                name=doc_data.get("name", ""),
-                specialization=doc_data.get("specialization"),
-                by_category=doc_data.get("by_category", {}),
-                total_at_risk=doc_data.get("total_at_risk", 0),
+                id=counsellor_data.get("id", ""),
+                name=counsellor_data.get("name", ""),
+                specialization=counsellor_data.get("specialization"),
+                by_category=counsellor_data.get("by_category", {}),
+                total_at_risk=counsellor_data.get("total_at_risk", 0),
             ))
 
         # Map by_patient breakdown

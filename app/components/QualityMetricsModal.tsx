@@ -5,8 +5,8 @@ import { useAuth } from '@lib/auth';
 import { authGet } from '@lib/apiClient';
 
 interface QualityMetricsModalProps {
-  hospitalId: string;
-  hospitalName: string;
+  schoolId: string;
+  schoolName: string;
   onClose: () => void;
 }
 
@@ -51,7 +51,7 @@ interface AccuracyByCounsellor {
   avg_segments_modified: number;
 }
 
-export default function QualityMetricsModal({ hospitalId, hospitalName, onClose }: QualityMetricsModalProps) {
+export default function QualityMetricsModal({ schoolId, schoolName, onClose }: QualityMetricsModalProps) {
   const { getAccessToken } = useAuth();
 
   // Date range
@@ -76,7 +76,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
     if (!token) return;
     setLoading(true);
     try {
-      const params = `school_id=${hospitalId}&date_from=${dateFrom}&date_to=${dateTo}`;
+      const params = `school_id=${schoolId}&date_from=${dateFrom}&date_to=${dateTo}`;
 
       // Fetch summary
       const summaryRes = await authGet(`/api/v1/metrics/summary?${params}`, token);
@@ -85,7 +85,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
         setSummaryData(json.data);
       }
 
-      // Fetch acceptance by doctor
+      // Fetch acceptance by counsellor
       const acceptRes = await authGet(`/api/v1/metrics/ai-acceptance?${params}&group_by=doctor`, token);
       if (acceptRes.ok) {
         const json = await acceptRes.json();
@@ -106,7 +106,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
         setPipelineTiming(json.data);
       }
 
-      // Fetch accuracy by doctor
+      // Fetch accuracy by counsellor
       const accRes = await authGet(`/api/v1/metrics/accuracy?${params}&group_by=doctor`, token);
       if (accRes.ok) {
         const json = await accRes.json();
@@ -117,7 +117,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken, hospitalId, dateFrom, dateTo]);
+  }, [getAccessToken, schoolId, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchMetrics();
@@ -141,7 +141,7 @@ export default function QualityMetricsModal({ hospitalId, hospitalName, onClose 
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-800">Quality Metrics</h2>
-            <p className="text-sm text-slate-500">{hospitalName}</p>
+            <p className="text-sm text-slate-500">{schoolName}</p>
           </div>
           <button
             onClick={onClose}

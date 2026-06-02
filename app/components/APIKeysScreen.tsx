@@ -82,7 +82,7 @@ export function APIKeysScreen() {
 
   // State
   const [clients, setClients] = useState<APIClient[]>([]);
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -533,10 +533,10 @@ export function APIKeysScreen() {
   };
 
   // Get school name by ID
-  const getSchoolName = (hospitalId: string | null) => {
-    if (!hospitalId) return 'Global Access';
-    const hospital = hospitals.find(h => h.id === hospitalId);
-    return hospital?.school_name || hospitalId;
+  const getSchoolName = (schoolId: string | null) => {
+    if (!schoolId) return 'Global Access';
+    const school = schools.find(h => h.id === schoolId);
+    return school?.school_name || schoolId;
   };
 
   // Format date
@@ -972,10 +972,10 @@ export function APIKeysScreen() {
                       className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select a school</option>
-                      {hospitals.map((hospital) => (
-                        <option key={hospital.id} value={hospital.id}>
-                          {hospital.school_name}
-                          {hospital.city && ` - ${hospital.city}`}
+                      {schools.map((school) => (
+                        <option key={school.id} value={school.id}>
+                          {school.school_name}
+                          {school.city && ` - ${school.city}`}
                         </option>
                       ))}
                     </select>

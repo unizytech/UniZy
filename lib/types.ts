@@ -404,7 +404,7 @@ export interface QAPriorContext {
 
 export interface QAQueryRequest {
   query: string;
-  school_id?: string;  // Required for admin users without hospital in auth context
+  school_id?: string;  // Required for admin users without school in auth context
   counsellor_id?: string;
   student_id?: string;
   consultation_type_id?: string;

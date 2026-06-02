@@ -74,8 +74,8 @@ if AUTH_ENABLED:
     from models.auth_models import ClientContext
 
     # Create checker instances for use in endpoints
-    _patient_checker = EHRStudentAccessChecker()
-    _doctor_checker = EHRCounsellorAccessChecker()
+    _student_checker = EHRStudentAccessChecker()
+    _counsellor_checker = EHRCounsellorAccessChecker()
 
     async def verify_authenticated(request: Request):  # type: ignore[misc]
         """Verify client is authenticated (admin, web user, or EHR API key)."""
@@ -84,13 +84,13 @@ if AUTH_ENABLED:
     async def verify_student_access(request: Request, student_id: str = None):  # type: ignore[misc]
         """Verify EHR client has access to student data."""
         client = get_current_client(request)
-        return await _patient_checker(request, student_id, client)
+        return await _student_checker(request, student_id, client)
 
     async def verify_counsellor_access(request: Request, counsellor_id: str = None):  # type: ignore[misc]
         """Verify EHR client has access to counsellor data."""
         counsellor_uuid = uuid.UUID(counsellor_id) if counsellor_id else None
         client = get_current_client(request)
-        return await _doctor_checker(request, counsellor_uuid, client)
+        return await _counsellor_checker(request, counsellor_uuid, client)
 else:
     # No-op when auth is disabled
     async def verify_authenticated(request: Request):  # type: ignore[misc]
@@ -1543,7 +1543,7 @@ async def create_student(
 # ============================================================================
 
 # Counsellor SKS ID - triggers neopaed student initialization
-DOCTOR_SKS_ID = "397f4efe-fd79-41d1-9b0b-d3cc884cda62"
+COUNSELLOR_SKS_ID = "397f4efe-fd79-41d1-9b0b-d3cc884cda62"
 
 @router.get("/search", response_model=StudentSearchResponse)
 async def search_students(
@@ -1567,7 +1567,7 @@ async def search_students(
         offset = (page - 1) * page_size
 
         # For Counsellor SKS, initialize/sync students from Neopaed school system (both NICU + OP)
-        if counsellor_id == DOCTOR_SKS_ID:
+        if counsellor_id == COUNSELLOR_SKS_ID:
             logger.info("[PATIENT_SEARCH] Counsellor SKS - initializing Neopaed students (NICU + OP)")
             try:
                 init_result = await fetch_all_neopaed_students()
@@ -1635,7 +1635,7 @@ async def search_students(
                     }
 
             # For Counsellor SKS, also include Neopaed students who may not have extractions yet
-            if counsellor_id == DOCTOR_SKS_ID:
+            if counsellor_id == COUNSELLOR_SKS_ID:
                 neopaed_result = supabase.table("students")\
                     .select("id, student_id, full_name, date_of_birth, gender, add_info, school_id, updated_at")\
                     .not_.is_("add_info", "null")\

@@ -255,8 +255,8 @@ def get_counsellor_all_configurations(counsellor_id: str) -> Dict[str, Any]:
         }
     """
     # Get counsellor info
-    doctor = get_counsellor(counsellor_id)
-    if not doctor:
+    counsellor = get_counsellor(counsellor_id)
+    if not counsellor:
         raise ValueError(f"Counsellor with ID '{counsellor_id}' not found")
 
     # Get all configurations for this counsellor
@@ -285,7 +285,7 @@ def get_counsellor_all_configurations(counsellor_id: str) -> Dict[str, Any]:
                 consultation_configs[type_code].append(config)
 
     return {
-        "doctor": doctor,
+        "doctor": counsellor,
         "global_config": global_config,
         "consultation_configs": consultation_configs
     }

@@ -814,7 +814,7 @@ async def export_results(
         writer.writerow([
             "Student Name",
             "Student ID",
-            "Doctor",
+            "Counsellor",
             "Consultation Type",
             "Date",
             "Similarity Score"

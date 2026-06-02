@@ -23,7 +23,7 @@ import { FEATURE_FLAG_LABELS } from '@lib/types';
 export default function SchoolManageScreen() {
   const { getAccessToken, isSuperAdmin } = useAuth();
 
-  const [hospitals, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,7 +55,7 @@ export default function SchoolManageScreen() {
     setSchools(list);
   };
 
-  // Load hospitals on mount
+  // Load schools on mount
   useEffect(() => {
     let cancelled = false;
 
@@ -78,12 +78,12 @@ export default function SchoolManageScreen() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleSelect = (hospital: School) => {
-    setSelectedSchool(hospital);
+  const handleSelect = (school: School) => {
+    setSelectedSchool(school);
     setIsEditing(false);
     setEditForm({
-      school_name: hospital.school_name,
-      school_code: hospital.school_code || '',
+      school_name: school.school_name,
+      school_code: school.school_code || '',
     });
   };
 
@@ -216,7 +216,7 @@ export default function SchoolManageScreen() {
     }
   };
 
-  const filteredSchools = hospitals.filter((h) =>
+  const filteredSchools = schools.filter((h) =>
     !searchQuery ||
     h.school_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (h.school_code || '').toLowerCase().includes(searchQuery.toLowerCase())

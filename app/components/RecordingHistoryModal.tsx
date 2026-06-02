@@ -46,14 +46,14 @@ export function RecordingHistoryModal({
   onReprocessStarted,
 }: RecordingHistoryModalProps) {
   const entityId = doctorId || nurseId;
-  const entityType = doctorId ? 'doctor' : 'nurse';
+  const entityType = doctorId ? 'counsellor' : 'assistant';
   // State
   const [recordings, setRecordings] = useState<RecordingInfo[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [patientFilter, setStudentFilter] = useState('');
+  const [studentFilter, setStudentFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('SUBMITTED');  // SUBMITTED or RECORDING
   const [datePreset, setDatePreset] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -61,7 +61,7 @@ export function RecordingHistoryModal({
   const pageSize = 20;
 
   // Student dropdown state
-  const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+  const [studentsList, setStudentsList] = useState<StudentSearchResult[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Reprocess form state
@@ -94,7 +94,7 @@ export function RecordingHistoryModal({
     if (isOpen && entityId) {
       loadRecordings();
     }
-  }, [isOpen, entityId, page, patientFilter, statusFilter, datePreset, dateFrom, dateTo]);
+  }, [isOpen, entityId, page, studentFilter, statusFilter, datePreset, dateFrom, dateTo]);
 
   // Set default template when templates load
   useEffect(() => {
@@ -104,7 +104,7 @@ export function RecordingHistoryModal({
   }, [templates]);
 
   const loadStudents = async () => {
-    if (entityType === 'nurse') {
+    if (entityType === 'assistant') {
       // For assistant mode, load students from assistant's recordings (no student search endpoint for assistants)
       setLoadingStudents(true);
       try {
@@ -190,15 +190,15 @@ export function RecordingHistoryModal({
     try {
       const dateRange = getDateRangeFromPreset(datePreset);
       const params = {
-        student_id: patientFilter && patientFilter.includes('-') ? patientFilter : undefined,
-        student_identifier: patientFilter && !patientFilter.includes('-') ? patientFilter : undefined,
+        student_id: studentFilter && studentFilter.includes('-') ? studentFilter : undefined,
+        student_identifier: studentFilter && !studentFilter.includes('-') ? studentFilter : undefined,
         status: statusFilter,
         date_from: dateRange.from,
         date_to: dateRange.to,
         limit: pageSize,
         offset: page * pageSize,
       };
-      const result = entityType === 'nurse'
+      const result = entityType === 'assistant'
         ? await listAssistantRecordings(entityId, params, accessToken)
         : await listCounsellorRecordings(entityId, params, accessToken);
       setRecordings(result.recordings);
@@ -338,9 +338,9 @@ export function RecordingHistoryModal({
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                     <span className="text-gray-500 text-sm">Loading students...</span>
                   </div>
-                ) : patientsList.length > 0 ? (
+                ) : studentsList.length > 0 ? (
                   <select
-                    value={patientFilter}
+                    value={studentFilter}
                     onChange={(e) => {
                       setStudentFilter(e.target.value);
                       setPage(0);
@@ -348,18 +348,18 @@ export function RecordingHistoryModal({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                   >
                     <option value="">All students</option>
-                    {patientsList.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.student_id}
-                        {patient.full_name ? ` - ${patient.full_name}` : ''}
-                        {patient.school_name ? ` (${patient.school_name})` : ''}
+                    {studentsList.map((student) => (
+                      <option key={student.id} value={student.id}>
+                        {student.student_id}
+                        {student.full_name ? ` - ${student.full_name}` : ''}
+                        {student.school_name ? ` (${student.school_name})` : ''}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <input
                     type="text"
-                    value={patientFilter}
+                    value={studentFilter}
                     onChange={(e) => {
                       setStudentFilter(e.target.value);
                       setPage(0);

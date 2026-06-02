@@ -36,9 +36,9 @@ export default function CounsellorSharingScreen() {
 
   // Data state
   const [links, setLinks] = useState<SharingLink[]>([]);
-  const [doctors, setCounsellors] = useState<Counsellor[]>([]);
-  const [hospitals, setSchools] = useState<School[]>([]);
-  const [patients, setStudents] = useState<Student[]>([]);
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -48,11 +48,11 @@ export default function CounsellorSharingScreen() {
 
   // Create form state
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
-  const [doctorAId, setCounsellorAId] = useState<string>('');
-  const [doctorBId, setCounsellorBId] = useState<string>('');
+  const [counsellorAId, setCounsellorAId] = useState<string>('');
+  const [counsellorBId, setCounsellorBId] = useState<string>('');
   const [sharingMode, setSharingMode] = useState<'all' | 'specific'>('all');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [patientSearch, setStudentSearch] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
 
   // Edit state
   const [editingLink, setEditingLink] = useState<SharingLink | null>(null);
@@ -67,7 +67,7 @@ export default function CounsellorSharingScreen() {
         const token = getTokenRef.current();
 
         // Load schools, counsellors, and sharing links in parallel
-        const [hospitalsRes, doctorsRes, linksData] = await Promise.all([
+        const [schoolsRes, counsellorsRes, linksData] = await Promise.all([
           authGet('/api/v1/counsellors/schools', token ?? null),
           authGet('/api/v1/counsellors', token ?? null),
           getSharingLinks(undefined, token),
@@ -75,11 +75,11 @@ export default function CounsellorSharingScreen() {
 
         if (cancelled) return;
 
-        const hospitalsData = await hospitalsRes.json();
-        setSchools(hospitalsData.schools || []);
+        const schoolsData = await schoolsRes.json();
+        setSchools(schoolsData.schools || []);
 
-        const doctorsData = await doctorsRes.json();
-        setCounsellors(doctorsData.counsellors || []);
+        const counsellorsData = await counsellorsRes.json();
+        setCounsellors(counsellorsData.counsellors || []);
 
         setLinks(linksData);
       } catch (err) {
@@ -123,23 +123,23 @@ export default function CounsellorSharingScreen() {
 
   // Filtered counsellors by selected school
   const filteredCounsellors = selectedSchoolId
-    ? doctors.filter(d => d.school_id === selectedSchoolId)
-    : doctors;
+    ? counsellors.filter(d => d.school_id === selectedSchoolId)
+    : counsellors;
 
   // Filtered students for search
-  const filteredStudents = patientSearch
-    ? patients.filter(p =>
-        p.name?.toLowerCase().includes(patientSearch.toLowerCase()) ||
-        p.student_external_id?.toLowerCase().includes(patientSearch.toLowerCase())
+  const filteredStudents = studentSearch
+    ? students.filter(p =>
+        p.name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
+        p.student_external_id?.toLowerCase().includes(studentSearch.toLowerCase())
       )
-    : patients;
+    : students;
 
   const handleCreate = async () => {
-    if (!doctorAId || !doctorBId) {
+    if (!counsellorAId || !counsellorBId) {
       setError('Please select both counsellors');
       return;
     }
-    if (doctorAId === doctorBId) {
+    if (counsellorAId === counsellorBId) {
       setError('Cannot link a counsellor to themselves');
       return;
     }
@@ -150,8 +150,8 @@ export default function CounsellorSharingScreen() {
       const token = getTokenRef.current();
       await createSharingLink(
         {
-          counsellor_id: doctorAId,
-          linked_counsellor_id: doctorBId,
+          counsellor_id: counsellorAId,
+          linked_counsellor_id: counsellorBId,
           student_ids: sharingMode === 'all' ? null : selectedStudentIds,
         },
         token,
@@ -214,17 +214,17 @@ export default function CounsellorSharingScreen() {
     setEditStudentIds(link.student_ids || []);
 
     // Load students for this pair's school if needed
-    const doctor = doctors.find(d => d.id === link.counsellor_id);
-    if (doctor?.school_id) {
-      setSelectedSchoolId(doctor.school_id);
+    const counsellor = counsellors.find(d => d.id === link.counsellor_id);
+    if (counsellor?.school_id) {
+      setSelectedSchoolId(counsellor.school_id);
     }
   };
 
-  const toggleStudentSelection = (patientId: string, list: string[], setter: (ids: string[]) => void) => {
-    if (list.includes(patientId)) {
-      setter(list.filter(id => id !== patientId));
+  const toggleStudentSelection = (studentId: string, list: string[], setter: (ids: string[]) => void) => {
+    if (list.includes(studentId)) {
+      setter(list.filter(id => id !== studentId));
     } else {
-      setter([...list, patientId]);
+      setter([...list, studentId]);
     }
   };
 
@@ -274,7 +274,7 @@ export default function CounsellorSharingScreen() {
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
             >
               <option value="">All schools</option>
-              {hospitals.map(h => (
+              {schools.map(h => (
                 <option key={h.id} value={h.id}>{h.school_name}</option>
               ))}
             </select>
@@ -285,12 +285,12 @@ export default function CounsellorSharingScreen() {
             <div>
               <label className="block text-sm text-slate-400 mb-1">Counsellor A</label>
               <select
-                value={doctorAId}
+                value={counsellorAId}
                 onChange={e => setCounsellorAId(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
               >
                 <option value="">Select counsellor...</option>
-                {filteredCounsellors.filter(d => d.id !== doctorBId).map(d => (
+                {filteredCounsellors.filter(d => d.id !== counsellorBId).map(d => (
                   <option key={d.id} value={d.id}>{d.full_name} ({d.email})</option>
                 ))}
               </select>
@@ -298,12 +298,12 @@ export default function CounsellorSharingScreen() {
             <div>
               <label className="block text-sm text-slate-400 mb-1">Counsellor B</label>
               <select
-                value={doctorBId}
+                value={counsellorBId}
                 onChange={e => setCounsellorBId(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
               >
                 <option value="">Select counsellor...</option>
-                {filteredCounsellors.filter(d => d.id !== doctorAId).map(d => (
+                {filteredCounsellors.filter(d => d.id !== counsellorAId).map(d => (
                   <option key={d.id} value={d.id}>{d.full_name} ({d.email})</option>
                 ))}
               </select>
@@ -344,14 +344,14 @@ export default function CounsellorSharingScreen() {
               <input
                 type="text"
                 placeholder="Search students..."
-                value={patientSearch}
+                value={studentSearch}
                 onChange={e => setStudentSearch(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-2"
               />
               <div className="max-h-48 overflow-y-auto bg-slate-700/50 rounded-lg border border-slate-600 divide-y divide-slate-700">
                 {filteredStudents.length === 0 ? (
                   <div className="p-3 text-sm text-slate-500">
-                    {patients.length === 0 ? 'Select a school first to load students' : 'No students match search'}
+                    {students.length === 0 ? 'Select a school first to load students' : 'No students match search'}
                   </div>
                 ) : (
                   filteredStudents.slice(0, 50).map(p => (
@@ -376,7 +376,7 @@ export default function CounsellorSharingScreen() {
           <div className="flex justify-end">
             <button
               onClick={handleCreate}
-              disabled={!doctorAId || !doctorBId || actionLoading === 'create'}
+              disabled={!counsellorAId || !counsellorBId || actionLoading === 'create'}
               className="px-5 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium"
             >
               {actionLoading === 'create' ? 'Creating...' : 'Link Counsellors'}
@@ -429,7 +429,7 @@ export default function CounsellorSharingScreen() {
               <input
                 type="text"
                 placeholder="Search students..."
-                value={patientSearch}
+                value={studentSearch}
                 onChange={e => setStudentSearch(e.target.value)}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm mb-2"
               />

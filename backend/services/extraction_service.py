@@ -1879,6 +1879,26 @@ async def perform_template_extraction(
                         pass
 
         # ============================================================================
+        # OUTPUT NORMALISATION: conform the extraction to the template's assembled schema (which
+        # mirrors references/updated_meeting_response_structure.json) so the stored output matches
+        # that reference field format — missing keys filled with empty defaults, matching content
+        # preserved, type-mismatched fields reset, extra keys dropped. Runs BEFORE letter render so
+        # rendered artifacts (added below) survive. Synchronous, non-fatal.
+        # ============================================================================
+        try:
+            from services.extraction_output_formatter import complete_to_schema
+            _norm_schema = (active_template or {}).get('assembled_schema_json')
+            if _norm_schema and isinstance(insights, dict):
+                insights, _norm_changes = complete_to_schema(insights, _norm_schema)
+                if _norm_changes:
+                    logger.info(
+                        f"[OUTPUT_FORMATTER] Conformed extraction to reference schema: "
+                        f"{len(_norm_changes)} change(s) (e.g. {', '.join(_norm_changes[:5])})"
+                    )
+        except Exception as e:
+            logger.warning(f"[OUTPUT_FORMATTER] Non-fatal normalisation failure: {e}")
+
+        # ============================================================================
         # LETTER RENDER: For templates with a Jinja layout (currently radiology),
         # resolve standard text fragments + render the full consult letter and
         # attach to `insights`. Synchronous (sub-30 ms) so the rendered output

@@ -30,15 +30,15 @@ export default function ExtractionMergeScreen({
   const { getAccessToken } = useAuth();
 
   // State
-  const [patientId, setStudentId] = useState(initialStudentId || '');
+  const [studentId, setStudentId] = useState(initialStudentId || '');
   const [extractions, setExtractions] = useState<StudentTimelineExtraction[]>([]);
   const [selectedExtractionIds, setSelectedExtractionIds] = useState<string[]>([]);
   const [targetTemplateCode, setTargetTemplateCode] = useState('');
-  const [doctorId, setCounsellorId] = useState(initialCounsellorId || '');
+  const [counsellorId, setCounsellorId] = useState(initialCounsellorId || '');
   const [mergeNotes, setMergeNotes] = useState('');
 
   // Student list for dropdown
-  const [patientsList, setStudentsList] = useState<StudentSearchResult[]>([]);
+  const [studentsList, setStudentsList] = useState<StudentSearchResult[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Templates from database (counsellor-accessible templates)
@@ -74,16 +74,16 @@ export default function ExtractionMergeScreen({
     { value: 'NOTES', label: 'Notes', strategy: 'APPEND', description: 'Counsellor notes, documentation' },
   ];
 
-  // Load templates when doctorId is available
+  // Load templates when counsellorId is available
   useEffect(() => {
     const loadTemplates = async () => {
-      if (!doctorId) {
+      if (!counsellorId) {
         setLoadingTypes(false);
         return;
       }
       try {
         setLoadingTypes(true);
-        const response = await getCounsellorTemplates(doctorId, getAccessToken());
+        const response = await getCounsellorTemplates(counsellorId, getAccessToken());
         if (response.success && response.templates) {
           setTemplates(response.templates);
           // Set default target template to first available template
@@ -100,11 +100,11 @@ export default function ExtractionMergeScreen({
     };
     loadTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doctorId]); // Only re-run when doctorId changes - getAccessToken is stable from useAuth
+  }, [counsellorId]); // Only re-run when counsellorId changes - getAccessToken is stable from useAuth
 
   // Load students list when counsellor is selected
   useEffect(() => {
-    if (doctorId) {
+    if (counsellorId) {
       loadStudentsList();
     } else {
       setStudentsList([]);
@@ -113,16 +113,16 @@ export default function ExtractionMergeScreen({
       setSelectedExtractionIds([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doctorId]);
+  }, [counsellorId]);
 
   const loadStudentsList = async () => {
-    if (!doctorId) return;
+    if (!counsellorId) return;
 
     try {
       setLoadingStudents(true);
       const accessToken = getAccessToken();
       // Use searchStudents with empty query to get all students for this counsellor
-      const response = await searchStudents('', doctorId, 1, 100, accessToken);
+      const response = await searchStudents('', counsellorId, 1, 100, accessToken);
       setStudentsList(response.students || []);
     } catch (err) {
       console.error('Failed to load students:', err);
@@ -140,8 +140,8 @@ export default function ExtractionMergeScreen({
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Only load if patientId has at least 2 characters
-    if (patientId && patientId.length >= 2) {
+    // Only load if studentId has at least 2 characters
+    if (studentId && studentId.length >= 2) {
       debounceTimerRef.current = setTimeout(() => {
         loadStudentTimeline();
       }, 500); // 500ms debounce
@@ -152,13 +152,13 @@ export default function ExtractionMergeScreen({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [patientId]);
+  }, [studentId]);
 
   const loadStudentTimeline = async () => {
     try {
       setLoading(true);
       setError(null);
-      const timeline = await getStudentTimeline(patientId, undefined, getAccessToken());
+      const timeline = await getStudentTimeline(studentId, undefined, getAccessToken());
       setExtractions(timeline.extractions);
       setSelectedExtractionIds([]); // Reset selection
     } catch (err) {
@@ -258,7 +258,7 @@ export default function ExtractionMergeScreen({
       return;
     }
     // For JSON-only merge, student_id is required
-    if (selectedExtractionIds.length === 0 && !patientId) {
+    if (selectedExtractionIds.length === 0 && !studentId) {
       setError('Student ID is required for JSON-only merge');
       return;
     }
@@ -269,9 +269,9 @@ export default function ExtractionMergeScreen({
       const preview = await previewMerge({
         source_extraction_ids: selectedExtractionIds,
         target_template_code: targetTemplateCode,
-        counsellor_id: doctorId,
+        counsellor_id: counsellorId,
         uploaded_json_sources: uploadedJsonSources.length > 0 ? uploadedJsonSources : undefined,
-        student_id: selectedExtractionIds.length === 0 ? patientId : undefined,
+        student_id: selectedExtractionIds.length === 0 ? studentId : undefined,
       }, getAccessToken());
       setPreviewData(preview);
       setMergedResult(null); // Clear any previous merged result
@@ -294,7 +294,7 @@ export default function ExtractionMergeScreen({
       return;
     }
     // For JSON-only merge, student_id is required
-    if (selectedExtractionIds.length === 0 && !patientId) {
+    if (selectedExtractionIds.length === 0 && !studentId) {
       setError('Student ID is required for JSON-only merge');
       return;
     }
@@ -305,10 +305,10 @@ export default function ExtractionMergeScreen({
       const request: MergeRequest = {
         source_extraction_ids: selectedExtractionIds,
         target_template_code: targetTemplateCode,
-        counsellor_id: doctorId,
+        counsellor_id: counsellorId,
         merge_notes: mergeNotes || undefined,
         uploaded_json_sources: uploadedJsonSources.length > 0 ? uploadedJsonSources : undefined,
-        student_id: selectedExtractionIds.length === 0 ? patientId : undefined,
+        student_id: selectedExtractionIds.length === 0 ? studentId : undefined,
       };
       const result = await mergeExtractions(request, getAccessToken());
       setMergedResult(result);
@@ -386,7 +386,7 @@ export default function ExtractionMergeScreen({
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Counsellor Selection</h2>
               <CounsellorSelector
-                selectedCounsellorId={doctorId}
+                selectedCounsellorId={counsellorId}
                 onCounsellorSelect={(id) => {
                   setCounsellorId(id || '');
                   // Clear student selection when counsellor changes
@@ -405,36 +405,36 @@ export default function ExtractionMergeScreen({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Student ID
                 </label>
-                {!doctorId ? (
+                {!counsellorId ? (
                   <p className="text-sm text-gray-500 italic">Select a counsellor first</p>
                 ) : loadingStudents ? (
                   <div className="flex items-center justify-center py-3">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                     <span className="text-gray-500 text-sm">Loading students...</span>
                   </div>
-                ) : patientsList.length > 0 ? (
+                ) : studentsList.length > 0 ? (
                   <select
-                    value={patientId}
+                    value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">Select a student...</option>
-                    {patientsList.map((patient) => (
-                      <option key={patient.id} value={patient.student_id}>
-                        {patient.student_id}
-                        {patient.full_name ? ` - ${patient.full_name}` : ''}
-                        {patient.school_name ? ` (${patient.school_name})` : ''}
-                        {patient.add_info?.roomNo ? ` [Room ${patient.add_info.roomNo}, Bed ${patient.add_info.bedNo}]` : ''}
+                    {studentsList.map((student) => (
+                      <option key={student.id} value={student.student_id}>
+                        {student.student_id}
+                        {student.full_name ? ` - ${student.full_name}` : ''}
+                        {student.school_name ? ` (${student.school_name})` : ''}
+                        {student.add_info?.roomNo ? ` [Room ${student.add_info.roomNo}, Bed ${student.add_info.bedNo}]` : ''}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <p className="text-sm text-gray-500 italic">No students found for this counsellor</p>
                 )}
-                {patientId && (
+                {studentId && (
                   <button
                     onClick={loadStudentTimeline}
-                    disabled={!patientId || loading}
+                    disabled={!studentId || loading}
                     className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                   >
                     {loading ? 'Loading...' : 'Load Timeline'}
@@ -455,10 +455,10 @@ export default function ExtractionMergeScreen({
                   <select
                     value={targetTemplateCode}
                     onChange={(e) => setTargetTemplateCode(e.target.value)}
-                    disabled={loadingTypes || !doctorId}
+                    disabled={loadingTypes || !counsellorId}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100"
                   >
-                    {!doctorId ? (
+                    {!counsellorId ? (
                       <option value="">Select counsellor first</option>
                     ) : loadingTypes ? (
                       <option value="">Loading templates...</option>
@@ -501,13 +501,13 @@ export default function ExtractionMergeScreen({
                     </span>
                   </p>
 
-                  {!doctorId && (
+                  {!counsellorId && (
                     <p className="text-sm text-amber-600 mb-2">
                       Warning: Counsellor not selected. Please select a counsellor above.
                     </p>
                   )}
 
-                  {selectedExtractionIds.length === 0 && uploadedJsonSources.length > 0 && !patientId && (
+                  {selectedExtractionIds.length === 0 && uploadedJsonSources.length > 0 && !studentId && (
                     <p className="text-sm text-amber-600 mb-2">
                       Warning: Student ID required for JSON-only merge (no DB extractions selected).
                     </p>
@@ -517,8 +517,8 @@ export default function ExtractionMergeScreen({
                     onClick={handlePreview}
                     disabled={
                       (selectedExtractionIds.length + uploadedJsonSources.length) < 2 ||
-                      (selectedExtractionIds.length === 0 && !patientId) ||
-                      !doctorId ||
+                      (selectedExtractionIds.length === 0 && !studentId) ||
+                      !counsellorId ||
                       loading
                     }
                     className="w-full mb-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
@@ -530,8 +530,8 @@ export default function ExtractionMergeScreen({
                     onClick={handleConfirmMerge}
                     disabled={
                       (selectedExtractionIds.length + uploadedJsonSources.length) < 2 ||
-                      (selectedExtractionIds.length === 0 && !patientId) ||
-                      !doctorId ||
+                      (selectedExtractionIds.length === 0 && !studentId) ||
+                      !counsellorId ||
                       loading
                     }
                     className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
@@ -743,7 +743,7 @@ export default function ExtractionMergeScreen({
                     />
                   </svg>
                   <p className="text-gray-600 mt-4">
-                    {patientId
+                    {studentId
                       ? 'No extractions found for this student'
                       : 'Enter a student ID to load extractions'}
                   </p>

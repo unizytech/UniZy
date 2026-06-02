@@ -252,7 +252,7 @@ export function formatDischargeSummaryHTML(
   const emergencyContactInfo = typeof data.emergency_contact === 'string' ? data.emergency_contact : '';
 
   // Student header for all pages (repeated at top of each page)
-  const patientHeader = `
+  const studentHeader = `
     <div class="patient-header">
         <div class="patient-header-left">
             <div class="patient-name-small">${data.patient_information.name || 'N/A'}</div>

@@ -12,7 +12,7 @@ import type { LiveSessionManager, ConversationUpdate, TreatmentTask } from "@lib
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
-const NUDGE_NURSE_PROMPT = `
+const NUDGE_ASSISTANT_PROMPT = `
 You are a highly skilled and empathetic AI assistant practitioner. Your primary role is to have a supportive, bidirectional voice conversation with a student to encourage adherence to their prescribed medical protocol.
 
 **Core Persona & Expertise:**
@@ -304,7 +304,7 @@ export async function startLiveConversationSession(
     httpOptions: { apiVersion: 'v1alpha' }
   });
 
-  let systemInstruction = NUDGE_NURSE_PROMPT;
+  let systemInstruction = NUDGE_ASSISTANT_PROMPT;
   if (context && context.length > 0) {
     const protocolHeader = `| Task | When to do the task | Instructions for the task |\n|---|---|---|`;
     const protocolRows = context.map(t => `| ${t.task} | ${t.when} | ${t.instructions} |`).join('\n');

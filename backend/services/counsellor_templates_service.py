@@ -370,7 +370,7 @@ def share_template_with_school(
         Summary with success and failed operations
     """
     # Get all counsellors in this school
-    doctors = (
+    counsellors = (
         supabase.table("counsellors")
         .select("id")
         .eq("school_id", str(school_id))
@@ -378,7 +378,7 @@ def share_template_with_school(
         .execute()
     )
 
-    if not doctors.data:
+    if not counsellors.data:
         return {
             "template_id": str(template_id),
             "school_id": str(school_id),
@@ -386,7 +386,7 @@ def share_template_with_school(
             "message": "No active counsellors found in this school"
         }
 
-    counsellor_ids = [uuid.UUID(d["id"]) for d in doctors.data]
+    counsellor_ids = [uuid.UUID(d["id"]) for d in counsellors.data]
 
     return bulk_share_template(template_id, counsellor_ids)
 
@@ -406,7 +406,7 @@ def share_template_with_specialization(
         Summary with success and failed operations
     """
     # Get all counsellors with this specialization
-    doctors = (
+    counsellors = (
         supabase.table("counsellors")
         .select("id")
         .eq("specialization", specialization)
@@ -414,7 +414,7 @@ def share_template_with_specialization(
         .execute()
     )
 
-    if not doctors.data:
+    if not counsellors.data:
         return {
             "template_id": str(template_id),
             "specialization": specialization,
@@ -422,7 +422,7 @@ def share_template_with_specialization(
             "message": f"No active counsellors found with specialization '{specialization}'"
         }
 
-    counsellor_ids = [uuid.UUID(d["id"]) for d in doctors.data]
+    counsellor_ids = [uuid.UUID(d["id"]) for d in counsellors.data]
 
     return bulk_share_template(template_id, counsellor_ids)
 
@@ -679,8 +679,8 @@ def get_counsellor_default_template(counsellor_id: uuid.UUID) -> Optional[Dict[s
     if not counsellor_result.data:
         return None
 
-    doctor = counsellor_result.data[0]
-    default_template_id = doctor.get("default_template_id")
+    counsellor = counsellor_result.data[0]
+    default_template_id = counsellor.get("default_template_id")
 
     # Priority 1: Counsellor's own default
     if default_template_id:
@@ -699,7 +699,7 @@ def get_counsellor_default_template(counsellor_id: uuid.UUID) -> Optional[Dict[s
             }
 
     # Priority 2: School's default
-    school_id = doctor.get("school_id")
+    school_id = counsellor.get("school_id")
     if school_id:
         school_result = (
             supabase.table("schools")
@@ -859,7 +859,7 @@ def check_consultation_type_visibility(
         return True
 
     # Get counsellor details
-    doctor = (
+    counsellor = (
         supabase.table("counsellors")
         .select("id, school_id, specialization")
         .eq("id", str(counsellor_id))
@@ -867,10 +867,10 @@ def check_consultation_type_visibility(
         .execute()
     )
 
-    if not doctor.data:
+    if not counsellor.data:
         return False
 
-    counsellor_data = doctor.data[0]
+    counsellor_data = counsellor.data[0]
     counsellor_school = counsellor_data.get("school_id")
     counsellor_specialization = counsellor_data.get("specialization")
 
@@ -937,7 +937,7 @@ def activate_from_consultation_type(
     type_name = consult_type.data[0]["type_name"]
 
     # Get counsellor details for naming
-    doctor = (
+    counsellor = (
         supabase.table("counsellors")
         .select("full_name")
         .eq("id", str(counsellor_id))
@@ -945,10 +945,10 @@ def activate_from_consultation_type(
         .execute()
     )
 
-    if not doctor.data:
+    if not counsellor.data:
         raise ValueError(f"Counsellor {counsellor_id} not found")
 
-    counsellor_name_part = doctor.data[0]["full_name"].replace(" ", "").upper()[:8]
+    counsellor_name_part = counsellor.data[0]["full_name"].replace(" ", "").upper()[:8]
 
     # Generate unique template_code (max 50 chars)
     # Include microseconds to prevent collisions when called rapidly
@@ -1090,7 +1090,7 @@ def clone_template(
         )
 
     # Get counsellor details for naming
-    doctor = (
+    counsellor = (
         supabase.table("counsellors")
         .select("full_name")
         .eq("id", str(counsellor_id))
@@ -1098,10 +1098,10 @@ def clone_template(
         .execute()
     )
 
-    if not doctor.data:
+    if not counsellor.data:
         raise ValueError(f"Counsellor {counsellor_id} not found")
 
-    counsellor_name_part = doctor.data[0]["full_name"].replace(" ", "").upper()[:8]
+    counsellor_name_part = counsellor.data[0]["full_name"].replace(" ", "").upper()[:8]
 
     # Generate unique template_code (max 50 chars)
     # Include microseconds to prevent collisions when called rapidly
@@ -1189,7 +1189,7 @@ def get_counsellor_dashboard_data(
     )
 
     # Get counsellor details
-    doctor = (
+    counsellor = (
         supabase.table("counsellors")
         .select("id, school_id, specialization")
         .eq("id", str(counsellor_id))
@@ -1197,10 +1197,10 @@ def get_counsellor_dashboard_data(
         .execute()
     )
 
-    if not doctor.data:
+    if not counsellor.data:
         raise ValueError(f"Counsellor {counsellor_id} not found")
 
-    counsellor_data = doctor.data[0]
+    counsellor_data = counsellor.data[0]
     counsellor_school = counsellor_data.get("school_id")
     counsellor_specialization = counsellor_data.get("specialization")
 
@@ -1296,7 +1296,7 @@ def get_template_shares(template_id: uuid.UUID) -> Dict[str, Any]:
     )
 
     # Format counsellor shares
-    doctors = []
+    counsellors = []
     counsellors_with_template_by_school = {}  # school_id -> set of counsellor_ids with template
     counsellors_with_template_by_spec = {}  # specialization -> set of counsellor_ids with template
 
@@ -1306,7 +1306,7 @@ def get_template_shares(template_id: uuid.UUID) -> Dict[str, Any]:
         school_id = counsellor_info.get("school_id")
         specialization = counsellor_info.get("specialization")
 
-        doctors.append({
+        counsellors.append({
             "id": share["id"],
             "counsellor_id": counsellor_id,
             "counsellor_name": counsellor_info.get("full_name", "Unknown"),
@@ -1348,9 +1348,9 @@ def get_template_shares(template_id: uuid.UUID) -> Dict[str, Any]:
         school_counsellor_counts = {}  # school_id -> total active counsellors
         spec_counsellor_counts = {}  # specialization -> total active counsellors
 
-        for doc in (all_active_counsellors.data or []):
-            h_id = doc.get("school_id")
-            spec = doc.get("specialization")
+        for counsellor in (all_active_counsellors.data or []):
+            h_id = counsellor.get("school_id")
+            spec = counsellor.get("specialization")
 
             if h_id:
                 school_counsellor_counts[h_id] = school_counsellor_counts.get(h_id, 0) + 1
@@ -1369,8 +1369,8 @@ def get_template_shares(template_id: uuid.UUID) -> Dict[str, Any]:
                 fully_shared_specializations.append(spec)
 
     return {
-        "counsellors": doctors,
+        "counsellors": counsellors,
         "school_ids": fully_shared_schools,
         "specializations": fully_shared_specializations,
-        "total_shares": len(doctors)
+        "total_shares": len(counsellors)
     }
