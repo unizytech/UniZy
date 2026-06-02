@@ -1102,6 +1102,40 @@ def _build_combined_json_schema(segments: list) -> Dict[str, Any]:
     }
 
 
+def get_json_schema_for_template(template_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    """Return the JSON Schema (dict) for a template's extraction output.
+
+    Uses the template's pre-assembled `assembled_schema_json` when present; otherwise builds it
+    dynamically from the template's active segments (identical shape — camelCase per-segment keys).
+    Lets the output formatter conform extractions on ANY environment, even where the template was
+    never pre-assembled (e.g. main, where assembled_schema_json is NULL). Returns None on failure.
+    """
+    try:
+        from .template_assembly_service import get_template_by_id
+        tpl = get_template_by_id(template_id)
+        if tpl and tpl.get("assembled_schema_json"):
+            return tpl["assembled_schema_json"]
+        rows = supabase.table("template_segments").select(
+            "display_order, segment_definitions!inner(segment_code, schema_definition_json, is_active)"
+        ).eq("template_id", str(template_id)).execute()
+        segs = []
+        for r in (rows.data or []):
+            sd = r.get("segment_definitions") or {}
+            if sd.get("is_active", True):
+                segs.append({
+                    "segment_code": sd.get("segment_code"),
+                    "schema_definition_json": sd.get("schema_definition_json"),
+                    "_order": r.get("display_order") or 0,
+                })
+        segs.sort(key=lambda s: s["_order"])
+        if not segs:
+            return None
+        return _build_combined_json_schema(segs)
+    except Exception as e:
+        logger.warning(f"[SCHEMA_GENERATION] get_json_schema_for_template failed for {template_id}: {e}")
+        return None
+
+
 def _gemini_schema_to_json_schema(gemini_schema: types.Schema) -> Dict[str, Any]:
     """
     Convert a Gemini types.Schema object to standard JSON Schema dict.

@@ -1888,6 +1888,14 @@ async def perform_template_extraction(
         try:
             from services.extraction_output_formatter import complete_to_schema
             _norm_schema = (active_template or {}).get('assembled_schema_json')
+            if not _norm_schema:
+                # No pre-assembled schema (e.g. main, where it's NULL) — build it dynamically
+                # from the template's segments so the formatter still conforms the output.
+                _norm_tid = (active_template or {}).get('id') or (active_template or {}).get('template_id')
+                if _norm_tid:
+                    import uuid as _uuid
+                    from services.segment_registry import get_json_schema_for_template
+                    _norm_schema = get_json_schema_for_template(_uuid.UUID(str(_norm_tid)))
             if _norm_schema and isinstance(insights, dict):
                 insights, _norm_changes = complete_to_schema(insights, _norm_schema)
                 if _norm_changes:
