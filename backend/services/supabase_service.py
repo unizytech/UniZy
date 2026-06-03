@@ -567,6 +567,36 @@ except Exception as e:
 # Counsellors Operations
 # ============================================================================
 
+def resolve_entity_uuid(table: str, identifier: str) -> Optional[str]:
+    """Resolve an incoming entity identifier to its internal UUID for `table`.
+
+    Accepts EITHER the internal UUID or the caller's external id (the `external_id` bigint column),
+    so clients whose own system uses bigint ids can address counsellors/assistants without knowing
+    the internal UUID. Returns the internal UUID string, or None if no matching row exists.
+
+    Raises ValueError if `identifier` is neither a UUID nor an integer external id.
+    """
+    ident = (identifier or "").strip()
+    # 1) Internal UUID?
+    try:
+        uuid.UUID(ident)
+        res = retry_on_network_error(
+            lambda: supabase.table(table).select("id").eq("id", ident).limit(1).execute()
+        )
+        return res.data[0]["id"] if res.data else None
+    except ValueError:
+        pass  # not a UUID — try external id below
+    # 2) External bigint id?
+    try:
+        ext = int(ident)
+    except (ValueError, TypeError):
+        raise ValueError(f"{identifier!r} is not a valid UUID or external id")
+    res = retry_on_network_error(
+        lambda: supabase.table(table).select("id").eq("external_id", ext).limit(1).execute()
+    )
+    return res.data[0]["id"] if res.data else None
+
+
 def create_counsellor(
     email: str,
     full_name: str,

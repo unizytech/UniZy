@@ -709,6 +709,28 @@ async def start_recording(
                 detail=f"Processing mode '{request.processing_mode}' is currently unavailable. Use 'fast', 'default', or 'thorough'."
             )
 
+        # 0.5 Resolve counsellor_id / assistant_id: accept EITHER the internal UUID or the caller's
+        # external id (counsellors.external_id / assistants.external_id) and normalise to the UUID so
+        # every downstream lookup uses it. Returns a clean 400 (malformed) / 404 (unknown) instead of
+        # a 500 from a Postgres uuid cast error.
+        from services.supabase_service import resolve_entity_uuid
+        try:
+            _resolved_counsellor = resolve_entity_uuid("counsellors", request.counsellor_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"counsellor_id must be a counsellor UUID or external id; got {request.counsellor_id!r}")
+        if not _resolved_counsellor:
+            raise HTTPException(status_code=404, detail=f"Counsellor not found: {request.counsellor_id!r}")
+        request.counsellor_id = _resolved_counsellor
+
+        if request.assistant_id:
+            try:
+                _resolved_assistant = resolve_entity_uuid("assistants", request.assistant_id)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"assistant_id must be an assistant UUID or external id; got {request.assistant_id!r}")
+            if not _resolved_assistant:
+                raise HTTPException(status_code=404, detail=f"Assistant not found: {request.assistant_id!r}")
+            request.assistant_id = _resolved_assistant
+
         # 1. Auth: Validate EHR client has access to this counsellor (security - keep sync)
         await validate_counsellor_from_body(http_request, request.counsellor_id)
 
