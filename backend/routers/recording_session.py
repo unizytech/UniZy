@@ -716,13 +716,23 @@ async def start_recording(
         # external id (counsellors.external_id / assistants.external_id) and normalise to the UUID so
         # every downstream lookup uses it. Returns a clean 400 (malformed) / 404 (unknown) instead of
         # a 500 from a Postgres uuid cast error.
-        from services.supabase_service import resolve_entity_uuid
+        from services.supabase_service import resolve_entity_uuid, get_or_create_counsellor_by_external_id
         try:
             _resolved_counsellor = resolve_entity_uuid("counsellors", request.counsellor_id)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"counsellor_id must be a counsellor UUID or external id; got {request.counsellor_id!r}")
         if not _resolved_counsellor:
-            raise HTTPException(status_code=404, detail=f"Counsellor not found: {request.counsellor_id!r}")
+            # Auto-create a placeholder counsellor ONLY when a bigint external id was supplied and is
+            # unknown. A non-existent UUID still 404s — we don't fabricate a counsellor from one.
+            try:
+                _ext = int(str(request.counsellor_id).strip())
+            except (ValueError, TypeError):
+                _ext = None
+            if _ext is not None:
+                _resolved_counsellor = get_or_create_counsellor_by_external_id(_ext)
+                logger.info(f"[START_RECORDING] Auto-created placeholder counsellor for external_id={_ext} -> {_resolved_counsellor}")
+            else:
+                raise HTTPException(status_code=404, detail=f"Counsellor not found: {request.counsellor_id!r}")
         request.counsellor_id = _resolved_counsellor
 
         if request.assistant_id:

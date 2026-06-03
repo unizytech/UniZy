@@ -597,6 +597,53 @@ def resolve_entity_uuid(table: str, identifier: str) -> Optional[str]:
     return res.data[0]["id"] if res.data else None
 
 
+# Template code assigned as the default for auto-created placeholder counsellors, so a
+# template-less /start still resolves to an ACTIVE template instead of the inactive OP_CORE fallback.
+AUTO_COUNSELLOR_DEFAULT_TEMPLATE_CODE = "CAREER_DISCUSSION"
+
+
+def get_or_create_counsellor_by_external_id(ext: int) -> str:
+    """Return the counsellor UUID for this external_id, creating a placeholder row if absent.
+
+    Used by /recording/start when the web app references a counsellor by its bigint external id
+    that we don't yet have. The auto-created row gets a synthetic unique email (to satisfy the
+    NOT NULL + unique `email` constraint) and `full_name` set to the external id as text; the real
+    name can be filled in later. It is also given a `default_template_id` pointing at the active
+    default template (looked up by code so the id stays correct across environments) so that a
+    template-less /start resolves correctly rather than hitting the inactive OP_CORE fallback.
+    The upsert on the partial-unique `external_id` index makes this race-safe against concurrent
+    /start calls for the same new counsellor.
+    """
+    res = retry_on_network_error(
+        lambda: supabase.table("counsellors").select("id").eq("external_id", ext).limit(1).execute()
+    )
+    if res.data:
+        return res.data[0]["id"]
+    row = {
+        "external_id": ext,
+        "email": f"external_{ext}@placeholder.unizy.in",
+        "full_name": str(ext),
+    }
+    # Resolve the default template id by code (active only); skip silently if not found.
+    try:
+        tpl = retry_on_network_error(
+            lambda: supabase.table("templates")
+            .select("id")
+            .eq("template_code", AUTO_COUNSELLOR_DEFAULT_TEMPLATE_CODE)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        if tpl.data:
+            row["default_template_id"] = tpl.data[0]["id"]
+    except Exception as e:
+        logger.warning(f"Could not resolve default template for auto-created counsellor: {type(e).__name__}")
+    created = retry_on_network_error(
+        lambda: supabase.table("counsellors").upsert(row, on_conflict="external_id").execute()
+    )
+    return created.data[0]["id"]
+
+
 def create_counsellor(
     email: str,
     full_name: str,
