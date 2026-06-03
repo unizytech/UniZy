@@ -553,6 +553,85 @@ On completion, the same webhook payload as step 4 is delivered, with
 
 ---
 
+## 8. Fetch insights after the fact
+
+Two read endpoints to retrieve results later — by `extraction_id` (from the webhook/`/status`) or by
+your student id. The `insights` returned is the **same conformant structure** as the webhook/status.
+
+### 8a. By extraction id
+
+**Request** — `GET /api/v1/option1/recording/extraction/{extraction_id}`
+
+| Param | In | Type | Notes |
+|---|---|---|---|
+| `extraction_id` | path | string (UUID) | The `extraction_id` from `/status` (step 6) or the webhook (step 4) |
+
+No request body. Send the `Authorization: Bearer` header.
+
+**Response** `200 OK`
+
+```jsonc
+{
+  "extraction_id": "990e8400-e29b-41d4-a716-446655440000",
+  "session_id": "880e8400-e29b-41d4-a716-446655440000",
+  "student_id": "STU12345",
+  "counsellor_id": "770e8400-e29b-41d4-a716-446655440000",
+  "transcript": "Counsellor: Let's talk about your university options…",
+  "insights": { "participants": { /* … */ }, "counselorRemarks": "…" },
+  "created_at": "2026-06-02T15:33:24.628132Z"
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `extraction_id` | string (UUID) | Echo of the requested id |
+| `session_id` | string (UUID) \| null | The recording session it came from |
+| `student_id` | string \| null | **Your** external student identifier |
+| `counsellor_id` | string (UUID) \| null | Internal counsellor UUID |
+| `transcript` | string \| null | Full transcript |
+| `insights` | object \| null | Same conformant shape as the webhook/status `insights` (section 4) |
+| `created_at` | string (ISO 8601) | When the extraction was created |
+
+**Errors:** `400` malformed UUID; `404` extraction not found.
+
+### 8b. By student
+
+**Request** — `GET /api/v1/option1/recording/student/{student_id}/extractions`
+
+| Param | In | Type | Default | Notes |
+|---|---|---|---|---|
+| `student_id` | path | string | — | **Your** external student identifier (the same value you pass to `/recording/start`) |
+| `limit` | query | integer (1–100) | `20` | Max number of extractions to return (newest first) |
+
+No request body. Send the `Authorization: Bearer` header.
+
+**Response** `200 OK`
+
+```jsonc
+{
+  "student_id": "STU12345",
+  "count": 4,
+  "extractions": [
+    {
+      "extraction_id": "990e8400-e29b-41d4-a716-446655440000",
+      "session_id": "880e8400-e29b-41d4-a716-446655440000",
+      "created_at": "2026-06-02T15:33:24.628132Z",
+      "insights": { "participants": { /* … */ }, "counselorRemarks": "…" }
+    }
+  ]
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `student_id` | string | Echo of your external id |
+| `count` | integer | Number of extractions returned |
+| `extractions[]` | array | Newest first; each item has `extraction_id`, `session_id`, `created_at`, and the full `insights` |
+
+**Errors:** `404` if no student exists for that external id.
+
+---
+
 ## Token lifecycle summary
 
 - **Access token** — JWT, ~60 min, sent on every API call. Stateless (signature-verified).

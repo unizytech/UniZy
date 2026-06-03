@@ -3870,6 +3870,39 @@ def get_extraction_by_id(extraction_id: uuid.UUID) -> Optional[Dict[str, Any]]:
     return response.data[0] if response.data else None
 
 
+def list_extractions_for_external_student(external_student_id: str, limit: int = 20) -> Optional[List[Dict[str, Any]]]:
+    """List a student's extractions (newest first) by the student's EXTERNAL identifier
+    (students.student_id — the free-form id the caller supplies). Returns None if no such student
+    exists, else a list of extraction rows (id, session_id, created_at, original_extraction_json).
+    """
+    s = retry_on_network_error(
+        lambda: supabase.table("students").select("id").eq("student_id", external_student_id).limit(1).execute()
+    )
+    if not s.data:
+        return None
+    student_uuid = s.data[0]["id"]
+    limit = max(1, min(int(limit), 100))
+    r = retry_on_network_error(
+        lambda: supabase.table("extractions")
+        .select("id, session_id, counsellor_id, created_at, original_extraction_json")
+        .eq("student_id", student_uuid)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return r.data or []
+
+
+def get_external_student_id(student_uuid: Any) -> Optional[str]:
+    """Return a student's EXTERNAL identifier (students.student_id) given the internal UUID, or None."""
+    if not student_uuid:
+        return None
+    r = retry_on_network_error(
+        lambda: supabase.table("students").select("student_id").eq("id", str(student_uuid)).limit(1).execute()
+    )
+    return r.data[0]["student_id"] if r.data else None
+
+
 def check_extraction_exists(extraction_id: uuid.UUID) -> bool:
     """
     Check if an extraction record exists (lightweight check).

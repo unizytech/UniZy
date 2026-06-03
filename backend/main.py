@@ -394,6 +394,8 @@ _PUBLIC_API_ENDPOINTS = {
     ("/api/v1/option1/recording/start", "post"),
     ("/api/v1/option1/recording/chunk", "post"),
     ("/api/v1/option1/recording/status/{submission_id}", "get"),
+    ("/api/v1/option1/recording/extraction/{extraction_id}", "get"),
+    ("/api/v1/option1/recording/student/{student_id}/extractions", "get"),
     ("/api/v1/recordings/{session_id}/reprocess", "post"),
 }
 

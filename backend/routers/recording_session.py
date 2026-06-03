@@ -108,6 +108,9 @@ from services.supabase_service import (
     get_job_by_submission_id,
     get_processing_mode,
     get_extraction_by_submission_id,  # For /status polling endpoint
+    get_extraction_by_id,             # For the by-extraction-id read endpoint
+    list_extractions_for_external_student,  # For the by-student read endpoint
+    get_external_student_id,          # Resolve internal student UUID -> external id
 )
 from services.recording_processor import RecordingProcessor
 from services.audit_service import audit_service
@@ -1369,6 +1372,85 @@ async def get_processing_status(
         raise HTTPException(status_code=400, detail="Invalid submission_id format")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get status")
+
+
+# ============================================================================
+# Read endpoints: fetch extraction insights after the fact (by extraction_id or student)
+# ============================================================================
+
+class ExtractionInsightsResponse(BaseModel):
+    extraction_id: str
+    session_id: Optional[str] = None
+    student_id: Optional[str] = None       # external student identifier
+    counsellor_id: Optional[str] = None    # internal counsellor UUID
+    transcript: Optional[str] = None
+    insights: Optional[Dict[str, Any]] = None
+    created_at: Optional[str] = None
+
+
+class StudentExtractionItem(BaseModel):
+    extraction_id: str
+    session_id: Optional[str] = None
+    created_at: Optional[str] = None
+    insights: Optional[Dict[str, Any]] = None
+
+
+class StudentExtractionsResponse(BaseModel):
+    student_id: str
+    count: int
+    extractions: List[StudentExtractionItem]
+
+
+@router.get("/extraction/{extraction_id}", response_model=ExtractionInsightsResponse)
+async def get_extraction_insights(
+    extraction_id: str,
+    _auth = Depends(get_current_client)
+):
+    """Fetch a single extraction's insights by `extraction_id` (returned by /status or the webhook).
+
+    Returns the same conformant `insights` structure as the webhook / status response.
+    """
+    try:
+        ext_uuid = uuid.UUID(extraction_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="extraction_id must be a UUID")
+    ext = await asyncio.to_thread(get_extraction_by_id, ext_uuid)
+    if not ext:
+        raise HTTPException(status_code=404, detail=f"Extraction not found: {extraction_id}")
+    student_external = await asyncio.to_thread(get_external_student_id, ext.get("student_id"))
+    return ExtractionInsightsResponse(
+        extraction_id=str(ext["id"]),
+        session_id=str(ext["session_id"]) if ext.get("session_id") else None,
+        student_id=student_external,
+        counsellor_id=str(ext["counsellor_id"]) if ext.get("counsellor_id") else None,
+        transcript=ext.get("transcript"),
+        insights=ext.get("original_extraction_json"),
+        created_at=ext.get("created_at"),
+    )
+
+
+@router.get("/student/{student_id}/extractions", response_model=StudentExtractionsResponse)
+async def list_student_extractions_endpoint(
+    student_id: str,
+    limit: int = 20,
+    _auth = Depends(get_current_client)
+):
+    """List a student's extractions (newest first) by the **external** student id (the same value
+    passed to /recording/start). 404 if the student is unknown. `limit` is 1-100 (default 20).
+    """
+    rows = await asyncio.to_thread(list_extractions_for_external_student, student_id, limit)
+    if rows is None:
+        raise HTTPException(status_code=404, detail=f"Student not found: {student_id!r}")
+    items = [
+        StudentExtractionItem(
+            extraction_id=str(r["id"]),
+            session_id=str(r["session_id"]) if r.get("session_id") else None,
+            created_at=r.get("created_at"),
+            insights=r.get("original_extraction_json"),
+        )
+        for r in rows
+    ]
+    return StudentExtractionsResponse(student_id=student_id, count=len(items), extractions=items)
 
 
 # ============================================================================
