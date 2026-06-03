@@ -52,8 +52,8 @@ class WebhookService:
             self.enabled = False
 
         if not self.webhook_token and self.enabled:
-            logger.warning("Webhook is enabled but WEBHOOK_TOKEN is not configured. Requests may be rejected by webhook endpoint.")
-            # Don't disable webhook - some endpoints may not require auth
+            logger.info("[WEBHOOK] No WEBHOOK_TOKEN set — sending without an Authorization header.")
+            # Don't disable webhook - the receiver may not require auth
 
         # Log webhook configuration on startup
         if self.enabled:
@@ -307,14 +307,14 @@ class WebhookService:
         else:
             filtered_insights = insights or {}
 
-        # Build payload with standardized metadata structure
-        # Same structure as API response for consistency
-        # Add source to metadata for webhook consumers
-        enriched_metadata = {**metadata, "source": source}
+        # Webhook contract expected by the web app's receiver
+        # (POST {WEBHOOK_URL}  ->  { submission_id, response_json }):
+        #   - submission_id : the processing-job id (from the final chunk / reprocess)
+        #   - response_json : the formatted extraction insights (the conformant reference structure)
+        _submission_id = metadata.get("submission_id")
         payload = {
-            "success": True,
-            "insights": filtered_insights,
-            "metadata": enriched_metadata
+            "submission_id": str(_submission_id) if _submission_id else None,
+            "response_json": filtered_insights,
         }
 
         # 🔍 DETAILED LOGGING: Log webhook payload structure

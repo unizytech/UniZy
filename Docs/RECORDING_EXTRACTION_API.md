@@ -230,58 +230,28 @@ When extraction completes, the backend sends an **outgoing** `POST` to each URL 
 | Aspect | Value |
 |---|---|
 | Method | `POST` (JSON) |
-| Auth header | `Authorization: Bearer <WEBHOOK_TOKEN>` (if configured) |
+| URL | each entry in `WEBHOOK_URL` (e.g. `https://…/v1/webhook/update-meeting-response-json`) |
+| Auth header | none by default. If `WEBHOOK_TOKEN` is set, `Authorization: Bearer <WEBHOOK_TOKEN>` is added |
 | Timeout | 10 seconds |
 | Retries | 3 attempts, exponential backoff (1s, 2s, 4s) |
 
-**Payload structure** (`WebhookPayload`)
+**Payload structure** — `POST {WEBHOOK_URL}`
 
 ```jsonc
 {
-  "insights": { /* segment_code → extracted fields (see below) */ },
-  "session_info": {
-    "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
-    "submission_id": "660e8400-e29b-41d4-a716-446655440000",
-    "session_id": "880e8400-e29b-41d4-a716-446655440000",
-    "counsellor_id": "770e8400-e29b-41d4-a716-446655440000",
-    "student_id": "STU12345",
-    "template_code": "CAREER_DISCUSSION",
-    "template_name": "Career Counselling discussion",
-    "extraction_mode": "full",
-    "processing_mode": "default",
-    "consultation_type_code": null
-  },
-  "metadata": {
-    "timestamp": "2026-06-01T10:30:00.000Z",
-    "source": "recording",
-    "version": "3.1.0"
-  }
+  "submission_id": "660e8400-e29b-41d4-a716-446655440000",
+  "response_json": { /* the formatted extraction insights — see below */ }
 }
 ```
 
 | Field | Type | Notes |
 |---|---|---|
-| `insights` | object | Extracted data, keyed by segment code (see below) |
-| `session_info.correlation_id` | string | From step 2 |
-| `session_info.submission_id` | string | From step 3 (final chunk) |
-| `session_info.session_id` | string | Recording session UUID |
-| `session_info.counsellor_id` | string | Counsellor UUID |
-| `session_info.student_id` | string | Student identifier |
-| `session_info.template_code` | string | `"CAREER_DISCUSSION"` |
-| `session_info.template_name` | string | `"Career Counselling discussion"` |
-| `session_info.extraction_mode` | string | `core` \| `additional` \| `full` |
-| `session_info.processing_mode` | string | Processing mode used |
-| `session_info.consultation_type_code` | string \| null | Consultation type, if any |
-| `metadata.timestamp` | string (ISO 8601) | When the webhook was generated |
-| `metadata.source` | string | `recording` \| `reprocess` \| `merge` \| `transcript_only_extraction` |
-| `metadata.version` | string | Payload version (`3.1.0`) |
+| `submission_id` | string (UUID) | The processing-job id from the final chunk (step 3) or a reprocess (step 7). Use it to correlate the result to your recording session. |
+| `response_json` | object | The **formatted extraction insights**, conforming to the careerzilla reference structure (the camelCase keys below). |
 
-### `insights` keys for `CAREER_DISCUSSION`
+### `response_json` keys for `CAREER_DISCUSSION`
 
-The `insights` object contains one entry per template segment. For the
-`CAREER_DISCUSSION` template the segments are (in display order):
-
-The `insights` object is keyed by **camelCase output keys** (not the internal `UPPER_SNAKE`
+`response_json` is keyed by **camelCase output keys** (not the internal `UPPER_SNAKE`
 segment codes) and conforms to the careerzilla reference contract
 (`references/updated_meeting_response_structure.json`) — the `parsedValue` shape of each segment.
 
@@ -310,13 +280,14 @@ segment codes) and conforms to the careerzilla reference contract
 > The nested fields inside each object segment match the reference's `parsedValue` shapes
 > (shown in full below). Treat **values** (not keys) defensively — keys are guaranteed.
 
-**Illustrative payload** — the `insights` object below shows the **full conformant shape**
+**Illustrative payload** — the `response_json` below shows the **full conformant shape**
 (every key present; values are representative). This structure matches
 `references/updated_meeting_response_structure.json` field-for-field.
 
 ```jsonc
 {
-  "insights": {
+  "submission_id": "660e8400-e29b-41d4-a716-446655440000",
+  "response_json": {
     "participants": {
       "Counselor Name": "Ms. Rao",
       "Student Name": "Priya S.",
@@ -386,23 +357,6 @@ segment codes) and conforms to the careerzilla reference contract
       "Changes in Student Direction": { "Previous Goals": "", "Current Goals": "", "Reason for Change": "", "Impact of Change": "" }
     },
     "counselorRemarks": "Confident student; needs support narrowing university list."
-  },
-  "session_info": {
-    "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
-    "submission_id": "660e8400-e29b-41d4-a716-446655440000",
-    "session_id": "880e8400-e29b-41d4-a716-446655440000",
-    "counsellor_id": "770e8400-e29b-41d4-a716-446655440000",
-    "student_id": "STU12345",
-    "template_code": "CAREER_DISCUSSION",
-    "template_name": "Career Counselling discussion",
-    "extraction_mode": "full",
-    "processing_mode": "default",
-    "consultation_type_code": null
-  },
-  "metadata": {
-    "timestamp": "2026-06-01T10:30:00.000Z",
-    "source": "recording",
-    "version": "3.1.0"
   }
 }
 ```
@@ -548,8 +502,7 @@ from step 2), and returns a **new** `submission_id` to track via step 6 / the we
 | `fallback_used` | boolean | `true` if the requested mode fell back (e.g. `reprocess_transcript` requested but no transcript existed, so it re-transcribed) |
 | `message` | string | Status message |
 
-On completion, the same webhook payload as step 4 is delivered, with
-`metadata.source: "reprocess"`.
+On completion, the same `{ submission_id, response_json }` webhook (step 4) is delivered.
 
 ---
 
