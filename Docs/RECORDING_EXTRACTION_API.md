@@ -116,17 +116,25 @@ Pass the `CAREER_DISCUSSION` template code.
 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `counsellor_id` | string (UUID) | yes | — | Counsellor performing the session |
-| `student_id` | string | yes | — | Student identifier |
+| `counsellor_id` | string (UUID **or external id**) | yes | — | Counsellor performing the session. Accepts the internal UUID **or** your own external id (the integer mapped to `counsellors.external_id`). Malformed → `400`; unknown → `404`. |
+| `student_id` | string | yes | — | Free-form student identifier (your own id, MRN, etc.). The backend find-or-creates the student from it — **any string is accepted** (no UUID required). |
 | `template_code` | string \| null | no | resolves to counsellor/school default → `OP_CORE` | Use `"CAREER_DISCUSSION"`, or `"TRANSCRIPT_ONLY"` for transcript-only |
 | `template_name` | string \| null | no | — | Display name only (human readability) |
 | `processing_mode` | string | no | `"default"` | `"fast"` \| `"default"` \| `"thorough"` |
 | `extraction_mode` | string | no | `"full"` | `"core"` \| `"additional"` \| `"full"` |
 | `chunk_duration_seconds` | integer (0–60) | no | `10` | `0` = single file upload |
-| `assistant_id` | string (UUID) \| null | no | — | If an assistant initiated the session |
+| `assistant_id` | string (UUID **or external id**) \| null | no | — | If an assistant initiated the session. Accepts the internal UUID **or** your external id (the integer mapped to `assistants.external_id`). |
 | `recording_metadata` | object \| null | no | — | Custom metadata; flows through to `/status` |
-| `correlation_id` | string (UUID) \| null | no | generated | Provide your own, or let the backend generate one |
+| `correlation_id` | string (UUID) \| null | no | generated | Optional. If supplied it **must be a UUID**; otherwise leave it `null` and the backend generates one. Do not pass a non-UUID id here. |
 | `is_continuation` | boolean | no | `false` | `true` continues a prior session for the same student/visit |
+
+> **Identifiers — UUID vs your own ids.** `counsellor_id` and `assistant_id` accept **either** the
+> backend's internal UUID **or** your own external id: provision your id into
+> `counsellors.external_id` / `assistants.external_id` (a unique integer) and then pass it directly,
+> e.g. `"counsellor_id": "21"`. `student_id` is already a free-form external identifier — pass any
+> string, no mapping needed. The backend-generated ids you receive back (`correlation_id`,
+> `session_id`, `submission_id`, `extraction_id`) are **opaque UUID strings** — store and echo them
+> as strings, not integers.
 
 **Response** `200 OK`
 
