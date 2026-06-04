@@ -614,11 +614,16 @@ def get_or_create_counsellor_by_external_id(ext: int) -> str:
     The upsert on the partial-unique `external_id` index makes this race-safe against concurrent
     /start calls for the same new counsellor.
     """
-    res = retry_on_network_error(
-        lambda: supabase.table("counsellors").select("id").eq("external_id", ext).limit(1).execute()
-    )
-    if res.data:
-        return res.data[0]["id"]
+    def _lookup() -> Optional[str]:
+        res = retry_on_network_error(
+            lambda: supabase.table("counsellors").select("id").eq("external_id", ext).limit(1).execute()
+        )
+        return res.data[0]["id"] if res.data else None
+
+    existing = _lookup()
+    if existing:
+        return existing
+
     row = {
         "external_id": ext,
         "email": f"external_{ext}@placeholder.unizy.in",
@@ -638,10 +643,22 @@ def get_or_create_counsellor_by_external_id(ext: int) -> str:
             row["default_template_id"] = tpl.data[0]["id"]
     except Exception as e:
         logger.warning(f"Could not resolve default template for auto-created counsellor: {type(e).__name__}")
-    created = retry_on_network_error(
-        lambda: supabase.table("counsellors").upsert(row, on_conflict="external_id").execute()
-    )
-    return created.data[0]["id"]
+
+    # Plain insert. The partial unique index on external_id (WHERE external_id IS NOT NULL)
+    # can't be used for an ON CONFLICT upsert (Postgres can't infer a partial index without
+    # its predicate), so we insert and, if a concurrent /start already created the row, fall
+    # back to re-selecting the existing one.
+    try:
+        created = retry_on_network_error(
+            lambda: supabase.table("counsellors").insert(row).execute()
+        )
+        return created.data[0]["id"]
+    except Exception as e:
+        existing = _lookup()
+        if existing:
+            return existing
+        logger.error(f"Failed to auto-create counsellor for external_id={ext}: {type(e).__name__}")
+        raise
 
 
 def create_counsellor(
