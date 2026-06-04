@@ -21,6 +21,8 @@ import os
 
 logger = logging.getLogger(__name__)
 
+from services.audio_splitter import normalize_webm_header_order, is_webm_mime_type
+
 
 # ============================================================================
 # Audio Stitching Functions
@@ -87,7 +89,7 @@ def _stitch_webm_chunks(chunks: List[Dict[str, Any]], mime_type: str) -> Tuple[s
     Raises:
         ValueError: If base64 decoding fails
     """
-    combined_bytes = b""
+    decoded_chunks: List[bytes] = []
 
     for i, chunk in enumerate(chunks):
         audio_data_b64 = chunk.get("audio_data", "")
@@ -120,7 +122,17 @@ def _stitch_webm_chunks(chunks: List[Dict[str, Any]], mime_type: str) -> Tuple[s
                 f"First 50 chars: {audio_data_b64[:50]}"
             ) from e
 
-        combined_bytes += audio_bytes
+        decoded_chunks.append(audio_bytes)
+
+    # WebM/Matroska: the EBML init segment must lead the stream. MediaRecorder
+    # intermittently emits it in chunk 1/2 instead of chunk 0, which a naive concat
+    # would place mid-stream → invalid container. Relocate the header to the front
+    # (order preserved; fast no-op when chunk 0 already carries it). mp4/m4a/mpeg are
+    # routed through here too but use a different container layout — leave them as-is.
+    if is_webm_mime_type(mime_type):
+        decoded_chunks = normalize_webm_header_order(decoded_chunks)
+
+    combined_bytes = b"".join(decoded_chunks)
 
     # Encode back to base64
     combined_b64 = base64.b64encode(combined_bytes).decode("utf-8")

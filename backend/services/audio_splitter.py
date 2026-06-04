@@ -58,6 +58,88 @@ def _extract_webm_init_segment(chunk_0_bytes: bytes) -> Optional[bytes]:
     return chunk_0_bytes[:idx]
 
 
+def is_webm_mime_type(mime_type: Optional[str]) -> bool:
+    """True if the mime type uses the WebM/Matroska container layout (init header
+    carried only by the first chunk), so header-order normalization applies."""
+    return (mime_type or "").lower().split(";", 1)[0].strip() in _WEBM_MIME_TYPES
+
+
+def _scan_for_webm_init(
+    decoded_chunks: List[bytes], max_scan: int = 3
+) -> Optional[Tuple[int, bytes]]:
+    """Scan the first `max_scan` decoded chunks for the one carrying the WebM init
+    segment. Returns (carrier_index, init_bytes), or None if none carry it."""
+    for i in range(min(max_scan, len(decoded_chunks))):
+        init = _extract_webm_init_segment(decoded_chunks[i])
+        if init:
+            return i, init
+    return None
+
+
+def normalize_webm_header_order(
+    decoded_chunks: List[bytes], max_scan: int = 3
+) -> List[bytes]:
+    """Ensure the WebM init segment leads the stream, preserving chunk order.
+
+    MediaRecorder intermittently emits the first Blob without the init segment, so
+    the EBML header (``1A 45 DF A3``) lands in chunk 1 (or 2). A naive index-order
+    concat then places the header mid-stream, producing an invalid container that
+    decoders reject (e.g. 400 INVALID_ARGUMENT).
+
+    Strategy — relocate the header only, never reorder audio:
+      * empty list → unchanged
+      * chunk 0 already starts with the EBML magic → unchanged (fast path)
+      * otherwise find the carrier among the first ``max_scan`` chunks, strip its
+        init segment off the carrier, and prepend the init once
+      * if no chunk in the first ``max_scan`` carries a header → unchanged + warn
+    """
+    if not decoded_chunks:
+        return decoded_chunks
+    if decoded_chunks[0].startswith(_EBML_MAGIC):
+        return decoded_chunks  # fast path — already well-formed
+    found = _scan_for_webm_init(decoded_chunks, max_scan)
+    if found is None:
+        logger.warning(
+            "[AUDIO_SPLITTER] No EBML header in first %d chunks; passing through "
+            "header-less (decoder may reject).",
+            min(max_scan, len(decoded_chunks)),
+        )
+        return decoded_chunks
+    carrier_index, init = found
+    result = list(decoded_chunks)
+    result[carrier_index] = result[carrier_index][len(init):]  # strip header off carrier
+    return [init] + result  # prepend the single header once, order preserved
+
+
+def _find_init_in_first_chunks(
+    chunks: List[dict], max_scan: int = 3
+) -> Optional[bytes]:
+    """Find the WebM init segment among the recording's first `max_scan` chunks.
+
+    The header normally leads chunk 0, but MediaRecorder sometimes emits it in
+    chunk 1 or 2. Decodes chunk_index 0..max_scan-1 in order and returns the first
+    valid init segment found, or None. Used by mid-recording segment slices, which
+    have no header of their own.
+    """
+    by_index = {}
+    for c in chunks:
+        ci = c.get("chunk_index", -1)
+        if 0 <= ci < max_scan and ci not in by_index:
+            by_index[ci] = c
+    for ci in range(max_scan):
+        c = by_index.get(ci)
+        if c is None:
+            continue
+        try:
+            init = _extract_webm_init_segment(base64.b64decode(c.get("audio_data", "")))
+        except Exception as e:
+            logger.warning(f"[AUDIO_SPLITTER] init scan: decode failed for chunk {ci}: {e}")
+            continue
+        if init:
+            return init
+    return None
+
+
 def stitch_and_get_bytes_for_chunk_range(
     chunks: List[dict],
     start_index: int,
@@ -91,48 +173,37 @@ def stitch_and_get_bytes_for_chunk_range(
     range_chunks.sort(key=lambda x: x.get("chunk_index", 0))
     mime_type = range_chunks[0].get("mime_type", "audio/webm")
 
-    combined = b""
-    for chunk in range_chunks:
-        audio_b64 = chunk.get("audio_data", "")
-        combined += base64.b64decode(audio_b64)
+    decoded = [base64.b64decode(c.get("audio_data", "")) for c in range_chunks]
 
-    # If this slice doesn't start at chunk 0, the combined bytes begin with
-    # raw Cluster data (no EBML/Segment/Tracks header). Gemini rejects such
-    # buffers with 400 INVALID_ARGUMENT. Prepend the header from chunk 0
-    # ONCE to make the output a valid streaming WebM.
     min_chunk_index = range_chunks[0].get("chunk_index", start_index)
-    is_webm = (mime_type or "").lower().split(";", 1)[0].strip() in _WEBM_MIME_TYPES
+    is_webm = is_webm_mime_type(mime_type)
 
-    if min_chunk_index > 0 and is_webm:
-        chunk_0 = next(
-            (c for c in chunks if c.get("chunk_index") == 0),
-            None,
-        )
-        if chunk_0 is None:
-            logger.warning(
-                f"[AUDIO_SPLITTER] Range {start_index}-{end_index} starts at "
-                f"chunk_index={min_chunk_index} but chunk 0 not in chunks list; "
-                f"falling back to header-less byte concat (Gemini may reject)."
+    if is_webm and min_chunk_index == 0:
+        # Slice starts at the recording's beginning. The init header normally leads
+        # chunk 0, but MediaRecorder sometimes emits it in chunk 1/2 (defect). Relocate
+        # it to the front in-order so the slice is a valid streaming WebM.
+        decoded = normalize_webm_header_order(decoded)
+        combined = b"".join(decoded)
+    elif is_webm and min_chunk_index > 0:
+        # Mid-recording slice: the combined bytes begin with raw Cluster data (no
+        # EBML/Segment/Tracks header). Decoders reject such buffers (400
+        # INVALID_ARGUMENT). Find the init among the full recording's first 3 chunks
+        # (it may be in 0, 1, or 2) and prepend it ONCE.
+        combined = b"".join(decoded)
+        init_bytes = _find_init_in_first_chunks(chunks, max_scan=3)
+        if init_bytes:
+            logger.debug(
+                f"[AUDIO_SPLITTER] Prepending {len(init_bytes)}B WebM init "
+                f"to range {start_index}-{end_index} ({len(combined)}B combined)"
             )
+            combined = init_bytes + combined
         else:
-            try:
-                chunk_0_bytes = base64.b64decode(chunk_0.get("audio_data", ""))
-                init_bytes = _extract_webm_init_segment(chunk_0_bytes)
-                if init_bytes:
-                    logger.debug(
-                        f"[AUDIO_SPLITTER] Prepending {len(init_bytes)}B WebM init "
-                        f"to range {start_index}-{end_index} ({len(combined)}B combined)"
-                    )
-                    combined = init_bytes + combined
-                else:
-                    logger.warning(
-                        f"[AUDIO_SPLITTER] Could not extract WebM init from chunk 0 "
-                        f"({len(chunk_0_bytes)}B); falling back to header-less concat."
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"[AUDIO_SPLITTER] WebM init extraction failed: {e}; "
-                    f"falling back to header-less concat."
-                )
+            logger.warning(
+                f"[AUDIO_SPLITTER] Range {start_index}-{end_index} starts mid-recording "
+                f"but no WebM init found in first 3 chunks; falling back to header-less "
+                f"concat (decoder may reject)."
+            )
+    else:
+        combined = b"".join(decoded)
 
     return combined, mime_type
