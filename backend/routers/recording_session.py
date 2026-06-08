@@ -1494,6 +1494,7 @@ async def _validate_audio_chunk_async(
     7. Format detection failures (first chunk)
     """
     import base64
+    from services.b64_utils import b64decode_padded
 
     try:
         # For first chunk: do comprehensive validation (decode full data)
@@ -1547,7 +1548,7 @@ async def _validate_audio_chunk_async(
         except Exception:
             # Fallback: try decoding more data
             try:
-                header_bytes = base64.b64decode(audio_data[:200])
+                header_bytes = b64decode_padded(audio_data[:200])
                 detected_format = detect_audio_format(header_bytes)
             except:
                 pass
@@ -1588,7 +1589,7 @@ async def _validate_audio_chunk_async(
 
         full_audio_bytes = None
         try:
-            full_audio_bytes = base64.b64decode(audio_data)
+            full_audio_bytes = b64decode_padded(audio_data)
         except Exception as decode_err:
             logger.debug(f"[CHUNK_VALIDATION] Session {session_id[:8]}... chunk {chunk_index}: "
                         f"Failed to decode full audio: {decode_err}")
