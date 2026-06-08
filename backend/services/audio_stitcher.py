@@ -9,6 +9,7 @@ MediaRecorder creates self-contained chunks that can be joined directly.
 """
 
 import base64
+from services.b64_utils import b64decode_padded
 import io
 import wave
 import subprocess
@@ -113,7 +114,7 @@ def _stitch_webm_chunks(chunks: List[Dict[str, Any]], mime_type: str) -> Tuple[s
 
         # Decode base64 to bytes
         try:
-            audio_bytes = base64.b64decode(audio_data_b64)
+            audio_bytes = b64decode_padded(audio_data_b64)
         except Exception as e:
             raise ValueError(
                 f"Chunk {i} base64 decoding failed: {str(e)}. "
@@ -172,7 +173,7 @@ def _stitch_pcm_chunks(chunks: List[Dict[str, Any]], mime_type: str) -> Tuple[st
 
         # Decode base64 to bytes
         try:
-            audio_bytes = base64.b64decode(audio_data_b64)
+            audio_bytes = b64decode_padded(audio_data_b64)
         except Exception as e:
             raise ValueError(
                 f"PCM Chunk {i} base64 decoding failed: {str(e)}. "
@@ -228,7 +229,7 @@ def _stitch_wav_chunks(chunks: List[Dict[str, Any]]) -> Tuple[str, str]:
 
         # Decode base64 to bytes
         try:
-            audio_bytes = base64.b64decode(audio_data_b64)
+            audio_bytes = b64decode_padded(audio_data_b64)
         except Exception as e:
             raise ValueError(
                 f"WAV Chunk {i} base64 decoding failed: {str(e)}. "
@@ -331,7 +332,7 @@ def stitch_audio_chunks_ffmpeg(
 
             # Write each chunk to a temp file
             for i, chunk in enumerate(sorted_chunks):
-                audio_bytes = base64.b64decode(chunk["audio_data"])
+                audio_bytes = b64decode_padded(chunk["audio_data"])
                 chunk_path = os.path.join(temp_dir, f"chunk_{i:04d}.{output_ext}")
                 with open(chunk_path, "wb") as f:
                     f.write(audio_bytes)
@@ -431,7 +432,7 @@ def stitch_audio_chunks_to_file(
     with open(output_path, "wb") as output_file:
         for chunk in sorted_chunks:
             audio_data_b64 = chunk.get("audio_data", "")
-            audio_bytes = base64.b64decode(audio_data_b64)
+            audio_bytes = b64decode_padded(audio_data_b64)
             output_file.write(audio_bytes)
 
     return output_path
@@ -503,7 +504,7 @@ def get_total_audio_size(chunks: List[Dict[str, Any]]) -> int:
         audio_data_b64 = chunk.get("audio_data", "")
         # Base64 encoded size is ~4/3 of actual size
         # But we can get exact size by decoding
-        audio_bytes = base64.b64decode(audio_data_b64)
+        audio_bytes = b64decode_padded(audio_data_b64)
         total_size += len(audio_bytes)
 
     return total_size

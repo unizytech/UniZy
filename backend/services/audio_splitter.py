@@ -10,6 +10,8 @@ import base64
 import logging
 from typing import List, Optional, Tuple
 
+from services.b64_utils import b64decode_padded
+
 logger = logging.getLogger(__name__)
 
 # WebM Cluster element ID (Matroska/EBML) — marks the start of audio packets.
@@ -131,7 +133,7 @@ def _find_init_in_first_chunks(
         if c is None:
             continue
         try:
-            init = _extract_webm_init_segment(base64.b64decode(c.get("audio_data", "")))
+            init = _extract_webm_init_segment(b64decode_padded(c.get("audio_data", "")))
         except Exception as e:
             logger.warning(f"[AUDIO_SPLITTER] init scan: decode failed for chunk {ci}: {e}")
             continue
@@ -173,7 +175,7 @@ def stitch_and_get_bytes_for_chunk_range(
     range_chunks.sort(key=lambda x: x.get("chunk_index", 0))
     mime_type = range_chunks[0].get("mime_type", "audio/webm")
 
-    decoded = [base64.b64decode(c.get("audio_data", "")) for c in range_chunks]
+    decoded = [b64decode_padded(c.get("audio_data", "")) for c in range_chunks]
 
     min_chunk_index = range_chunks[0].get("chunk_index", start_index)
     is_webm = is_webm_mime_type(mime_type)

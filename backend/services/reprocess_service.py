@@ -16,6 +16,7 @@ Reuses existing pipeline functions - no custom pipeline logic.
 
 import asyncio
 import base64
+from services.b64_utils import b64decode_padded
 import logging
 import time
 import uuid
@@ -1067,7 +1068,7 @@ async def _reprocess_full_pipeline(
             if raw_chunks:
                 _preview_chunks = raw_chunks[: min(2, len(raw_chunks))]
                 _preview_bytes = b"".join(
-                    base64.b64decode(c.get("audio_data", "")) for c in _preview_chunks
+                    b64decode_padded(c.get("audio_data", "")) for c in _preview_chunks
                 )
             else:
                 _preview_bytes = audio_bytes

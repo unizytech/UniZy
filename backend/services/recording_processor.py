@@ -15,6 +15,7 @@ Usage:
 """
 
 import base64
+from services.b64_utils import b64decode_padded
 import uuid
 import time
 import asyncio
@@ -385,7 +386,7 @@ class RecordingProcessor:
             try:
                 preview_chunks = chunks[: min(2, len(chunks))]
                 preview_bytes = b"".join(
-                    base64.b64decode(c.get("audio_data", "")) for c in preview_chunks
+                    b64decode_padded(c.get("audio_data", "")) for c in preview_chunks
                 )
                 if preview_bytes:
                     _patient_id_for_lang = session.get("student_id")
