@@ -4052,6 +4052,7 @@ async def detect_language_from_audio(
         Language name string (e.g., "Tamil", "Hindi", "English") or None
         on any failure. Never raises — always safe to call fire-and-forget.
     """
+    import time
     import asyncio as _asyncio
     from services.llm_usage_service import log_llm_usage, LLMUsageData, create_error_usage
     import uuid as _uuid

@@ -111,6 +111,7 @@ async def publish_extraction_response(
     school_code: Optional[str] = None,
     recording_metadata: Optional[Dict[str, Any]] = None,
     uhid: Optional[str] = None,
+    template_code: Optional[str] = None,
 ) -> bool:
     """
     Publish extraction response to realtime_extraction_responses table.
@@ -136,6 +137,27 @@ async def publish_extraction_response(
             logger.debug(f"[REALTIME_PUBLISH] Realtime not enabled for school {school_id[:8]}..., skipping")
             return False
 
+        # Conform insights to the reference media-object envelope
+        # (customBusinessInsights) so the web app receives exactly the structure in
+        # references/updated_meeting_response_structure.json. Non-fatal: fall back to
+        # the keyed insights if the build fails.
+        # Gate: career_* templates only; every other template keeps keyed insights.
+        insights_payload = insights
+        try:
+            from services.reference_envelope_builder import (
+                build_envelope_for_extraction,
+                applies_to_template,
+            )
+            if isinstance(insights, dict) and insights and applies_to_template(template_code):
+                insights_payload = build_envelope_for_extraction(
+                    insights,
+                    media_id=str(extraction_id or submission_id or ""),
+                    recording_metadata=recording_metadata,
+                )
+        except Exception as env_err:
+            logger.warning(f"[REALTIME_PUBLISH] Reference envelope build failed (non-fatal), publishing keyed insights: {env_err}")
+            insights_payload = insights
+
         # Build the response payload (matches EHR status API structure)
         response_payload = {
             "submission_id": submission_id,
@@ -144,7 +166,7 @@ async def publish_extraction_response(
             "message": "Processing completed successfully",
             "extraction_id": extraction_id,
             "uhid": uhid or "",
-            "insights": insights,
+            "insights": insights_payload,
             "recording_metadata": recording_metadata or {}
         }
 
@@ -290,6 +312,7 @@ async def publish_extraction_response_fire_and_forget(
     school_code: Optional[str] = None,
     recording_metadata: Optional[Dict[str, Any]] = None,
     uhid: Optional[str] = None,
+    template_code: Optional[str] = None,
 ) -> None:
     """
     Fire-and-forget wrapper for publishing extraction responses.
@@ -318,6 +341,7 @@ async def publish_extraction_response_fire_and_forget(
             school_code=school_code,
             recording_metadata=recording_metadata,
             uhid=uhid,
+            template_code=template_code,
         )
     except Exception as e:
         # Catch all exceptions to ensure fire-and-forget behavior
