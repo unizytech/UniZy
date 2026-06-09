@@ -43,6 +43,7 @@ from routers import merge
 from routers import admin
 from routers import processing_modes
 from routers import counsellor_templates
+from routers import counsellor_tasks
 from routers import system_prompts
 from routers import medicines
 from routers import investigations
@@ -241,6 +242,9 @@ app.include_router(processing_modes.router, prefix="/api/v1/admin", tags=["Proce
 
 # Include routers - Counsellor Templates (Template Sharing & Activation)
 app.include_router(counsellor_templates.router, tags=["Counsellor Templates"])
+
+# Include routers - Counsellor Tasks (TODO CRUD)
+app.include_router(counsellor_tasks.router, tags=["Counsellor Tasks"])
 
 # Include routers - System Prompts (Dynamic Prompt Management)
 app.include_router(system_prompts.router, tags=["System Prompts"])
