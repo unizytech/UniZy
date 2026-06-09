@@ -1204,6 +1204,8 @@ async def _save_extraction_async(
     ehr_payload_json: Optional[Dict[str, Any]] = None,
     is_continuation: bool = False,
     parent_extraction_ids: Optional[list] = None,
+    template_code: Optional[str] = None,
+    audio_mime_type: Optional[str] = None,
 ) -> None:
     """
     Background task for DB save only.
@@ -1221,6 +1223,26 @@ async def _save_extraction_async(
     try:
         logger.debug(f"[EXTRACTION_ASYNC] Starting DB save for extraction {extraction_id}")
         save_start = time_module.time()
+
+        # Build the reference media-object envelope (customBusinessInsights) for
+        # outward-facing consumers, stored alongside the keyed original_extraction_json.
+        # Non-fatal: a failure here must not block the DB save.
+        reference_payload_json = None
+        try:
+            from services.reference_envelope_builder import (
+                build_envelope_for_extraction,
+                applies_to_template,
+            )
+            if isinstance(full_extraction, dict) and full_extraction and applies_to_template(template_code):
+                reference_payload_json = build_envelope_for_extraction(
+                    full_extraction,
+                    media_id=str(extraction_id),
+                    transcript=transcript_text,
+                    recording_metadata=recording_metadata_json,
+                    media_format=audio_mime_type,
+                )
+        except Exception as env_err:
+            logger.warning(f"[EXTRACTION_ASYNC] Reference envelope build failed (non-fatal): {env_err}")
 
         await asyncio.to_thread(
             save_medical_extraction,
@@ -1243,6 +1265,7 @@ async def _save_extraction_async(
             ehr_payload_json=ehr_payload_json,
             is_continuation=is_continuation,
             parent_extraction_ids=parent_extraction_ids,
+            reference_payload_json=reference_payload_json,
         )
 
         save_duration = time_module.time() - save_start
@@ -1974,6 +1997,8 @@ async def perform_template_extraction(
                 ehr_payload_json=ehr_payload,          # FORMATTED -> ehr_payload_json
                 is_continuation=is_continuation,
                 parent_extraction_ids=parent_extraction_ids,
+                template_code=template_code,           # gates reference-envelope build (career_* only)
+                audio_mime_type=audio_mime_type,       # -> envelope mediaFormat
             )
         )
 
@@ -2187,6 +2212,7 @@ async def perform_template_extraction(
                             school_code=patient_info.get("school_code"),
                             recording_metadata=recording_metadata if session else None,
                             uhid=patient_info.get("student_id", ""),
+                            template_code=template_code,
                         ))
                 except Exception as e:
                     logger.warning(f"[EXTRACTION_SERVICE] Failed to schedule realtime publish: {e}")

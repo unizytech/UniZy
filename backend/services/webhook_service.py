@@ -90,7 +90,7 @@ class WebhookService:
         """
         # 🔍 DEBUG: Log webhook call
         logger.info(f"[WEBHOOK] send_insights_to_webhook called - enabled={self.enabled}, urls={len(self.webhook_urls) if self.webhook_urls else 0}")
-        logger.info(f"[WEBHOOK] Metadata: {metadata}")
+        logger.info(f"[WEBHOOK] Metadata: { {k: v for k, v in metadata.items() if k != 'transcript_text'} }")
         logger.info(f"[WEBHOOK] Source: {source}")
         logger.info(f"[WEBHOOK] Insights keys: {list(insights.keys()) if insights else 'None'}")
 
@@ -312,9 +312,51 @@ class WebhookService:
         #   - submission_id : the processing-job id (from the final chunk / reprocess)
         #   - response_json : the formatted extraction insights (the conformant reference structure)
         _submission_id = metadata.get("submission_id")
+
+        # Conform response_json to the reference media-object envelope
+        # (customBusinessInsights), so the web app receives exactly the structure in
+        # references/updated_meeting_response_structure.json. Skip for non-extraction
+        # payloads (error / emotion) that reuse this sender — they are NOT segment insights.
+        response_json = filtered_insights
+        from services.reference_envelope_builder import applies_to_template
+        _is_extraction = (
+            not source.endswith(".error")
+            and source != "emotion_analysis"
+            and isinstance(filtered_insights, dict)
+            and "status" not in filtered_insights
+            and "type" not in filtered_insights
+        )
+        # Gate: reference envelope is career_* templates only; every other template
+        # keeps the keyed-insights shape.
+        if _is_extraction and applies_to_template(metadata.get("template_code")):
+            try:
+                from services.reference_envelope_builder import build_envelope_for_extraction
+                _extraction_id = metadata.get("extraction_id")
+                # Transcript: prefer the in-memory value threaded by the sender (recording
+                # flow); fall back to the DB for senders that don't supply it (reprocess/merge).
+                _transcript = metadata.get("transcript_text")
+                if not _transcript and _extraction_id:
+                    try:
+                        from services.supabase_service import get_extraction_by_id
+                        import uuid as _uuid
+                        _row = get_extraction_by_id(_uuid.UUID(str(_extraction_id)))
+                        _transcript = (_row or {}).get("transcript_text")
+                    except Exception:
+                        _transcript = None
+                response_json = build_envelope_for_extraction(
+                    filtered_insights,
+                    media_id=str(_extraction_id or _submission_id or ""),
+                    transcript=_transcript,
+                    recording_metadata=metadata.get("recording_metadata_json"),
+                    media_format=metadata.get("audio_format"),
+                )
+            except Exception as env_err:
+                logger.warning(f"[WEBHOOK] Reference envelope build failed (non-fatal), sending keyed insights: {env_err}")
+                response_json = filtered_insights
+
         payload = {
             "submission_id": str(_submission_id) if _submission_id else None,
-            "response_json": filtered_insights,
+            "response_json": response_json,
         }
 
         # 🔍 DETAILED LOGGING: Log webhook payload structure

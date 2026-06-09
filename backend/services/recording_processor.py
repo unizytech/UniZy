@@ -1872,6 +1872,10 @@ class RecordingProcessor:
                         "timestamp": datetime.utcnow().isoformat() + "Z",
                         "audio_quality": self._audio_quality,  # Use pre-fetched audio quality
                         "preferred_language": getattr(self, '_detected_language', None),
+                        # For the reference envelope (career_*): transcript -> originalTranscription,
+                        # audio mime/format -> mediaFormat. transcript_text is redacted from logs.
+                        "transcript_text": transcript,
+                        "audio_format": getattr(self, '_audio_mime_type', None),
                     }
 
                     # Check if realtime is enabled (skip webhook if so)
@@ -1981,6 +1985,10 @@ class RecordingProcessor:
                         "timestamp": datetime.utcnow().isoformat() + "Z",
                         "audio_quality": self._audio_quality,  # Use pre-fetched audio quality
                         "preferred_language": getattr(self, '_detected_language', None),
+                        # For the reference envelope (career_*): transcript -> originalTranscription,
+                        # audio mime/format -> mediaFormat. transcript_text is redacted from logs.
+                        "transcript_text": transcript,
+                        "audio_format": getattr(self, '_audio_mime_type', None),
                     }
 
                     # Check if realtime is enabled (skip webhook if so)

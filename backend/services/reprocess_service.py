@@ -942,6 +942,7 @@ async def _reprocess_full_pipeline(
                         insights=insights,
                         recording_metadata=session.get("recording_metadata_json") if session else None,
                         uhid=_reprocess_uhid,
+                        template_code=session.get("template_code") if session else None,
                     ))
             except Exception as e:
                 logger.warning(f"[REPROCESS:SKIP_TRANSCRIPTION] Failed to schedule realtime publish: {e}")

@@ -3954,7 +3954,7 @@ def list_extractions_for_external_student(external_student_id: str, limit: int =
     limit = max(1, min(int(limit), 100))
     r = retry_on_network_error(
         lambda: supabase.table("extractions")
-        .select("id, session_id, counsellor_id, created_at, original_extraction_json")
+        .select("id, session_id, counsellor_id, created_at, original_extraction_json, reference_payload_json")
         .eq("student_id", student_uuid)
         .order("created_at", desc=True)
         .limit(limit)
@@ -6679,6 +6679,9 @@ def save_medical_extraction(
     # Continuation support (optional, non-breaking)
     is_continuation: bool = False,
     parent_extraction_ids: Optional[list] = None,
+    # Reference media-object envelope (customBusinessInsights). Stored alongside
+    # original_extraction_json; consumed by outward-facing channels only.
+    reference_payload_json: Optional[Dict[str, Any]] = None,
 ) -> uuid.UUID:
     """
     Save extraction to database (original AI-generated version).
@@ -6746,6 +6749,8 @@ def save_medical_extraction(
         # Continuation support
         "is_continuation": is_continuation,
         "parent_extraction_ids": [str(pid) for pid in parent_extraction_ids] if parent_extraction_ids else [],
+        # Reference media-object envelope (outward-facing shape), alongside the keyed JSON
+        "reference_payload_json": reference_payload_json,
     }
 
     # Use pre-generated extraction_id if provided (for parallel emotion analysis)
@@ -6956,6 +6961,9 @@ def get_extraction_by_submission_id(submission_id: uuid.UUID) -> Optional[Dict[s
             "id": extraction.get("id"),
             "transcript": extraction.get("transcript_text"),
             "insights": extraction.get("original_extraction_json"),  # Use original_extraction_json
+            # Reference media-object envelope (career_* only; null otherwise). Endpoints
+            # prefer this over the keyed insights when present (matches webhook/realtime).
+            "reference_payload_json": extraction.get("reference_payload_json"),
             "stitching_time_seconds": extraction.get("stitching_time_seconds"),
             "transcription_time_seconds": extraction.get("transcription_time_seconds"),
             "extraction_time_seconds": extraction.get("extraction_time_seconds"),
@@ -7177,10 +7185,17 @@ def update_extraction_edits(
     """
     from datetime import datetime, timezone
 
+    # Accept either shape from the editor: the web app may POST the reference
+    # media-object envelope (customBusinessInsights) or raw keyed insights. Normalise
+    # to keyed up front so all downstream logic (merge, history, segments, drift) and
+    # every edited_extraction_json consumer keep working on the keyed shape.
+    from services.reference_envelope_builder import envelope_to_keyed
+    edited_data = envelope_to_keyed(edited_data)
+
     # Get current extraction (include previous edit data for history)
     current_response = (
         supabase.table("extractions")
-        .select("edit_count, original_extraction_json, edited_extraction_json")
+        .select("edit_count, original_extraction_json, edited_extraction_json, reference_payload_json")
         .eq("id", str(extraction_id))
         .execute()
     )
@@ -7239,6 +7254,25 @@ def update_extraction_edits(
         "last_edited_by": str(edited_by),
         "edited_by_type": edited_by_type  # Track if edited by counsellor or assistant
     }
+
+    # Keep the reference envelope in sync with the edit. Only rows that already
+    # carry an envelope (career_* templates, per the build gate) are refreshed —
+    # others stay keyed-only. We refresh just the customBusinessInsights items from
+    # the merged keyed data and preserve the existing media wrapper + transcription.
+    existing_env = current_row.get("reference_payload_json")
+    if isinstance(existing_env, dict) and isinstance(merged_data, dict):
+        try:
+            from services.reference_envelope_builder import (
+                build_custom_business_insights, get_segment_meta_cached,
+            )
+            meta = get_segment_meta_cached(list(merged_data.keys()))
+            refreshed = dict(existing_env)
+            refreshed["customBusinessInsights"] = build_custom_business_insights(
+                merged_data, str(extraction_id), segment_meta=meta,
+            )
+            updates["reference_payload_json"] = refreshed
+        except Exception as e:
+            logger.warning(f"[EDIT] Reference envelope refresh failed (non-fatal) for {extraction_id}: {e}")
 
     response = (
         supabase.table("extractions")

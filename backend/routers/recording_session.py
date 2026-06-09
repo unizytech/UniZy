@@ -1600,7 +1600,9 @@ async def get_processing_status(
             if extraction:
                 response.extraction_id = extraction.get("id")
                 response.transcript = extraction.get("transcript")
-                response.insights = extraction.get("insights")
+                # Prefer the reference media-object envelope (career_* templates); fall back
+                # to keyed insights for other templates / pre-migration rows.
+                response.insights = extraction.get("reference_payload_json") or extraction.get("insights")
                 response.metrics = {
                     "stitching_time": extraction.get("stitching_time_seconds"),
                     "transcription_time": extraction.get("transcription_time_seconds"),
@@ -1675,7 +1677,7 @@ async def get_extraction_insights(
         student_id=student_external,
         counsellor_id=str(ext["counsellor_id"]) if ext.get("counsellor_id") else None,
         transcript=ext.get("transcript"),
-        insights=ext.get("original_extraction_json"),
+        insights=ext.get("reference_payload_json") or ext.get("original_extraction_json"),
         created_at=ext.get("created_at"),
     )
 
@@ -1697,7 +1699,7 @@ async def list_student_extractions_endpoint(
             extraction_id=str(r["id"]),
             session_id=str(r["session_id"]) if r.get("session_id") else None,
             created_at=r.get("created_at"),
-            insights=r.get("original_extraction_json"),
+            insights=r.get("reference_payload_json") or r.get("original_extraction_json"),
         )
         for r in rows
     ]
