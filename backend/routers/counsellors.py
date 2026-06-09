@@ -378,7 +378,7 @@ async def list_schools(
 
         response = (
             supabase.table("schools")
-            .select("id, school_name, school_code, city, state, default_template_id, use_ffmpeg_stitching, enable_realtime_subscription, audio_quality_block_threshold, min_transcript_length, max_silence_ratio, min_snr_db, min_rms_db, min_speech_ratio, enable_audio_validation, silence_thresh_dbfs, min_silence_len_ms, silence_padding_ms")
+            .select("id, school_name, school_code, city, state, default_template_id, use_ffmpeg_stitching, enable_realtime_subscription, audio_quality_block_threshold, min_transcript_length, max_silence_ratio, min_snr_db, min_rms_db, min_speech_ratio, enable_audio_validation, enable_early_quality_abort, early_quality_check_seconds, silence_thresh_dbfs, min_silence_len_ms, silence_padding_ms")
             .eq("is_active", True)
             .order("school_name")
             .execute()

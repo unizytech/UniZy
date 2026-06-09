@@ -303,7 +303,9 @@ def get_school_settings_cached(school_id: str) -> Dict[str, Any]:
         result = supabase.table("schools").select(
             "use_ffmpeg_stitching, audio_quality_block_threshold, "
             "min_transcript_length, max_silence_ratio, min_snr_db, min_rms_db, "
-            "min_speech_ratio, enable_audio_validation, feature_flags, "
+            "min_speech_ratio, enable_audio_validation, enable_early_quality_abort, "
+            "early_quality_check_seconds, "
+            "feature_flags, "
             "silence_thresh_dbfs, min_silence_len_ms, silence_padding_ms"
         ).eq("id", school_id).single().execute()
 
@@ -317,6 +319,8 @@ def get_school_settings_cached(school_id: str) -> Dict[str, Any]:
                 "min_rms_db": float(result.data.get("min_rms_db") if result.data.get("min_rms_db") is not None else -57.0),
                 "min_speech_ratio": float(result.data.get("min_speech_ratio") if result.data.get("min_speech_ratio") is not None else 0.0),
                 "enable_audio_validation": result.data.get("enable_audio_validation", True),
+                "enable_early_quality_abort": result.data.get("enable_early_quality_abort", False),
+                "early_quality_check_seconds": int(result.data.get("early_quality_check_seconds") if result.data.get("early_quality_check_seconds") is not None else 30),
                 "feature_flags": result.data.get("feature_flags", _get_default_feature_flags()),
                 "silence_thresh_dbfs": float(result.data.get("silence_thresh_dbfs") if result.data.get("silence_thresh_dbfs") is not None else -60.0),
                 "min_silence_len_ms": int(result.data.get("min_silence_len_ms") if result.data.get("min_silence_len_ms") is not None else 5000),
@@ -398,6 +402,8 @@ def _get_default_school_settings() -> Dict[str, Any]:
         "min_rms_db": -57.0,
         "min_speech_ratio": 0.0,
         "enable_audio_validation": True,
+        "enable_early_quality_abort": False,
+        "early_quality_check_seconds": 30,
         "feature_flags": _get_default_feature_flags(),
         "silence_thresh_dbfs": -60.0,
         "min_silence_len_ms": 5000,

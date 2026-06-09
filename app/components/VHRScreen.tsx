@@ -1704,6 +1704,16 @@ export function VHRScreen() {
         },
         (chunkIndex) => {
           setChunksUploaded(chunkIndex + 1);
+        },
+        (abortMessage) => {
+          // Early audio-quality hard-stop from backend: reset recording UI and
+          // surface the reason (same reset path as a normal stop, minus submit).
+          setIsRecording(false);
+          setIsPaused(false);
+          setInputMode(null);
+          setChunksUploaded(0);
+          setRecordingDuration(0);
+          setError(abortMessage);
         }
       );
 

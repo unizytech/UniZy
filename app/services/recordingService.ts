@@ -43,6 +43,8 @@ export interface ChunkUploadResponse {
     chunkIndex: number;
     totalChunks: number;
     submissionId?: string; // Present if last chunk
+    abort?: boolean;        // Backend judged audio unusable — stop recording now
+    abortMessage?: string;  // User-facing reason for the early hard-stop
 }
 
 // ============================================================================
@@ -82,7 +84,8 @@ export class RecordingManager {
      */
     async startRecording(
         config: RecordingConfig,
-        onChunkRecorded?: (chunkIndex: number) => void
+        onChunkRecorded?: (chunkIndex: number) => void,
+        onAbort?: (message: string) => void
     ): Promise<RecordingSession> {
         this.config = config;
 
@@ -161,7 +164,22 @@ export class RecordingManager {
                 const currentChunkIndex = currentSession.chunkIndex;
                 try {
                     // Upload chunk to backend
-                    await this.uploadChunk(event.data, currentChunkIndex, false);
+                    const chunkResponse = await this.uploadChunk(event.data, currentChunkIndex, false);
+
+                    // Early audio-quality hard-stop: backend judged the audio
+                    // clearly unusable. Stop recording NOW without submitting.
+                    if (chunkResponse?.abort) {
+                        const abortMsg = chunkResponse.abortMessage
+                            || 'Recording stopped due to poor audio quality.';
+                        try {
+                            if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                                this.mediaRecorder.stop();
+                            }
+                        } catch (_) { /* recorder may already be stopping */ }
+                        this.cleanup();
+                        if (onAbort) onAbort(abortMsg);
+                        return;
+                    }
 
                     // Check session still exists after async operation
                     if (this.session && onChunkRecorded) {
