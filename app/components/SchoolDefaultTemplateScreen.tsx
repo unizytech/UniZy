@@ -33,6 +33,8 @@ interface School {
   silence_padding_ms?: number;
   enable_realtime_subscription?: boolean;
   enable_audio_validation?: boolean;
+  enable_early_quality_abort?: boolean;
+  early_quality_check_seconds?: number;
 }
 
 interface EhrType {
@@ -232,33 +234,6 @@ export function SchoolDefaultTemplateScreen() {
     }
   };
 
-  // Toggle FFmpeg stitching for school
-  const handleToggleFFmpeg = async (schoolId: string, enabled: boolean) => {
-    setUpdatingSchoolId(schoolId);
-    try {
-      const token = getAccessToken();
-      const response = await authPut(
-        `/api/v1/schools/${schoolId}/settings`,
-        token,
-        { use_ffmpeg_stitching: enabled }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to update FFmpeg setting');
-      }
-
-      // Update local state
-      setSchools(prev => prev.map(h =>
-        h.id === schoolId ? { ...h, use_ffmpeg_stitching: enabled } : h
-      ));
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update FFmpeg setting');
-    } finally {
-      setUpdatingSchoolId(null);
-    }
-  };
-
   // Update audio quality settings
   const handleUpdateQualitySettings = async (
     schoolId: string,
@@ -274,6 +249,8 @@ export function SchoolDefaultTemplateScreen() {
       silence_padding_ms?: number;
       enable_realtime_subscription?: boolean;
       enable_audio_validation?: boolean;
+      enable_early_quality_abort?: boolean;
+      early_quality_check_seconds?: number;
     }
   ) => {
     setUpdatingSchoolId(schoolId);
@@ -612,7 +589,7 @@ export function SchoolDefaultTemplateScreen() {
                 <th className="text-left px-3 py-3 text-sm font-medium text-slate-300">Code</th>
                 <th className="text-left px-3 py-3 text-sm font-medium text-slate-300">Default Template</th>
                 <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">Realtime</th>
-                <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">FFmpeg</th>
+                <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">Early Stop</th>
                 <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">Audio Val.</th>
                 <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">Metrics</th>
                 <th className="text-center px-2 py-3 text-sm font-medium text-slate-300">Settings</th>
@@ -691,16 +668,18 @@ export function SchoolDefaultTemplateScreen() {
                       </td>
                       <td className="px-2 py-3 text-center">
                         <button
-                          onClick={() => handleToggleFFmpeg(school.id, !school.use_ffmpeg_stitching)}
+                          onClick={() => handleUpdateQualitySettings(school.id, {
+                            enable_early_quality_abort: !school.enable_early_quality_abort
+                          })}
                           disabled={updatingSchoolId === school.id}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-50 ${
-                            school.use_ffmpeg_stitching ? 'bg-blue-600' : 'bg-slate-600'
+                            school.enable_early_quality_abort ? 'bg-green-600' : 'bg-slate-600'
                           }`}
-                          title={school.use_ffmpeg_stitching ? 'FFmpeg stitching enabled' : 'FFmpeg stitching disabled'}
+                          title={school.enable_early_quality_abort ? 'Early hard-stop on bad audio enabled' : 'Early hard-stop on bad audio disabled'}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              school.use_ffmpeg_stitching ? 'translate-x-6' : 'translate-x-1'
+                              school.enable_early_quality_abort ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -862,6 +841,29 @@ export function SchoolDefaultTemplateScreen() {
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
                                   Block if less than this % of audio contains speech
+                                </p>
+                              </div>
+
+                              {/* Early Check Interval (editable only when Early Stop is on) */}
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">
+                                  Early Check Interval (sec)
+                                </label>
+                                <input
+                                  type="number"
+                                  min={10}
+                                  max={120}
+                                  value={school.early_quality_check_seconds ?? 30}
+                                  onChange={(e) => handleUpdateQualitySettings(school.id, {
+                                    early_quality_check_seconds: Math.min(120, Math.max(10, parseInt(e.target.value) || 30))
+                                  })}
+                                  disabled={updatingSchoolId === school.id || !school.enable_early_quality_abort}
+                                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {school.enable_early_quality_abort
+                                    ? 'When to check audio and hard-stop if unusable (10-120s)'
+                                    : 'Enable the "Early Stop" toggle to edit'}
                                 </p>
                               </div>
                             </div>

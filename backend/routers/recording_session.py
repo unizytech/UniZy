@@ -199,6 +199,10 @@ class UploadChunkResponse(BaseModel):
     chunk_index: int = Field(alias="chunkIndex")
     total_chunks: int = Field(alias="totalChunks")
     submission_id: Optional[str] = Field(None, alias="submissionId")  # Only present if is_last=True
+    # Early audio-quality hard-stop: when True, the client should stop recording
+    # immediately (without submitting) and surface abort_message to the user.
+    abort: bool = Field(False, alias="abort")
+    abort_message: Optional[str] = Field(None, alias="abortMessage")
 
     model_config = {"populate_by_name": True}
 
@@ -856,6 +860,17 @@ async def start_recording(
         except Exception as e:
             logger.warning(f"[START_RECORDING] Failed to schedule counsellor-student link: {e}")
 
+        # 8b. Fire-and-forget: warm school-settings cache so the per-chunk early
+        # audio-quality check reads its interval from memory (no DB call in the
+        # chunk hot path).
+        try:
+            asyncio.create_task(asyncio.to_thread(
+                _warm_school_settings_cache,
+                request.counsellor_id,
+            ))
+        except Exception as e:
+            logger.warning(f"[START_RECORDING] Failed to schedule school-settings warm: {e}")
+
         # 9. HIPAA Audit: log recording session creation
         client_ctx = getattr(http_request.state, "client", None)
         if client_ctx:
@@ -884,6 +899,11 @@ async def start_recording(
         logger.error(f"[START_RECORDING] Exception: {str(e)}")
         logger.error(f"[START_RECORDING] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="Failed to start recording")
+
+
+# Fallback interval (seconds) after which the one-shot early quality check fires,
+# used when a school has no early_quality_check_seconds configured.
+EARLY_QUALITY_CHECK_SECONDS = 30
 
 
 @router.post("/chunk", response_model=UploadChunkResponse, response_model_by_alias=True)
@@ -956,6 +976,8 @@ async def upload_chunk(
             start_completion_timeout,
             cancel_completion_timeout,
             get_present_chunk_indices,
+            get_early_abort,
+            clear_session_ready_state,
         )
 
         memory_store_start = time.time()
@@ -1075,6 +1097,39 @@ async def upload_chunk(
                 # Segment transcription is an optimization - never block chunk upload
                 logger.warning(f"[SEGMENT] Segment check failed (non-fatal): {seg_err}")
 
+            # ====================================================================
+            # STEP 1c: Early audio-quality hard-stop trigger
+            # Once ~30s of audio has accumulated, schedule a ONE-SHOT background
+            # quality check. If the audio is clearly dead, a later chunk response
+            # returns abort=True. Hot-path cost is just a cached duration read +
+            # an atomic flag claim; the analysis itself is fire-and-forget.
+            # ====================================================================
+            try:
+                from services.chunk_memory_store import (
+                    get_session_audio_duration as _get_session_dur,
+                    try_schedule_early_quality_check,
+                )
+                # Per-school check interval (cached; warmed at /start). None when
+                # early-stop is disabled for this school — skip without scheduling.
+                check_seconds = _resolve_early_check_seconds(session)
+                if check_seconds is not None:
+                    cumulative_dur = _get_session_dur(session_id_str) or 0
+                    if (
+                        cumulative_dur >= check_seconds
+                        and try_schedule_early_quality_check(session_id_str)
+                    ):
+                        logger.info(
+                            f"[EARLY_QUALITY] Scheduling early quality check for session "
+                            f"{session_id_str[:8]}... at ~{cumulative_dur:.0f}s "
+                            f"(threshold={check_seconds}s)"
+                        )
+                        asyncio.create_task(
+                            _run_early_quality_check(session_id_str, session)
+                        )
+            except Exception as eq_err:
+                # Early quality check is best-effort - never block chunk upload
+                logger.warning(f"[EARLY_QUALITY] Schedule check failed (non-fatal): {eq_err}")
+
         # ============================================================================
         # STEP 2: If is_last, mark session ready and start timeout
         # (but DON'T trigger processing yet - wait for all chunks)
@@ -1116,6 +1171,37 @@ async def upload_chunk(
         # Processing starts when: all chunks 0..N-1 present AND is_last received
         # NOTE: Using atomic version to prevent race conditions (duplicate processing)
         # ============================================================================
+        # ============================================================================
+        # STEP 2b: Early audio-quality hard-stop check (runs BEFORE the processing
+        # trigger so a racing is_last can't start processing audio we've judged dead)
+        # ============================================================================
+        early_abort = get_early_abort(session_id_str)
+        if early_abort:
+            logger.warning(
+                f"[EARLY_QUALITY] Returning abort for session {session_id_str[:8]}... "
+                f"on chunk {request.chunk_index} (reason={early_abort['reason']})"
+            )
+            # Tear down completion timeout / ready state so a racing is_last can't
+            # trigger processing of audio we've already judged unusable.
+            cancel_completion_timeout(session_id_str)
+            clear_session_ready_state(session_id_str)
+            # Best-effort: mark the session cancelled in the DB (fire-and-forget)
+            asyncio.create_task(
+                asyncio.to_thread(
+                    update_session_status,
+                    correlation_uuid,
+                    "CANCELLED",
+                    error_message=early_abort["message"],
+                )
+            )
+            return UploadChunkResponse(
+                message="Recording stopped due to poor audio quality",
+                chunk_index=request.chunk_index,
+                total_chunks=total_chunks,
+                abort=True,
+                abort_message=early_abort["message"],
+            )
+
         can_process, reason = can_start_processing_atomically(session_id_str)
 
         response = UploadChunkResponse(
@@ -1275,6 +1361,161 @@ async def _transcribe_segment(
             mark_segment_failed(session_id, segment_index, str(e))
         except Exception:
             pass
+
+
+def _resolve_early_check_seconds(session_data: dict) -> Optional[int]:
+    """
+    Return the per-school early-quality-check interval (seconds) when the early
+    hard-stop is enabled for this session's school, else None.
+
+    Reads cached school config (warmed at /start) so the per-chunk hot path is a
+    dict lookup, not a DB call, on the common path. Returns None (skip) for
+    disabled schools or on any resolution error.
+    """
+    try:
+        counsellor_id = session_data.get("counsellor_id") if session_data else None
+        if not counsellor_id:
+            return None
+        from services.supabase_service import (
+            get_counsellor_school_id_cached,
+            get_school_settings_cached,
+        )
+        school_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
+        if not school_id:
+            return None
+        cfg = get_school_settings_cached(str(school_id))
+        if not cfg.get("enable_early_quality_abort", False):
+            return None
+        # Early abort piggybacks on the master audio-validation switch.
+        if not cfg.get("enable_audio_validation", True):
+            return None
+        return int(cfg.get("early_quality_check_seconds", EARLY_QUALITY_CHECK_SECONDS))
+    except Exception:
+        return None
+
+
+def _warm_school_settings_cache(counsellor_id: str) -> None:
+    """
+    Populate the counsellor->school and school-settings caches so the per-chunk
+    early-quality check reads them from memory (no DB call in the chunk hot path).
+
+    Best-effort; runs off the event loop via to_thread at /start.
+    """
+    try:
+        from services.supabase_service import (
+            get_counsellor_school_id_cached,
+            get_school_settings_cached,
+        )
+        sid = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
+        if sid:
+            get_school_settings_cached(str(sid))
+    except Exception:
+        pass
+
+
+async def _run_early_quality_check(session_id: str, session_data: dict = None):
+    """
+    Fire-and-forget: analyze the first ~30s of accumulated audio and, if it is
+    clearly unusable (dead/silent/no speech), flag the session for an early
+    hard-stop via chunk_memory_store.set_early_abort().
+
+    Conservative by design — only UNAMBIGUOUS dead audio aborts; anything
+    borderline (moderate noise, low-but-audible volume) falls through to the
+    normal end-of-recording quality gate in recording_processor. Never raises,
+    never blocks the upload path.
+    """
+    try:
+        # 1. Gate on per-school config (default OFF — dev/pilot rollout)
+        counsellor_id = session_data.get("counsellor_id") if session_data else None
+        if not counsellor_id:
+            return
+        from services.supabase_service import (
+            get_counsellor_school_id_cached,
+            get_school_settings_cached,
+        )
+        school_id = get_counsellor_school_id_cached(uuid.UUID(counsellor_id))
+        school_config = get_school_settings_cached(str(school_id)) if school_id else {}
+        if not school_config.get("enable_early_quality_abort", False):
+            return
+        # Early abort piggybacks on the same validation feature; respect the master switch.
+        if not school_config.get("enable_audio_validation", True):
+            return
+
+        # 2. Stitch accumulated chunks (0..latest) into a valid container.
+        #    Reuses the WebM init-header-aware splitter — never naive concat.
+        from services.chunk_memory_store import (
+            get_chunks_sorted,
+            get_session_audio_duration,
+            set_early_abort,
+        )
+        from services.audio_splitter import stitch_and_get_bytes_for_chunk_range
+        from services.audio_storage_service import normalize_audio_mime_type
+
+        all_chunks = get_chunks_sorted(session_id)
+        if not all_chunks or len(all_chunks) < 2:
+            return
+        last_idx = max(c["chunk_index"] for c in all_chunks)
+        audio_bytes, mime_type = stitch_and_get_bytes_for_chunk_range(all_chunks, 0, last_idx)
+        mime_type = normalize_audio_mime_type(mime_type)
+
+        # 3. Analyze quality in a thread (librosa/pydub are blocking/CPU-bound)
+        import base64
+        from services.audio_quality_service import analyze_audio_quality
+
+        audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
+        known_dur = get_session_audio_duration(session_id)
+        quality = await asyncio.to_thread(
+            analyze_audio_quality, audio_b64, mime_type, known_dur
+        )
+        metrics = (quality or {}).get("metrics", {}) or {}
+
+        # 4. TRUST CHECK: if the analyzer couldn't decode a real duration from the
+        #    stitched WebM, its metrics are sentinels — do NOT abort on them.
+        measured_duration = float(metrics.get("duration_seconds") or 0)
+        if measured_duration < 3.0:
+            logger.info(
+                f"[EARLY_QUALITY] Session {session_id[:8]}... decoded only "
+                f"{measured_duration:.2f}s — metrics untrustworthy, skipping early abort."
+            )
+            return
+
+        # 5. CONSERVATIVE criteria — abort ONLY on unambiguous dead audio.
+        min_rms = school_config.get("min_rms_db", -57.0)
+        rms_db = float(metrics.get("rms_db", 0) or 0)
+        speech_detected = bool(metrics.get("speech_detected", True))
+        silence_ratio = float(metrics.get("silence_ratio", 0) or 0)
+
+        # "Dead volume": 6 dB below the school's floor, so only decisively-too-quiet
+        # audio stops (not borderline). Speech/silence detection is unreliable below
+        # -60 dB, so only trust those signals when the volume is high enough to judge.
+        dead_volume = rms_db < (min_rms - 6.0)
+        no_speech = (not speech_detected) and rms_db >= -60.0
+        all_silence = silence_ratio >= 0.98 and rms_db >= -60.0
+
+        if dead_volume:
+            set_early_abort(
+                session_id, "too_quiet",
+                "Recording stopped: audio is too quiet to detect speech. Please check "
+                "your microphone and start a new recording.",
+            )
+        elif no_speech or all_silence:
+            set_early_abort(
+                session_id, "no_speech",
+                "Recording stopped: no speech detected. Please check your microphone "
+                "and start a new recording.",
+            )
+        else:
+            logger.info(
+                f"[EARLY_QUALITY] Session {session_id[:8]}... passed early check "
+                f"(RMS={rms_db:.1f}dB, silence={silence_ratio * 100:.0f}%, "
+                f"speech={speech_detected})."
+            )
+    except Exception as e:
+        # Never let the early check affect recording — log and move on.
+        logger.warning(
+            f"[EARLY_QUALITY] Early quality check failed (non-fatal) for "
+            f"{session_id[:8]}...: {e}"
+        )
 
 
 @router.post("/cancel", response_model=CancelRecordingResponse)

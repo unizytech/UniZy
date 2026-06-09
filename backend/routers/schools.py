@@ -117,6 +117,16 @@ class SchoolSettingsUpdateRequest(BaseModel):
         None,
         description="Enable audio quality validation before extraction (default: true)"
     )
+    enable_early_quality_abort: Optional[bool] = Field(
+        None,
+        description="Hard-stop recording early (~30s) if audio is clearly unusable (dead/silent/no speech). Default: false"
+    )
+    early_quality_check_seconds: Optional[int] = Field(
+        None,
+        ge=10,
+        le=120,
+        description="Seconds of audio after which the early quality check fires (10-120). Default: 30"
+    )
 
 
 # ============================================================================
@@ -977,6 +987,10 @@ async def update_school_settings(
                 update_data["enable_realtime_subscription"] = request.enable_realtime_subscription
             if request.enable_audio_validation is not None:
                 update_data["enable_audio_validation"] = request.enable_audio_validation
+            if request.enable_early_quality_abort is not None:
+                update_data["enable_early_quality_abort"] = request.enable_early_quality_abort
+            if request.early_quality_check_seconds is not None:
+                update_data["early_quality_check_seconds"] = request.early_quality_check_seconds
 
         if not update_data:
             raise HTTPException(status_code=400, detail="No settings provided to update")

@@ -40,6 +40,12 @@ _session_ready: Dict[str, int] = {}  # session_id → expected_chunk_count
 # Timeout tasks for incomplete sessions
 _session_timeout_tasks: Dict[str, asyncio.Task] = {}  # session_id → timeout task
 
+# Early audio-quality abort tracking (hard-stop on clearly-dead audio mid-recording)
+# - _session_early_check_scheduled: session_id → True once the one-shot early check has been scheduled
+# - _session_early_abort: session_id → {"reason": str, "message": str} when the check decides to abort
+_session_early_check_scheduled: Dict[str, bool] = {}
+_session_early_abort: Dict[str, Dict[str, str]] = {}
+
 # Configuration
 # TTL increased to 30 minutes to support long recordings (previously 5 min caused data loss)
 # Bug fix: Long recordings (>5 min) were losing early chunks due to TTL cleanup
@@ -216,6 +222,8 @@ def clear_session(session_id: str) -> int:
             # Also clean up activity and ready tracking even if chunks are gone
             _session_last_activity.pop(session_id, None)
             _session_ready.pop(session_id, None)
+            _session_early_check_scheduled.pop(session_id, None)
+            _session_early_abort.pop(session_id, None)
             return 0
 
         chunk_count = len(_chunk_store[session_id])
@@ -223,6 +231,8 @@ def clear_session(session_id: str) -> int:
         # Also clean up activity and ready tracking
         _session_last_activity.pop(session_id, None)
         _session_ready.pop(session_id, None)
+        _session_early_check_scheduled.pop(session_id, None)
+        _session_early_abort.pop(session_id, None)
 
     logger.info(f"[CHUNK_MEMORY] Cleared {chunk_count} chunks for session {session_id[:8]}...")
     return chunk_count
@@ -548,6 +558,66 @@ def clear_session_ready_state(session_id: str) -> None:
     """
     with _chunk_lock:
         _session_ready.pop(session_id, None)
+
+
+# ============================================================================
+# Early Audio-Quality Abort Tracking
+# ============================================================================
+
+def try_schedule_early_quality_check(session_id: str) -> bool:
+    """
+    Atomically claim the right to run the one-shot early quality check.
+
+    Returns True for exactly ONE caller per session (the first to cross the
+    duration threshold); all subsequent callers get False. This prevents
+    multiple chunk uploads from each scheduling a redundant analysis task.
+
+    Args:
+        session_id: Unique session ID (UUID string)
+
+    Returns:
+        True if this caller should schedule the check, False if already claimed
+    """
+    with _chunk_lock:
+        if _session_early_check_scheduled.get(session_id):
+            return False
+        _session_early_check_scheduled[session_id] = True
+        return True
+
+
+def set_early_abort(session_id: str, reason: str, message: str) -> None:
+    """
+    Record that the early quality check decided to abort this recording.
+
+    The next chunk upload reads this flag and returns an abort signal to the
+    client so it can stop recording immediately.
+
+    Args:
+        session_id: Unique session ID (UUID string)
+        reason: Short machine code (e.g. "too_quiet", "no_speech")
+        message: Human-readable message shown to the user
+    """
+    with _chunk_lock:
+        _session_early_abort[session_id] = {"reason": reason, "message": message}
+
+    logger.warning(
+        f"[EARLY_QUALITY] Session {session_id[:8]}... flagged for abort "
+        f"(reason={reason}): {message}"
+    )
+
+
+def get_early_abort(session_id: str) -> Optional[Dict[str, str]]:
+    """
+    Get the early-abort decision for a session, if one was made.
+
+    Args:
+        session_id: Unique session ID (UUID string)
+
+    Returns:
+        {"reason": str, "message": str} if the session was flagged, else None
+    """
+    with _chunk_lock:
+        return _session_early_abort.get(session_id)
 
 
 # ============================================================================
